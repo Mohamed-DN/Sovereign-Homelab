@@ -1,16 +1,16 @@
-# Runbook 02: Deploy e Configurazione di AdGuard Home
+# Runbook 02: AdGuard Home Deployment and Configuration
 
-Questo documento descrive i passaggi per distribuire il server DNS AdGuard Home tramite Docker all'interno del container di rete.
+This document outlines the steps to deploy the AdGuard Home DNS server via Docker inside the core network container.
 
-## 1. Struttura delle Directory e Docker Compose
-All'interno del container `core-network` (es. `192.168.1.50`), creare le directory per i dati persistenti:
+## 1. Directory Structure and Docker Compose
+Inside the `core-network` container (e.g., `192.168.1.50`), create the directories for persistent data:
 ```bash
 mkdir -p /opt/core-network/adguard/work
 mkdir -p /opt/core-network/adguard/conf
 cd /opt/core-network
 ```
 
-Il servizio AdGuard Home è definito all'interno del file `docker-compose.yml` (insieme a Headscale). Per consentire ad AdGuard di intercettare le richieste di Broadcast DHCP dalla rete fisica, è stato legato direttamente all'interfaccia host:
+The AdGuard Home service is defined within the `docker-compose.yml` file (alongside Headscale). To allow AdGuard to intercept DHCP Broadcast requests from the physical network, it has been bound directly to the host interface:
 ```yaml
   adguardhome:
     image: adguard/adguardhome:latest
@@ -22,29 +22,29 @@ Il servizio AdGuard Home è definito all'interno del file `docker-compose.yml` (
     restart: unless-stopped
 ```
 
-Avviare lo stack con:
+Start the stack with:
 ```bash
 docker compose up -d
 ```
 
-## 2. Inizializzazione (Primo Avvio)
-1. Aprire il browser da un PC nella stessa LAN e navigare verso `http://192.168.1.50:3000`.
-2. Seguire il wizard guidato:
-   - **Interfaccia Web**: Impostare o confermare l'ascolto sulla porta `80`.
-   - **Server DNS**: Impostare o confermare l'ascolto sulla porta `53`.
-3. Creare un account Amministratore (Username e Password).
-4. Completare il setup. Da questo momento, la porta 3000 si chiuderà e l'interfaccia sarà raggiungibile direttamente su `http://192.168.1.50`.
+## 2. Initialization (First Boot)
+1. Open a browser from a PC on the same LAN and navigate to `http://192.168.1.50:3000`.
+2. Follow the setup wizard:
+   - **Web Interface**: Set or confirm listening on port `80`.
+   - **DNS Server**: Set or confirm listening on port `53`.
+3. Create an Administrator account (Username and Password).
+4. Complete the setup. From this moment on, port 3000 will close and the interface will be directly accessible at `http://192.168.1.50`.
 
-## 3. Configurazione Centralizzata del DHCP
-Per avere il controllo totale sui dispositivi e risolvere i nomi locali, il DHCP del router TIM è stato disattivato in favore del server DHCP integrato in AdGuard Home.
+## 3. Centralized DHCP Configuration
+To gain full control over devices and resolve local names, the TIM router's DHCP has been disabled in favor of the integrated DHCP server in AdGuard Home.
 
-**Sul Router TIM (ZTE Gateway - 192.168.1.1):**
-- Server DHCP: Impostato su `[Off]` per evitare conflitti (Dual DHCP sulla stessa subnet).
+**On the TIM Router (ZTE Gateway - 192.168.1.1):**
+- DHCP Server: Set to `[Off]` to avoid conflicts (Dual DHCP on the same subnet).
 
-**Su AdGuard Home (192.168.1.50):**
-- Server DHCP: `Abilitato`
-- Range IP Dinamici (Assegnati da AdGuard): `192.168.1.100` - `192.168.1.200`
-- Pool Statico Libero (Riservato ai server): `192.168.1.2` - `192.168.1.99`
-- Lease Time: `24 ore (86400 secondi)`
+**On AdGuard Home (192.168.1.50):**
+- DHCP Server: `Enabled`
+- Dynamic IP Range (Assigned by AdGuard): `192.168.1.100` - `192.168.1.200`
+- Free Static Pool (Reserved for servers): `192.168.1.2` - `192.168.1.99`
+- Lease Time: `24 hours (86400 seconds)`
 
-*In questo modo, ogni nuovo dispositivo che si connette al Wi-Fi richiede un IP ad AdGuard, che glielo fornisce assegnando se stesso come Server DNS primario autorevole.*
+*This way, every new device that connects to the Wi-Fi requests an IP from AdGuard, which provides it by assigning itself as the authoritative primary DNS server.*
