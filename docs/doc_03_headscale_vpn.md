@@ -2,13 +2,20 @@
 
 Headscale is the "orchestrator" of your private network. It doesn't route data itself, but manages the security "keys". Devices use the **Tailscale** app to connect, but we force them to talk to your **personal Headscale** instead of Tailscale's commercial servers.
 
-## Phase A: Configuration and Setup (One-time only)
+## Phase A: Configuration and Setup (CRITICAL YAML MODIFICATIONS)
 
-First, ensure that the file `/opt/core-network/headscale/config/config.yaml` has the correct URL. **Warning**: the `server_url` must be the public HTTPS domain name right from the start (and not the local IP), otherwise the mobile app will throw connection errors and timeout.
-- `server_url: https://vpn.yourdomain.duckdns.org` (Strictly use `https://` without specifying port 8080).
-- `listen_addr: 0.0.0.0:8080` (To allow Nginx to pass traffic to it)
-- `metrics_listen_addr: 0.0.0.0:9090` (Open towards the LAN)
-*(If you modify this file, remember to restart with `docker restart headscale`).*
+If you did not use the Master Setup Script (Runbook 00) to auto-patch the configuration, you MUST manually edit the `/opt/core-network/headscale/config/config.yaml` file. If you skip this, the mobile apps will permanently fail.
+
+1. **The iOS/Mobile Bug (`server_url`)**: 
+   By default, Headscale suggests a local IP or `127.0.0.1`. **You must change this to your public HTTPS DuckDNS domain from the very beginning**. If you start the server with a local IP, mobile apps will cache it and go into an infinite timeout loop.
+   - Change to: `server_url: https://vpn.yourdomain.duckdns.org` (Strictly use `https://` and DO NOT specify port 8080 here).
+
+2. **The Reverse Proxy Block (`listen_addr`)**:
+   By default, Headscale only listens to localhost (`127.0.0.1`). This prevents Nginx Proxy Manager from forwarding external traffic to it. You must open the ports to the internal docker network.
+   - Change to: `listen_addr: 0.0.0.0:8080` (Allows Nginx to pass traffic)
+   - Change to: `metrics_listen_addr: 0.0.0.0:9090` (Optional, opens metrics)
+
+*(If you manually modify this file, remember to apply the changes by running `docker restart headscale`).*
 
 On the **Proxmox** terminal (LXC 100), create your "user" or "workspace":
 ```bash

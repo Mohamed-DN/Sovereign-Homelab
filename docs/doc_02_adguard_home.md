@@ -30,10 +30,12 @@ docker compose up -d
 ## 2. Initialization (First Boot)
 1. Open a browser from a PC on the same LAN and navigate to `http://192.168.1.50:3000`.
 2. Follow the setup wizard:
-   - **Web Interface**: Set or confirm listening on port `80`.
+   - **Web Interface**: ⚠️ **CRITICAL**: Change the listening port from `80` to `3000`. (If you leave it on 80, Nginx Proxy Manager will fail to start later because it needs port 80 to issue SSL certificates!).
    - **DNS Server**: Set or confirm listening on port `53`.
 3. Create an Administrator account (Username and Password).
-4. Complete the setup. From this moment on, port 3000 will close and the interface will be directly accessible at `http://192.168.1.50`.
+4. Complete the setup. The interface will now be permanently accessible at `http://192.168.1.50:3000`.
+
+*Note: If you accidentally set it to port 80 and NPM fails to start, you must edit `/opt/core-network/adguard/conf/AdGuardHome.yaml`, find `bind_port: 80` under `http:`, change it to `3000`, and run `docker restart adguardhome`.*
 
 ## 3. Centralized DHCP Configuration
 To gain full control over devices and resolve local names, the TIM router's DHCP has been disabled in favor of the integrated DHCP server in AdGuard Home.

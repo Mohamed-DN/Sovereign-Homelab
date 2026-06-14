@@ -63,8 +63,8 @@ EOF
 # 3. Download the original Headscale config and automatically patch IPs
 curl -o headscale/config/config.yaml https://raw.githubusercontent.com/juanfont/headscale/main/config-example.yaml
 
-# IMPORTANT: Remember to manually edit config.yaml later to set your duckdns domain!
-sed -i 's|server_url: http://127.0.0.1:8080|server_url: http://192.168.1.50:8080|g' headscale/config/config.yaml
+# IMPORTANT: Replace vpn.yourdomain.duckdns.org with your actual domain before running this!
+sed -i 's|server_url: http://127.0.0.1:8080|server_url: https://vpn.yourdomain.duckdns.org|g' headscale/config/config.yaml
 sed -i 's/listen_addr: 127.0.0.1:8080/listen_addr: 0.0.0.0:8080/g' headscale/config/config.yaml
 sed -i 's/metrics_listen_addr: 127.0.0.1:9090/metrics_listen_addr: 0.0.0.0:9090/g' headscale/config/config.yaml
 
