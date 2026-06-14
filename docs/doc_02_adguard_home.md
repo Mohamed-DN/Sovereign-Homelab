@@ -56,3 +56,6 @@ Go to Settings -> DHCP Settings:
 - Lease Time: `24 hours (86400 seconds)`
 
 You have now successfully taken absolute control over your network traffic.
+
+---
+**Previous:** [Runbook 01: Proxmox, LXC & Docker](doc_01_proxmox_docker_lxc.md) | **Next:** [Runbook 03: Headscale VPN](doc_03_headscale_vpn.md)

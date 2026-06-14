@@ -65,28 +65,7 @@ mindmap
       Secondary AdGuard
 ```
 
-### 2. How They Are Installed (Proxmox Architecture)
-This map shows exactly where services physically "live" inside your server.
 
-```mermaid
-mindmap
-  root((🖥️ Proxmox P710))
-    🛡️ LXC: Core Network
-      AdGuard Home
-      Headscale VPN
-    ⚙️ LXC: Services and Apps
-      Nginx Proxy Manager
-      Vaultwarden
-      Immich
-      Nextcloud
-      Homepage.dev
-      RustDesk
-    📦 Virtual Machines
-      Proxmox Backup Server
-      Home Assistant
-    ♻️ LXC: High Availability
-      Secondary AdGuard
-```
 
 ## Action Plan (Implementation Phases)
 
@@ -123,3 +102,6 @@ mindmap
 - **Services**:
   - **Authelia or Authentik**: Single Sign-On (SSO) implementation. When you access `foto.local`, you will be redirected to a central login page.
   - **Home Assistant**: Home Automation (can be installed on Proxmox as VM OS to have full control of supervisor and add-ons).
+
+---
+**Previous:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)

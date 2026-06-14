@@ -113,3 +113,6 @@ To delete a device (e.g., an old phone):
 ```bash
 docker exec headscale headscale nodes delete -i [DEVICE_ID]
 ```
+
+---
+**Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)

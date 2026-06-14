@@ -91,3 +91,6 @@ docker compose up -d
 
 ## Next Steps
 Once the stack is running, proceed with the other runbooks to configure AdGuard, setup your Headscale domain, and secure everything with Nginx Proxy Manager.
+
+---
+**Next:** [Runbook 01: Proxmox, LXC & Docker](doc_01_proxmox_docker_lxc.md)
