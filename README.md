@@ -25,7 +25,7 @@ graph TD
 
     %% Flusso DNS
     Utente -->|1. DNS Locale| Router
-    Utente -->|1. DNS in 4G| VPN
+    Utente -->|1. Rete Dati Cellulare| VPN
     Router -->|2. Inoltra| DNS
     VPN -->|2. Inoltra| DNS
     DNS -->|3. Risolve| Internet
