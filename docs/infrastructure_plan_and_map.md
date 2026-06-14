@@ -1,19 +1,19 @@
-# Piano dell'Infrastruttura e Mappa del Server (Homelab)
+# Infrastructure Plan and Server Map (Homelab)
 
-## Mappa Architetturale
+## Architectural Map
 
-Questa mappa descrive come i vari servizi interagiranno tra di loro e come i dati fluiranno all'interno e all'esterno della tua rete domestica.
+This map describes how the various services will interact with each other and how data will flow in and out of your home network.
 
-Per evitare il "groviglio di cavi" visivo che si crea quando si mescolano connessioni di rete e scatole fisiche, ho diviso la mappa in due schemi molto più chiari e puliti.
+To avoid the visual "cable spaghetti" that occurs when mixing network connections and physical boxes, I have divided the map into two much clearer and cleaner diagrams.
 
-### 1. Come viaggiano i dati (Flusso di Rete)
-Questa mappa mostra semplicemente chi parla con chi.
+### 1. How Data Travels (Network Flow)
+This map simply shows who talks to whom.
 
 ```mermaid
 graph TD
-    %% Nodi Esterni
-    Utente["📱 I tuoi Dispositivi"]
-    Router["🌐 Router TIM<br>192.168.1.1"]
+    %% External Nodes
+    User["📱 Your Devices"]
+    Router["🌐 TIM Router<br>192.168.1.1"]
     Internet(("☁️ Internet"))
 
     %% LXC 100
@@ -23,27 +23,27 @@ graph TD
     %% LXC 101
     Proxy["🔀 Nginx Proxy Manager<br>LXC 101 - IP 192.168.1.51"]
 
-    %% Flusso DNS
-    Utente -->|1. DNS Locale| Router
-    Utente -->|1. Rete Dati Cellulare| VPN
-    Router -->|2. Inoltra| DNS
-    VPN -->|2. Inoltra| DNS
-    DNS -->|3. Risolve| Internet
+    %% DNS Flow
+    User -->|1. Local DNS| Router
+    User -->|1. Cellular Data Network| VPN
+    Router -->|2. Forwards to| DNS
+    VPN -->|2. Forwards to| DNS
+    DNS -->|3. Resolves to| Internet
 
-    %% Flusso Dati
-    Utente -->|Traffico da fuori casa| VPN
-    VPN -->|Sblocca accesso LAN| Proxy
-    Utente -->|Traffico Wi-Fi di casa| Proxy
+    %% Data Flow
+    User -->|Traffic from outside| VPN
+    VPN -->|Unlocks LAN access| Proxy
+    User -->|Home Wi-Fi Traffic| Proxy
 
-    %% Servizi in LXC 101
+    %% Services in LXC 101
     Proxy -->|pwd.local| V["🔑 Vaultwarden"]
     Proxy -->|foto.local| I["📸 Immich"]
     Proxy -->|files.local| N["📁 Nextcloud"]
     Proxy -->|dash.local| H["🏠 Homepage"]
 ```
 
-### 2. Architettura Fisica (Dove si trovano)
-Questa mappa ad albero mostra la separazione fisica delle reti senza incrociare linee.
+### 2. Physical Architecture (Where they are located)
+This tree map shows the physical separation of the networks without crossing lines.
 
 ```mermaid
 mindmap
@@ -51,22 +51,22 @@ mindmap
     🛡️ LXC 100: Core Network
       AdGuard Home
       Headscale VPN
-    ⚙️ LXC 101: Servizi e App
+    ⚙️ LXC 101: Services and Apps
       Nginx Proxy Manager
       Vaultwarden
       Immich
       Nextcloud
       Homepage.dev
       RustDesk
-    📦 Macchine Virtuali
+    📦 Virtual Machines
       Proxmox Backup Server
       Home Assistant
-    ♻️ LXC HA: Riserva
-      AdGuard Secondario
+    ♻️ LXC HA: Reserve
+      Secondary AdGuard
 ```
 
-### 2. Come sono installati (Architettura Proxmox)
-Questa mappa mostra esattamente dove "vivono" fisicamente i servizi all'interno del tuo server.
+### 2. How They Are Installed (Proxmox Architecture)
+This map shows exactly where services physically "live" inside your server.
 
 ```mermaid
 mindmap
@@ -74,52 +74,52 @@ mindmap
     🛡️ LXC: Core Network
       AdGuard Home
       Headscale VPN
-    ⚙️ LXC: Servizi e App
+    ⚙️ LXC: Services and Apps
       Nginx Proxy Manager
       Vaultwarden
       Immich
       Nextcloud
       Homepage.dev
       RustDesk
-    📦 Macchine Virtuali
+    📦 Virtual Machines
       Proxmox Backup Server
       Home Assistant
     ♻️ LXC: High Availability
-      AdGuard Secondario
+      Secondary AdGuard
 ```
 
-## Piano d'Azione (Fasi di Implementazione)
+## Action Plan (Implementation Phases)
 
-### Fase 1: Le Fondamenta (Accesso Remoto e Rete) - IN CORSO
-- **Obiettivo**: Sicurezza, privacy e accesso da remoto senza esporre porte al pubblico.
-- **Servizi**:
-  - **Headscale**: Il centro di controllo per Tailscale. Permette di creare la tua VPN in modo che tutti i tuoi dispositivi possano "vedersi" in modo sicuro.
-  - **AdGuard Home**: Blocca pubblicità e traccianti a livello DNS. Imposteremo il router in modo che distribuisca questo DNS a tutti i dispositivi connessi in casa.
-  - **LXC AdGuard Secondario + Keepalived**: Installeremo un secondo container LXC sempre su Proxmox con Keepalived. Se il container principale si blocca, il traffico DNS passa istantaneamente a quello di riserva.
+### Phase 1: The Foundations (Remote Access and Network) - IN PROGRESS
+- **Goal**: Security, privacy, and remote access without exposing ports to the public.
+- **Services**:
+  - **Headscale**: The control center for Tailscale. It allows you to create your VPN so that all your devices can "see" each other securely.
+  - **AdGuard Home**: Blocks ads and trackers at the DNS level. We will set the router to distribute this DNS to all connected devices in the house.
+  - **Secondary AdGuard LXC + Keepalived**: We will install a second LXC container also on Proxmox with Keepalived. If the main container crashes, DNS traffic instantly switches to the reserve one.
 
-### Fase 2: Inoltro Traffico e Servizi Core (Gestione Dati)
-- **Obiettivo**: Gestire i propri dati al sicuro e accedere ai servizi tramite nomi semplici (es. `foto.local`) e con certificati sicuri.
-- **Servizi**:
-  - **Nginx Proxy Manager (NPM)**: Il "vigile urbano" della rete. Riceve il traffico e lo smista al servizio corretto.
-  - **Vaultwarden**: Il gestore di password. Sostituisce i servizi in cloud come 1Password o Bitwarden.
-  - **Immich**: Per il backup automatico delle foto, l'alternativa self-hosted a Google Foto.
-  - **Nextcloud / Syncthing**: Per la sincronizzazione di file tra dispositivi.
+### Phase 2: Traffic Forwarding and Core Services (Data Management)
+- **Goal**: Manage your own data securely and access services via simple names (e.g., `foto.local`) and with secure certificates.
+- **Services**:
+  - **Nginx Proxy Manager (NPM)**: The "traffic cop" of the network. It receives traffic and routes it to the correct service.
+  - **Vaultwarden**: The password manager. It replaces cloud services like 1Password or Bitwarden.
+  - **Immich**: For automatic photo backup, the self-hosted alternative to Google Photos.
+  - **Nextcloud / Syncthing**: For file synchronization between devices.
 
-### Fase 3: Monitoraggio e Dashboard
-- **Obiettivo**: Avere il polso della situazione di tutto il server con una bella interfaccia grafica e ricevere allarmi se qualcosa si rompe.
-- **Servizi**:
-  - **Homepage**: La dashboard centrale stupenda (gethomepage.dev) per avere tutto sott'occhio.
-  - **Beszel**: Per monitorare graficamente l'utilizzo di CPU e RAM di ogni singolo container Docker.
-  - **Uptime Kuma**: Per pingare continuamente i servizi. Se Vaultwarden va offline, ricevi un messaggio su Telegram o Discord.
+### Phase 3: Monitoring and Dashboard
+- **Goal**: Keep your finger on the pulse of the entire server with a beautiful graphical interface and receive alerts if something breaks.
+- **Services**:
+  - **Homepage**: The gorgeous central dashboard (gethomepage.dev) to keep everything in view.
+  - **Beszel**: To graphically monitor the CPU and RAM usage of every single Docker container.
+  - **Uptime Kuma**: To continuously ping services. If Vaultwarden goes offline, you receive a message on Telegram or Discord.
 
-### Fase 4: Backup e Controllo Remoto
-- **Obiettivo**: Mettere in sicurezza i dati e poter assistere altri PC da remoto.
-- **Servizi**:
-  - **Proxmox Backup Server (PBS)**: Con deduplicazione attivata per fare backup rapidi ed efficienti di tutto l'host e dei container. Lo installeremo come **VM dedicata su Proxmox** (niente macchine fisiche separate, tutto centralizzato).
-  - **RustDesk**: Per il controllo remoto dei tuoi dispositivi, sostituendo TeamViewer.
+### Phase 4: Backup and Remote Control
+- **Goal**: Secure data and be able to remotely assist other PCs.
+- **Services**:
+  - **Proxmox Backup Server (PBS)**: With deduplication enabled to make fast and efficient backups of the whole host and containers. We will install it as a **dedicated VM on Proxmox** (no separate physical machines, everything centralized).
+  - **RustDesk**: For remote control of your devices, replacing TeamViewer.
 
-### Fase 5: Identità ed Espansione Futura
-- **Obiettivo**: Autenticazione centralizzata. Un solo login per accedere a tutti i servizi.
-- **Servizi**:
-  - **Authelia o Authentik**: Implementazione del Single Sign-On (SSO). Quando accederai a `foto.local`, verrai reindirizzato a una pagina di login centrale.
-  - **Home Assistant**: Domotica (può essere installato su Proxmox come VM OS per avere il pieno controllo di supervisor e add-on).
+### Phase 5: Identity and Future Expansion
+- **Goal**: Centralized authentication. A single login to access all services.
+- **Services**:
+  - **Authelia or Authentik**: Single Sign-On (SSO) implementation. When you access `foto.local`, you will be redirected to a central login page.
+  - **Home Assistant**: Home Automation (can be installed on Proxmox as VM OS to have full control of supervisor and add-ons).

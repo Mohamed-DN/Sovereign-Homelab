@@ -36,9 +36,9 @@ The following diagram illustrates how traffic securely flows between external de
 
 ```mermaid
 graph TD
-    %% Nodi Esterni
-    Utente["📱 I tuoi Dispositivi"]
-    Router["🌐 Router TIM<br>192.168.1.1"]
+    %% External Nodes
+    User["📱 Your Devices"]
+    Router["🌐 TIM Router<br>192.168.1.1"]
     Internet(("☁️ Internet"))
 
     %% LXC 100
@@ -48,19 +48,19 @@ graph TD
     %% LXC 101
     Proxy["🔀 Nginx Proxy Manager<br>LXC 101 - IP 192.168.1.51"]
 
-    %% Flusso DNS
-    Utente -->|1. DNS Locale| Router
-    Utente -->|1. Rete Dati Cellulare| VPN
-    Router -->|2. Inoltra| DNS
-    VPN -->|2. Inoltra| DNS
-    DNS -->|3. Risolve| Internet
+    %% DNS Flow
+    User -->|1. Local DNS| Router
+    User -->|1. Cellular Data Network| VPN
+    Router -->|2. Forwards to| DNS
+    VPN -->|2. Forwards to| DNS
+    DNS -->|3. Resolves to| Internet
 
-    %% Flusso Dati
-    Utente -->|Traffico da fuori casa| VPN
-    VPN -->|Sblocca accesso LAN| Proxy
-    Utente -->|Traffico Wi-Fi di casa| Proxy
+    %% Data Flow
+    User -->|Traffic from outside| VPN
+    VPN -->|Unlocks LAN access| Proxy
+    User -->|Home Wi-Fi Traffic| Proxy
 
-    %% Servizi in LXC 101
+    %% Services in LXC 101
     Proxy -->|pwd.local| V["🔑 Vaultwarden"]
     Proxy -->|foto.local| I["📸 Immich"]
     Proxy -->|files.local| N["📁 Nextcloud"]

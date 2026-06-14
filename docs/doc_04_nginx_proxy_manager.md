@@ -1,19 +1,19 @@
-# Runbook 04: Reverse Proxy e HTTPS (Nginx Proxy Manager)
+# Runbook 04: Reverse Proxy and HTTPS (Nginx Proxy Manager)
 
-Questo documento spiega come configurare Nginx Proxy Manager (NPM) per gestire il traffico in ingresso, esporre i servizi tramite nomi a dominio eleganti (es. `vpn.casa.net`) e soprattutto generare certificati di sicurezza HTTPS validi necessari per dispositivi rigidi come iOS.
+This document explains how to configure Nginx Proxy Manager (NPM) to handle incoming traffic, expose services via elegant domain names (e.g., `vpn.home.net`), and above all generate valid HTTPS security certificates required by strict devices like iOS.
 
-## 1. Verificare la Porta 80
-NPM ha bisogno assoluto della porta 80 e 443 per fare da "smistatore universale" per tutti i tuoi futuri servizi e reindirizzare automaticamente l'HTTP in HTTPS.
-Fortunatamente, nella nostra configurazione AdGuard Home risponde sulla porta `3000` (e Headscale sulla `8080`), il che significa che la porta `80` è nativamente libera e pronta per essere assegnata a NPM senza causare alcun disservizio!
+## 1. Verifying Port 80
+NPM absolutely needs port 80 and 443 to act as the "universal dispatcher" for all your future services and automatically redirect HTTP to HTTPS.
+Fortunately, in our setup AdGuard Home listens on port `3000` (and Headscale on `8080`), which means port `80` is natively free and ready to be assigned to NPM without causing any downtime!
 
-## 2. Aggiunta di NPM allo Stack Docker
-Aggiungi queste directory:
+## 2. Adding NPM to the Docker Stack
+Create these directories:
 ```bash
 mkdir -p /opt/core-network/npm/data
 mkdir -p /opt/core-network/npm/letsencrypt
 ```
 
-Aggiungi questo blocco al tuo `docker-compose.yml`:
+Add this block to your `docker-compose.yml`:
 ```yaml
   npm:
     image: jc21/nginx-proxy-manager:latest
@@ -28,39 +28,39 @@ Aggiungi questo blocco al tuo `docker-compose.yml`:
     restart: unless-stopped
 ```
 
-Riavvia l'infrastruttura con `docker compose up -d`.
-L'interfaccia web di NPM sarà disponibile su `http://192.168.1.50:81` (Default: `admin@example.com` / `changeme`).
+Restart the infrastructure with `docker compose up -d`.
+The NPM web interface will be available at `http://192.168.1.50:81` (Default: `admin@example.com` / `changeme`).
 
-## 3. Ottenere Certificati HTTPS (DuckDNS DNS-01 Challenge)
-Invece di aprire le porte del router TIM verso internet, usiamo la sfida DNS.
+## 3. Obtaining HTTPS Certificates (DuckDNS DNS-01 Challenge)
+Instead of opening your router's ports to the internet, we use the DNS challenge.
 
-1. In NPM, vai su **SSL Certificates** -> **Add SSL Certificate** -> **Let's Encrypt**.
-2. **Domain Names**: Inserisci `*.tuonome.duckdns.org` (e premi Invio).
-3. Email: la tua email.
-4. Attiva **Use a DNS Challenge**.
-5. **DNS Provider**: Scegli `DuckDNS`.
-6. Nel campo `Credentials File Content` che appare sotto, sostituisci `your-duckdns-token` con il tuo token reale.
-7. Attiva le spunte e premi **Save**.
-In circa 60 secondi otterrai un certificato Wildcard HTTPS valido e riconosciuto in tutto il mondo!
+1. In NPM, go to **SSL Certificates** -> **Add SSL Certificate** -> **Let's Encrypt**.
+2. **Domain Names**: Enter `*.yourdomain.duckdns.org` (and press Enter).
+3. Email: your email.
+4. Enable **Use a DNS Challenge**.
+5. **DNS Provider**: Choose `DuckDNS`.
+6. In the `Credentials File Content` field that appears below, replace `your-duckdns-token` with your actual token.
+7. Check the agreements and press **Save**.
+In about 60 seconds you will get a globally recognized valid HTTPS Wildcard certificate!
 
 ## 4. Split-Brain DNS (Rewrites in AdGuard)
-Per evitare che il traffico esca su internet per poi rientrare:
-1. Apri AdGuard Home (`http://192.168.1.50:3000`).
-2. Vai su **Filtri** -> **Riscriturre DNS** (DNS Rewrites).
-3. Aggiungi: `*.tuonome.duckdns.org` -> `192.168.1.50`.
-*(Tutte le richieste locali andranno dirette a NPM).*
+To prevent traffic from going out to the internet only to come back in:
+1. Open AdGuard Home (`http://192.168.1.50:3000`).
+2. Go to **Filters** -> **DNS Rewrites**.
+3. Add: `*.yourdomain.duckdns.org` -> `192.168.1.50`.
+*(All local requests will now go straight to NPM).*
 
-## 5. Esporre i Servizi (Configurazione Specifica Headscale)
-In NPM, vai su **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
-- **Domain Names**: `vpn.tuonome.duckdns.org`
+## 5. Exposing Services (Headscale Specific Configuration)
+In NPM, go to **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
+- **Domain Names**: `vpn.yourdomain.duckdns.org`
 - **Scheme**: `http`
 - **Forward Hostname / IP**: `192.168.1.50`
-- **Forward Port**: `8080` (Porta di Headscale)
-- **ATTENZIONE**: Spunta obbligatoriamente l'opzione **Websockets Support**. Senza questa spunta, l'app mobile di Tailscale non riuscirà a connettersi.
+- **Forward Port**: `8080` (Headscale's Port)
+- **WARNING**: You MUST check the **Websockets Support** option. Without this checkbox, the Tailscale mobile app will fail to connect.
 
-Vai nel tab **SSL**, seleziona il certificato generato prima, e spunta `Force SSL`.
+Go to the **SSL** tab, select the certificate generated earlier, and check `Force SSL`.
 
-Vai nel tab **Advanced** e aggiungi questo codice nel riquadro *Custom Nginx Configuration* per spegnere il buffering (altrimenti l'app di Tailscale va in Timeout infinito):
+Go to the **Advanced** tab and add this code into the *Custom Nginx Configuration* box to disable buffering (otherwise the Tailscale app goes into an infinite Timeout):
 ```nginx
 proxy_http_version 1.1;
 proxy_set_header Upgrade $http_upgrade;
@@ -70,6 +70,6 @@ proxy_read_timeout 86400s;
 proxy_connect_timeout 86400s;
 proxy_send_timeout 86400s;
 ```
-- Salva.
+- Save.
 
-Da questo momento, `https://vpn.tuonome.duckdns.org` è attivo, sicuro e pronto per configurare Headscale su iPhone!
+From this moment on, `https://vpn.yourdomain.duckdns.org` is active, secure, and ready for Headscale configuration on the iPhone!

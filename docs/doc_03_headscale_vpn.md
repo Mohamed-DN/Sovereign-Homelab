@@ -1,115 +1,115 @@
-# Guida Completa e Definitiva a Headscale (VPN Mesh)
+# Complete and Definitive Guide to Headscale (Mesh VPN)
 
-Headscale è il "direttore d'orchestra" della tua rete privata. Non sposta i dati, ma gestisce le "chiavi" di sicurezza. I dispositivi usano l'app **Tailscale** per collegarsi, ma noi li forziamo a parlare con il tuo **Headscale personale** invece che con i server commerciali di Tailscale.
+Headscale is the "orchestrator" of your private network. It doesn't route data itself, but manages the security "keys". Devices use the **Tailscale** app to connect, but we force them to talk to your **personal Headscale** instead of Tailscale's commercial servers.
 
-## Fase A: Configurazione e Setup (Da fare solo la prima volta)
+## Phase A: Configuration and Setup (One-time only)
 
-Prima di tutto, assicurati che il file `/opt/core-network/headscale/config/config.yaml` abbia l'URL corretto. **Attenzione**: il `server_url` deve essere fin da subito il nome a dominio HTTPS pubblico (e non l'IP locale), altrimenti l'app mobile darà errori di connessione e andrà in timeout.
-- `server_url: https://vpn.tuonome.duckdns.org` (Usa rigorosamente `https://` senza specificare la porta 8080).
-- `listen_addr: 0.0.0.0:8080` (Per permettere a Nginx di passargli il traffico)
-- `metrics_listen_addr: 0.0.0.0:9090` (Aperto verso la LAN)
-*(Se modifichi questo file, ricordati di riavviare con `docker restart headscale`).*
+First, ensure that the file `/opt/core-network/headscale/config/config.yaml` has the correct URL. **Warning**: the `server_url` must be the public HTTPS domain name right from the start (and not the local IP), otherwise the mobile app will throw connection errors and timeout.
+- `server_url: https://vpn.yourdomain.duckdns.org` (Strictly use `https://` without specifying port 8080).
+- `listen_addr: 0.0.0.0:8080` (To allow Nginx to pass traffic to it)
+- `metrics_listen_addr: 0.0.0.0:9090` (Open towards the LAN)
+*(If you modify this file, remember to restart with `docker restart headscale`).*
 
-Sul terminale di **Proxmox** (LXC 100), crea il tuo "utente" o "spazio di lavoro":
+On the **Proxmox** terminal (LXC 100), create your "user" or "workspace":
 ```bash
-docker exec headscale headscale users create casa
-*(Puoi vedere la lista degli utenti e il loro ID numerico con `docker exec headscale headscale users list`)*
+docker exec headscale headscale users create home
+*(You can view the list of users and their numeric ID with `docker exec headscale headscale users list`)*
 ```
-*(Da questo momento, l'utente `casa` è pronto ad accogliere i dispositivi).*
+*(From this moment, the `home` user is ready to welcome devices).*
 
 ---
 
-## Fase A.2: Configurazione MagicDNS (Integrazione con AdGuard)
-Per far sì che i dispositivi connessi in 4G sfruttino il blocco pubblicità di AdGuard, devi forzare il server DNS tramite Headscale.
+## Phase A.2: MagicDNS Configuration (AdGuard Integration)
+To ensure devices connected via 4G/Cellular use AdGuard's ad-blocking, you must enforce the DNS server through Headscale.
 
-Apri il file `/opt/core-network/headscale/config/config.yaml` e cerca la sezione `dns:`.
-Impostala in questo modo, cancellando i vecchi IP pubblici sotto `global` e inserendo quello di AdGuard:
+Open the file `/opt/core-network/headscale/config/config.yaml` and look for the `dns:` section.
+Set it up like this, deleting the old public IPs under `global` and inserting AdGuard's IP:
 ```yaml
 dns:
   magic_dns: true
-  base_domain: casa.net
+  base_domain: home.net
   nameservers:
     global:
       - 192.168.1.50
   override_local_dns: true
 ```
-Salva il file e riavvia il server: `docker restart headscale`.
-*(Ora tutti i dispositivi Tailscale riceveranno AdGuard come DNS)*.
+Save the file and restart the server: `docker restart headscale`.
+*(Now all Tailscale devices will receive AdGuard as their DNS)*.
 
 ---
 
-## Fase B: Aggiungere PC e Mac
+## Phase B: Adding PCs and Macs
 
-### Su Windows (Metodo Infallibile con Pre-Auth Key)
-L'app di Windows spesso va in conflitto con l'interfaccia web per i server custom. Il metodo migliore è generare una chiave sul server e forzare la connessione.
-1. Scarica e installa l'app ufficiale di Tailscale per Windows.
-   *(Nota: nelle nuove versioni di Headscale devi usare il NUMERO dell'utente, di solito `1`. Controlla il numero con `docker exec headscale headscale users list` prima di lanciare il comando)*:
+### On Windows (Foolproof Method with Pre-Auth Key)
+The Windows app often conflicts with the web interface for custom servers. The best method is to generate a key on the server and force the connection.
+1. Download and install the official Tailscale app for Windows.
+   *(Note: in newer Headscale versions you must use the user's NUMBER, usually `1`. Check the number with `docker exec headscale headscale users list` before running the command)*:
    ```bash
    docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h
    ```
-3. Su Windows, apri **PowerShell come amministratore** ed esegui:
+2. On Windows, open **PowerShell as administrator** and run:
    ```powershell
-   tailscale up --login-server http://192.168.1.50:8080 --authkey INCOLLA_QUI_LA_CHIAVE --force-reauth
+   tailscale up --login-server http://192.168.1.50:8080 --authkey PASTE_THE_KEY_HERE --force-reauth
    ```
-*(In alternativa, puoi cambiare server tenendo premuto SHIFT e cliccando col tasto destro sull'icona di Tailscale, poi `Preferences` -> `Custom Login Server`. Dopodiché, completi il login da browser e usi la nodekey come descritto per Mac/Linux).*
+*(Alternatively, you can change the server by holding SHIFT and right-clicking the Tailscale icon, then `Preferences` -> `Custom Login Server`. After that, you complete the browser login and use the nodekey as described for Mac/Linux).*
 
-### Su Linux / Mac (via terminale)
-1. Installa Tailscale (su Mac scaricalo dall'App Store, su Linux usa lo script `curl -fsSL https://tailscale.com/install.sh | sh`).
-2. Apri il terminale ed esegui:
+### On Linux / Mac (via terminal)
+1. Install Tailscale (on Mac download it from the App Store, on Linux use the script `curl -fsSL https://tailscale.com/install.sh | sh`).
+2. Open the terminal and run:
    ```bash
    sudo tailscale up --login-server http://192.168.1.50:8080
    ```
-3. Come su Windows, copia la `nodekey` generata.
+3. As on Windows, copy the generated `nodekey`.
 
-### Approvare i PC sul Server
-Torna nel terminale di **Proxmox** (LXC 100) ed esegui questo comando per accettare il dispositivo:
+### Approving PCs on the Server
+Go back to the **Proxmox** terminal (LXC 100) and run this command to accept the device:
 ```bash
-docker exec headscale headscale nodes register -u 1 --key INCOLLA_QUI_LA_NODEKEY
+docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
 ```
-*Il tuo PC è ora nella rete!*
+*Your PC is now in the network!*
 
 ---
 
-## Fase C: Aggiungere Dispositivi Mobile (iOS e Android)
-Le app mobile di Tailscale non hanno il terminale, quindi bisogna usare un "trucco" per far apparire il menu segreto in cui cambiare il server. Assicurati che il telefono sia connesso al Wi-Fi di casa la prima volta.
+## Phase C: Adding Mobile Devices (iOS and Android)
+Tailscale mobile apps don't have a terminal, so you have to use a "trick" to reveal the secret menu to change the server. Ensure the phone is connected to the home Wi-Fi the first time.
 
-### Su Android
-1. Scarica **Tailscale** dal Play Store e aprila.
-2. Tocca i **tre puntini** in alto a destra.
-3. Seleziona **Change Server** (Cambia server).
-4. Inserisci `http://192.168.1.50:8080` e salva.
-5. Tocca **Sign in**. Il browser del telefono si aprirà e ti mostrerà il comando esatto con la tua `nodekey` da incollare su Proxmox.
+### On Android
+1. Download **Tailscale** from the Play Store and open it.
+2. Tap the **three dots** in the top right.
+3. Select **Change Server**.
+4. Enter `http://192.168.1.50:8080` and save.
+5. Tap **Sign in**. The phone's browser will open and show you the exact command with your `nodekey` to paste into Proxmox.
 
-### Su iPhone / iPad (iOS) - Metodo NovaAccess (Consigliato)
-L'app ufficiale di Tailscale ha spesso bug noti con l'aggiunta di server custom via reverse proxy. L'approccio migliore e più stabile è usare un'app indipendente.
-1. Scarica **NovaAccess** dall'App Store (supporta nativamente server custom come Headscale).
-2. Genera una chiave direttamente dal server Proxmox: `docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h`
-3. Apri NovaAccess, inserisci l'URL pubblico di Nginx (es. `https://vpn.tuonome.duckdns.org`) come *Control URL*.
-4. Incolla la chiave generata nel campo *Auth Key*.
-5. Clicca su **Login to Tailnet**. Sarai connesso all'istante, bypassando del tutto i menu buggati dell'app ufficiale e l'uso del browser!
+### On iPhone / iPad (iOS) - NovaAccess Method (Recommended)
+The official Tailscale app has known bugs when adding custom servers via a reverse proxy. The best and most stable approach is to use an independent app.
+1. Download **NovaAccess** from the App Store (it natively supports custom servers like Headscale).
+2. Generate a key directly from the Proxmox server: `docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h`
+3. Open NovaAccess, enter Nginx's public URL (e.g., `https://vpn.yourdomain.duckdns.org`) as the *Control URL*.
+4. Paste the generated key into the *Auth Key* field.
+5. Click **Login to Tailnet**. You will be instantly connected, completely bypassing the buggy menus of the official app and the browser usage!
 
-### Su iPhone / iPad (iOS) - Metodo Ufficiale Tailscale
-1. Scarica **Tailscale** dall'App Store e aprila.
-2. Tocca l'icona dell'utente in alto a destra, poi i 3 puntini, e seleziona **Use Custom Coordination Server**.
-3. Inserisci il dominio completo: `https://vpn.tuonome.duckdns.org`.
-4. Effettua il login normale: se Nginx è configurato correttamente con i WebSockets e il buffering spento (vedi Runbook 04), si aprirà Safari fornendoti la `nodekey` da incollare su Proxmox.
+### On iPhone / iPad (iOS) - Official Tailscale Method
+1. Download **Tailscale** from the App Store and open it.
+2. Tap the user icon in the top right, then the 3 dots, and select **Use Custom Coordination Server**.
+3. Enter the full domain: `https://vpn.yourdomain.duckdns.org`.
+4. Perform a normal login: if Nginx is configured correctly with WebSockets and buffering disabled (see Runbook 04), Safari will open providing you with the `nodekey` to paste into Proxmox.
 
-### Approvare gli Smartphone sul Server
-Torna nel terminale di **Proxmox** (LXC 100) e accetta il telefono:
+### Approving Smartphones on the Server
+Go back to the **Proxmox** terminal (LXC 100) and accept the phone:
 ```bash
-docker exec headscale headscale nodes register -u 1 --key INCOLLA_QUI_LA_NODEKEY_DEL_TELEFONO
+docker exec headscale headscale nodes register -u 1 --key PASTE_THE_PHONE_NODEKEY_HERE
 ```
 
 ---
 
-## Fase D: Comandi Utili per il Server
+## Phase D: Useful Server Commands
 
-Per vedere tutti i dispositivi connessi e i loro indirizzi IP "privati":
+To see all connected devices and their "private" IP addresses:
 ```bash
 docker exec headscale headscale nodes list
 ```
 
-Per cancellare un dispositivo (es. un vecchio telefono):
+To delete a device (e.g., an old phone):
 ```bash
-docker exec headscale headscale nodes delete -i [ID_DEL_DISPOSITIVO]
+docker exec headscale headscale nodes delete -i [DEVICE_ID]
 ```
