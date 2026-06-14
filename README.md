@@ -67,10 +67,11 @@ graph TD
     Proxy -->|dash.local| H["🏠 Homepage"]
 ```
 
-## 📚 Runbooks & Documentation
+## 📚 Documentation & Guides
 
-The deployment process is meticulously documented. Follow these runbooks to recreate or manage the stack:
+The deployment process and the underlying philosophy are meticulously documented. If you are new to self-hosting, start with the Zero to Hero guide.
 
+- 🎓 **[Zero to Hero: The Sovereign Homelab Master Guide](docs/Zero_to_Hero_Master_Guide.md)**: A 10-step educational journey explaining the *why* behind every technical choice. Read this first to learn!
 - **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: The ultimate bash script to spin up the entire infrastructure in one go.
 - **[01. Proxmox, Docker & LXC Setup](docs/doc_01_proxmox_docker_lxc.md)**: Virtualization environment preparation.
 - **[02. AdGuard Home Setup](docs/doc_02_adguard_home.md)**: Deploying local DNS blocking and rewriting.
