@@ -1,19 +1,24 @@
-# Complete and Definitive Guide to Headscale (Mesh VPN)
+# Runbook 03: Headscale & The Mesh VPN (Guided Tutorial)
 
 Headscale is the "orchestrator" of your private network. It doesn't route data itself, but manages the security "keys". Devices use the **Tailscale** app to connect, but we force them to talk to your **personal Headscale** instead of Tailscale's commercial servers.
 
+> 🎓 **The Theory: Why a Mesh VPN?**: Traditionally, to access your home server from outside, you had to open a port on your router (Port Forwarding). This is extremely dangerous, as hackers constantly scan the internet for open ports to attack. 
+> A Mesh VPN (built on WireGuard) reverses this. Your phone and your server both connect to the Headscale orchestrator to exchange encryption keys. Then, your phone reaches out *directly* to your server. Because the connection was initiated from the inside-out, the router's firewall allows the traffic through without needing any open ports. You are invisible to the public internet, yet fully connected to your home LAN.
+
 ## Phase A: Configuration and Setup (CRITICAL YAML MODIFICATIONS)
 
-If you did not use the Master Setup Script (Runbook 00) to auto-patch the configuration, you MUST manually edit the `/opt/core-network/headscale/config/config.yaml` file. If you skip this, the mobile apps will permanently fail.
+If you did not use the Master Setup Script (Runbook 00) to auto-patch the configuration, you MUST manually edit the `/opt/core-network/headscale/config/config.yaml` file. 
 
 1. **The iOS/Mobile Bug (`server_url`)**: 
-   By default, Headscale suggests a local IP or `127.0.0.1`. **You must change this to your public HTTPS DuckDNS domain from the very beginning**. If you start the server with a local IP, mobile apps will cache it and go into an infinite timeout loop.
+   By default, Headscale suggests a local IP or `127.0.0.1`. **You must change this to your public HTTPS DuckDNS domain from the very beginning**. 
    - Change to: `server_url: https://vpn.yourdomain.duckdns.org` (Strictly use `https://` and DO NOT specify port 8080 here).
+   > 🎓 **Why this breaks iOS**: If you start the server with a local IP (like `192.168.1.50`), mobile apps will cache it as the absolute truth. When you leave your house and switch to 4G, iOS will aggressively try to reach `192.168.1.50` over the cellular network. Since that local IP doesn't exist on the cell network, it crashes into an infinite timeout loop. Using the public DuckDNS domain from day one ensures the app always knows how to find home.
 
 2. **The Reverse Proxy Block (`listen_addr`)**:
-   By default, Headscale only listens to localhost (`127.0.0.1`). This prevents Nginx Proxy Manager from forwarding external traffic to it. You must open the ports to the internal docker network.
+   By default, Headscale only listens to localhost (`127.0.0.1`). 
    - Change to: `listen_addr: 0.0.0.0:8080` (Allows Nginx to pass traffic)
    - Change to: `metrics_listen_addr: 0.0.0.0:9090` (Optional, opens metrics)
+   > 🎓 **The 0.0.0.0 Trick**: In networking, `127.0.0.1` means "Talk strictly to yourself". If we left it like that, Nginx Proxy Manager (which is the gatekeeper handling the HTTPS encryption) would be blocked from forwarding the external traffic to Headscale. By changing it to `0.0.0.0`, we tell Headscale: "Listen to everyone, including Nginx".
 
 *(If you manually modify this file, remember to apply the changes by running `docker restart headscale`).*
 
@@ -22,7 +27,6 @@ On the **Proxmox** terminal (LXC 100), create your "user" or "workspace":
 docker exec headscale headscale users create home
 *(You can view the list of users and their numeric ID with `docker exec headscale headscale users list`)*
 ```
-*(From this moment, the `home` user is ready to welcome devices).*
 
 ---
 
@@ -40,8 +44,9 @@ dns:
       - 192.168.1.50
   override_local_dns: true
 ```
+> 🎓 **Why MagicDNS?**: When you are outside on 4G, your phone uses the cellular provider's DNS (which tracks you and shows ads). By configuring this block, Headscale forces the Tailscale app to tunnel all DNS queries back home to your AdGuard IP (`192.168.1.50`). You get ad-blocking everywhere in the world, on any network.
+
 Save the file and restart the server: `docker restart headscale`.
-*(Now all Tailscale devices will receive AdGuard as their DNS)*.
 
 ---
 
@@ -58,7 +63,6 @@ The Windows app often conflicts with the web interface for custom servers. The b
    ```powershell
    tailscale up --login-server http://192.168.1.50:8080 --authkey PASTE_THE_KEY_HERE --force-reauth
    ```
-*(Alternatively, you can change the server by holding SHIFT and right-clicking the Tailscale icon, then `Preferences` -> `Custom Login Server`. After that, you complete the browser login and use the nodekey as described for Mac/Linux).*
 
 ### On Linux / Mac (via terminal)
 1. Install Tailscale (on Mac download it from the App Store, on Linux use the script `curl -fsSL https://tailscale.com/install.sh | sh`).
@@ -66,26 +70,20 @@ The Windows app often conflicts with the web interface for custom servers. The b
    ```bash
    sudo tailscale up --login-server http://192.168.1.50:8080
    ```
-3. As on Windows, copy the generated `nodekey`.
+3. Copy the generated `nodekey`.
 
 ### Approving PCs on the Server
 Go back to the **Proxmox** terminal (LXC 100) and run this command to accept the device:
 ```bash
 docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
 ```
-*Your PC is now in the network!*
+*Your PC is now in the mesh network!*
 
 ---
 
 ## Phase C: Adding Mobile Devices (iOS and Android)
-Tailscale mobile apps don't have a terminal, so you have to use a "trick" to reveal the secret menu to change the server. Ensure the phone is connected to the home Wi-Fi the first time.
 
-### On Android
-1. Download **Tailscale** from the Play Store and open it.
-2. Tap the **three dots** in the top right.
-3. Select **Change Server**.
-4. Enter `http://192.168.1.50:8080` and save.
-5. Tap **Sign in**. The phone's browser will open and show you the exact command with your `nodekey` to paste into Proxmox.
+Ensure the phone is connected to the home Wi-Fi the first time.
 
 ### On iPhone / iPad (iOS) - NovaAccess Method (Recommended)
 The official Tailscale app has known bugs when adding custom servers via a reverse proxy. The best and most stable approach is to use an independent app.
@@ -93,19 +91,14 @@ The official Tailscale app has known bugs when adding custom servers via a rever
 2. Generate a key directly from the Proxmox server: `docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h`
 3. Open NovaAccess, enter Nginx's public URL (e.g., `https://vpn.yourdomain.duckdns.org`) as the *Control URL*.
 4. Paste the generated key into the *Auth Key* field.
-5. Click **Login to Tailnet**. You will be instantly connected, completely bypassing the buggy menus of the official app and the browser usage!
+5. Click **Login to Tailnet**. You will be instantly connected, completely bypassing the buggy menus of the official app!
 
-### On iPhone / iPad (iOS) - Official Tailscale Method
-1. Download **Tailscale** from the App Store and open it.
-2. Tap the user icon in the top right, then the 3 dots, and select **Use Custom Coordination Server**.
-3. Enter the full domain: `https://vpn.yourdomain.duckdns.org`.
-4. Perform a normal login: if Nginx is configured correctly with WebSockets and buffering disabled (see Runbook 04), Safari will open providing you with the `nodekey` to paste into Proxmox.
-
-### Approving Smartphones on the Server
-Go back to the **Proxmox** terminal (LXC 100) and accept the phone:
-```bash
-docker exec headscale headscale nodes register -u 1 --key PASTE_THE_PHONE_NODEKEY_HERE
-```
+### On Android
+1. Download **Tailscale** from the Play Store and open it.
+2. Tap the **three dots** in the top right.
+3. Select **Change Server**.
+4. Enter `http://192.168.1.50:8080` and save.
+5. Tap **Sign in**. The phone's browser will open and show you the exact command with your `nodekey` to paste into Proxmox.
 
 ---
 
