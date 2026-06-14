@@ -71,6 +71,7 @@ graph TD
 
 The deployment process is meticulously documented. Follow these runbooks to recreate or manage the stack:
 
+- **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: The ultimate bash script to spin up the entire infrastructure in one go.
 - **[01. Proxmox, Docker & LXC Setup](docs/doc_01_proxmox_docker_lxc.md)**: Virtualization environment preparation.
 - **[02. AdGuard Home Setup](docs/doc_02_adguard_home.md)**: Deploying local DNS blocking and rewriting.
 - **[03. Headscale VPN & Device Onboarding](docs/doc_03_headscale_vpn.md)**: Mesh VPN setup, device registration, and client configuration.
