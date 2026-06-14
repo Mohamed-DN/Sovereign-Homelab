@@ -67,12 +67,11 @@ graph TD
     Proxy -->|dash.local| H["🏠 Homepage"]
 ```
 
-## 📚 Documentation & Guides
+## 📚 Documentation & Guided Tutorials
 
-The deployment process and the underlying philosophy are meticulously documented. If you are new to self-hosting, start with the Zero to Hero guide.
+The deployment process is meticulously documented. Rather than just being dry list of commands, each of these "Runbooks" acts as a guided lesson. They explain exactly *what* each command does and *why* it is necessary from a networking perspective, allowing you to learn as you build.
 
-- 🎓 **[Zero to Hero: The Sovereign Homelab Master Guide](docs/Zero_to_Hero_Master_Guide.md)**: A 10-step educational journey explaining the *why* behind every technical choice. Read this first to learn!
-- **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: The ultimate bash script to spin up the entire infrastructure in one go.
+- **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: The ultimate bash script to spin up the entire infrastructure in one go, with line-by-line explanations.
 - **[01. Proxmox, Docker & LXC Setup](docs/doc_01_proxmox_docker_lxc.md)**: Virtualization environment preparation.
 - **[02. AdGuard Home Setup](docs/doc_02_adguard_home.md)**: Deploying local DNS blocking and rewriting.
 - **[03. Headscale VPN & Device Onboarding](docs/doc_03_headscale_vpn.md)**: Mesh VPN setup, device registration, and client configuration.
