@@ -12,16 +12,16 @@ Questa mappa mostra semplicemente chi parla con chi.
 ```mermaid
 graph TD
     %% Nodi Esterni
-    Utente[📱 I tuoi Dispositivi]
-    Router[🌐 Router TIM\n192.168.1.1]
-    Internet((☁️ Internet))
+    Utente["📱 I tuoi Dispositivi"]
+    Router["🌐 Router TIM<br>192.168.1.1"]
+    Internet(("☁️ Internet"))
 
     %% LXC 100
-    DNS[🛡️ AdGuard Home\nLXC 100 - IP 192.168.1.50]
-    VPN[🔒 Headscale (Mesh VPN)\nLXC 100 - IP 192.168.1.50]
+    DNS["🛡️ AdGuard Home<br>LXC 100 - IP 192.168.1.50"]
+    VPN["🔒 Headscale (Mesh VPN)<br>LXC 100 - IP 192.168.1.50"]
     
     %% LXC 101
-    Proxy[🔀 Nginx Proxy Manager\nLXC 101 - IP 192.168.1.51]
+    Proxy["🔀 Nginx Proxy Manager<br>LXC 101 - IP 192.168.1.51"]
 
     %% Flusso DNS
     Utente -->|1. DNS Locale| Router
@@ -36,10 +36,10 @@ graph TD
     Utente -->|Traffico Wi-Fi di casa| Proxy
 
     %% Servizi in LXC 101
-    Proxy -->|pwd.local| V[🔑 Vaultwarden]
-    Proxy -->|foto.local| I[📸 Immich]
-    Proxy -->|files.local| N[📁 Nextcloud]
-    Proxy -->|dash.local| H[🏠 Homepage]
+    Proxy -->|pwd.local| V["🔑 Vaultwarden"]
+    Proxy -->|foto.local| I["📸 Immich"]
+    Proxy -->|files.local| N["📁 Nextcloud"]
+    Proxy -->|dash.local| H["🏠 Homepage"]
 ```
 
 ### 2. Architettura Fisica (Dove si trovano)
