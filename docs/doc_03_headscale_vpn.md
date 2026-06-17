@@ -115,4 +115,54 @@ docker exec headscale headscale nodes delete -i [DEVICE_ID]
 ```
 
 ---
+
+## Phase E: The Subnet Router (Fixing LAN Access & DNS on 4G)
+
+If you connect from a phone on 4G, you are on the VPN, but you cannot reach AdGuard (`192.168.1.50`) because the VPN doesn't know where your physical home network is. To fix this, we must install a "Subnet Router" on the server.
+
+> 🎓 **The Theory**: Headscale is just the control tower; it doesn't route traffic. By installing a Tailscale client *directly on the server* and telling it to "Advertise" the `192.168.1.x` network to the VPN, the server becomes a bridge. When your phone on 4G asks for `192.168.1.50`, the traffic flows through the encrypted tunnel to the server, crosses the bridge, and hits AdGuard. Boom: ad-blocking and local IP access from anywhere in the world!
+
+**Step 1: Enable IP Forwarding on LXC 100**
+Log into the console of your `core-network` container (LXC 100) and run:
+```bash
+echo 'net.ipv4.ip_forward = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
+echo 'net.ipv6.conf.all.forwarding = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
+sysctl -p /etc/sysctl.d/99-tailscale.conf
+```
+
+**Step 2: Install the Tailscale Client**
+Still in LXC 100, run the automated installer:
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+```
+
+**Step 3: Connect and Advertise the Network**
+Start the client, telling it to advertise your entire home subnet (`192.168.1.0/24`). We use `--accept-dns=false` so the server itself doesn't loop its own DNS queries:
+```bash
+tailscale up --login-server http://192.168.1.50:8080 --advertise-routes=192.168.1.0/24 --accept-dns=false
+```
+Copy the generated `nodekey`.
+
+**Step 4: Register the Server in Headscale**
+Just like adding a PC, register the server as a node:
+```bash
+docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
+```
+
+**Step 5: Approve the Routes (The Bridge is Built)**
+Headscale now knows the server *wants* to share the network, but you must approve it for security.
+1. Find the Route ID:
+```bash
+docker exec headscale headscale routes list
+```
+*(Look for the ID of the `192.168.1.0/24` route. Let's assume it's `1`)*.
+
+2. Enable the route:
+```bash
+docker exec headscale headscale routes enable -r 1
+```
+
+**Success!** Your phone on 4G can now ping `192.168.1.50`, your ads will be blocked, and you can reach all your local services without exposing any ports!
+
+---
 **Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)
