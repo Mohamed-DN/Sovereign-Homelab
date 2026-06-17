@@ -104,4 +104,4 @@ mindmap
   - **Home Assistant**: Home Automation (can be installed on Proxmox as VM OS to have full control of supervisor and add-ons).
 
 ---
-**Previous:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)
+**Previous:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)

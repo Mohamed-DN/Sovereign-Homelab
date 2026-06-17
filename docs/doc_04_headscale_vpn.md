@@ -1,4 +1,4 @@
-# Runbook 03: Headscale & The Mesh VPN (Guided Tutorial)
+# Runbook 04: Headscale & The Mesh VPN (Guided Tutorial)
 
 Headscale is the "orchestrator" of your private network. It doesn't route data itself, but manages the security "keys". Devices use the **Tailscale** app to connect, but we force them to talk to your **personal Headscale** instead of Tailscale's commercial servers.
 
@@ -185,4 +185,4 @@ Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI**
 Now you can view connected phones, delete old devices, and approve routes with a simple tap on your screen!
 
 ---
-**Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)
+**Previous:** [Runbook 03: Nginx Proxy Manager](doc_03_nginx_proxy_manager.md) | **Next:** [Infrastructure Plan & Map](infrastructure_plan_and_map.md)

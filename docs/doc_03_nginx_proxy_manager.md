@@ -1,4 +1,4 @@
-# Runbook 04: Nginx Proxy Manager & HTTPS (Guided Tutorial)
+# Runbook 03: Nginx Proxy Manager & HTTPS (Guided Tutorial)
 
 This document explains how to configure Nginx Proxy Manager (NPM). NPM is the "Traffic Cop" of your network.
 
@@ -61,4 +61,4 @@ proxy_send_timeout 86400s;
 From this moment on, `https://vpn.yourdomain.duckdns.org` is active, secure, and ready!
 
 ---
-**Previous:** [Runbook 03: Headscale VPN](doc_03_headscale_vpn.md) | **Next:** [Infrastructure Plan & Map](infrastructure_plan_and_map.md)
+**Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)

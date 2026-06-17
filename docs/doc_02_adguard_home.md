@@ -99,4 +99,4 @@ Because devices keep the old DHCP leases from the TIM router in their memory, we
    - **Private Wi-Fi Address** (Indirizzo Wi-Fi privato): *Turn OFF*. (This ensures AdGuard sees the real MAC address of the phone, allowing you to assign stable aliases and rules).
 
 ---
-**Previous:** [Runbook 01: Proxmox, LXC & Docker](doc_01_proxmox_docker_lxc.md) | **Next:** [Runbook 03: Headscale VPN](doc_03_headscale_vpn.md)
+**Previous:** [Runbook 01: Proxmox, LXC & Docker](doc_01_proxmox_docker_lxc.md) | **Next:** [Runbook 03: Nginx Proxy Manager](doc_03_nginx_proxy_manager.md)
