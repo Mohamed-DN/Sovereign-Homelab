@@ -136,12 +136,16 @@ Still in LXC 100, run the automated installer:
 curl -fsSL https://tailscale.com/install.sh | sh
 ```
 
-**Step 3: Connect and Advertise the Network**
-Start the client, telling it to advertise your entire home subnet (`192.168.1.0/24`). We use `--accept-dns=false` so the server itself doesn't loop its own DNS queries:
+**Step 3: Connect and Advertise the Network (and Exit Node)**
+Start the client, telling it to advertise your entire home subnet (`192.168.1.0/24`) AND offering itself as an Exit Node. We use `--accept-dns=false` so the server itself doesn't loop its own DNS queries:
 ```bash
-tailscale up --login-server http://192.168.1.50:8080 --advertise-routes=192.168.1.0/24 --accept-dns=false
+tailscale up --login-server http://192.168.1.50:8080 --advertise-routes=192.168.1.0/24 --advertise-exit-node --accept-dns=false
 ```
 Copy the generated `nodekey`.
+
+> 🎓 **Subnet Router vs Exit Node**: 
+> - **Subnet Router**: Forwards ONLY local traffic (e.g., `192.168.1.50` for AdGuard or Nextcloud). Normal internet traffic (YouTube, Instagram) goes directly via your fast 4G connection.
+> - **Exit Node**: If you select the Exit Node from your phone's Tailscale app, **ALL** your internet traffic is tunneled through your home server. This is slower (depends on your home upload speed) but hides your IP completely and acts as a massive shield when using public Wi-Fi. Having both options active gives you the power to choose!
 
 **Step 4: Register the Server in Headscale**
 Just like adding a PC, register the server as a node:
@@ -155,14 +159,30 @@ Headscale now knows the server *wants* to share the network, but you must approv
 ```bash
 docker exec headscale headscale routes list
 ```
-*(Look for the ID of the `192.168.1.0/24` route. Let's assume it's `1`)*.
+*(Look for the ID of the `192.168.1.0/24` route AND the Exit Node route `0.0.0.0/0`. Let's assume they are `1` and `2`)*.
 
-2. Enable the route:
+2. Enable the routes:
 ```bash
 docker exec headscale headscale routes enable -r 1
+docker exec headscale headscale routes enable -r 2
 ```
 
 **Success!** Your phone on 4G can now ping `192.168.1.50`, your ads will be blocked, and you can reach all your local services without exposing any ports!
+
+---
+
+## Phase F: Managing from your Cellphone (Headscale-UI)
+
+Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI** in the Master Script, you can manage your devices and routes directly from a beautiful graphical interface on your phone!
+
+1. Make sure you are connected to the home Wi-Fi (or the VPN).
+2. Open Safari/Chrome on your phone and go to: `http://192.168.1.50:8081`
+3. Go to **Settings** in the UI and generate an API key from the Proxmox console to link it:
+   ```bash
+   docker exec headscale headscale apikeys create --expiration 90d
+   ```
+4. Paste the API key into the Web UI. 
+Now you can view connected phones, delete old devices, and approve routes with a simple tap on your screen!
 
 ---
 **Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Nginx Proxy Manager](doc_04_nginx_proxy_manager.md)
