@@ -40,7 +40,7 @@ services:
     image: ghcr.io/gurucomputing/headscale-ui:latest
     container_name: headscale-ui
     ports:
-      - "8081:80"
+      - "8081:8080"
     restart: unless-stopped
 
   adguardhome:
