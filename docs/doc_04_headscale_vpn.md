@@ -177,11 +177,13 @@ Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI**
 
 1. Make sure you are connected to the home Wi-Fi (or the VPN).
 2. Open Safari/Chrome on your phone and go to: `https://vpn.yourdomain.duckdns.org/web`
-3. Go to **Settings** in the UI and generate an API key from the Proxmox console to link it:
+3. Go to **Settings** in the UI (the gear icon on the left).
+4. **Headscale Server**: Enter `https://vpn.yourdomain.duckdns.org`.
+5. Generate an API key from the Proxmox console to link it:
    ```bash
    docker exec headscale headscale apikeys create --expiration 90d
    ```
-4. Paste the API key into the Web UI. 
+6. Paste the API key into the Web UI and hit **Test/Save**. 
 Now you can view connected phones, delete old devices, and approve routes with a simple tap on your screen!
 
 ---
