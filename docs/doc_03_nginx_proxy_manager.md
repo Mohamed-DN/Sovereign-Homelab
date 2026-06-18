@@ -47,7 +47,7 @@ Go to the **Custom Locations** tab to expose the Headscale Graphical Interface s
 - **Location**: `/web`
 - **Scheme**: `http`
 - **Forward Hostname / IP**: `192.168.1.50`
-- **Forward Port**: `8080` (The new internal port of the UI container)
+- **Forward Port**: `8081` (The external port of the UI container)
 > 🎓 **Why a Custom Location?**: Headscale doesn't have a built-in GUI. We installed `headscale-ui` in a separate container. By mapping it to `/web`, Nginx takes any request for `https://vpn.yourdomain.duckdns.org/web` and silently hands it over to the UI container. This perfectly bypasses all CORS security blocks because your browser thinks the UI and the API are coming from the exact same domain!
 
 Go to the **SSL** tab, select the certificate generated earlier, and check `Force SSL`.
