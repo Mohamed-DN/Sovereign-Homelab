@@ -42,6 +42,14 @@ In NPM, go to **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
 - **WARNING**: You MUST check the **Websockets Support** option. 
 > 🎓 **Why WebSockets?**: Normal web traffic is "Ask and Receive". WebSockets keep the connection constantly open like a telephone call. VPN apps require constant, uninterrupted communication to maintain the mesh tunnel. Without this checkbox, NPM will sever the connection, and Tailscale will fail to connect.
 
+Go to the **Custom Locations** tab to expose the Headscale Graphical Interface securely:
+- Click **Add location**
+- **Location**: `/web`
+- **Scheme**: `http`
+- **Forward Hostname / IP**: `192.168.1.50`
+- **Forward Port**: `8080` (The new internal port of the UI container)
+> 🎓 **Why a Custom Location?**: Headscale doesn't have a built-in GUI. We installed `headscale-ui` in a separate container. By mapping it to `/web`, Nginx takes any request for `https://vpn.yourdomain.duckdns.org/web` and silently hands it over to the UI container. This perfectly bypasses all CORS security blocks because your browser thinks the UI and the API are coming from the exact same domain!
+
 Go to the **SSL** tab, select the certificate generated earlier, and check `Force SSL`.
 
 Go to the **Advanced** tab and add this code into the *Custom Nginx Configuration* box:

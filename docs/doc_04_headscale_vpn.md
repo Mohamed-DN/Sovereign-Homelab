@@ -176,7 +176,7 @@ docker exec headscale headscale routes enable -r 2
 Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI** in the Master Script, you can manage your devices and routes directly from a beautiful graphical interface on your phone!
 
 1. Make sure you are connected to the home Wi-Fi (or the VPN).
-2. Open Safari/Chrome on your phone and go to: `http://192.168.1.50:8081`
+2. Open Safari/Chrome on your phone and go to: `https://vpn.yourdomain.duckdns.org/web`
 3. Go to **Settings** in the UI and generate an API key from the Proxmox console to link it:
    ```bash
    docker exec headscale headscale apikeys create --expiration 90d
