@@ -186,5 +186,3 @@ Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI**
 6. Paste the API key into the Web UI and hit **Test/Save**. 
 Now you can view connected phones, delete old devices, and approve routes with a simple tap on your screen!
 
----
-**Previous:** [Runbook 03: Nginx Proxy Manager](doc_03_nginx_proxy_manager.md) | **Next:** [Infrastructure Plan & Map](infrastructure_plan_and_map.md)
