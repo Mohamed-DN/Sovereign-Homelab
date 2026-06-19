@@ -1,30 +1,30 @@
-# Idee per il Futuro (Smart Working Estremo & Zero Trust)
+# Ideas for the Future (Extreme Smart Working & Zero Trust)
 
-Questo documento raccoglie concetti avanzati di architettura di rete e sicurezza discussi durante lo sviluppo dell'infrastruttura. Sono idee preziose per chi viaggia o lavora da remoto in condizioni di forte sorveglianza (es. paesi esteri, reti pubbliche o dispositivi aziendali blindati).
+This document collects advanced network architecture and security concepts discussed during the infrastructure development. These are valuable ideas for those who travel or work remotely under heavily surveilled conditions (e.g., foreign countries, public networks, or locked-down corporate devices).
 
 ## 1. Split Tunneling vs Full Tunneling (Subnet Router vs Exit Node)
 
-Tailscale/Headscale permette di decidere in modo chirurgico come instradare il traffico quando si è fuori casa (es. Egitto, hotel, aeroporti):
+Tailscale/Headscale allows surgical precision in routing traffic when away from home (e.g., Egypt, hotels, airports):
 
-- **Modalità Subnet Router (Split Tunnel)**: L'impostazione base. Il traffico "pesante" (YouTube, Netflix) viaggia direttamente sulla rete locale veloce in cui ti trovi. Soltanto le richieste DNS (per bloccare le pubblicità) e le chiamate agli IP locali di casa (`192.168.1.x`) passano per la VPN. Vantaggio: Massima velocità, blocco ads globale.
-- **Modalità Exit Node (Full Tunnel)**: Tutto il traffico del dispositivo viene infilato nel tunnel crittografato e sputato fuori dal router di casa in Italia. Vantaggio: Protezione assoluta contro Wi-Fi pubblici hackerati e bypass completo dei blocchi geografici (es. la Rai penserà che tu sia fisicamente in Italia). Si attiva con un tap dall'app.
+- **Subnet Router Mode (Split Tunnel)**: The default setting. "Heavy" traffic (YouTube, Netflix) travels directly over the fast local network you are connected to. Only DNS requests (for ad-blocking) and calls to local home IPs (`192.168.1.x`) go through the VPN. Advantage: Maximum speed, global ad-blocking.
+- **Exit Node Mode (Full Tunnel)**: All device traffic is funneled into the encrypted tunnel and exits from your home router in Italy. Advantage: Absolute protection against hacked public Wi-Fi and complete bypass of geographic blocks (e.g., streaming services will think you are physically in Italy). Activated with a tap from the app.
 
-## 2. VPN Site-to-Site (Il Santo Graal)
+## 2. Site-to-Site VPN (The Holy Grail)
 
-Invece di installare l'app Tailscale su ogni singolo dispositivo in una seconda casa all'estero (operazione impossibile per Smart TV o console), si può usare la tecnica "Site-to-Site":
+Instead of installing the Tailscale app on every single device in a foreign second home (an impossible task for Smart TVs or consoles), you can use the "Site-to-Site" technique:
 
-1. Si installa un **Router da Viaggio (es. GL.iNet)** o un mini-PC in Egitto.
-2. Si collega questo router al server Headscale italiano impostandolo come Subnet Router per la rete egiziana (`192.168.2.0/24`).
-3. Risultato: Le due case si fondono. Chiunque si colleghi al Wi-Fi egiziano navigherà su internet tramite la linea egiziana, ma raggiungerà istantaneamente il server italiano digitando `192.168.1.50`, sfruttando l'AdGuard per bloccare le pubblicità in modo invisibile senza avere app installate.
+1. Install a **Travel Router (e.g., GL.iNet)** or a mini-PC in Egypt.
+2. Connect this router to the Italian Headscale server, setting it as a Subnet Router for the Egyptian network (`192.168.2.0/24`).
+3. Result: The two homes merge. Anyone connecting to the Egyptian Wi-Fi will browse the internet using the Egyptian line, but will instantly reach the Italian server by typing `192.168.1.50`, leveraging AdGuard to block ads invisibly without any installed apps.
 
-## 3. Battere i software "Zero Trust" Aziendali (Es. Zscaler)
+## 3. Defeating Corporate "Zero Trust" Software (e.g., Zscaler)
 
-Se si usa un computer aziendale con software di sorveglianza/Zero Trust (come Zscaler), la semplice app VPN non basta per nascondere la propria posizione geografica (es. far credere all'azienda di essere a Milano mentre si è a Il Cairo). Zscaler legge le reti Wi-Fi circostanti (BSSID), il GPS e il fuso orario, e va spesso in conflitto con le schede di rete virtuali della VPN.
+If using a corporate computer with surveillance/Zero Trust software (like Zscaler), a simple VPN app isn't enough to hide your geographic location (e.g., making the company think you are in Milan while actually in Cairo). Zscaler reads surrounding Wi-Fi networks (BSSIDs), GPS, and time zones, and often conflicts with VPN virtual network adapters.
 
-**La Tecnica del "Router Matrioska" (Invisibilità Hardware):**
-1. **Vietato** installare Tailscale sul PC aziendale.
-2. Si utilizza un router da viaggio (GL.iNet) configurato con Tailscale (collegato all'Exit Node italiano).
-3. Si disabilita (o si spegne totalmente) la scheda Wi-Fi del computer aziendale.
-4. Si collega il PC aziendale al router GL.iNet esclusivamente tramite **Cavo Ethernet (LAN)**.
+**The "Matryoshka Router" Technique (Hardware Invisibility):**
+1. **Forbidden**: Do not install Tailscale on the corporate PC.
+2. Use a travel router (GL.iNet) configured with Tailscale (connected to the Italian Exit Node).
+3. Disable (or completely power off) the Wi-Fi adapter on the corporate computer.
+4. Connect the corporate PC to the GL.iNet router exclusively via an **Ethernet Cable (LAN)**.
 
-**Effetto**: Il software aziendale non potrà "annusare" le reti Wi-Fi egiziane circostanti essendo il Wi-Fi spento. Vedrà solo un generico collegamento cablato Ethernet e, facendo un test dell'IP, risulterà a tutti gli effetti il tuo IP residenziale italiano. Il PC aziendale crederà fisicamente di essere attaccato al muro del tuo salotto in Italia.
+**Effect**: The corporate software cannot "sniff" the surrounding Egyptian Wi-Fi networks since the Wi-Fi is off. It will only see a generic wired Ethernet connection and, upon testing the IP, it will effectively show your Italian residential IP. The corporate PC will physically believe it is plugged into the wall of your living room in Italy.

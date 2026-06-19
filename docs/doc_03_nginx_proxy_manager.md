@@ -68,5 +68,3 @@ proxy_send_timeout 86400s;
 
 From this moment on, `https://vpn.yourdomain.duckdns.org` is active, secure, and ready!
 
----
-**Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md) | **Next:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)

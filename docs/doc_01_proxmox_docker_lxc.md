@@ -60,5 +60,3 @@ sh get-docker.sh
 
 At this point, the container is a fully weaponized Docker host, ready to orchestrate our Sovereign Homelab.
 
----
-**Previous:** [Runbook 00: Master Setup](doc_00_master_setup.md) | **Next:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md)
