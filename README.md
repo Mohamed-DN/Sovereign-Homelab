@@ -66,12 +66,22 @@ graph TD
 
 ## Documentation and Guided Tutorials
 
+- **[Start Here](START_HERE.md)**: Percorso operativo consigliato, dall'infrastruttura base alle app.
+- **[Roadmap Sovereign Homelab](docs/ROADMAP_SOVEREIGN_HOMELAB.md)**: Fasi, prerequisiti, checklist e definition of done.
+- **[Open Source Stack Catalog](docs/STACK_CATALOG_OPEN_SOURCE.md)**: Componenti core e opzionali ragionati.
 - **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: Build the core Docker stack.
 - **[01. Proxmox, Docker & LXC Setup](docs/doc_01_proxmox_docker_lxc.md)**: Prepare the virtualization environment.
 - **[02. AdGuard Home Setup](docs/doc_02_adguard_home.md)**: Configure DNS filtering and rewrites.
 - **[03. Nginx Proxy Manager](docs/doc_03_nginx_proxy_manager.md)**: Configure HTTPS, reverse proxying, and Headscale routing.
 - **[04. Headscale VPN & Device Onboarding](docs/doc_04_headscale_vpn.md)**: Configure Headscale, MagicDNS, clients, and the LXC 100 subnet router.
 - **[05. Proxmox Host Exit Node](docs/doc_05_proxmox_exit_node.md)**: Install Tailscale on the physical Proxmox host and advertise it as the full-tunnel exit node.
+- **[06. Headscale Hardening](docs/doc_06_headscale_hardening.md)**: Grants, tags, route auto-approval, audit and OIDC preparation.
+- **[07. Identity SSO Authentik](docs/doc_07_identity_sso_authentik.md)**: SSO, MFA, OIDC and proxy-provider protection.
+- **[08. Observability Dashboard](docs/doc_08_observability_dashboard.md)**: Homepage, Uptime Kuma, Beszel and Dozzle.
+- **[09. Backup and DR](docs/doc_09_backup_dr.md)**: PBS, restore tests, retention and restic offsite.
+- **[10. Core Apps](docs/doc_10_core_apps.md)**: Vaultwarden, Immich, Nextcloud AIO and Syncthing.
+- **[11. Security Operations](docs/doc_11_security_operations.md)**: Update policy, secret rotation, exposure registry, CrowdSec and Wazuh.
+- **[Stack Templates](stacks/README.md)**: Docker Compose templates for identity, observability, apps and security.
 - **[Infrastructure Plan & Map](docs/infrastructure_plan_and_map.md)**: Current physical/logical layout and roadmap.
 - **[Ideas for the Future](docs/ideas_for_the_future.md)**: Advanced personal-network expansion ideas.
 

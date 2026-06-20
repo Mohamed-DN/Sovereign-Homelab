@@ -1,0 +1,41 @@
+- Network:
+    - AdGuard Home:
+        href: http://192.168.1.50:3000
+        description: DNS filtering and rewrites
+    - Headscale:
+        href: https://vpn.yourdomain.duckdns.org
+        description: Mesh VPN control plane
+    - Headscale UI:
+        href: https://vpn.yourdomain.duckdns.org/web
+        description: Device and route management
+    - Nginx Proxy Manager:
+        href: http://192.168.1.50:81
+        description: Reverse proxy and certificates
+
+- Operations:
+    - Authentik:
+        href: https://auth.yourdomain.duckdns.org
+        description: SSO and MFA
+    - Uptime Kuma:
+        href: https://status.yourdomain.duckdns.org
+        description: Uptime and alerts
+    - Beszel:
+        href: https://monitor.yourdomain.duckdns.org
+        description: Host and container metrics
+    - Dozzle:
+        href: https://logs.yourdomain.duckdns.org
+        description: Docker live logs
+
+- Apps:
+    - Vaultwarden:
+        href: https://pwd.yourdomain.duckdns.org
+        description: Password vault
+    - Immich:
+        href: https://foto.yourdomain.duckdns.org
+        description: Photo and video backup
+    - Nextcloud:
+        href: https://files.yourdomain.duckdns.org
+        description: Personal cloud
+    - Syncthing:
+        href: https://sync.yourdomain.duckdns.org
+        description: Peer-to-peer file sync

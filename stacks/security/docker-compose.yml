@@ -1,0 +1,21 @@
+name: sovereign-security
+
+services:
+  crowdsec:
+    image: crowdsecurity/crowdsec:latest
+    container_name: crowdsec
+    restart: unless-stopped
+    environment:
+      COLLECTIONS: ${CROWDSEC_COLLECTIONS}
+      GID: "1000"
+    ports:
+      - "${CROWDSEC_API_PORT}:8080"
+    volumes:
+      - crowdsec_data:/var/lib/crowdsec/data
+      - crowdsec_config:/etc/crowdsec
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ${NPM_LOG_DIR}:/var/log/npm:ro
+
+volumes:
+  crowdsec_data:
+  crowdsec_config:
