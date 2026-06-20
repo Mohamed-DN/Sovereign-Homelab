@@ -1,40 +1,60 @@
-# Runbook 04: Headscale & The Mesh VPN (Guided Tutorial)
+# Runbook 04: Headscale and the Mesh VPN
 
-Headscale is the "orchestrator" of your private network. It doesn't route data itself, but manages the security "keys". Devices use the **Tailscale** app to connect, but we force them to talk to your **personal Headscale** instead of Tailscale's commercial servers.
+Headscale is the control plane for the private mesh VPN. It does not carry user traffic itself; it coordinates identities, keys, DNS settings, and route approval for Tailscale-compatible clients.
 
-> 🎓 **The Theory: Why a Mesh VPN?**: Traditionally, to access your home server from outside, you had to open a port on your router (Port Forwarding). This is extremely dangerous, as hackers constantly scan the internet for open ports to attack. 
-> A Mesh VPN (built on WireGuard) reverses this. Your phone and your server both connect to the Headscale orchestrator to exchange encryption keys. Then, your phone reaches out *directly* to your server. Because the connection was initiated from the inside-out, the router's firewall allows the traffic through without needing any open ports. You are invisible to the public internet, yet fully connected to your home LAN.
+Current gateway roles:
 
-## Phase A: Configuration and Setup (CRITICAL YAML MODIFICATIONS)
+- **LXC 100 (`core-network`)** runs Headscale, Headscale-UI, AdGuard Home, and the normal subnet-router role for `192.168.1.0/24`.
+- **Proxmox host (`P710`)** is the preferred durable exit node for full-tunnel traffic. That setup is documented in [Runbook 05](doc_05_proxmox_exit_node.md).
 
-If you did not use the Master Setup Script (Runbook 00) to auto-patch the configuration, you MUST manually edit the `/opt/core-network/headscale/config/config.yaml` file. 
-
-1. **The iOS/Mobile Bug (`server_url`)**: 
-   By default, Headscale suggests a local IP or `127.0.0.1`. **You must change this to your public HTTPS DuckDNS domain from the very beginning**. 
-   - Change to: `server_url: https://vpn.yourdomain.duckdns.org` (Strictly use `https://` and DO NOT specify port 8080 here).
-   > 🎓 **Why this breaks iOS**: If you start the server with a local IP (like `192.168.1.50`), mobile apps will cache it as the absolute truth. When you leave your house and switch to 4G, iOS will aggressively try to reach `192.168.1.50` over the cellular network. Since that local IP doesn't exist on the cell network, it crashes into an infinite timeout loop. Using the public DuckDNS domain from day one ensures the app always knows how to find home.
-
-2. **The Reverse Proxy Block (`listen_addr`)**:
-   By default, Headscale only listens to localhost (`127.0.0.1`). 
-   - Change to: `listen_addr: 0.0.0.0:8080` (Allows Nginx to pass traffic)
-   - Change to: `metrics_listen_addr: 0.0.0.0:9090` (Optional, opens metrics)
-   > 🎓 **The 0.0.0.0 Trick**: In networking, `127.0.0.1` means "Talk strictly to yourself". If we left it like that, Nginx Proxy Manager (which is the gatekeeper handling the HTTPS encryption) would be blocked from forwarding the external traffic to Headscale. By changing it to `0.0.0.0`, we tell Headscale: "Listen to everyone, including Nginx".
-
-*(If you manually modify this file, remember to apply the changes by running `docker restart headscale`).*
-
-On the **Proxmox** terminal (LXC 100), create your "user" or "workspace":
-```bash
-docker exec headscale headscale users create home
-*(You can view the list of users and their numeric ID with `docker exec headscale headscale users list`)*
-```
+The design keeps the control plane and DNS services inside LXC 100 while allowing the physical host to carry full-tunnel exit traffic.
 
 ---
 
-## Phase A.2: MagicDNS Configuration (AdGuard Integration)
-To ensure devices connected via 4G/Cellular use AdGuard's ad-blocking, you must enforce the DNS server through Headscale.
+## Phase A: Headscale Configuration
 
-Open the file `/opt/core-network/headscale/config/config.yaml` and look for the `dns:` section.
-Set it up like this, deleting the old public IPs under `global` and inserting AdGuard's IP:
+If you did not use the Master Setup Script from [Runbook 00](doc_00_master_setup.md), edit this file inside LXC 100:
+
+```bash
+nano /opt/core-network/headscale/config/config.yaml
+```
+
+Set the public server URL from the beginning:
+
+```yaml
+server_url: https://vpn.yourdomain.duckdns.org
+```
+
+Use the HTTPS DuckDNS hostname, not `127.0.0.1`, not `192.168.1.50`, and not a URL with port `8080`. Mobile clients cache the control URL aggressively; if they learn a local IP first, they can fail when you leave home Wi-Fi.
+
+Allow the reverse proxy to reach Headscale:
+
+```yaml
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 0.0.0.0:9090
+```
+
+Restart Headscale after configuration changes:
+
+```bash
+docker restart headscale
+```
+
+Create the Headscale user/workspace:
+
+```bash
+docker exec headscale headscale users create home
+docker exec headscale headscale users list
+```
+
+In newer Headscale commands, many operations use the numeric user ID. In this lab it is usually `1`, but always confirm with `users list`.
+
+---
+
+## Phase B: MagicDNS and AdGuard Integration
+
+To force remote clients on 4G/5G or hotel Wi-Fi to use AdGuard Home, configure Headscale DNS in `/opt/core-network/headscale/config/config.yaml`:
+
 ```yaml
 dns:
   magic_dns: true
@@ -44,145 +64,268 @@ dns:
       - 192.168.1.50
   override_local_dns: true
 ```
-> 🎓 **Why MagicDNS?**: When you are outside on 4G, your phone uses the cellular provider's DNS (which tracks you and shows ads). By configuring this block, Headscale forces the Tailscale app to tunnel all DNS queries back home to your AdGuard IP (`192.168.1.50`). You get ad-blocking everywhere in the world, on any network.
 
-Save the file and restart the server: `docker restart headscale`.
+Then restart Headscale:
+
+```bash
+docker restart headscale
+```
+
+Expected behavior:
+
+- Clients inside the mesh use AdGuard Home at `192.168.1.50`.
+- Ads and trackers are filtered even when the device is outside the house.
+- Internal names and DNS rewrites remain consistent with the home LAN.
 
 ---
 
-## Phase B: Adding PCs and Macs
+## Phase C: Add PCs and Macs
 
-### On Windows (Foolproof Method with Pre-Auth Key)
-The Windows app often conflicts with the web interface for custom servers. The best method is to generate a key on the server and force the connection.
-1. Download and install the official Tailscale app for Windows.
-   *(Note: in newer Headscale versions you must use the user's NUMBER, usually `1`. Check the number with `docker exec headscale headscale users list` before running the command)*:
-   ```bash
-   docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h
-   ```
-2. On Windows, open **PowerShell as administrator** and run:
-   ```powershell
-   tailscale up --login-server http://192.168.1.50:8080 --authkey PASTE_THE_KEY_HERE --force-reauth
-   ```
+### Windows with a Pre-Auth Key
 
-### On Linux / Mac (via terminal)
-1. Install Tailscale (on Mac download it from the App Store, on Linux use the script `curl -fsSL https://tailscale.com/install.sh | sh`).
-2. Open the terminal and run:
-   ```bash
-   sudo tailscale up --login-server http://192.168.1.50:8080
-   ```
-3. Copy the generated `nodekey`.
+Generate a temporary key from LXC 100:
 
-### Approving PCs on the Server
-Go back to the **Proxmox** terminal (LXC 100) and run this command to accept the device:
 ```bash
-docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
-```
-*Your PC is now in the mesh network!*
-
----
-
-## Phase C: Adding Mobile Devices (iOS and Android)
-
-Ensure the phone is connected to the home Wi-Fi the first time.
-
-### On iPhone / iPad (iOS) - NovaAccess Method (Recommended)
-The official Tailscale app has known bugs when adding custom servers via a reverse proxy. The best and most stable approach is to use an independent app.
-1. Download **NovaAccess** from the App Store (it natively supports custom servers like Headscale).
-2. Generate a key directly from the Proxmox server: `docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h`
-3. Open NovaAccess, enter Nginx's public URL (e.g., `https://vpn.yourdomain.duckdns.org`) as the *Control URL*.
-4. Paste the generated key into the *Auth Key* field.
-5. Click **Login to Tailnet**. You will be instantly connected, completely bypassing the buggy menus of the official app!
-
-### On Android
-1. Download **Tailscale** from the Play Store and open it.
-2. Tap the **three dots** in the top right.
-3. Select **Change Server**.
-4. Enter `http://192.168.1.50:8080` and save.
-5. Tap **Sign in**. The phone's browser will open and show you the exact command with your `nodekey` to paste into Proxmox.
-
----
-
-## Phase D: Useful Server Commands
-
-To see all connected devices and their "private" IP addresses:
-```bash
-docker exec headscale headscale nodes list
+docker exec headscale headscale users list
+docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h
 ```
 
-To delete a device (e.g., an old phone):
-```bash
-docker exec headscale headscale nodes delete -i [DEVICE_ID]
+On Windows, open PowerShell as Administrator:
+
+```powershell
+tailscale up --login-server https://vpn.yourdomain.duckdns.org --authkey PASTE_THE_KEY_HERE --force-reauth
 ```
 
----
+### Linux or macOS with Manual Registration
 
-## Phase E: The Subnet Router (Fixing LAN Access & DNS on 4G)
+Install Tailscale on Linux:
 
-If you connect from a phone on 4G, you are on the VPN, but you cannot reach AdGuard (`192.168.1.50`) because the VPN doesn't know where your physical home network is. To fix this, we must install a "Subnet Router" on the server.
-
-> 🎓 **The Theory**: Headscale is just the control tower; it doesn't route traffic. By installing a Tailscale client *directly on the server* and telling it to "Advertise" the `192.168.1.x` network to the VPN, the server becomes a bridge. When your phone on 4G asks for `192.168.1.50`, the traffic flows through the encrypted tunnel to the server, crosses the bridge, and hits AdGuard. Boom: ad-blocking and local IP access from anywhere in the world!
-
-**Step 1: Enable IP Forwarding on LXC 100**
-Log into the console of your `core-network` container (LXC 100) and run:
-```bash
-echo 'net.ipv4.ip_forward = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
-echo 'net.ipv6.conf.all.forwarding = 1' | tee -a /etc/sysctl.d/99-tailscale.conf
-sysctl -p /etc/sysctl.d/99-tailscale.conf
-```
-
-**Step 2: Install the Tailscale Client**
-Still in LXC 100, run the automated installer:
 ```bash
 curl -fsSL https://tailscale.com/install.sh | sh
 ```
 
-**Step 3: Connect and Advertise the Network (and Exit Node)**
-Start the client, telling it to advertise your entire home subnet (`192.168.1.0/24`) AND offering itself as an Exit Node. We use `--accept-dns=false` so the server itself doesn't loop its own DNS queries:
+Start the client against Headscale:
+
 ```bash
-tailscale up --login-server http://192.168.1.50:8080 --advertise-routes=192.168.1.0/24 --advertise-exit-node --accept-dns=false
+sudo tailscale up --login-server https://vpn.yourdomain.duckdns.org
 ```
-Copy the generated `nodekey`.
 
-> 🎓 **Subnet Router vs Exit Node**: 
-> - **Subnet Router**: Forwards ONLY local traffic (e.g., `192.168.1.50` for AdGuard or Nextcloud). Normal internet traffic (YouTube, Instagram) goes directly via your fast 4G connection.
-> - **Exit Node**: If you select the Exit Node from your phone's Tailscale app, **ALL** your internet traffic is tunneled through your home server. This is slower (depends on your home upload speed) but hides your IP completely and acts as a massive shield when using public Wi-Fi. Having both options active gives you the power to choose!
+Copy the generated `nodekey`, then approve it from LXC 100:
 
-**Step 4: Register the Server in Headscale**
-Just like adding a PC, register the server as a node:
 ```bash
 docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
 ```
 
-**Step 5: Approve the Routes (The Bridge is Built)**
-Headscale now knows the server *wants* to share the network, but you must approve it for security.
-1. Find the Route ID:
-```bash
-docker exec headscale headscale routes list
-```
-*(Look for the ID of the `192.168.1.0/24` route AND the Exit Node route `0.0.0.0/0`. Let's assume they are `1` and `2`)*.
+Verify:
 
-2. Enable the routes:
 ```bash
-docker exec headscale headscale routes enable -r 1
-docker exec headscale headscale routes enable -r 2
+docker exec headscale headscale nodes list
 ```
-
-**Success!** Your phone on 4G can now ping `192.168.1.50`, your ads will be blocked, and you can reach all your local services without exposing any ports!
 
 ---
 
-## Phase F: Managing from your Cellphone (Headscale-UI)
+## Phase D: Add Mobile Devices
 
-Typing `docker exec...` commands is tedious. Since we installed **Headscale-UI** in the Master Script, you can manage your devices and routes directly from a beautiful graphical interface on your phone!
+The first login is easiest from home Wi-Fi because split-brain DNS already sends `vpn.yourdomain.duckdns.org` to `192.168.1.50`.
 
-1. Make sure you are connected to the home Wi-Fi (or the VPN).
-2. Open Safari/Chrome on your phone and go to: `https://vpn.yourdomain.duckdns.org/web`
-3. Go to **Settings** in the UI (the gear icon on the left).
-4. **Headscale Server**: Enter `https://vpn.yourdomain.duckdns.org`.
-5. Generate an API key from the Proxmox console to link it:
+### iPhone or iPad
+
+Use a client that supports custom Headscale servers reliably. If using NovaAccess:
+
+1. Generate a pre-auth key from LXC 100:
+
    ```bash
-   docker exec headscale headscale apikeys create --expiration 90d
+   docker exec headscale headscale preauthkeys create -u 1 --reusable --expiration 24h
    ```
-6. Paste the API key into the Web UI and hit **Test/Save**. 
-Now you can view connected phones, delete old devices, and approve routes with a simple tap on your screen!
 
+2. Set the control URL to:
+
+   ```text
+   https://vpn.yourdomain.duckdns.org
+   ```
+
+3. Paste the pre-auth key and join the tailnet.
+
+### Android
+
+In the Tailscale app:
+
+1. Open the server/control URL settings.
+2. Set the server to `https://vpn.yourdomain.duckdns.org`.
+3. Sign in.
+4. If the app shows a `nodekey`, approve it from LXC 100:
+
+   ```bash
+   docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
+   ```
+
+---
+
+## Phase E: Useful Headscale Commands
+
+List connected nodes:
+
+```bash
+docker exec headscale headscale nodes list
+```
+
+Delete an old node:
+
+```bash
+docker exec headscale headscale nodes delete -i DEVICE_ID
+```
+
+List advertised and approved routes:
+
+```bash
+docker exec headscale headscale nodes list-routes
+```
+
+Approve a route:
+
+```bash
+docker exec headscale headscale nodes approve-routes --identifier NODE_ID --routes 192.168.1.0/24
+```
+
+Approve an exit node:
+
+```bash
+docker exec headscale headscale nodes approve-routes --identifier NODE_ID --routes 0.0.0.0/0
+```
+
+These `nodes list-routes` and `nodes approve-routes` commands are the current route-management syntax used by this lab.
+
+---
+
+## Phase F: LXC 100 as the Subnet Router
+
+The subnet router lets remote VPN clients reach physical LAN addresses such as AdGuard Home at `192.168.1.50`.
+
+Run these commands inside **LXC 100**.
+
+Enable forwarding:
+
+```bash
+cat >/etc/sysctl.d/99-tailscale.conf <<'EOF'
+net.ipv4.ip_forward = 1
+net.ipv6.conf.all.forwarding = 1
+EOF
+
+sysctl -p /etc/sysctl.d/99-tailscale.conf
+```
+
+Install Tailscale:
+
+```bash
+curl -fsSL https://tailscale.com/install.sh | sh
+```
+
+Advertise the home LAN route:
+
+```bash
+tailscale up \
+  --login-server https://vpn.yourdomain.duckdns.org \
+  --advertise-routes=192.168.1.0/24 \
+  --accept-dns=false
+```
+
+If the command gives a `nodekey`, register it from LXC 100 through the Headscale container:
+
+```bash
+docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
+```
+
+Approve the subnet route:
+
+```bash
+docker exec headscale headscale nodes list-routes
+docker exec headscale headscale nodes approve-routes --identifier LXC100_NODE_ID --routes 192.168.1.0/24
+docker exec headscale headscale nodes list-routes
+```
+
+Expected result: `192.168.1.0/24` appears under `Approved` and `Serving`.
+
+For full-tunnel internet traffic, continue with [Runbook 05: Proxmox Host as Tailscale Exit Node](doc_05_proxmox_exit_node.md).
+
+---
+
+## Phase G: Manage from Headscale-UI
+
+Headscale-UI is exposed through Nginx Proxy Manager at:
+
+```text
+https://vpn.yourdomain.duckdns.org/web
+```
+
+Generate an API key from LXC 100:
+
+```bash
+docker exec headscale headscale apikeys create --expiration 90d
+```
+
+In the UI settings:
+
+- Headscale server: `https://vpn.yourdomain.duckdns.org`
+- API key: paste the generated key
+
+You can then view nodes, remove old devices, and approve advertised routes from the browser.
+
+---
+
+## Troubleshooting
+
+### Tailscale cannot start because `/dev/net/tun` is missing
+
+On the node running Tailscale:
+
+```bash
+ls -l /dev/net/tun
+modprobe tun
+systemctl restart tailscaled
+```
+
+For LXC containers, also verify the Proxmox LXC configuration allows TUN access.
+
+### Routes appear but LAN access still fails
+
+Use the current route commands:
+
+```bash
+docker exec headscale headscale nodes list-routes
+docker exec headscale headscale nodes approve-routes --identifier LXC100_NODE_ID --routes 192.168.1.0/24
+```
+
+Then confirm forwarding:
+
+```bash
+sysctl net.ipv4.ip_forward
+sysctl net.ipv6.conf.all.forwarding
+```
+
+Both values must be `1`.
+
+### DNS loops or the server loses DNS
+
+Infrastructure nodes should not consume the DNS settings they publish to clients:
+
+```bash
+tailscale set --accept-dns=false
+```
+
+Clients should use AdGuard through Headscale MagicDNS, but LXC 100 and the Proxmox host should keep stable local resolvers.
+
+### Exit node is not visible on the phone
+
+Exit-node approval is separate from subnet-route approval. From LXC 100:
+
+```bash
+docker exec headscale headscale nodes list-routes
+docker exec headscale headscale nodes approve-routes --identifier PROXMOX_NODE_ID --routes 0.0.0.0/0
+```
+
+The Proxmox host exit-node setup is covered in [Runbook 05](doc_05_proxmox_exit_node.md).
+
+---
+
+**Previous:** [Runbook 03: Nginx Proxy Manager](doc_03_nginx_proxy_manager.md)
+**Next:** [Runbook 05: Proxmox Exit Node](doc_05_proxmox_exit_node.md)
