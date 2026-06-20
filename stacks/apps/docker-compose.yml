@@ -1,0 +1,102 @@
+name: sovereign-apps
+
+services:
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${VAULTWARDEN_DOMAIN}
+      ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: "false"
+      WEBSOCKET_ENABLED: "true"
+      TZ: ${TZ}
+    ports:
+      - "${VAULTWARDEN_PORT}:80"
+    volumes:
+      - vaultwarden_data:/data
+
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "${SYNCTHING_UI_PORT}:8384"
+      - "${SYNCTHING_TCP_PORT}:22000/tcp"
+      - "${SYNCTHING_TCP_PORT}:22000/udp"
+      - "${SYNCTHING_DISCOVERY_PORT}:21027/udp"
+    volumes:
+      - syncthing_config:/var/syncthing/config
+      - ./data/syncthing:/var/syncthing/data
+
+  immich-server:
+    profiles: ["immich"]
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
+    container_name: immich-server
+    restart: unless-stopped
+    depends_on:
+      - immich-redis
+      - immich-database
+    environment:
+      DB_HOSTNAME: immich-database
+      DB_USERNAME: ${IMMICH_DB_USERNAME}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME}
+      REDIS_HOSTNAME: immich-redis
+      TZ: ${TZ}
+    ports:
+      - "${IMMICH_PORT}:2283"
+    volumes:
+      - ${IMMICH_UPLOAD_LOCATION}:/usr/src/app/upload
+      - /etc/localtime:/etc/localtime:ro
+
+  immich-machine-learning:
+    profiles: ["immich"]
+    image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}
+    container_name: immich-machine-learning
+    restart: unless-stopped
+    volumes:
+      - immich_model_cache:/cache
+
+  immich-redis:
+    profiles: ["immich"]
+    image: docker.io/valkey/valkey:8-alpine
+    container_name: immich-redis
+    restart: unless-stopped
+
+  immich-database:
+    profiles: ["immich"]
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    container_name: immich-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
+      POSTGRES_USER: ${IMMICH_DB_USERNAME}
+      POSTGRES_DB: ${IMMICH_DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+      - ${IMMICH_DB_DATA_LOCATION}:/var/lib/postgresql/data
+
+  nextcloud-aio-mastercontainer:
+    profiles: ["nextcloud"]
+    image: nextcloud/all-in-one:latest
+    container_name: nextcloud-aio-mastercontainer
+    restart: unless-stopped
+    init: true
+    environment:
+      APACHE_PORT: ${NEXTCLOUD_APACHE_PORT}
+      APACHE_IP_BINDING: 0.0.0.0
+      NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR}
+    ports:
+      - "${NEXTCLOUD_AIO_PORT}:8080"
+    volumes:
+      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+volumes:
+  vaultwarden_data:
+  syncthing_config:
+  immich_model_cache:
+  nextcloud_aio_mastercontainer:

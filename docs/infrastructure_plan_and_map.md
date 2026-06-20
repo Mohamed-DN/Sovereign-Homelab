@@ -22,6 +22,8 @@ graph TD
     Subnet["Subnet router<br>LXC 100 advertises 192.168.1.0/24"]
     Exit["Exit node<br>Proxmox host P710 advertises 0.0.0.0/0"]
     Proxy["Nginx Proxy Manager<br>HTTP/HTTPS gateway"]
+    Auth["Authentik<br>SSO and MFA"]
+    Obs["Observability<br>Homepage / Uptime Kuma / Beszel"]
 
     User -->|Home Wi-Fi DNS| Router
     Router -->|DHCP/DNS forward| DNS
@@ -33,6 +35,8 @@ graph TD
     Exit -->|Residential internet exit| Internet
     DNS -->|Filtered DNS recursion| Internet
     User -->|Internal HTTPS names| Proxy
+    Proxy -->|auth.<domain>| Auth
+    Proxy -->|dash/status/monitor| Obs
 
     Proxy -->|pwd.local| Vault["Vaultwarden"]
     Proxy -->|foto.local| Immich["Immich"]
@@ -56,11 +60,18 @@ mindmap
       Tailscale Subnet Router
     LXC 101: Services and Apps
       Nginx Proxy Manager
+      Authentik
+      Homepage.dev
+      Uptime Kuma
+      Beszel
+      Dozzle
       Vaultwarden
       Immich
       Nextcloud
-      Homepage.dev
       RustDesk
+    Security Layer
+      CrowdSec
+      Wazuh optional
     Virtual Machines
       Proxmox Backup Server
       Home Assistant
@@ -83,6 +94,7 @@ Completed or documented:
 - **MagicDNS** forcing remote clients to use AdGuard at `192.168.1.50`.
 - **LXC 100 subnet router** advertising `192.168.1.0/24`.
 - **Proxmox host exit node** documented in [Runbook 05](doc_05_proxmox_exit_node.md).
+- **Headscale hardening** documented in [Runbook 06](doc_06_headscale_hardening.md).
 
 Validation checklist:
 
@@ -92,7 +104,44 @@ Validation checklist:
 - Selecting the Proxmox exit node shows the home Italian public IP.
 - DNS continues to resolve through AdGuard Home.
 
-### Phase 2: Traffic Forwarding and Core Services
+### Phase 2: Identity and Access Control
+
+Goal: add SSO/MFA and protect internal dashboards without making everything public.
+
+Planned services:
+
+- **Authentik** as identity provider.
+- **Proxy provider / forward auth** for internal UIs.
+- **OIDC for Headscale** as an advanced step after the VPN base is stable.
+
+Runbook: [doc_07_identity_sso_authentik.md](doc_07_identity_sso_authentik.md)
+
+### Phase 3: Observability and Dashboard
+
+Goal: know when DNS, VPN, proxy, identity or apps are failing.
+
+Planned services:
+
+- **Homepage.dev** for navigation.
+- **Uptime Kuma** for uptime checks and alerts.
+- **Beszel** for host/container metrics.
+- **Dozzle** for live Docker logs.
+
+Runbook: [doc_08_observability_dashboard.md](doc_08_observability_dashboard.md)
+
+### Phase 4: Backup and Disaster Recovery
+
+Goal: restore the lab, not only collect backups.
+
+Planned services:
+
+- **Proxmox Backup Server** for VM/LXC backups.
+- **restic** for optional encrypted offsite backups.
+- Scheduled restore tests.
+
+Runbook: [doc_09_backup_dr.md](doc_09_backup_dr.md)
+
+### Phase 5: Traffic Forwarding and Core Services
 
 Goal: host personal services behind clean internal names and valid HTTPS.
 
@@ -103,35 +152,31 @@ Planned services:
 - **Nextcloud / Syncthing** for file synchronization.
 - **Nginx Proxy Manager** as the HTTPS entry point for internal services.
 
-### Phase 3: Monitoring and Dashboard
+Runbook: [doc_10_core_apps.md](doc_10_core_apps.md)
 
-Goal: observe service health and receive alerts before failures become incidents.
+### Phase 6: Security Operations
 
-Planned services:
-
-- **Homepage.dev** for a central dashboard.
-- **Beszel** for host/container resource visibility.
-- **Uptime Kuma** for HTTP, TCP, and ping checks.
-
-### Phase 4: Backup and Remote Control
-
-Goal: protect the platform and provide private remote assistance tools.
+Goal: keep the platform maintainable and auditable.
 
 Planned services:
 
-- **Proxmox Backup Server** as a dedicated VM with deduplication.
-- **RustDesk** for private remote control.
+- **CrowdSec** if services are exposed publicly.
+- **Wazuh** as advanced SIEM/XDR if resources allow.
+- Update, secret rotation and incident-response runbooks.
 
-### Phase 5: Identity and Future Expansion
+Runbook: [doc_11_security_operations.md](doc_11_security_operations.md)
 
-Goal: centralize authentication and expand the personal infrastructure.
+### Phase 7: Future Expansion
+
+Goal: expand without weakening the foundation.
 
 Planned services:
 
-- **Authelia or Authentik** for SSO.
 - **Home Assistant** as a VM for full supervisor/add-on support.
 - **Secondary AdGuard + Keepalived** for DNS high availability.
+- **RustDesk** for private remote support.
+- **Jellyfin / Paperless-ngx** only after backup and monitoring are stable.
 
 ---
 
-**Previous:** [Runbook 05: Proxmox Exit Node](doc_05_proxmox_exit_node.md)
+**Previous:** [Runbook 11: Security Operations](doc_11_security_operations.md)

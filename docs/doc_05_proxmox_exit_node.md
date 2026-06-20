@@ -289,4 +289,4 @@ Official references:
 ---
 
 **Previous:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)
-**Next:** [Infrastructure Plan & Map](infrastructure_plan_and_map.md)
+**Next:** [Runbook 06: Headscale Hardening](doc_06_headscale_hardening.md)
