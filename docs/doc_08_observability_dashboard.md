@@ -1,34 +1,34 @@
-# Runbook 08: Observability, Dashboard e Log
+# Runbook 08: Observability, Dashboard, and Logs
 
-Questa fase ti permette di capire rapidamente se il lab e sano.
+This phase lets you quickly understand whether the lab is healthy.
 
-Componenti core:
+Core components:
 
-- **Homepage**: dashboard e link.
-- **Uptime Kuma**: controlli e alert.
-- **Beszel**: metriche host/container.
-- **Dozzle**: log Docker live.
+- **Homepage**: dashboard and links.
+- **Uptime Kuma**: checks and alerts.
+- **Beszel**: host/container metrics.
+- **Dozzle**: live Docker logs.
 
 ---
 
-## Phase A: Modello di accesso
+## Phase A: Access Model
 
-Accesso consigliato:
+Recommended access:
 
-| Servizio | Hostname | Accesso |
+| Service | Hostname | Access |
 |---|---|---|
-| Homepage | `dash.<domain>` | VPN o Authentik |
-| Uptime Kuma | `status.<domain>` | VPN o Authentik |
-| Beszel | `monitor.<domain>` | VPN o Authentik |
-| Dozzle | `logs.<domain>` | Solo admin via VPN o Authentik |
+| Homepage | `dash.<domain>` | VPN or Authentik |
+| Uptime Kuma | `status.<domain>` | VPN or Authentik |
+| Beszel | `monitor.<domain>` | VPN or Authentik |
+| Dozzle | `logs.<domain>` | Admin only via VPN or Authentik |
 
-Dozzle legge il Docker socket. Trattalo come strumento admin, non come app pubblica.
+Dozzle reads the Docker socket. Treat it as an admin tool, not as a public app.
 
 ---
 
 ## Phase B: Deploy
 
-Prima controlla [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md) e [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md).
+First check [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md) and [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md).
 
 Template:
 
@@ -39,7 +39,7 @@ stacks/observability/
   homepage/
 ```
 
-Installazione:
+Installation:
 
 ```bash
 cd /opt/sovereign/stacks/observability
@@ -51,9 +51,9 @@ docker compose ps
 
 ---
 
-## Phase C: NPM proxy hosts
+## Phase C: NPM Proxy Hosts
 
-Configura in Nginx Proxy Manager:
+Configure in Nginx Proxy Manager:
 
 | Hostname | Forward port | Websockets |
 |---|---:|---|
@@ -62,63 +62,63 @@ Configura in Nginx Proxy Manager:
 | `monitor.<domain>` | `8090` | Yes |
 | `logs.<domain>` | `8088` | Yes |
 
-Poi scegli:
+Then choose:
 
-- accesso solo da VPN, usando DNS interno;
-- oppure protezione Authentik per ogni proxy host.
+- access only from VPN, using internal DNS;
+- or Authentik protection for each proxy host.
 
 ---
 
-## Phase D: Uptime Kuma monitor minimi
+## Phase D: Minimum Uptime Kuma Monitors
 
-Crea monitor:
+Create monitors:
 
-| Nome | Tipo | Target |
+| Name | Type | Target |
 |---|---|---|
 | AdGuard DNS | DNS | `192.168.1.50`, record `example.com` |
 | Headscale HTTPS | HTTP(s) | `https://vpn.<domain>` |
 | Headscale-UI | HTTP(s) | `https://vpn.<domain>/web` |
-| NPM UI | HTTP(s) | `http://192.168.1.50:81` o IP reale |
+| NPM UI | HTTP(s) | `http://192.168.1.50:81` or real IP |
 | Authentik | HTTP(s) | `https://auth.<domain>` |
 | Vaultwarden | HTTP(s) | `https://pwd.<domain>` |
 | Immich | HTTP(s) | `https://foto.<domain>` |
 | Nextcloud | HTTP(s) | `https://files.<domain>` |
 
-Alert consigliati:
+Recommended alerts:
 
 - Telegram;
 - email;
-- webhook locale.
+- local webhook.
 
-Regola: ogni servizio che compare in Homepage deve avere anche un monitor Uptime Kuma o una ragione scritta per non averlo.
+Rule: every service shown in Homepage should also have an Uptime Kuma monitor or a written reason for not having one.
 
 ---
 
 ## Phase E: Beszel
 
-Beszel e utile per vedere:
+Beszel is useful for viewing:
 
-- CPU/RAM host;
-- disco;
-- rete;
-- container Docker;
-- storico e alert leggeri.
+- host CPU/RAM;
+- disk;
+- network;
+- Docker containers;
+- history and lightweight alerts.
 
 Setup:
 
-1. Apri `http://SERVER_IP:8090`.
-2. Crea account admin.
-3. Aggiungi il sistema locale.
-4. Se usi agent, copia il token richiesto dalla UI.
-5. Aggiungi alert CPU, RAM, disk e temperature.
+1. Open `http://SERVER_IP:8090`.
+2. Create admin account.
+3. Add the local system.
+4. If using an agent, copy the token required by the UI.
+5. Add CPU, RAM, disk, and temperature alerts.
 
 ---
 
 ## Phase F: Homepage
 
-Homepage deve essere il pannello unico.
+Homepage should be the single panel.
 
-Sezioni consigliate:
+Recommended sections:
 
 - Network: AdGuard, Headscale, NPM.
 - Identity: Authentik.
@@ -127,25 +127,25 @@ Sezioni consigliate:
 - Backup: PBS.
 - Admin: Proxmox, Headscale-UI.
 
-Non mettere password o token nei file YAML pubblici. Se usi widget con API key, tienili fuori da Git o usa file `.env` locali.
+Do not put passwords or tokens in public YAML files. If you use widgets with API keys, keep them out of Git or use local `.env` files.
 
 ---
 
-## Phase G: Log
+## Phase G: Logs
 
-Dozzle serve per log live:
+Dozzle turns live logs:
 
 ```bash
 docker logs -f container_name
 ```
 
-diventa:
+into:
 
 ```text
 https://logs.<domain>
 ```
 
-Regola: Dozzle solo admin. Chi vede i log puo vedere token, errori, path e dettagli sensibili.
+Rule: Dozzle is admin-only. Anyone who can read logs can see tokens, errors, paths, and sensitive details.
 
 ---
 

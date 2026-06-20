@@ -1,109 +1,114 @@
-# Checklist Pre-Deploy
+# Pre-Deploy Checklist
 
-Questa checklist va eseguita prima di installare o aggiornare qualsiasi servizio del Sovereign Homelab.
+Run this checklist before installing or updating any Sovereign Homelab service.
 
-## 1. Identita del servizio
+## 1. Service Identity
 
-Compila prima di installare:
-
-| Campo | Valore |
+| Field | Value |
 |---|---|
-| Nome servizio |  |
-| Categoria | network / identity / observability / backup / app / security |
-| Hostname |  |
-| Porta interna |  |
-| Porta pubblicata |  |
-| Accesso | LAN / VPN / Authentik / pubblico |
-| Dati persistenti |  |
-| Backup incluso | si / no |
-| Monitor Uptime Kuma | si / no |
+| Service name |  |
+| Category | network / identity / observability / backup / app / security |
+| Why it exists |  |
 | Owner | Mohamed |
+| Host/LXC/VM |  |
+| Access | LAN / VPN / Authentik / public |
+| Hostname |  |
+| Internal port |  |
+| Data path |  |
+| Backup method | PBS / restic / app export / none |
 
-Regola: se non sai dove salva i dati, non installarlo.
+Rule: if you do not know where it stores data, do not install it.
 
-## 2. Rete e DNS
+## 2. Network and DNS
 
-- IP host corretto.
-- Porta libera:
+- Correct host IP.
+- Port is not already used:
 
-  ```bash
-  ss -tulpn | grep ':PORT'
-  ```
+```bash
+ss -tulpn
+docker ps --format "table {{.Names}}\t{{.Ports}}"
+```
 
-- DNS rewrite in AdGuard se serve.
-- Proxy host in NPM solo dopo aver verificato la porta locale.
-- Certificato wildcard valido.
-- Servizi admin solo VPN o Authentik.
+- DNS rewrite planned in AdGuard.
+- NPM proxy host only after local port verification.
+- TLS certificate available or planned.
+- Admin services are VPN-only or protected by Authentik.
 
-## 3. File e segreti
+## 3. Files and Secrets
 
-- `.env.example` presente in Git.
-- `.env` reale non tracciato:
+- `.env.example` contains placeholders only.
+- Real `.env` is not committed.
+- `.gitignore` excludes `.env`, secrets, local backups, and dumps.
+- Every `CHANGE_ME` is replaced in the real file.
+- No real token in Markdown.
+- Passwords generated with:
 
-  ```bash
-  git status --short
-  ```
+```bash
+openssl rand -base64 36
+```
 
-- Ogni `CHANGE_ME` sostituito nel file reale.
-- Password generate con:
+## 4. Compose Validation
 
-  ```bash
-  openssl rand -base64 36
-  ```
-
-- Token/API key salvati in password manager.
-
-## 4. Compose
-
-Prima del deploy:
+Before deploy:
 
 ```bash
 docker compose --env-file .env config
-docker compose --env-file .env pull
 ```
 
-Deploy:
+Then:
 
 ```bash
 docker compose --env-file .env up -d
 docker compose ps
-docker compose logs --tail=100 SERVICE_NAME
+docker compose logs --tail=100
 ```
+
+Do not continue if Compose validation fails.
 
 ## 5. Backup
 
-Prima di mettere dati reali:
+Before using real data:
 
-- PBS job configurato.
-- Primo backup completato.
-- Restore test pianificato.
-- Per app critiche, valutare restic offsite.
+- data volumes are known;
+- database location is known;
+- first backup completed;
+- restore test planned;
+- backup retention documented.
 
-## 6. Monitor
+For app databases, filesystem backup alone is not always enough. Prefer app-supported exports or DB dumps when documented by the upstream project.
 
-Creare monitor Uptime Kuma:
+## 6. Monitoring
 
-- HTTP/HTTPS endpoint.
-- TCP port se non e HTTP.
-- DNS check per servizi DNS.
-- Alert su Telegram/email/webhook.
+Add at least one Uptime Kuma monitor:
 
-## 7. Rollback
+- HTTP endpoint for web apps.
+- TCP port if the service is not HTTP.
+- DNS check for DNS services.
+- Certificate expiry check for public HTTPS.
 
-Prima di update:
+Add the service to Homepage only after the monitor exists.
 
-```bash
-docker compose ps
-docker compose images
-docker compose --env-file .env config > compose.rendered.before.yml
+## 7. Update Safety
+
+Before update:
+
+- read release notes;
+- confirm backup exists;
+- record current image tag;
+- run `docker compose config`;
+- update one stack at a time;
+- validate login and data after update.
+
+## 8. Rollback
+
+Write the rollback before deploy:
+
+```text
+Previous image tag:
+Backup location:
+Restore command:
+DNS/NPM change to undo:
+Expected validation after rollback:
 ```
 
-Rollback minimo:
-
-```bash
-docker compose down
-git checkout -- docker-compose.yml .env.example
-docker compose --env-file .env up -d
-```
-
-Se ci sono dati, preferire restore PBS invece di cancellazioni manuali.
+If data exists, prefer PBS restore instead of manual deletion.

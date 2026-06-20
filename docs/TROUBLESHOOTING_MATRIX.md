@@ -2,67 +2,67 @@
 
 ## VPN
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Il client non registra | `docker logs headscale` | controlla `server_url`, NPM, WebSocket, certificato |
-| Il telefono su 4G non raggiunge LAN | `headscale nodes list-routes` | approva `192.168.1.0/24`, abilita `accept-routes` sul client |
-| Exit node non appare | `headscale nodes list-routes` | approva `0.0.0.0/0`, verifica `--advertise-exit-node` |
-| DNS instabile su server | `tailscale debug prefs` | imposta `tailscale set --accept-dns=false` su nodi infra |
-| Tailscale non parte | `ls -l /dev/net/tun` | carica modulo `tun`, abilita TUN per LXC |
-| Policy rompe accessi | `headscale configtest` | rollback policy o commenta `policy.path` |
+| Client does not register | `docker logs headscale` | check `server_url`, NPM, WebSocket, certificate |
+| Phone on 4G cannot reach LAN | `headscale nodes list-routes` | approve `192.168.1.0/24`, enable `accept-routes` on the client |
+| Exit node does not appear | `headscale nodes list-routes` | approve `0.0.0.0/0`, verify `--advertise-exit-node` |
+| DNS is unstable on servers | `tailscale debug prefs` | run `tailscale set --accept-dns=false` on infrastructure nodes |
+| Tailscale does not start | `ls -l /dev/net/tun` | load the `tun` module, enable TUN for LXC |
+| Policy breaks access | `headscale configtest` | roll back the policy or comment out `policy.path` |
 
 ## DNS and Proxy
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Dominio interno punta fuori casa | `nslookup host 192.168.1.50` | DNS rewrite AdGuard |
-| Certificato non si crea | log NPM | verifica DuckDNS token e DNS-01 |
-| App apre su LAN ma non da dominio | NPM proxy host | porta/host forward sbagliati |
-| WebSocket app non funziona | NPM tab Details | abilita Websockets Support |
-| Loop HTTPS | NPM advanced/proxy | controlla scheme, force SSL, upstream |
+| Internal domain points outside the home network | `nslookup host 192.168.1.50` | add or fix the AdGuard DNS rewrite |
+| Certificate is not issued | NPM logs | verify DuckDNS token and DNS-01 configuration |
+| App opens on LAN but not through domain | NPM proxy host | fix upstream host or port |
+| WebSocket app does not work | NPM Details tab | enable Websockets Support |
+| HTTPS loop | NPM advanced/proxy settings | check scheme, Force SSL, and upstream behavior |
 
 ## Authentik
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Authentik non parte | `docker compose logs authentik-server` | controlla Postgres/Redis/env |
-| Login admin perso | bootstrap/recovery | usa recovery code o restore backup |
-| Proxy provider non protegge | NPM advanced config | controlla outpost e forward auth |
-| OIDC Headscale fallisce | log Headscale | redirect URI, issuer, client secret |
+| Authentik does not start | `docker compose logs authentik-server` | check Postgres, Redis, and env values |
+| Admin login lost | bootstrap/recovery | use recovery code or restore backup |
+| Proxy provider does not protect app | NPM advanced config | check outpost and forward auth |
+| Headscale OIDC fails | Headscale logs | check redirect URI, issuer, and client secret |
 
 ## Observability
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Homepage 403/host invalid | env `HOMEPAGE_ALLOWED_HOSTS` | aggiungi dominio e porta corretta |
-| Beszel agent offline | Beszel UI/log agent | aggiorna KEY/TOKEN dalla UI |
-| Dozzle non mostra log | Docker socket | verifica mount `/var/run/docker.sock` |
-| Uptime Kuma falso negativo | target monitor | usa endpoint interno corretto |
+| Homepage 403 or invalid host | `HOMEPAGE_ALLOWED_HOSTS` env | add the correct domain and port |
+| Beszel agent offline | Beszel UI or agent logs | update KEY/TOKEN from the UI |
+| Dozzle does not show logs | Docker socket | verify `/var/run/docker.sock` mount |
+| Uptime Kuma false negative | monitor target | use the correct internal endpoint |
 
 ## Apps
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Vaultwarden admin non apre | env `ADMIN_TOKEN` | rigenera token, controlla escape `$` |
-| Immich non salva upload | volume upload | controlla path e permessi |
-| Immich restore incompleto | backup DB/upload | DB backup non basta: serve `UPLOAD_LOCATION` |
-| Syncthing lento | porte 22000/21027 | usa connessione diretta o VPN |
-| Nextcloud AIO non completa setup | AIO UI/log | controlla reverse proxy e `APACHE_PORT` |
+| Vaultwarden admin page does not open | `ADMIN_TOKEN` env | regenerate token, check `$` escaping |
+| Immich does not save uploads | upload volume | check path and permissions |
+| Immich restore is incomplete | DB/upload backup | DB backup is not enough: include `UPLOAD_LOCATION` |
+| Syncthing is slow | ports 22000/21027 | use direct connection or VPN |
+| Nextcloud AIO does not complete setup | AIO UI/logs | check reverse proxy and `APACHE_PORT` |
 
 ## Backup
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| Backup PBS fallisce | task log Proxmox | spazio, credenziali, rete |
-| Verify fallisce | PBS verify job | non ignorare: test restore e controlla datastore |
-| GC non libera spazio subito | PBS GC log | prune prima, poi GC dopo grace period |
-| Restore app non funziona | test isolato | ripristina VM/LXC intera o dati + DB coerenti |
+| PBS backup fails | Proxmox task log | check space, credentials, and network |
+| Verify fails | PBS verify job | do not ignore it: test restore and check datastore |
+| GC does not free space immediately | PBS GC log | prune first, then run GC after grace period |
+| App restore does not work | isolated test | restore the full VM/LXC or restore data + DB consistently |
 
 ## Security
 
-| Sintomo | Verifica | Fix |
+| Symptom | Check | Fix |
 |---|---|---|
-| CrowdSec vede alert ma non blocca | `cscli decisions list` | aggiungi bouncer/remediation |
-| UI admin esposta | NPM access list / DNS | sposta su VPN/Auth |
-| Segreto committato | `git log`, GitHub | ruota subito il segreto, non basta rimuoverlo |
-| Docker socket troppo esposto | compose mounts | limita a tool admin, valuta socket proxy |
+| CrowdSec sees alerts but does not block | `cscli decisions list` | add a bouncer/remediation component |
+| Admin UI is exposed | NPM access list / DNS | move it behind VPN/Auth |
+| Secret was committed | `git log`, GitHub | rotate the secret immediately; removal alone is not enough |
+| Docker socket is too exposed | Compose mounts | limit it to admin tools; consider a socket proxy |

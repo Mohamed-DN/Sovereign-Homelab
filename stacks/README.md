@@ -1,26 +1,26 @@
 # Stack Templates
 
-Questa directory contiene template Docker Compose riutilizzabili.
+This directory contains reusable Docker Compose templates.
 
-Regole:
+Rules:
 
-- copia `.env.example` in `.env`;
-- cambia ogni valore `CHANGE_ME`;
-- non committare mai `.env`;
-- esegui `docker compose --env-file .env config` prima del deploy;
-- usa Nginx Proxy Manager per HTTPS e hostname;
-- metti le UI admin dietro VPN o Authentik.
+- copy `.env.example` to `.env`;
+- replace every `CHANGE_ME` value;
+- never commit `.env`;
+- run `docker compose --env-file .env config` before deployment;
+- use Nginx Proxy Manager for HTTPS and hostnames;
+- put admin UIs behind VPN or Authentik.
 
 ## Directory
 
-| Directory | Contenuto |
+| Directory | Contents |
 |---|---|
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
 | `apps/` | Vaultwarden, Syncthing, Immich, Nextcloud AIO |
 | `security/` | CrowdSec template |
 
-## Deploy pattern
+## Deploy Pattern
 
 ```bash
 cd /opt/sovereign/stacks/<stack>
@@ -31,10 +31,10 @@ docker compose --env-file .env up -d
 docker compose ps
 ```
 
-## Backup pattern
+## Backup Pattern
 
-Prima di usare dati reali:
+Before using real data:
 
-- includi i volumi nel backup PBS o restic;
-- monitora il servizio in Uptime Kuma;
-- documenta hostname, porta, volume dati e procedura restore.
+- include volumes in PBS or restic backup;
+- monitor the service in Uptime Kuma;
+- document hostname, port, data volume, and restore procedure.

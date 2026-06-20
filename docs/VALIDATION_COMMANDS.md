@@ -1,15 +1,25 @@
 # Validation Commands
 
-Questi comandi verificano che il lab sia sano dopo ogni fase.
+These commands verify that the lab is healthy after each phase.
 
-## Git repository
+## Git Repository
 
 ```bash
 git status --short --branch
 git diff --check
 ```
 
-## Docker Compose templates
+## Documentation Safety
+
+```bash
+rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --glob '!docs/VALIDATION_COMMANDS.md'
+rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|duckdns-token" docs stacks --glob '!docs/VALIDATION_COMMANDS.md'
+rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
+```
+
+Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
+
+## Docker Compose Templates
 
 ```bash
 docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config
@@ -22,7 +32,7 @@ docker compose --env-file stacks/security/.env.example -f stacks/security/docker
 
 ## Headscale
 
-Dentro LXC 100:
+Inside LXC 100:
 
 ```bash
 cd /opt/core-network
@@ -34,7 +44,7 @@ docker exec headscale headscale nodes list-routes
 docker logs --tail=100 headscale
 ```
 
-## Tailscale client su LXC 100
+## Tailscale Client on LXC 100
 
 ```bash
 tailscale status
@@ -44,9 +54,9 @@ sysctl net.ipv4.ip_forward
 sysctl net.ipv6.conf.all.forwarding
 ```
 
-## Proxmox exit node
+## Proxmox Exit Node
 
-Sul Proxmox host:
+On the Proxmox host:
 
 ```bash
 tailscale status
@@ -58,14 +68,14 @@ systemctl status tailscaled --no-pager
 
 ## DNS
 
-Da LAN:
+From LAN:
 
 ```bash
 nslookup example.com 192.168.1.50
 nslookup vpn.yourdomain.duckdns.org 192.168.1.50
 ```
 
-Da client VPN/4G:
+From VPN/4G client:
 
 ```bash
 ping 192.168.1.50
@@ -80,7 +90,7 @@ curl -I https://auth.yourdomain.duckdns.org
 curl -I https://dash.yourdomain.duckdns.org
 ```
 
-## App checks
+## App Checks
 
 ```bash
 curl -I https://pwd.yourdomain.duckdns.org
@@ -88,16 +98,16 @@ curl -I https://foto.yourdomain.duckdns.org
 curl -I https://files.yourdomain.duckdns.org
 ```
 
-## Backup checks
+## Backup Checks
 
-Su Proxmox:
+On Proxmox:
 
 ```bash
 pvesm status
 vzdump --help
 ```
 
-Su PBS:
+On PBS:
 
 ```bash
 proxmox-backup-manager datastore list
@@ -105,7 +115,7 @@ proxmox-backup-manager verify-job list
 proxmox-backup-manager prune-job list
 ```
 
-## Security checks
+## Security Checks
 
 ```bash
 docker ps
@@ -114,4 +124,4 @@ docker exec crowdsec cscli metrics
 docker exec crowdsec cscli decisions list
 ```
 
-Nota: CrowdSec senza bouncer rileva ma non blocca. Per bloccare serve remediation component.
+Note: CrowdSec without a bouncer detects events but does not block traffic. Blocking requires a remediation component.

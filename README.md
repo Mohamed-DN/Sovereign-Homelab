@@ -66,14 +66,17 @@ graph TD
 
 ## Documentation and Guided Tutorials
 
-- **[Start Here](START_HERE.md)**: Percorso operativo consigliato, dall'infrastruttura base alle app.
-- **[Roadmap Sovereign Homelab](docs/ROADMAP_SOVEREIGN_HOMELAB.md)**: Fasi, prerequisiti, checklist e definition of done.
-- **[Open Source Stack Catalog](docs/STACK_CATALOG_OPEN_SOURCE.md)**: Componenti core e opzionali ragionati.
-- **[Top Open Source Stack](docs/TOP_OPEN_SOURCE_STACK.md)**: Catalogo top-tier per foundation, operations, app, AI e security.
-- **[Pre-Deploy Checklist](docs/CHECKLIST_PRE_DEPLOY.md)**: Checklist prima di installare o aggiornare servizi.
-- **[Ports and DNS Matrix](docs/PORTS_AND_DNS_MATRIX.md)**: Porte, hostname, accesso e DNS rewrites.
-- **[Validation Commands](docs/VALIDATION_COMMANDS.md)**: Comandi di verifica per Git, Compose, VPN, DNS, app e backup.
-- **[Troubleshooting Matrix](docs/TROUBLESHOOTING_MATRIX.md)**: Sintomi, verifiche e fix rapidi.
+- **[Start Here](START_HERE.md)**: Recommended operational path, from base infrastructure to applications.
+- **[Roadmap Sovereign Homelab](docs/ROADMAP_SOVEREIGN_HOMELAB.md)**: Phases, prerequisites, checklists, and definition of done.
+- **[Operations Manual](docs/OPERATIONS_MANUAL.md)**: Daily, weekly, and monthly routines for keeping the lab healthy.
+- **[Inventory and IP Plan](docs/INVENTORY_AND_IP_PLAN.md)**: Host, LXC, container, IP, hostname, backup, and criticality inventory.
+- **[Deployment Workflow](docs/DEPLOYMENT_WORKFLOW.md)**: Standard procedure for adding a new service without losing control.
+- **[Open Source Stack Catalog](docs/STACK_CATALOG_OPEN_SOURCE.md)**: Reasoned catalog of core and optional components.
+- **[Top Open Source Stack](docs/TOP_OPEN_SOURCE_STACK.md)**: Top-tier catalog for foundation, operations, apps, AI, and security.
+- **[Pre-Deploy Checklist](docs/CHECKLIST_PRE_DEPLOY.md)**: Checklist before installing or updating services.
+- **[Ports and DNS Matrix](docs/PORTS_AND_DNS_MATRIX.md)**: Ports, hostnames, access model, and DNS rewrites.
+- **[Validation Commands](docs/VALIDATION_COMMANDS.md)**: Verification commands for Git, Compose, VPN, DNS, apps, and backup.
+- **[Troubleshooting Matrix](docs/TROUBLESHOOTING_MATRIX.md)**: Symptoms, checks, and quick fixes.
 - **[00. Master Setup & Docker Compose](docs/doc_00_master_setup.md)**: Build the core Docker stack.
 - **[01. Proxmox, Docker & LXC Setup](docs/doc_01_proxmox_docker_lxc.md)**: Prepare the virtualization environment.
 - **[02. AdGuard Home Setup](docs/doc_02_adguard_home.md)**: Configure DNS filtering and rewrites.

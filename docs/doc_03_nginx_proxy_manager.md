@@ -39,7 +39,7 @@ In NPM, go to **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
 - **Scheme**: `http`
 - **Forward Hostname / IP**: `192.168.1.50`
 - **Forward Port**: `8080` (Headscale's Port)
-- **WARNING**: You MUST check the **Websockets Support** option. 
+- **WARNING**: You MUST check the **Websockets Support** option.
 > 🎓 **Why WebSockets?**: Normal web traffic is "Ask and Receive". WebSockets keep the connection constantly open like a telephone call. VPN apps require constant, uninterrupted communication to maintain the mesh tunnel. Without this checkbox, NPM will sever the connection, and Tailscale will fail to connect.
 
 Go to the **Custom Locations** tab to expose the Headscale Graphical Interface securely:
@@ -67,4 +67,3 @@ proxy_send_timeout 86400s;
 - Save.
 
 From this moment on, `https://vpn.yourdomain.duckdns.org` is active, secure, and ready!
-

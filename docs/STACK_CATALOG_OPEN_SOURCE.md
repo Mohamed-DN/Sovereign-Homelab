@@ -1,58 +1,75 @@
-# Catalogo Open Source Homelab
+# Open Source Homelab Catalog
 
-Questo catalogo separa il core da installare dagli strumenti opzionali. La regola e semplice: installare solo cio che ha un ruolo chiaro, backup chiaro e monitor chiaro.
+This catalog separates the core stack from optional tools. The rule is simple: install only what has a clear role, clear backup, and clear monitor.
 
-## Core scelto per questo homelab
+## Chosen Core for This Homelab
 
-| Area | Scelta | Perche |
+| Area | Choice | Why |
 |---|---|---|
-| Hypervisor | Proxmox VE | Virtualizzazione solida per VM e LXC |
-| Container engine | Docker Compose | Semplice, ripetibile, adatto a singolo host |
-| DNS/filtering | AdGuard Home | DNS sinkhole, DHCP opzionale, rewrites |
-| Reverse proxy | Nginx Proxy Manager | Gia in uso, GUI semplice, Let's Encrypt DNS-01 |
-| Mesh VPN | Headscale + Tailscale client | Control plane self-hosted, client maturi |
-| Exit node | Tailscale su Proxmox host | Separato dai container, stabile |
+| Hypervisor | Proxmox VE | Solid virtualization for VM and LXC |
+| Container engine | Docker Compose | Simple, repeatable, suitable for a single host |
+| DNS/filtering | AdGuard Home | DNS sinkhole, optional DHCP, rewrites |
+| Reverse proxy | Nginx Proxy Manager | Already in use, simple GUI, Let's Encrypt DNS-01 |
+| Mesh VPN | Headscale + Tailscale client | Self-hosted control plane, mature clients |
+| Exit node | Tailscale on Proxmox host | Separate from containers, stable |
 | Identity | Authentik | SSO, MFA, OIDC, proxy provider |
-| Dashboard | Homepage | YAML, Docker discovery, widget |
-| Uptime | Uptime Kuma | Monitor semplici e notifiche |
-| Host/container monitor | Beszel | Leggero, Docker stats, alert |
-| Live logs | Dozzle | Log Docker in tempo reale |
-| Backup | Proxmox Backup Server | Backup VM/LXC integrato con Proxmox |
-| Offsite backup | restic | Backup cifrati, efficienti, scriptabili |
-| Password | Vaultwarden | Bitwarden-compatible self-hosted |
-| Foto | Immich | Foto/video backup moderno |
-| File sync | Syncthing | Sync peer-to-peer senza cloud centrale |
-| Cloud suite | Nextcloud AIO | Suite completa quando serve collaborazione |
+| Dashboard | Homepage | YAML, Docker discovery, widgets |
+| Uptime | Uptime Kuma | Simple monitors and notifications |
+| Host/container monitor | Beszel | Lightweight, Docker stats, alerts |
+| Live logs | Dozzle | Real-time Docker logs |
+| Backup | Proxmox Backup Server | Proxmox-integrated VM/LXC backup |
+| Offsite backup | restic | Encrypted, efficient, scriptable backups |
+| Passwords | Vaultwarden | Bitwarden-compatible self-hosted password manager |
+| Photos | Immich | Modern photo/video backup |
+| File sync | Syncthing | Peer-to-peer sync without a central cloud |
+| Cloud suite | Nextcloud AIO | Full suite when collaboration is needed |
 
-## Core opzionale avanzato
+## Advanced Optional Core
 
-| Area | Strumento | Quando usarlo |
+| Area | Tool | When to use it |
 |---|---|---|
-| Security reaction | CrowdSec | Se esponi NPM o app pubbliche |
-| SIEM/XDR | Wazuh | Se vuoi audit endpoint/log serio e hai risorse |
-| Media | Jellyfin | Se vuoi streaming media personale |
-| Documenti | Paperless-ngx | Se vuoi archivio OCR documentale |
-| Automazione casa | Home Assistant OS | Meglio come VM dedicata su Proxmox |
-| Metasearch | SearXNG | Per ricerca privata |
-| RSS | FreshRSS | Per feed/news personali |
-| Git privato | Forgejo / Gitea | Per config e repo private |
-| AI locale | Ollama + Open WebUI | Solo se hardware adeguato |
-| Controller rete | Omada / UniFi / OPNsense | Se cambi router/switch/AP |
-| Alternative VPN | NetBird | Valutazione futura, non sostituisce Headscale ora |
-| Alternative proxy | Traefik / Caddy | Valutazione futura, non migrazione immediata |
+| Security reaction | CrowdSec | If you expose NPM or public apps |
+| SIEM/XDR | Wazuh | If you want serious endpoint/log audit and have resources |
+| Media | Jellyfin | If you want personal media streaming |
+| Documents | Paperless-ngx | If you want an OCR document archive |
+| Home automation | Home Assistant OS | Prefer a dedicated Proxmox VM |
+| Metasearch | SearXNG | For private search |
+| RSS | FreshRSS | For personal feeds/news |
+| Private Git | Forgejo / Gitea | For private config and repos |
+| Local AI | Ollama + Open WebUI | Only with adequate hardware |
+| Network controller | Omada / UniFi / OPNsense | If you change router/switch/AP |
+| Alternative VPN | NetBird | Future evaluation; it does not replace Headscale now |
+| Alternative proxy | Traefik / Caddy | Future evaluation; no immediate migration |
 
-## Criteri di scelta
+## Expansion Priority
 
-Un servizio entra nel core solo se:
+Do not install everything at once. Use [Deployment Workflow](DEPLOYMENT_WORKFLOW.md) and add an app only when you have monitoring, backup, and rollback.
 
-- ha immagine/container mantenuti o documentazione ufficiale;
-- puo stare dietro VPN o Authentik;
-- salva dati in volumi chiari;
-- ha una procedura backup/restore;
-- ha un monitor Uptime Kuma o Beszel;
-- non richiede porte pubbliche inutili.
+| Priority | Services | Reason |
+|---|---|---|
+| P1 next | Paperless-ngx | High value: documents, OCR, personal archive. Requires DB + media backup. |
+| P1 next | Home Assistant OS | High value if you have smart home devices. Better as a dedicated Proxmox VM, not a generic container. |
+| P1 next | Jellyfin | Useful for personal media. Requires a clear storage plan first. |
+| P1 next | FreshRSS | Simple, lightweight, excellent for replacing cloud feeds. |
+| P1 next | Karakeep | Personal bookmark and link archive. Useful after identity/backup. |
+| P2 later | SearXNG | Private search, but not critical for the core. |
+| P2 later | Forgejo / Gitea | Useful when you want to version private config and scripts. |
+| P2 later | Ollama + Open WebUI | Only with adequate hardware and a clear data policy. |
+| P3 only if needed | Full Wazuh | Powerful but heavy. Needs a log strategy first. |
+| P3 only if needed | Full media automation | Increases surface area and complexity. Stabilize Jellyfin first. |
 
-## Fonti principali
+## Selection Criteria
+
+A service enters the core only if:
+
+- it has maintained images/containers or official documentation;
+- it can stay behind VPN or Authentik;
+- it stores data in clear volumes;
+- it has a backup/restore procedure;
+- it has an Uptime Kuma or Beszel monitor;
+- it does not require unnecessary public ports.
+
+## Main Sources
 
 - Awesome Selfhosted: <https://awesome-selfhosted.net/>
 - Headscale: <https://headscale.net/>

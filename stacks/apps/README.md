@@ -1,13 +1,13 @@
 # Apps Stack
 
-Servizi:
+Services:
 
 - Vaultwarden: password manager.
-- Syncthing: file sync peer-to-peer.
-- Immich: foto/video.
-- Nextcloud AIO: cloud suite completa.
+- Syncthing: peer-to-peer file sync.
+- Immich: photos/videos.
+- Nextcloud AIO: full cloud suite.
 
-## Deploy base
+## Base Deploy
 
 ```bash
 cd /opt/sovereign/stacks/apps
@@ -17,9 +17,9 @@ docker compose --env-file .env config
 docker compose --env-file .env up -d vaultwarden syncthing
 ```
 
-## Immich official-first
+## Immich Official-First
 
-Immich cambia spesso. Per produzione, confronta sempre il template con i file ufficiali:
+Immich changes often. For production, always compare the template with the official files:
 
 ```bash
 mkdir -p /opt/sovereign/reference/immich
@@ -28,7 +28,7 @@ wget -O docker-compose.official.yml https://github.com/immich-app/immich/release
 wget -O example.official.env https://github.com/immich-app/immich/releases/latest/download/example.env
 ```
 
-Poi usa il profilo locale solo se il diff e chiaro:
+Then use the local profile only if the diff is clear:
 
 ```bash
 cd /opt/sovereign/stacks/apps
@@ -38,7 +38,7 @@ docker compose --env-file .env --profile immich up -d
 
 ## Nextcloud AIO
 
-Nextcloud AIO gestisce container figli. Leggi la UI AIO e la documentazione reverse proxy prima di esporlo:
+Nextcloud AIO manages child containers. Read the AIO UI and reverse proxy documentation before exposing it:
 
 ```bash
 docker compose --env-file .env --profile nextcloud up -d
@@ -46,12 +46,12 @@ docker compose --env-file .env --profile nextcloud up -d
 
 ## Backup
 
-| Servizio | Dati |
+| Service | Data |
 |---|---|
-| Vaultwarden | volume `vaultwarden_data`, export cifrato |
-| Syncthing | config + cartelle sincronizzate |
-| Immich | upload location + database + backup DB built-in |
-| Nextcloud AIO | backup AIO + datadir |
+| Vaultwarden | `vaultwarden_data` volume, encrypted export |
+| Syncthing | config + synchronized folders |
+| Immich | upload location + database + built-in DB backup |
+| Nextcloud AIO | AIO backup + datadir |
 
 ## NPM
 
@@ -59,5 +59,5 @@ docker compose --env-file .env --profile nextcloud up -d
 |---|---|
 | `pwd.<domain>` | `http://HOST:8082` |
 | `foto.<domain>` | `http://HOST:2283` |
-| `sync.<domain>` | `http://HOST:8384` solo admin |
+| `sync.<domain>` | `http://HOST:8384` admin only |
 | `files.<domain>` | `http://HOST:11000` |

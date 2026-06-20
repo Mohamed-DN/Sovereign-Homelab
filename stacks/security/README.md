@@ -1,8 +1,8 @@
 # Security Stack
 
-Questo stack installa CrowdSec come detection engine.
+This stack installs CrowdSec as a detection engine.
 
-Importante: CrowdSec da solo rileva. Per bloccare serve un remediation component, per esempio Nginx/OpenResty bouncer, firewall bouncer o altro bouncer compatibile.
+Important: CrowdSec alone detects. Blocking requires a remediation component, for example Nginx/OpenResty bouncer, firewall bouncer, or another compatible bouncer.
 
 ## Deploy
 
@@ -14,7 +14,7 @@ docker compose --env-file .env config
 docker compose --env-file .env up -d
 ```
 
-## Verifica
+## Verification
 
 ```bash
 docker logs --tail=100 crowdsec
@@ -22,25 +22,25 @@ docker exec crowdsec cscli metrics
 docker exec crowdsec cscli decisions list
 ```
 
-## NPM logs
+## NPM Logs
 
-Il template legge:
+The template reads:
 
 ```text
 /opt/core-network/npm/data/logs
 ```
 
-Se NPM vive altrove, aggiorna `NPM_LOG_DIR` nel `.env`.
+If NPM lives elsewhere, update `NPM_LOG_DIR` in `.env`.
 
 ## Remediation
 
-Prima fase:
+First phase:
 
-- solo detection;
-- controllare alert e falsi positivi.
+- detection only;
+- check alerts and false positives.
 
-Seconda fase:
+Second phase:
 
-- aggiungere bouncer adatto;
-- testare blocco con IP controllato;
-- documentare rollback.
+- add the appropriate bouncer;
+- test blocking with a controlled IP;
+- document rollback.

@@ -1,48 +1,48 @@
 # Runbook 11: Security Operations
 
-Security operations significa avere routine, non solo strumenti.
+Security operations means having routines, not only tools.
 
-Obiettivo:
+Goal:
 
-- sapere cosa e esposto;
-- ruotare segreti;
-- aggiornare in modo controllato;
-- rilevare problemi;
-- non rompere il lab durante manutenzione.
+- know what is exposed;
+- rotate secrets;
+- update in a controlled way;
+- detect problems;
+- avoid breaking the lab during maintenance.
 
 ---
 
-## Phase A: Registro esposizione servizi
+## Phase A: Service Exposure Register
 
-Mantieni questa tabella aggiornata:
+Keep this table updated:
 
-| Servizio | Pubblico | VPN | Authentik | Note |
+| Service | Public | VPN | Authentik | Notes |
 |---|---|---|---|---|
-| Headscale | Si | Si | No | Pubblico necessario |
-| Headscale-UI | No | Si | Si | Admin only |
-| Authentik | Si | Si | MFA | Identity provider |
-| Homepage | No | Si | Si | Dashboard |
-| Uptime Kuma | No | Si | Si | Admin/ops |
-| Beszel | No | Si | Si | Admin/ops |
-| Dozzle | No | Si | Si | Admin only |
-| Vaultwarden | Dipende | Si | App auth | Valutare pubblico |
-| Immich | Dipende | Si | App auth | Valutare pubblico |
-| Nextcloud | Dipende | Si | App auth/OIDC | Valutare pubblico |
+| Headscale | Yes | Yes | No | Public is required |
+| Headscale-UI | No | Yes | Yes | Admin only |
+| Authentik | Yes | Yes | MFA | Identity provider |
+| Homepage | No | Yes | Yes | Dashboard |
+| Uptime Kuma | No | Yes | Yes | Admin/ops |
+| Beszel | No | Yes | Yes | Admin/ops |
+| Dozzle | No | Yes | Yes | Admin only |
+| Vaultwarden | Depends | Yes | App auth | Evaluate public exposure |
+| Immich | Depends | Yes | App auth | Evaluate public exposure |
+| Nextcloud | Depends | Yes | App auth/OIDC | Evaluate public exposure |
 
-Regola: se non sai perche e pubblico, non deve essere pubblico.
+Rule: if you do not know why it is public, it should not be public.
 
 ---
 
-## Phase B: Update policy
+## Phase B: Update Policy
 
-Frequenza:
+Frequency:
 
-- settimanale: controllare alert e backup;
-- mensile: update container e host;
-- trimestrale: restore test;
-- dopo ogni viaggio: audit Headscale.
+- weekly: check alerts and backups;
+- monthly: update containers and hosts;
+- quarterly: restore test;
+- after each trip: Headscale audit.
 
-Procedura update container:
+Container update procedure:
 
 ```bash
 cd /opt/sovereign/stacks/<stack>
@@ -52,28 +52,28 @@ docker compose --env-file .env up -d
 docker compose ps
 ```
 
-Prima di update app con dati:
+Before updating apps with data:
 
-- controlla release notes;
-- backup recente;
-- snapshot o PBS restore point;
-- finestra manutenzione.
+- check release notes;
+- confirm recent backup;
+- create snapshot or PBS restore point;
+- use a maintenance window.
 
 ---
 
-## Phase C: Rotazione segreti
+## Phase C: Secret Rotation
 
-Ogni 90 giorni o dopo sospetto leak:
+Every 90 days or after suspected leak:
 
 - Headscale API key;
 - Headscale pre-auth key;
 - Authentik bootstrap/admin token;
 - Vaultwarden admin token;
-- DuckDNS token se esposto;
-- password account admin;
-- chiavi restic.
+- DuckDNS token if exposed;
+- admin account passwords;
+- restic keys.
 
-Comandi Headscale:
+Headscale commands:
 
 ```bash
 docker exec headscale headscale preauthkeys list -u 1
@@ -81,19 +81,19 @@ docker exec headscale headscale apikeys list
 docker exec headscale headscale apikeys create --expiration 90d
 ```
 
-Elimina o lascia scadere tutto cio che non serve.
+Delete or let expire everything that is not needed.
 
 ---
 
 ## Phase D: CrowdSec
 
-CrowdSec ha senso se esponi NPM o app pubbliche.
+CrowdSec makes sense if you expose NPM or public apps.
 
-Uso consigliato:
+Recommended use:
 
-- legge log NPM;
-- rileva scan, brute force, CVE probe;
-- blocca via bouncer o firewall se configurato.
+- reads NPM logs;
+- detects scans, brute force, and CVE probes;
+- blocks through bouncer or firewall if configured.
 
 Template:
 
@@ -104,63 +104,63 @@ stacks/security/
   crowdsec/acquis.yaml
 ```
 
-Prima di bloccare traffico, esegui in modalita osservazione e controlla i decision log.
+Before blocking traffic, run in observation mode and check decision logs.
 
-Verifica:
+Verify:
 
 ```bash
 docker exec crowdsec cscli metrics
 docker exec crowdsec cscli decisions list
 ```
 
-Nota importante: CrowdSec senza bouncer rileva ma non blocca. Per bloccare serve un remediation component.
+Important note: CrowdSec without a bouncer detects but does not block. Blocking requires a remediation component.
 
 ---
 
 ## Phase E: Wazuh
 
-Wazuh e un SIEM/XDR completo. Non installarlo solo per "avere piu roba".
+Wazuh is a full SIEM/XDR. Do not install it only to "have more stuff."
 
-Usalo se vuoi:
+Use it if you want:
 
-- agent su host e VM;
-- raccolta log centralizzata;
-- regole detection;
-- dashboard security.
+- agents on hosts and VMs;
+- centralized log collection;
+- detection rules;
+- security dashboard.
 
-Richiede piu CPU/RAM e manutenzione. Per ora resta fase avanzata, non core immediato.
+It requires more CPU/RAM and maintenance. For now it remains an advanced phase, not immediate core.
 
 ---
 
-## Phase F: Hardening base
+## Phase F: Base Hardening
 
 Checklist:
 
-- SSH solo con chiavi dove possibile.
-- Password admin uniche.
-- MFA su Authentik.
-- Admin UI solo VPN o Authentik.
-- Docker socket esposto solo a strumenti admin fidati.
-- `.env` fuori Git.
-- backup prima di update.
-- log monitorati dopo ogni change.
-- router domestico con firmware aggiornato.
+- SSH with keys where possible.
+- Unique admin passwords.
+- MFA on Authentik.
+- Admin UI only through VPN or Authentik.
+- Docker socket exposed only to trusted admin tools.
+- `.env` outside Git.
+- Backup before update.
+- Logs monitored after each change.
+- Home router firmware updated.
 
 ---
 
-## Phase G: Incident response rapida
+## Phase G: Quick Incident Response
 
-Se sospetti compromissione:
+If you suspect compromise:
 
-1. Disconnetti il servizio esposto in NPM.
-2. Disabilita route/exit node se necessario.
-3. Ruota token e password.
-4. Controlla log NPM, app, Authentik, Headscale.
-5. Rimuovi nodi Headscale non riconosciuti.
-6. Ripristina da backup se i dati sono alterati.
-7. Documenta incidente e fix.
+1. Disconnect the exposed service in NPM.
+2. Disable route/exit node if needed.
+3. Rotate tokens and passwords.
+4. Check NPM, app, Authentik, and Headscale logs.
+5. Remove unknown Headscale nodes.
+6. Restore from backup if data was changed.
+7. Document incident and fix.
 
-Comandi utili:
+Useful commands:
 
 ```bash
 docker ps

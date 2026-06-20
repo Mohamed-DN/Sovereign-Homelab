@@ -1,0 +1,261 @@
+# Operations Manual
+
+This manual explains how to operate the Sovereign Homelab after installation. The rule is: observe first, change second, validate third, document last.
+
+The manual uses these supporting documents:
+
+- [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md)
+- [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md)
+- [Validation Commands](VALIDATION_COMMANDS.md)
+- [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
+- [Deployment Workflow](DEPLOYMENT_WORKFLOW.md)
+
+## Operating Principles
+
+- **VPN-first**: an admin UI must not be public if it can stay behind VPN or Authentik.
+- **Operate before expand**: do not add apps without backup, monitoring, and rollback.
+- **One change at a time**: change one service, validate it, then move to the next.
+- **Source of truth**: every new port, DNS rewrite, volume, and backup must be recorded in the inventory.
+- **No secrets in Git**: `.env`, DuckDNS tokens, passwords, API keys, and backup keys stay out of the repository.
+
+## Daily Routine
+
+Expected time: 5-10 minutes.
+
+1. Open Homepage:
+   - verify that DNS, VPN, proxy, identity, and backup are visible;
+   - check whether any widget or link is broken.
+2. Open Uptime Kuma:
+   - AdGuard DNS must respond;
+   - `vpn.<domain>` must be up;
+   - `auth.<domain>`, `dash.<domain>`, `pwd.<domain>`, and core apps must be up;
+   - every alert must have a known cause or a note.
+3. Check recent backups:
+   - on Proxmox: LXC/VM backup tasks succeeded;
+   - on PBS: datastore is not full and verify jobs have no critical errors.
+4. Run a quick security check:
+   - no admin UI is exposed by mistake;
+   - no container is in a restart loop;
+   - no CrowdSec alert is ignored if CrowdSec is enabled.
+
+Quick commands:
+
+```bash
+docker ps
+docker compose ps
+docker logs --tail=50 headscale
+docker logs --tail=50 npm
+docker logs --tail=50 uptime-kuma
+```
+
+## Weekly Routine
+
+Expected time: 20-40 minutes.
+
+1. Check the documentation repository:
+
+```bash
+git status --short --branch
+git pull --ff-only
+```
+
+2. Validate Compose files before any update:
+
+```bash
+docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config
+docker compose --env-file stacks/observability/.env.example -f stacks/observability/docker-compose.yml config
+docker compose --env-file stacks/apps/.env.example -f stacks/apps/docker-compose.yml config
+docker compose --env-file stacks/security/.env.example -f stacks/security/docker-compose.yml config
+```
+
+3. Check Headscale:
+
+```bash
+docker exec headscale headscale configtest
+docker exec headscale headscale users list
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes list-routes
+```
+
+Verify:
+
+- LXC 100 advertises `192.168.1.0/24`;
+- the Proxmox host advertises `0.0.0.0/0`;
+- no unknown device is online;
+- no unexpected route exists.
+
+4. Check NPM certificates:
+
+- wildcard DuckDNS certificate exists;
+- certificates are not close to expiry;
+- proxy hosts have WebSockets enabled where needed;
+- admin UIs are protected by VPN/Auth or an access list.
+
+5. Check updates without applying them immediately:
+
+```bash
+docker compose pull --dry-run
+```
+
+If `--dry-run` is not supported by your Docker Compose version, use:
+
+```bash
+docker compose pull --ignore-pull-failures
+```
+
+and do not run `up -d` until you have read the changelog and confirmed backup coverage.
+
+## Monthly Routine
+
+Expected time: 1-2 hours.
+
+1. Run at least one restore test:
+   - restore a non-critical LXC from PBS;
+   - restore an app volume into an isolated directory;
+   - restore DB + data for apps with databases.
+2. Review the inventory:
+   - unused IP addresses;
+   - public ports;
+   - hostnames no longer needed;
+   - volumes without backup.
+3. Review access:
+   - Authentik users;
+   - Headscale devices;
+   - expired or still-valid pre-auth keys;
+   - unused API keys.
+4. Review secrets:
+   - DuckDNS token;
+   - NPM/AdGuard/Authentik admin passwords;
+   - Vaultwarden admin token;
+   - restic keys.
+5. Update documentation:
+   - every new app goes into [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md);
+   - every port goes into [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md);
+   - every recurring failure goes into [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md).
+
+## Standard Update Procedure
+
+Use this procedure for Docker Compose services already in production.
+
+1. Read the upstream changelog.
+2. Check disk space:
+
+```bash
+df -h
+docker system df
+```
+
+3. Run a backup or snapshot:
+   - LXC/VM via Proxmox/PBS;
+   - app volumes via restic if they contain critical data;
+   - manual export if required by the app.
+4. Validate Compose:
+
+```bash
+docker compose --env-file .env config
+```
+
+5. Update:
+
+```bash
+docker compose pull
+docker compose up -d
+docker compose ps
+docker compose logs --tail=100
+```
+
+6. Validate the service:
+   - Uptime Kuma is green;
+   - login works;
+   - data is present;
+   - the next backup is scheduled.
+
+7. Document:
+   - previous version;
+   - new version;
+   - update date;
+   - any rollback needed.
+
+## Standard Rollback
+
+Docker Compose:
+
+```bash
+docker compose down
+# restore .env or previous image tag
+docker compose pull
+docker compose up -d
+docker compose logs --tail=100
+```
+
+If the issue involves data or a database:
+
+1. stop the service;
+2. restore volume and database from the same point in time;
+3. start in an isolated network if possible;
+4. validate login and data;
+5. put the service back behind NPM only after verification.
+
+## Quick Incident Response
+
+### DNS Down
+
+1. Enter LXC 100.
+2. Check AdGuard:
+
+```bash
+docker ps
+docker logs --tail=100 adguard
+ss -tulpn | grep ':53'
+```
+
+3. If AdGuard is down, restart only that service.
+4. If the LAN cannot browse, temporarily point the router DNS to a public resolver and then fix AdGuard.
+
+### VPN Down
+
+1. Check whether `vpn.<domain>` responds from the internet.
+2. Check NPM and Headscale:
+
+```bash
+docker logs --tail=100 npm
+docker logs --tail=100 headscale
+docker exec headscale headscale configtest
+```
+
+3. If policy breaks access, follow the rollback in [Runbook 06](doc_06_headscale_hardening.md).
+
+### Proxy or Certificates Broken
+
+1. Verify public DuckDNS resolution.
+2. Verify AdGuard DNS rewrite.
+3. Check the wildcard certificate in NPM.
+4. Temporarily disable non-critical proxy hosts, not Headscale.
+
+### Possible Compromise
+
+1. Do not delete logs.
+2. Disconnect public exposure for the suspicious service.
+3. Rotate involved tokens and passwords.
+4. Export Docker/NPM/Authentik/CrowdSec logs.
+5. Restore from backup only after understanding the entry point.
+
+## Operational Definition of Done
+
+A service is production-ready only when:
+
+- it is recorded in the inventory;
+- DNS and port are documented;
+- access is decided: VPN, Authentik, or public;
+- it has an Uptime Kuma monitor;
+- it has documented backup and restore test;
+- it has a clear rollback;
+- it does not use committed secrets.
+
+## Sources
+
+- Proxmox Backup Server: <https://pbs.proxmox.com/docs/>
+- Docker Compose CLI: <https://docs.docker.com/compose/reference/>
+- Headscale configuration: <https://headscale.net/stable/ref/configuration/>
+- Uptime Kuma: <https://github.com/louislam/uptime-kuma>
+- Authentik docs: <https://docs.goauthentik.io/>
