@@ -26,7 +26,7 @@ docker compose up -d
 ## 2. Initialization (First Boot)
 1. Open a browser from a PC on the same LAN and navigate to `http://192.168.1.50:3000`.
 2. Follow the setup wizard:
-   - **Web Interface**: ⚠️ **CRITICAL**: Change the listening port from `80` to `3000`. 
+   - **Web Interface**: ⚠️ **CRITICAL**: Change the listening port from `80` to `3000`.
    > 🎓 **Why move away from Port 80?**: Port 80 is the global standard for HTTP web traffic. If we let AdGuard claim it, Nginx Proxy Manager (which we will install later) will fail to start. NPM *needs* port 80 to catch all web traffic and to prove to Let's Encrypt that we own our domain. By moving AdGuard's UI to `3000`, we prevent a fatal clash.
    - **DNS Server**: Set or confirm listening on port `53`. (Port 53 is the universal standard for DNS. It must remain 53).
 3. Create an Administrator account (Username and Password).
@@ -36,10 +36,10 @@ docker compose up -d
 
 ## 3. Centralized DHCP Configuration (The Takeover)
 
-To gain full control over devices and resolve local names, we must execute a network "coup d'état". 
+To gain full control over devices and resolve local names, we must take over DHCP cleanly and intentionally.
 
-> 🎓 **The Theory**: Your ISP router (like a TIM Hub) currently acts as the DHCP server. Whenever a device joins the Wi-Fi, the router hands it an IP and says: *"I am your DNS server"*. ISP routers are notoriously locked down. They don't allow you to block ads, and they certainly don't let you invent custom local domains like `foto.local`. 
-> 
+> 🎓 **The Theory**: Your ISP router (like a TIM Hub) currently acts as the DHCP server. Whenever a device joins the Wi-Fi, the router hands it an IP and says: *"I am your DNS server"*. ISP routers are notoriously locked down. They don't allow you to block ads, and they certainly don't let you invent custom local domains like `foto.local`.
+>
 > To fix this, we kill the router's DHCP and activate AdGuard's DHCP. Now, when a device joins the Wi-Fi, AdGuard hands out the IP and says: *"I am your DNS server"*. From that second onwards, every single internet request from that device passes through AdGuard's blacklists before hitting the internet.
 
 ### 3a. Router Configuration (Disabling TIM DHCP)
@@ -95,6 +95,5 @@ Because devices keep the old DHCP leases from the TIM router in their memory, we
 1. Go to **Settings** -> **Wi-Fi**.
 2. Tap the `[i]` next to your home network and select **"Forget This Network"**, then reconnect.
 3. ⚠️ **CRITICAL APPLE SETTINGS**: Apple uses masking features that can bypass local DNS blocks. On the same Wi-Fi screen, disable the following:
-   - **Limit IP Address Tracking** (Limita tracciamento indirizzo IP): *Turn OFF*.
-   - **Private Wi-Fi Address** (Indirizzo Wi-Fi privato): *Turn OFF*. (This ensures AdGuard sees the real MAC address of the phone, allowing you to assign stable aliases and rules).
-
+   - **Limit IP Address Tracking**: *Turn OFF*.
+   - **Private Wi-Fi Address**: *Turn OFF*. (This ensures AdGuard sees the real MAC address of the phone, allowing you to assign stable aliases and rules).

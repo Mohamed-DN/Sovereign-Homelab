@@ -1,36 +1,36 @@
 # Runbook 10: Core Apps
 
-Questa fase installa le app personali principali.
+This phase installs the main personal apps.
 
-Ordine consigliato:
+Recommended order:
 
 1. Vaultwarden.
 2. Syncthing.
 3. Immich.
-4. Nextcloud AIO, solo se serve una suite completa.
+4. Nextcloud AIO, only if a full suite is needed.
 
-Non mettere dati reali finche il backup non e verificato.
+Do not add real data until backup has been verified.
 
 ---
 
-## Phase A: Modello accesso
+## Phase A: Access Model
 
-| App | Hostname | Accesso consigliato |
+| App | Hostname | Recommended access |
 |---|---|---|
-| Vaultwarden | `pwd.<domain>` | VPN-first; pubblico solo se necessario |
-| Immich | `foto.<domain>` | VPN-first; pubblico solo se necessario |
-| Syncthing | `sync.<domain>` | Solo VPN/admin |
-| Nextcloud | `files.<domain>` | VPN-first; pubblico solo se necessario |
+| Vaultwarden | `pwd.<domain>` | VPN-first; public only if required |
+| Immich | `foto.<domain>` | VPN-first; public only if required |
+| Syncthing | `sync.<domain>` | VPN/admin only |
+| Nextcloud | `files.<domain>` | VPN-first; public only if required |
 
-Per app con mobile client, puoi esporre via HTTPS pubblico solo dopo:
+For apps with mobile clients, public HTTPS exposure is acceptable only after:
 
-- TLS valido;
-- backup attivo;
-- MFA dove supportata;
-- password forti;
-- monitor Uptime Kuma.
+- valid TLS;
+- active backup;
+- MFA where supported;
+- strong passwords;
+- Uptime Kuma monitor.
 
-Prima di installare: [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
+Before installing: [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
 
 ---
 
@@ -42,7 +42,7 @@ Template:
 stacks/apps/docker-compose.yml
 ```
 
-Avvio:
+Start:
 
 ```bash
 cd /opt/sovereign/stacks/apps
@@ -53,7 +53,7 @@ docker compose --env-file .env up -d vaultwarden
 
 NPM:
 
-| Campo | Valore |
+| Field | Value |
 |---|---|
 | Domain | `pwd.<domain>` |
 | Forward port | `8082` |
@@ -62,42 +62,42 @@ NPM:
 
 Hardening:
 
-- disabilita registrazioni dopo il primo account;
-- usa `ADMIN_TOKEN` forte, preferibilmente hash Argon2 se supportato;
-- backup del volume `vaultwarden_data`.
+- disable registrations after creating the first account;
+- use a strong `ADMIN_TOKEN`, preferably an Argon2 hash if supported;
+- back up the `vaultwarden_data` volume.
 
 ---
 
 ## Phase C: Syncthing
 
-Syncthing e peer-to-peer. Non sostituisce il backup.
+Syncthing is peer-to-peer. It is not a backup replacement.
 
-Avvio:
+Start:
 
 ```bash
 docker compose --env-file .env up -d syncthing
 ```
 
-Accesso UI:
+UI access:
 
 ```text
 http://SERVER_IP:8384
 ```
 
-Regole:
+Rules:
 
-- UI solo VPN/admin;
-- abilita password UI;
-- non sincronizzare cartelle senza capire delete propagation;
-- usa versioning per cartelle importanti.
+- UI only through VPN/admin access;
+- enable UI password;
+- do not sync folders without understanding delete propagation;
+- use versioning for important folders.
 
 ---
 
 ## Phase D: Immich
 
-Immich e il sostituto foto/video. E potente ma cambia spesso: verifica sempre la documentazione ufficiale prima di upgrade importanti.
+Immich is the photo/video replacement. It is powerful but changes often: always check the official documentation before important upgrades.
 
-Approccio official-first:
+Official-first approach:
 
 ```bash
 mkdir -p /opt/sovereign/reference/immich
@@ -106,9 +106,9 @@ wget -O docker-compose.official.yml https://github.com/immich-app/immich/release
 wget -O example.official.env https://github.com/immich-app/immich/releases/latest/download/example.env
 ```
 
-Confronta questi file con `stacks/apps` prima di mettere dati reali.
+Compare those files with `stacks/apps` before adding real data.
 
-Avvio dal template:
+Start from the template:
 
 ```bash
 docker compose --env-file .env --profile immich up -d
@@ -116,57 +116,57 @@ docker compose --env-file .env --profile immich up -d
 
 NPM:
 
-| Campo | Valore |
+| Field | Value |
 |---|---|
 | Domain | `foto.<domain>` |
 | Forward port | `2283` |
 | Websockets | Enabled |
 | SSL | Force SSL |
 
-Backup minimo:
+Minimum backup:
 
 - upload directory;
-- database Immich;
+- Immich database;
 - `.env`;
-- compose file.
+- Compose file.
 
-Prima di importare tutta la libreria foto, fai un test con poche immagini e prova restore.
+Before importing the full photo library, run a test with a few images and try a restore.
 
-Nota critica: il backup database Immich non contiene foto e video. Devi proteggere anche `UPLOAD_LOCATION`.
+Critical note: the Immich database backup does not contain photos and videos. You must also protect `UPLOAD_LOCATION`.
 
 ---
 
 ## Phase E: Nextcloud AIO
 
-Nextcloud AIO e consigliato se vuoi suite completa: file, calendar, contacts, office/talk.
+Nextcloud AIO is recommended if you want a full suite: files, calendar, contacts, office/talk.
 
-Avvio:
+Start:
 
 ```bash
 docker compose --env-file .env --profile nextcloud up -d nextcloud-aio-mastercontainer
 ```
 
-Poi apri:
+Then open:
 
 ```text
 http://SERVER_IP:8086
 ```
 
-Nota: Nextcloud AIO gestisce container interni e richiede attenzione con reverse proxy e porte. Segui la UI AIO e la documentazione ufficiale.
+Note: Nextcloud AIO manages internal child containers and requires care with reverse proxy and ports. Follow the AIO UI and the official documentation.
 
-Se ti basta sync file semplice, preferisci Syncthing.
+If simple file sync is enough, prefer Syncthing.
 
 ---
 
-## Phase F: Monitor e backup obbligatori
+## Phase F: Required Monitoring and Backup
 
-Per ogni app:
+For every app:
 
-- crea monitor Uptime Kuma;
-- aggiungi link Homepage;
-- aggiungi volumi al backup PBS/restic;
-- documenta porte e hostname;
-- verifica login da LAN, VPN e mobile se previsto.
+- create an Uptime Kuma monitor;
+- add a Homepage link;
+- add volumes to PBS/restic backup;
+- document ports and hostnames;
+- verify login from LAN, VPN, and mobile if expected.
 
 ---
 

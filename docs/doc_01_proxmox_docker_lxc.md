@@ -6,7 +6,7 @@ This document serves as a reference guide to recreate the foundational environme
 From the Proxmox web interface:
 1. Download the `debian-12-standard` template from `CT Templates`.
 2. Click on **Create CT** in the top right corner.
-3. **General**: 
+3. **General**:
    - Choose an ID (e.g., 100) and an Hostname (e.g., `core-network`).
    - ⚠️ **Crucial**: Check the `Unprivileged container` box.
    > 🎓 **Why Unprivileged?**: In Linux, the "root" user has absolute power. If a hacker breaches an "Unprivileged" container, they are trapped inside it. Even if they have root access *inside* the container, the Proxmox host system sees them as an unprivileged, harmless user. It is a massive security boost.
@@ -14,7 +14,7 @@ From the Proxmox web interface:
 4. **Template**: Select Debian 12.
 5. **Disks**: Allocate 15 GiB.
 6. **CPU / Memory**: 2 Cores, 1024 MiB RAM, 512 MiB Swap.
-7. **Network**: 
+7. **Network**:
    - Disable the Firewall.
    > 🎓 **Why disable the firewall?**: Docker is famous for aggressively manipulating Linux firewall rules (`iptables`) to route traffic to containers. If the Proxmox firewall is also active on this container, they will fight each other, causing network packets to randomly drop. We let Docker handle the firewalling inside.
    - IPv4: Static (e.g., `192.168.1.50/24`).
@@ -59,4 +59,3 @@ sh get-docker.sh
 > 🎓 **Behind the scenes**: Instead of manually adding software repositories, keys, and packages, Docker provides a convenience script (`get.docker.com`). We use `curl` to download it, and `sh` to execute it. This script automatically detects that we are running Debian 12 and installs the perfect Docker engine for it.
 
 At this point, the container is a fully weaponized Docker host, ready to orchestrate our Sovereign Homelab.
-

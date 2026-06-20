@@ -58,16 +58,16 @@ services:
     image: jc21/nginx-proxy-manager:latest
     container_name: npm
     ports:
-      - "80:80"     
-      - "443:443"   
-      - "81:81"     
+      - "80:80"
+      - "443:443"
+      - "81:81"
     volumes:
       - ./npm/data:/data
       - ./npm/letsencrypt:/etc/letsencrypt
     restart: unless-stopped
 EOF
 ```
-> 🎓 **Behind the scenes**: The `cat << 'EOF' > file` command tells Linux: "Take everything I type until you see 'EOF' and shove it into `docker-compose.yml`". 
+> 🎓 **Behind the scenes**: The `cat << 'EOF' > file` command tells Linux: "Take everything I type until you see 'EOF' and shove it into `docker-compose.yml`".
 > - Notice that AdGuard uses `network_mode: "host"`. This is a vital trick: normally Docker containers are hidden behind an internal firewall. By putting AdGuard on the "host" network, it acts like a physical device on your real network. This allows it to see "Broadcast" signals from phones asking for an IP address, enabling it to act as the master DHCP server for your entire house.
 > - Notice Nginx (NPM) claims port `80` and `443`. Port 80 is the universal "HTTP" port. We MUST give it to Nginx so it can act as the traffic cop for all incoming requests and automatically upgrade them to secure HTTPS.
 
@@ -81,7 +81,7 @@ sed -i 's|server_url: http://127.0.0.1:8080|server_url: https://vpn.yourdomain.d
 sed -i 's/listen_addr: 127.0.0.1:8080/listen_addr: 0.0.0.0:8080/g' headscale/config/config.yaml
 sed -i 's/metrics_listen_addr: 127.0.0.1:9090/metrics_listen_addr: 0.0.0.0:9090/g' headscale/config/config.yaml
 ```
-> 🎓 **Behind the scenes**: The `curl` command fetches the default configuration from the internet. The `sed -i` command acts like a robotic "Find & Replace". 
+> 🎓 **Behind the scenes**: The `curl` command fetches the default configuration from the internet. The `sed -i` command acts like a robotic "Find & Replace".
 > - **The iOS Bug Fix**: We replace `http://127.0.0.1` with `https://vpn.yourdomain.duckdns.org`. If we don't do this, mobile apps like Tailscale on iOS will memorize the local IP. When you disconnect from Wi-Fi and switch to 4G, iOS will try to reach that local IP over the cellular network and crash into an infinite timeout loop.
 > - **The 0.0.0.0 Trick**: We replace `127.0.0.1:8080` with `0.0.0.0:8080`. In networking language, `127.0.0.1` means "Talk strictly to yourself". If we left it like that, Nginx Proxy Manager would be blocked from forwarding traffic to Headscale. By changing it to `0.0.0.0`, we tell Headscale to "Listen to everyone, including Nginx".
 
@@ -99,4 +99,3 @@ Before adding real personal data, continue with:
 - [Runbook 06: Headscale Hardening](doc_06_headscale_hardening.md)
 - [Runbook 09: Backup and DR](doc_09_backup_dr.md)
 - [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md)
-

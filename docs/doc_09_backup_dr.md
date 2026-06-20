@@ -1,49 +1,49 @@
-# Runbook 09: Backup e Disaster Recovery
+# Runbook 09: Backup and Disaster Recovery
 
-Backup non significa solo avere file. Backup significa poter ripristinare.
+Backup does not mean only having files. Backup means being able to restore.
 
-Obiettivo:
+Goal:
 
-- PBS per VM/LXC;
-- restore test periodico;
-- retention e verify job;
-- restic offsite opzionale per dati critici.
+- PBS for VM/LXC;
+- periodic restore test;
+- retention and verify jobs;
+- optional restic offsite backup for critical data.
 
 ---
 
-## Phase A: Cosa proteggere
+## Phase A: What to Protect
 
-| Dato | Metodo primario | Metodo opzionale |
+| Data | Primary method | Optional method |
 |---|---|---|
-| LXC 100 core-network | PBS | export config |
-| VM/LXC app | PBS | restic per volumi |
-| Docker compose | Git repo | copia `/opt/sovereign` |
-| `.env` reali | vault offline/restic cifrato | stampa recovery |
-| Immich uploads | PBS + restic | disco esterno |
-| Vaultwarden data | PBS + restic | export cifrato |
+| LXC 100 core-network | PBS | config export |
+| App VM/LXC | PBS | restic for volumes |
+| Docker Compose | Git repo | copy `/opt/sovereign` |
+| Real `.env` files | offline vault/encrypted restic | printed recovery |
+| Immich uploads | PBS + restic | external disk |
+| Vaultwarden data | PBS + restic | encrypted export |
 | Authentik DB | PBS + dump | restic |
 
-Regola: i dati app personali hanno doppia protezione.
+Rule: personal app data has double protection.
 
 ---
 
 ## Phase B: Proxmox Backup Server
 
-PBS va installato come VM dedicata o appliance separata.
+PBS should be installed as a dedicated VM or separate appliance.
 
-Configurazione minima:
+Minimum configuration:
 
-1. Crea datastore.
-2. Aggiungi PBS a Proxmox VE come storage.
-3. Crea backup job per:
+1. Create datastore.
+2. Add PBS to Proxmox VE as storage.
+3. Create backup jobs for:
    - LXC 100;
-   - LXC/VM servizi;
-   - VM Home Assistant;
-   - VM PBS esclusa o protetta diversamente.
-4. Abilita verify job.
-5. Configura prune/retention.
+   - service LXC/VMs;
+   - Home Assistant VM;
+   - PBS VM excluded or protected differently.
+4. Enable verify job.
+5. Configure prune/retention.
 
-Retention consigliata homelab:
+Recommended homelab retention:
 
 ```text
 keep-last: 7
@@ -52,34 +52,34 @@ keep-weekly: 8
 keep-monthly: 6
 ```
 
-Adatta in base allo spazio disponibile.
+Adjust based on available space.
 
-Manutenzione PBS:
+PBS maintenance:
 
-- prune rimuove riferimenti snapshot vecchi;
-- garbage collection libera chunk non piu referenziati;
-- verify job controlla che i backup siano leggibili;
-- un backup non verificato e un'ipotesi, non una garanzia.
+- prune removes old snapshot references;
+- garbage collection frees chunks that are no longer referenced;
+- verify job checks that backups are readable;
+- an unverified backup is an assumption, not a guarantee.
 
 ---
 
-## Phase C: Restore test
+## Phase C: Restore Test
 
-Ogni trimestre fai un restore test.
+Run a restore test every quarter.
 
-Procedura:
+Procedure:
 
-1. Scegli una VM/LXC non critica o clona il backup su nuovo ID.
-2. Esegui restore da PBS.
-3. Avvia il sistema isolato o con IP temporaneo.
-4. Verifica:
+1. Choose a non-critical VM/LXC or clone the backup to a new ID.
+2. Restore from PBS.
+3. Start the system isolated or with a temporary IP.
+4. Verify:
    - boot;
    - filesystem;
-   - servizio principale;
-   - log senza errori gravi.
-5. Documenta data, backup usato, esito e tempo di restore.
+   - main service;
+   - logs without severe errors.
+5. Document date, backup used, result, and restore time.
 
-Template nota:
+Note template:
 
 ```text
 Restore test
@@ -94,11 +94,11 @@ Next action:
 
 ---
 
-## Phase D: restic offsite opzionale
+## Phase D: Optional restic Offsite Backup
 
-restic e utile per backup cifrati di cartelle applicative.
+restic is useful for encrypted backups of application folders.
 
-Esempio repository locale/offsite:
+Example local/offsite repository:
 
 ```bash
 export RESTIC_REPOSITORY=/mnt/backup/restic/sovereign
@@ -120,56 +120,56 @@ Retention:
 restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune
 ```
 
-Non mettere `RESTIC_PASSWORD` in shell history. Usa `RESTIC_PASSWORD_FILE`.
+Do not put `RESTIC_PASSWORD` in shell history. Use `RESTIC_PASSWORD_FILE`.
 
 ---
 
-## Phase E: Backup applicativi sensibili
+## Phase E: Sensitive App Backups
 
 ### Vaultwarden
 
-Proteggi:
+Protect:
 
 - database volume;
 - attachments;
 - `ADMIN_TOKEN`;
-- eventuale export cifrato periodico.
+- optional periodic encrypted export.
 
 ### Immich
 
-Proteggi:
+Protect:
 
 - upload directory;
 - PostgreSQL database;
 - `.env`;
-- compose file.
+- Compose file.
 
-Immich richiede attenzione: foto e database devono essere consistenti. Preferisci snapshot/PBS o procedura ufficiale.
+Immich requires attention: photos and database must be consistent. Prefer snapshot/PBS or the official procedure.
 
 ### Authentik
 
-Proteggi:
+Protect:
 
 - PostgreSQL;
 - media;
 - `.env`;
-- recovery code admin.
+- admin recovery codes.
 
 ---
 
-## Phase F: Checklist produzione
+## Phase F: Production Checklist
 
-Prima di inserire dati reali:
+Before adding real data:
 
-- backup job creato;
-- primo backup completato;
-- verify job completato;
-- restore test eseguito almeno su un servizio;
-- `.env` reali salvati fuori Git;
-- Uptime Kuma monitora il servizio;
-- sai come fermare e ripristinare il container.
+- backup job created;
+- first backup completed;
+- verify job completed;
+- restore test executed on at least one service;
+- real `.env` files saved outside Git;
+- Uptime Kuma monitors the service;
+- you know how to stop and restore the container.
 
-Comandi di verifica rapidi: [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md).
+Quick verification commands: [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md).
 
 ---
 

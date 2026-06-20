@@ -1,23 +1,23 @@
-# Runbook 07: Identity, SSO e Authentik
+# Runbook 07: Identity, SSO, and Authentik
 
-Authentik diventa il punto centrale per login, MFA e protezione delle UI interne.
+Authentik becomes the central point for login, MFA, and protection of internal UIs.
 
-Obiettivo:
+Goal:
 
-- un account admin forte;
-- MFA obbligatoria;
-- protezione delle dashboard interne;
-- OIDC pronto per Headscale come fase avanzata.
+- one strong admin account;
+- mandatory MFA;
+- protection for internal dashboards;
+- OIDC ready for Headscale as an advanced phase.
 
 ---
 
-## Phase A: Dove installare Authentik
+## Phase A: Where to Install Authentik
 
-Consiglio:
+Recommendation:
 
-- installa Authentik nello stack applicativo Docker, non dentro LXC 100 se vuoi tenere il gateway leggero;
-- esponi `auth.<domain>` via Nginx Proxy Manager;
-- proteggi l'accesso admin con MFA immediatamente.
+- install Authentik in the application Docker stack, not inside LXC 100 if you want to keep the gateway lightweight;
+- expose `auth.<domain>` through Nginx Proxy Manager;
+- protect admin access with MFA immediately.
 
 Template:
 
@@ -29,41 +29,41 @@ stacks/identity/
 
 ---
 
-## Phase B: Preparare i segreti
+## Phase B: Prepare Secrets
 
-Prima controlla [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
+First check [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
 
-Copia il template:
+Copy the template:
 
 ```bash
 cd /opt/sovereign/stacks/identity
 cp .env.example .env
 ```
 
-Genera valori reali:
+Generate real values:
 
 ```bash
 openssl rand -base64 48
 openssl rand -base64 36
 ```
 
-Aggiorna `.env` con:
+Update `.env` with:
 
 - `AUTHENTIK_SECRET_KEY`
 - `POSTGRES_PASSWORD`
 - `AUTHENTIK_BOOTSTRAP_PASSWORD`
 - `AUTHENTIK_BOOTSTRAP_TOKEN`
 
-Non committare mai `.env`.
+Never commit `.env`.
 
 ---
 
-## Phase C: Avviare Authentik
+## Phase C: Start Authentik
 
-Approccio consigliato:
+Recommended approach:
 
-- per bootstrap rapido: usa `stacks/identity`;
-- per produzione/upgrade: scarica il compose ufficiale Authentik e confrontalo con il template locale.
+- for quick bootstrap: use `stacks/identity`;
+- for production/upgrades: download the official Authentik Compose file and compare it with the local template.
 
 ```bash
 mkdir -p /opt/sovereign/reference/authentik
@@ -77,67 +77,67 @@ docker compose ps
 docker compose logs -f authentik-server
 ```
 
-Apri:
+Open:
 
 ```text
 http://SERVER_IP:9000
 ```
 
-Poi crea il proxy host in NPM:
+Then create the proxy host in NPM:
 
-| Campo | Valore |
+| Field | Value |
 |---|---|
 | Domain Names | `auth.<domain>` |
 | Scheme | `http` |
-| Forward Hostname/IP | IP host Docker |
+| Forward Hostname/IP | Docker host IP |
 | Forward Port | `9000` |
 | Websockets | Enabled |
 | SSL | Wildcard certificate, Force SSL |
 
 ---
 
-## Phase D: Primo hardening
+## Phase D: First Hardening
 
-Nel pannello Authentik:
+In the Authentik panel:
 
-1. Crea gruppo `homelab-admins`.
-2. Crea gruppo `homelab-users`.
-3. Abilita MFA/TOTP per l'utente admin.
-4. Disabilita registrazioni pubbliche.
-5. Imposta sessioni admin con durata breve.
-6. Documenta recovery code offline.
+1. Create group `homelab-admins`.
+2. Create group `homelab-users`.
+3. Enable MFA/TOTP for the admin user.
+4. Disable public registration.
+5. Set short admin session duration.
+6. Document recovery codes offline.
 
-Regola: se Authentik protegge la casa digitale, il suo admin non deve avere password debole o senza MFA.
-
----
-
-## Phase E: Proteggere app senza login nativo
-
-Per dashboard come Homepage, Uptime Kuma, Beszel, Dozzle o Headscale-UI puoi usare un **Proxy Provider** Authentik.
-
-Modello:
-
-1. Crea Application in Authentik.
-2. Crea Provider di tipo Proxy.
-3. Modalita consigliata: forward auth con reverse proxy esistente.
-4. Crea Outpost.
-5. In NPM aggiungi la configurazione avanzata richiesta da Authentik.
-
-Accesso consigliato:
-
-- Homepage: gruppo `homelab-users`.
-- Uptime Kuma, Beszel, Dozzle: gruppo `homelab-admins`.
-- Headscale-UI: gruppo `homelab-admins`.
+Rule: if Authentik protects the digital home, its admin account must not have a weak password or lack MFA.
 
 ---
 
-## Phase F: OIDC per Headscale
+## Phase E: Protect Apps Without Native Login
 
-Headscale puo usare OIDC, ma non e obbligatorio per la VPN base.
+For dashboards such as Homepage, Uptime Kuma, Beszel, Dozzle, or Headscale-UI, use an Authentik **Proxy Provider**.
+
+Model:
+
+1. Create an Application in Authentik.
+2. Create a Proxy Provider.
+3. Recommended mode: forward auth with the existing reverse proxy.
+4. Create an Outpost.
+5. Add the required Authentik advanced configuration in NPM.
+
+Recommended access:
+
+- Homepage: `homelab-users` group.
+- Uptime Kuma, Beszel, Dozzle: `homelab-admins` group.
+- Headscale-UI: `homelab-admins` group.
+
+---
+
+## Phase F: OIDC for Headscale
+
+Headscale can use OIDC, but it is not required for the base VPN.
 
 In Authentik:
 
-1. Crea Application `Headscale`.
+1. Create Application `Headscale`.
 2. Provider: OAuth2/OpenID Connect.
 3. Redirect URI:
 
@@ -145,8 +145,8 @@ In Authentik:
    https://vpn.<domain>/oidc/callback
    ```
 
-4. Lascia vuota la Encryption Key.
-5. Copia Client ID e Client Secret.
+4. Leave Encryption Key empty.
+5. Copy Client ID and Client Secret.
 
 In Headscale:
 
@@ -161,7 +161,7 @@ oidc:
     - "you@example.com"
 ```
 
-Riavvia:
+Restart:
 
 ```bash
 cd /opt/core-network
@@ -171,22 +171,22 @@ docker logs --tail=100 headscale
 
 ---
 
-## Phase G: Backup Authentik
+## Phase G: Authentik Backup
 
-Dati da proteggere:
+Protect:
 
-- volume PostgreSQL;
+- PostgreSQL volume;
 - media directory;
 - `.env`;
-- export di configurazione se disponibile.
+- configuration export if available.
 
-Prima di usare Authentik in produzione, aggiungi:
+Before using Authentik in production, add:
 
-- monitor Uptime Kuma su `https://auth.<domain>`;
-- backup PBS del container/host;
-- eventuale backup restic dei volumi applicativi.
+- Uptime Kuma monitor for `https://auth.<domain>`;
+- PBS backup of the container/host;
+- optional restic backup for application volumes.
 
-Verifica operativa:
+Operational verification:
 
 ```bash
 docker compose ps

@@ -1,6 +1,6 @@
 # Identity Stack: Authentik
 
-Questo template serve per bootstrap rapido. Per produzione e upgrade importanti, confrontalo sempre con il compose ufficiale Authentik:
+This template is for quick bootstrap. For production and important upgrades, always compare it with the official Authentik Compose file:
 
 ```bash
 curl -O https://docs.goauthentik.io/compose.yml
@@ -20,11 +20,11 @@ docker compose ps
 
 ## NPM
 
-| Hostname | Forward | Note |
+| Hostname | Forward | Notes |
 |---|---|---|
 | `auth.<domain>` | `http://HOST:9000` | Force SSL, WebSockets enabled |
 
-## Verifica
+## Verification
 
 ```bash
 docker compose ps
@@ -34,15 +34,15 @@ curl -I http://HOST:9000
 
 ## Backup
 
-Proteggi:
+Protect:
 
 - `postgresql_data`
 - `media_data`
-- `.env` reale
-- recovery code admin
+- real `.env`
+- admin recovery codes
 
 ## Security
 
-- MFA obbligatoria per admin.
-- Registrazione pubblica disabilitata.
-- Docker socket nel worker serve agli outpost; valuta socket proxy se vuoi hardening superiore.
+- MFA is mandatory for admin.
+- Public registration is disabled.
+- Docker socket in the worker is used by outposts; consider a socket proxy if you want stronger hardening.

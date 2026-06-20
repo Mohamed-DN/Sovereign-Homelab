@@ -1,71 +1,73 @@
 # Top Open Source Homelab Stack
 
-Questa lista non e una lista di cose da installare tutte subito. E un catalogo ragionato del meglio open source per un homelab moderno.
+This is not a list of things to install all at once. It is an opinionated catalog of top open-source components for a modern homelab.
 
-## Tier 0: Foundation obbligatoria
+## Tier 0: Required Foundation
 
-| Area | Scelta | Alternativa | Decisione |
+| Area | Choice | Alternative | Decision |
 |---|---|---|---|
 | Hypervisor | Proxmox VE | XCP-ng | Proxmox |
-| Backup infra | Proxmox Backup Server | Borg/restic-only | PBS |
-| Container | Docker Compose | Podman, Kubernetes | Docker Compose |
+| Infrastructure backup | Proxmox Backup Server | Borg/restic-only | PBS |
+| Containers | Docker Compose | Podman, Kubernetes | Docker Compose |
 | DNS filtering | AdGuard Home | Pi-hole, Technitium | AdGuard |
-| Reverse proxy | Nginx Proxy Manager | Traefik, Caddy | NPM per ora |
+| Reverse proxy | Nginx Proxy Manager | Traefik, Caddy | NPM for now |
 | Mesh VPN | Headscale | NetBird, plain WireGuard | Headscale |
 | Identity | Authentik | Authelia, Keycloak | Authentik |
 
-## Tier 1: Operations core
+## Tier 1: Operations Core
 
-| Area | Top scelta | Perche |
+| Area | Top choice | Why |
 |---|---|---|
-| Dashboard | Homepage | YAML, widget, Docker integration |
-| Uptime | Uptime Kuma | semplice, alert rapidi |
-| Metrics leggero | Beszel | leggero e adatto a homelab |
-| Logs live | Dozzle | rapido per Docker logs |
-| Backup app | restic | cifrato, scriptabile, offsite |
+| Dashboard | Homepage | YAML, widgets, Docker integration |
+| Uptime | Uptime Kuma | simple, fast alerts |
+| Lightweight metrics | Beszel | lightweight and homelab-friendly |
+| Live logs | Dozzle | quick Docker logs |
+| App backup | restic | encrypted, scriptable, offsite-friendly |
 | Security detection | CrowdSec | community intelligence, bouncer model |
 
-## Tier 2: Personal cloud
+## Tier 2: Personal Cloud
 
-| Area | Top scelta | Note |
+| Area | Top choice | Notes |
 |---|---|---|
-| Password | Vaultwarden | proteggere bene, backup obbligatorio |
-| Foto | Immich | ottimo, ma backup upload + DB obbligatorio |
-| File sync | Syncthing | semplice e robusto |
-| Cloud suite | Nextcloud AIO | potente, piu complesso |
-| Documenti OCR | Paperless-ngx | dopo backup stabile |
-| Media | Jellyfin | meglio dopo storage plan |
+| Passwords | Vaultwarden | protect well, backup required |
+| Photos | Immich | excellent, but upload + DB backup required |
+| File sync | Syncthing | simple and robust |
+| Cloud suite | Nextcloud AIO | powerful, more complex |
+| OCR documents | Paperless-ngx | after backup is stable |
+| Media | Jellyfin | best after a storage plan |
 
-## Tier 3: Knowledge, dev, AI
+Practical order after the core: Paperless-ngx, Home Assistant OS, Jellyfin, FreshRSS, and Karakeep. These provide real value without immediately requiring SIEM, Kubernetes, or heavy media automation.
 
-| Area | Scelta | Quando |
+## Tier 3: Knowledge, Dev, AI
+
+| Area | Choice | When |
 |---|---|---|
-| RSS | FreshRSS | per sostituire feed cloud |
-| Search | SearXNG | privacy metasearch |
-| Git | Gitea / Forgejo | per repo private e config |
-| Wiki/notes | Outline / BookStack / SilverBullet | quando serve knowledge base |
-| AI locale | Ollama + Open WebUI | se hardware adeguato |
-| Automation | Home Assistant OS | VM dedicata |
+| RSS | FreshRSS | to replace cloud feeds |
+| Search | SearXNG | private metasearch |
+| Git | Gitea / Forgejo | for private repos and config |
+| Wiki/notes | Outline / BookStack / SilverBullet | when a knowledge base is needed |
+| Local AI | Ollama + Open WebUI | if hardware is adequate |
+| Automation | Home Assistant OS | dedicated VM |
 
-## Tier 4: Enterprise-like advanced
+## Tier 4: Enterprise-Like Advanced
 
-| Area | Scelta | Nota |
+| Area | Choice | Note |
 |---|---|---|
-| SIEM/XDR | Wazuh | utile ma pesante |
-| Metrics full | Prometheus + Grafana + Loki | se Beszel non basta |
-| Secrets | Infisical / Vaultwarden notes / SOPS | scegliere dopo GitOps |
-| GitOps | Ansible + Compose | prima di Kubernetes |
-| Firewall/router | OPNsense | se vuoi separare VLAN seriamente |
+| SIEM/XDR | Wazuh | useful but heavy |
+| Full metrics | Prometheus + Grafana + Loki | if Beszel is not enough |
+| Secrets | Infisical / Vaultwarden notes / SOPS | choose after GitOps |
+| GitOps | Ansible + Compose | before Kubernetes |
+| Firewall/router | OPNsense | if you want serious VLAN separation |
 
-## Scelte escluse per ora
+## Excluded for Now
 
-- Kubernetes: troppo overhead per questa fase.
-- Traefik migration: utile, ma NPM e gia operativo.
-- NetBird migration: interessante, ma Headscale e gia il core.
-- Wazuh subito: pesante senza log strategy.
-- Media automation completa: prima backup, storage e security.
+- Kubernetes: too much overhead for this phase.
+- Traefik migration: useful, but NPM is already operational.
+- NetBird migration: interesting, but Headscale is already the core.
+- Wazuh immediately: too heavy without a log strategy.
+- Full media automation: storage and security first.
 
-## Fonti di scouting
+## Scouting Sources
 
 - Awesome Selfhosted: <https://awesome-selfhosted.net/>
 - selfh.st apps: <https://selfh.st/apps/>

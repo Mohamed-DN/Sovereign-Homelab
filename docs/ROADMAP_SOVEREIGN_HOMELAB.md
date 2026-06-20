@@ -1,165 +1,188 @@
-# Roadmap Sovereign Homelab
+# Sovereign Homelab Roadmap
 
-Questa roadmap trasforma il laboratorio in una piattaforma personale ordinata, documentata e gestibile.
+This roadmap turns the lab into an ordered, documented, and manageable personal platform.
 
-Il risultato finale deve permettere:
+The final result must provide:
 
-- accesso sicuro da fuori casa senza esporre servizi inutili;
-- DNS filtrato ovunque tramite AdGuard;
-- VPN mesh con route e exit node controllati;
-- SSO/MFA per le interfacce web;
-- monitoring e alerting;
-- backup verificabili;
-- app personali installate in modo ripetibile.
+- secure access from outside the home without exposing unnecessary services;
+- filtered DNS everywhere through AdGuard;
+- mesh VPN with controlled routes and exit nodes;
+- SSO/MFA for web interfaces;
+- monitoring and alerting;
+- verifiable backups;
+- personal apps installed in a repeatable way.
 
-## Stato attuale
+## Current State
 
-| Area | Stato | Note |
+| Area | Status | Notes |
 |---|---|---|
-| Proxmox | In uso | Host fisico P710 |
-| LXC 100 | In uso | `core-network`, IP `192.168.1.50` |
-| Docker Compose | In uso | Stack base in `/opt/core-network` |
-| AdGuard Home | In uso | DNS, DHCP opzionale, split-brain DNS |
-| Nginx Proxy Manager | In uso | HTTPS e proxy |
-| Headscale | In uso | Control plane VPN |
-| Subnet router | Documentato | LXC 100 annuncia `192.168.1.0/24` |
-| Exit node | Documentato | Proxmox host annuncia `0.0.0.0/0` |
-| Identity | Da aggiungere | Authentik |
-| Observability | Da aggiungere | Homepage, Uptime Kuma, Beszel, Dozzle |
-| Backup DR | Da aggiungere | PBS, restore test, restic opzionale |
-| App core | Da aggiungere | Vaultwarden, Immich, Nextcloud/Syncthing |
+| Proxmox | In use | Physical host P710 |
+| LXC 100 | In use | `core-network`, IP `192.168.1.50` |
+| Docker Compose | In use | Base stack in `/opt/core-network` |
+| AdGuard Home | In use | DNS, optional DHCP, split-brain DNS |
+| Nginx Proxy Manager | In use | HTTPS and proxy |
+| Headscale | In use | VPN control plane |
+| Subnet router | Documented | LXC 100 advertises `192.168.1.0/24` |
+| Exit node | Documented | Proxmox host advertises `0.0.0.0/0` |
+| Identity | To add | Authentik |
+| Observability | To add | Homepage, Uptime Kuma, Beszel, Dozzle |
+| Backup DR | To add | PBS, restore test, optional restic |
+| Core apps | To add | Vaultwarden, Immich, Nextcloud/Syncthing |
+| Operations manual | Documented | Routines, inventory, deployment workflow |
 
-## Fase 1: rete e VPN
+## Phase 1: Network and VPN
 
-Obiettivo: i dispositivi personali devono raggiungere la LAN e usare DNS filtrato anche da fuori casa.
+Goal: personal devices can reach the LAN and use filtered DNS even when outside the home.
 
 Checklist:
 
-- AdGuard risponde su `192.168.1.50:53`.
-- `vpn.<domain>` punta correttamente a Headscale via NPM.
-- Headscale usa `server_url: https://vpn.<domain>`.
-- LXC 100 annuncia `192.168.1.0/24`.
-- Proxmox host annuncia `0.0.0.0/0`.
-- Il telefono su 4G raggiunge `192.168.1.50`.
-- Il telefono puo selezionare il Proxmox host come exit node.
+- AdGuard responds on `192.168.1.50:53`.
+- `vpn.<domain>` points correctly to Headscale through NPM.
+- Headscale uses `server_url: https://vpn.<domain>`.
+- LXC 100 advertises `192.168.1.0/24`.
+- The Proxmox host advertises `0.0.0.0/0`.
+- A phone on 4G can reach `192.168.1.50`.
+- The phone can select the Proxmox host as exit node.
 
-Runbook:
+Runbooks:
 
 - [doc_04_headscale_vpn.md](doc_04_headscale_vpn.md)
 - [doc_05_proxmox_exit_node.md](doc_05_proxmox_exit_node.md)
 - [doc_06_headscale_hardening.md](doc_06_headscale_hardening.md)
 
-## Fase 2: identity e accesso web
+## Phase 2: Identity and Web Access
 
-Obiettivo: separare "raggiungibile in rete" da "autorizzato ad accedere".
+Goal: separate "reachable on the network" from "authorized to access."
 
-Decisione:
+Decision:
 
-- Authentik e l'identity provider principale.
-- Le UI interne vanno dietro VPN o Authentik proxy provider.
-- OIDC per Headscale e fase avanzata, non requisito per accendere la VPN.
+- Authentik is the primary identity provider.
+- Internal UIs must be behind VPN or Authentik proxy provider.
+- OIDC for Headscale is an advanced phase, not a requirement for the base VPN.
 
 Checklist:
 
-- `auth.<domain>` attivo con TLS.
-- MFA abilitata per l'utente admin.
-- Gruppi Authentik creati: `homelab-admins`, `homelab-users`.
-- Headscale-UI, Homepage, Uptime Kuma e Beszel protetti.
+- `auth.<domain>` is active with TLS.
+- MFA is enabled for the admin user.
+- Authentik groups exist: `homelab-admins`, `homelab-users`.
+- Headscale-UI, Homepage, Uptime Kuma, and Beszel are protected.
 
 Runbook:
 
 - [doc_07_identity_sso_authentik.md](doc_07_identity_sso_authentik.md)
 
-## Fase 3: observability
+## Phase 3: Observability
 
-Obiettivo: vedere subito se DNS, VPN, proxy o app sono giu.
+Goal: quickly see whether DNS, VPN, proxy, or apps are down.
 
-Checklist minima:
+Minimum checklist:
 
-- Homepage contiene link e widget dei servizi core.
-- Uptime Kuma monitora DNS, Headscale, NPM, Authentik e app core.
-- Beszel monitora host e container.
-- Dozzle legge i log Docker solo via VPN o Authentik.
+- Homepage contains links and widgets for core services.
+- Uptime Kuma monitors DNS, Headscale, NPM, Authentik, and core apps.
+- Beszel monitors hosts and containers.
+- Dozzle reads Docker logs only through VPN or Authentik.
 
 Runbook:
 
 - [doc_08_observability_dashboard.md](doc_08_observability_dashboard.md)
 
-## Fase 4: backup e disaster recovery
+## Phase 4: Backup and Disaster Recovery
 
-Obiettivo: poter ricostruire il lab, non solo "avere backup".
+Goal: be able to rebuild the lab, not just "have backups."
 
-Checklist minima:
+Minimum checklist:
 
-- PBS configurato come storage backup in Proxmox.
-- Backup schedulati per LXC 100, servizi e VM importanti.
-- Retention documentata.
-- Verify job schedulato.
-- Restore test trimestrale documentato.
-- Restic offsite opzionale per dati applicativi critici.
+- PBS is configured as backup storage in Proxmox.
+- Backups are scheduled for LXC 100, services, and important VMs.
+- Retention is documented.
+- Verify job is scheduled.
+- Quarterly restore test is documented.
+- Optional restic offsite backup exists for critical app data.
 
 Runbook:
 
 - [doc_09_backup_dr.md](doc_09_backup_dr.md)
 
-## Fase 5: app core personali
+## Phase 5: Personal Core Apps
 
-Obiettivo: sostituire servizi cloud personali senza perdere controllo o recuperabilita.
+Goal: replace personal cloud services without losing control or recoverability.
 
-Ordine consigliato:
+Recommended order:
 
-1. Vaultwarden: password.
-2. Immich: foto e video.
-3. Syncthing: sync peer-to-peer.
-4. Nextcloud AIO: cloud personale completo se serve davvero.
+1. Vaultwarden: passwords.
+2. Immich: photos and videos.
+3. Syncthing: peer-to-peer sync.
+4. Nextcloud AIO: full personal cloud suite only if really needed.
 
 Runbook:
 
 - [doc_10_core_apps.md](doc_10_core_apps.md)
 
-## Fase 6: security operations
+## Phase 6: Security Operations
 
-Obiettivo: avere procedure ripetibili per update, rotazione segreti, esposizione servizi e audit.
+Goal: have repeatable procedures for updates, secret rotation, service exposure, and audit.
 
 Checklist:
 
-- Nessun segreto reale in Git.
-- Pre-auth key Headscale a scadenza breve.
-- API key Headscale ruotate.
-- Admin UI accessibili solo via VPN o Authentik.
-- Update policy mensile.
-- CrowdSec valutato per proxy pubblici.
-- Wazuh valutato solo se hai risorse sufficienti.
+- No real secrets in Git.
+- Headscale pre-auth keys have short expiration.
+- Headscale API keys are rotated.
+- Admin UIs are accessible only through VPN or Authentik.
+- Monthly update policy exists.
+- CrowdSec is evaluated for public proxies.
+- Wazuh is evaluated only if enough resources are available.
 
 Runbook:
 
 - [doc_11_security_operations.md](doc_11_security_operations.md)
 
-## Guide trasversali obbligatorie
+## Phase 7: Operational Core v2
 
-Usale durante ogni fase:
+Goal: make the lab manageable over time before expanding it with more apps.
 
+Checklist:
+
+- Host/LXC/container inventory is current.
+- IPs, hostnames, ports, and access model are documented.
+- Daily, weekly, and monthly routines are available.
+- Standard workflow exists for every new deployment.
+- Every new app goes through monitoring, backup, and rollback before real data is added.
+
+Guides:
+
+- [OPERATIONS_MANUAL.md](OPERATIONS_MANUAL.md)
+- [INVENTORY_AND_IP_PLAN.md](INVENTORY_AND_IP_PLAN.md)
+- [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)
+
+## Required Cross-Guides
+
+Use these during every phase:
+
+- [OPERATIONS_MANUAL.md](OPERATIONS_MANUAL.md)
+- [INVENTORY_AND_IP_PLAN.md](INVENTORY_AND_IP_PLAN.md)
+- [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)
 - [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md)
 - [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md)
 - [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md)
 - [TROUBLESHOOTING_MATRIX.md](TROUBLESHOOTING_MATRIX.md)
 - [TOP_OPEN_SOURCE_STACK.md](TOP_OPEN_SOURCE_STACK.md)
 
-## Regole di rollout
+## Rollout Rules
 
-- Un servizio per volta.
-- Prima `docker compose config`, poi deploy.
-- Prima accesso LAN/VPN, poi NPM/TLS.
-- Prima backup, poi dati reali.
-- Ogni servizio deve avere: porta, hostname, volume dati, backup, monitor, owner.
+- One service at a time.
+- Run `docker compose config` before deployment.
+- Establish LAN/VPN access before NPM/TLS.
+- Create backup before real data.
+- Every service must have: port, hostname, data volume, backup, monitor, owner.
 
-## Definition of done
+## Definition of Done
 
-La piattaforma e "alta qualita homelab" quando:
+The platform is "high-quality homelab" when:
 
-- un telefono fuori casa usa AdGuard e raggiunge i servizi via VPN;
-- un exit node funziona e puo essere disattivato senza rompere la LAN;
-- un restore test PBS e stato eseguito almeno una volta;
-- ogni app core ha un monitor in Uptime Kuma;
-- ogni UI admin e dietro VPN o SSO/MFA;
-- la repo contiene i template senza segreti reali.
+- a phone outside the home uses AdGuard and reaches services through VPN;
+- an exit node works and can be disabled without breaking LAN access;
+- a PBS restore test has been executed at least once;
+- every core app has a monitor in Uptime Kuma;
+- every admin UI is behind VPN or SSO/MFA;
+- every service has inventory, backup, monitor, and rollback;
+- the repo contains templates without real secrets.
