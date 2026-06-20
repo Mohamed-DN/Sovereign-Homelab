@@ -30,6 +30,8 @@ Per app con mobile client, puoi esporre via HTTPS pubblico solo dopo:
 - password forti;
 - monitor Uptime Kuma.
 
+Prima di installare: [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
+
 ---
 
 ## Phase B: Vaultwarden
@@ -95,6 +97,17 @@ Regole:
 
 Immich e il sostituto foto/video. E potente ma cambia spesso: verifica sempre la documentazione ufficiale prima di upgrade importanti.
 
+Approccio official-first:
+
+```bash
+mkdir -p /opt/sovereign/reference/immich
+cd /opt/sovereign/reference/immich
+wget -O docker-compose.official.yml https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
+wget -O example.official.env https://github.com/immich-app/immich/releases/latest/download/example.env
+```
+
+Confronta questi file con `stacks/apps` prima di mettere dati reali.
+
 Avvio dal template:
 
 ```bash
@@ -118,6 +131,8 @@ Backup minimo:
 - compose file.
 
 Prima di importare tutta la libreria foto, fai un test con poche immagini e prova restore.
+
+Nota critica: il backup database Immich non contiene foto e video. Devi proteggere anche `UPLOAD_LOCATION`.
 
 ---
 

@@ -54,6 +54,12 @@ services:
     ports:
       - "${AUTHENTIK_HTTP_PORT}:9000"
       - "${AUTHENTIK_HTTPS_PORT}:9443"
+    healthcheck:
+      test: ["CMD-SHELL", "ak healthcheck || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
     volumes:
       - media_data:/media
       - custom_templates:/templates

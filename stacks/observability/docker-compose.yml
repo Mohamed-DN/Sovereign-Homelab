@@ -2,7 +2,7 @@ name: sovereign-observability
 
 services:
   homepage:
-    image: ghcr.io/gethomepage/homepage:latest
+    image: ghcr.io/gethomepage/homepage:${HOMEPAGE_TAG}
     container_name: homepage
     restart: unless-stopped
     environment:
@@ -14,7 +14,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   uptime-kuma:
-    image: louislam/uptime-kuma:1
+    image: louislam/uptime-kuma:${UPTIME_KUMA_TAG}
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
@@ -23,7 +23,7 @@ services:
       - uptime_kuma_data:/app/data
 
   beszel:
-    image: henrygd/beszel:latest
+    image: henrygd/beszel:${BESZEL_TAG}
     container_name: beszel
     restart: unless-stopped
     ports:
@@ -32,17 +32,18 @@ services:
       - beszel_data:/beszel_data
 
   beszel-agent:
-    image: henrygd/beszel-agent:latest
+    image: henrygd/beszel-agent:${BESZEL_AGENT_TAG}
     container_name: beszel-agent
     restart: unless-stopped
     network_mode: host
     environment:
       KEY: ${BESZEL_AGENT_KEY}
+      TOKEN: ${BESZEL_AGENT_TOKEN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:${DOZZLE_TAG}
     container_name: dozzle
     restart: unless-stopped
     ports:

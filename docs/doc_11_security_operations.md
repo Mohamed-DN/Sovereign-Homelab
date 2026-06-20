@@ -106,6 +106,15 @@ stacks/security/
 
 Prima di bloccare traffico, esegui in modalita osservazione e controlla i decision log.
 
+Verifica:
+
+```bash
+docker exec crowdsec cscli metrics
+docker exec crowdsec cscli decisions list
+```
+
+Nota importante: CrowdSec senza bouncer rileva ma non blocca. Per bloccare serve un remediation component.
+
 ---
 
 ## Phase E: Wazuh

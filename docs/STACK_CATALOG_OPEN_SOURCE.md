@@ -33,6 +33,10 @@ Questo catalogo separa il core da installare dagli strumenti opzionali. La regol
 | Media | Jellyfin | Se vuoi streaming media personale |
 | Documenti | Paperless-ngx | Se vuoi archivio OCR documentale |
 | Automazione casa | Home Assistant OS | Meglio come VM dedicata su Proxmox |
+| Metasearch | SearXNG | Per ricerca privata |
+| RSS | FreshRSS | Per feed/news personali |
+| Git privato | Forgejo / Gitea | Per config e repo private |
+| AI locale | Ollama + Open WebUI | Solo se hardware adeguato |
 | Controller rete | Omada / UniFi / OPNsense | Se cambi router/switch/AP |
 | Alternative VPN | NetBird | Valutazione futura, non sostituisce Headscale ora |
 | Alternative proxy | Traefik / Caddy | Valutazione futura, non migrazione immediata |
@@ -65,3 +69,8 @@ Un servizio entra nel core solo se:
 - Syncthing: <https://syncthing.net/>
 - Jellyfin: <https://jellyfin.org/docs/>
 - Paperless-ngx: <https://docs.paperless-ngx.com/>
+- SearXNG: <https://docs.searxng.org/>
+- FreshRSS: <https://freshrss.github.io/FreshRSS/>
+- Forgejo: <https://forgejo.org/docs/latest/>
+- Ollama: <https://ollama.com/>
+- Open WebUI: <https://docs.openwebui.com/>

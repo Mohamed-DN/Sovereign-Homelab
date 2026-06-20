@@ -54,6 +54,13 @@ keep-monthly: 6
 
 Adatta in base allo spazio disponibile.
 
+Manutenzione PBS:
+
+- prune rimuove riferimenti snapshot vecchi;
+- garbage collection libera chunk non piu referenziati;
+- verify job controlla che i backup siano leggibili;
+- un backup non verificato e un'ipotesi, non una garanzia.
+
 ---
 
 ## Phase C: Restore test
@@ -161,6 +168,8 @@ Prima di inserire dati reali:
 - `.env` reali salvati fuori Git;
 - Uptime Kuma monitora il servizio;
 - sai come fermare e ripristinare il container.
+
+Comandi di verifica rapidi: [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md).
 
 ---
 
