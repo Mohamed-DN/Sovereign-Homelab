@@ -1,76 +1,84 @@
 # Runbook 06: Headscale Hardening
 
-Questo runbook alza il livello della VPN da "funziona" a "governata": policy, tag, route approval, audit e preparazione OIDC.
+Questo runbook porta la VPN da "funziona" a "governata": policy, tag, route approval, exit node controllato, audit e rollback.
 
-Obiettivo:
+Il risultato atteso:
 
-- evitare allow-all permanente;
-- distinguere dispositivi personali, server, router ed exit node;
-- approvare route in modo controllato;
-- mantenere Headscale leggibile e auditabile.
+- LXC 100 resta il subnet router per `192.168.1.0/24`.
+- Proxmox P710 resta l'exit node per `0.0.0.0/0`.
+- Le route sono approvate da policy o da comando esplicito.
+- I device utente non hanno accesso illimitato alle UI admin.
+- Ogni cambio policy puo essere testato e ripristinato.
 
 ---
 
-## Phase A: Modello di accesso
+## Phase A: Architettura della policy
 
-Ruoli logici:
+Headscale usa un policy file in formato HuJSON/JSON. Il file viene referenziato in `config.yaml` con `policy.path`.
 
-| Ruolo | Esempio | Tag/gruppo |
+Modello logico:
+
+| Ruolo | Esempio | Identita policy |
 |---|---|---|
 | Admin personale | laptop admin, workstation | `group:admin` |
 | Dispositivi personali | smartphone, laptop | `group:users` |
-| Router LAN | LXC 100 subnet router | `tag:router` |
-| Exit node | Proxmox host P710 | `tag:exit` |
-| Servizi | container/app server | `tag:service` |
-| Admin tools | Headscale-UI, monitoring | `tag:admin` |
+| Subnet router | LXC 100 | `tag:router` |
+| Exit node | Proxmox P710 | `tag:exit` |
+| Servizi web | app dietro NPM | `tag:service` |
+| UI amministrative | Headscale-UI, Uptime Kuma, Beszel | `tag:admin` |
 
-Regola pratica:
+Regole di sicurezza:
 
-- I client personali possono usare DNS e servizi base.
-- Solo admin puo raggiungere interfacce amministrative.
-- Solo router taggati possono annunciare route.
-- Solo exit node taggati possono annunciare full tunnel.
+- Senza grant esplicito, il traffico non deve passare.
+- Solo admin puo taggare router, exit node e servizi.
+- Solo nodi con `tag:router` possono auto-approvare `192.168.1.0/24`.
+- Solo nodi con `tag:exit` possono auto-approvare exit node.
+- L'accesso internet via exit node passa da `autogroup:internet` e `via`.
 
 ---
 
-## Phase B: Abilitare il policy file
+## Phase B: Preparare il policy file
 
-Dentro LXC 100, crea una directory dedicata:
+Entra in LXC 100:
 
 ```bash
+cd /opt/core-network
 mkdir -p /opt/core-network/headscale/policy
 ```
 
-Nel file `/opt/core-network/headscale/config/config.yaml`, abilita il policy file. Controlla sempre la sintassi del tuo `config-example.yaml`, ma il modello e questo:
+Aggiorna il volume del servizio Headscale in `docker-compose.yml`:
+
+```yaml
+services:
+  headscale:
+    volumes:
+      - ./headscale/config:/etc/headscale
+      - ./headscale/data:/var/lib/headscale
+      - ./headscale/policy:/etc/headscale/policy
+```
+
+Nel file `/opt/core-network/headscale/config/config.yaml`, aggiungi o correggi:
 
 ```yaml
 policy:
-  mode: file
-  path: /etc/headscale/policy/policy.json
+  path: /etc/headscale/policy/policy.hujson
 ```
 
-Aggiorna il volume del container Headscale in `docker-compose.yml`:
-
-```yaml
-volumes:
-  - ./headscale/config:/etc/headscale
-  - ./headscale/data:/var/lib/headscale
-  - ./headscale/policy:/etc/headscale/policy
-```
-
-Poi prepara il file:
-
-```bash
-touch /opt/core-network/headscale/policy/policy.json
-```
+Nota importante: non usare `policy.mode` se la tua versione Headscale non lo prevede. La documentazione stabile richiede `policy.path`.
 
 ---
 
-## Phase C: Policy iniziale least privilege
+## Phase C: Creare policy iniziale
 
-Crea `/opt/core-network/headscale/policy/policy.json`.
+Crea `/opt/core-network/headscale/policy/policy.hujson`.
 
-Sostituisci `mohamed@` con l'utente Headscale reale. Se usi utenti locali Headscale, il nome deve finire con `@` quando viene referenziato nel policy file.
+Sostituisci `mohamed@` con l'utente reale visto da:
+
+```bash
+docker exec headscale headscale users list
+```
+
+Policy iniziale:
 
 ```json
 {
@@ -78,19 +86,21 @@ Sostituisci `mohamed@` con l'utente Headscale reale. Se usi utenti locali Headsc
     "group:admin": ["mohamed@"],
     "group:users": ["mohamed@"]
   },
+
   "tagOwners": {
     "tag:router": ["group:admin"],
     "tag:exit": ["group:admin"],
     "tag:service": ["group:admin"],
     "tag:admin": ["group:admin"]
   },
+
   "autoApprovers": {
     "routes": {
-      "192.168.1.0/24": ["tag:router"],
-      "0.0.0.0/0": ["tag:exit"]
+      "192.168.1.0/24": ["tag:router"]
     },
     "exitNode": ["tag:exit"]
   },
+
   "grants": [
     {
       "src": ["group:admin"],
@@ -99,27 +109,64 @@ Sostituisci `mohamed@` con l'utente Headscale reale. Se usi utenti locali Headsc
     },
     {
       "src": ["group:users"],
-      "dst": ["192.168.1.0/24"],
-      "ip": ["tcp:53", "udp:53", "tcp:80", "tcp:443", "icmp"]
+      "dst": ["192.168.1.50/32"],
+      "ip": ["udp:53", "tcp:53", "tcp:80", "tcp:443", "tcp:3000", "icmp:*"]
     },
     {
       "src": ["group:users"],
       "dst": ["tag:service"],
       "ip": ["tcp:80", "tcp:443"]
+    },
+    {
+      "src": ["group:users"],
+      "dst": ["autogroup:internet"],
+      "via": ["tag:exit"],
+      "ip": ["*"]
     }
   ]
 }
 ```
 
-Nota: alcune versioni Headscale/Tailscale possono richiedere piccole differenze nella sintassi `autoApprovers` o `grants`. Se Headscale rifiuta il file, rimuovi temporaneamente `autoApprovers.exitNode`, riavvia, e approva l'exit node manualmente con `nodes approve-routes`.
+Spiegazione:
+
+- `group:admin` ha accesso completo per gestione.
+- `group:users` puo usare DNS/HTTPS verso AdGuard e servizi.
+- `autogroup:internet` consente full tunnel solo attraverso nodi `tag:exit`.
+- `autoApprovers.routes` auto-approva solo `192.168.1.0/24` da nodi `tag:router`.
+- `autoApprovers.exitNode` auto-approva exit node taggati `tag:exit`.
 
 ---
 
-## Phase D: Taggare i nodi infrastrutturali
+## Phase D: Testare prima di riavviare
 
-Quando registri un nodo infrastrutturale, aggiungi il tag.
+Esegui un backup rapido dei file:
 
-LXC 100 subnet router:
+```bash
+cp /opt/core-network/headscale/config/config.yaml /opt/core-network/headscale/config/config.yaml.bak.$(date +%F-%H%M)
+cp /opt/core-network/headscale/policy/policy.hujson /opt/core-network/headscale/policy/policy.hujson.bak.$(date +%F-%H%M)
+```
+
+Valida la configurazione:
+
+```bash
+docker exec headscale headscale configtest
+```
+
+Se il container non vede ancora il volume policy, riavvia solo dopo aver aggiornato `docker-compose.yml`:
+
+```bash
+docker compose up -d headscale
+docker exec headscale headscale configtest
+docker logs --tail=100 headscale
+```
+
+Non proseguire se `configtest` fallisce.
+
+---
+
+## Phase E: Taggare LXC 100 come subnet router
+
+Sul client Tailscale installato dentro LXC 100:
 
 ```bash
 tailscale up \
@@ -129,7 +176,32 @@ tailscale up \
   --accept-dns=false
 ```
 
-Proxmox host exit node:
+Se e gia registrato:
+
+```bash
+tailscale set --advertise-tags tag:router
+tailscale set --advertise-routes=192.168.1.0/24
+tailscale set --accept-dns=false
+```
+
+Verifica:
+
+```bash
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes list-routes
+```
+
+La route `192.168.1.0/24` deve apparire come approvata e servita. Se non succede:
+
+```bash
+docker exec headscale headscale nodes approve-routes --identifier LXC100_NODE_ID --routes 192.168.1.0/24
+```
+
+---
+
+## Phase F: Taggare Proxmox P710 come exit node
+
+Sul Proxmox host:
 
 ```bash
 tailscale up \
@@ -140,84 +212,132 @@ tailscale up \
   --accept-dns=false
 ```
 
-Se un nodo e gia registrato, puoi riapplicare:
-
-```bash
-tailscale set --advertise-tags tag:router
-tailscale set --advertise-routes=192.168.1.0/24
-```
-
-oppure:
+Se e gia registrato:
 
 ```bash
 tailscale set --advertise-tags tag:exit
 tailscale set --advertise-exit-node
+tailscale set --accept-dns=false
 ```
 
----
-
-## Phase E: Riavviare e verificare
-
-Riavvia Headscale:
+Verifica da LXC 100:
 
 ```bash
-cd /opt/core-network
-docker compose restart headscale
-docker logs --tail=100 headscale
-```
-
-Verifica nodi:
-
-```bash
-docker exec headscale headscale nodes list
 docker exec headscale headscale nodes list-routes
 ```
 
-Se l'auto-approval non viene applicato, approva manualmente:
+Un exit node annuncia `0.0.0.0/0` e, se IPv6 e attivo, `::/0`. Se non viene auto-approvato:
 
 ```bash
-docker exec headscale headscale nodes approve-routes --identifier LXC100_NODE_ID --routes 192.168.1.0/24
 docker exec headscale headscale nodes approve-routes --identifier PROXMOX_NODE_ID --routes 0.0.0.0/0
 ```
 
 ---
 
-## Phase F: OIDC con Authentik come step avanzato
+## Phase G: Test da client reale
 
-OIDC porta SSO e MFA anche al login Headscale. Non e obbligatorio per la VPN base.
+Da telefono su 4G/5G:
 
-Flusso consigliato:
+1. Connetti il client alla tailnet.
+2. Abilita "Use exit node" e scegli `proxmox-p710`.
+3. Se disponibile, abilita "Allow LAN access".
 
-1. Installa Authentik con [Runbook 07](doc_07_identity_sso_authentik.md).
-2. Crea un provider OIDC per Headscale.
-3. Redirect URI:
+Test:
 
-   ```text
-   https://vpn.yourdomain.duckdns.org/oidc/callback
-   ```
+```bash
+ping 192.168.1.50
+nslookup example.com 192.168.1.50
+```
 
-4. In Headscale configura:
+Apri un sito di IP check. Deve mostrare l'IP pubblico della linea di casa.
 
-   ```yaml
-   oidc:
-     issuer: "https://auth.yourdomain.duckdns.org/application/o/headscale/"
-     client_id: "headscale"
-     client_secret: "PASTE_CLIENT_SECRET"
-     pkce:
-       enabled: true
-     allowed_users:
-       - "you@example.com"
-   ```
+Da un device non admin:
 
-5. Riavvia Headscale.
+- deve raggiungere AdGuard e servizi HTTPS;
+- non deve raggiungere UI admin non autorizzate;
+- deve usare exit node solo tramite `tag:exit`.
 
-Limite importante: Headscale supporta OIDC, ma i gruppi OIDC non vanno trattati come unica fonte per le policy. Mantieni il policy file leggibile e testalo dopo ogni cambio identity.
+Da un device admin:
+
+- deve raggiungere Headscale-UI;
+- deve raggiungere monitoring/admin;
+- deve poter gestire route e nodi.
 
 ---
 
-## Phase G: Audit mensile
+## Phase H: High availability route
 
-Esegui questo audit una volta al mese o dopo ogni viaggio.
+Headscale supporta piu router che annunciano la stessa route.
+
+Schema consigliato:
+
+- primario: LXC 100 `tag:router`, route `192.168.1.0/24`;
+- backup: Proxmox host o secondo LXC, stessa route ma usato solo se serve.
+
+Non abilitare HA routing finche non hai monitoring, perche due router configurati male rendono il troubleshooting piu difficile.
+
+---
+
+## Phase I: OIDC con Authentik
+
+OIDC e fase avanzata. Prima stabilizza la VPN locale.
+
+In Authentik:
+
+- Application: `Headscale`
+- Provider: OAuth2/OpenID Connect
+- Redirect URI:
+
+```text
+https://vpn.yourdomain.duckdns.org/oidc/callback
+```
+
+In `config.yaml` Headscale:
+
+```yaml
+oidc:
+  issuer: "https://auth.yourdomain.duckdns.org/application/o/headscale/"
+  client_id: "headscale"
+  client_secret: "PASTE_CLIENT_SECRET"
+  pkce:
+    enabled: true
+  allowed_users:
+    - "you@example.com"
+```
+
+Test:
+
+```bash
+docker exec headscale headscale configtest
+docker compose restart headscale
+docker logs --tail=100 headscale
+```
+
+---
+
+## Phase J: Rollback
+
+Se la policy rompe accessi:
+
+```bash
+cd /opt/core-network
+docker compose stop headscale
+cp /opt/core-network/headscale/config/config.yaml.bak.YYYY-MM-DD-HHMM /opt/core-network/headscale/config/config.yaml
+cp /opt/core-network/headscale/policy/policy.hujson.bak.YYYY-MM-DD-HHMM /opt/core-network/headscale/policy/policy.hujson
+docker compose up -d headscale
+docker exec headscale headscale configtest
+```
+
+Se serve disattivare temporaneamente le policy:
+
+1. Commenta o rimuovi `policy.path` da `config.yaml`.
+2. Riavvia Headscale.
+3. Correggi il policy file offline.
+4. Riattiva `policy.path`.
+
+---
+
+## Phase K: Audit mensile
 
 ```bash
 docker exec headscale headscale users list
@@ -229,52 +349,31 @@ docker exec headscale headscale apikeys list
 
 Controlla:
 
-- nodi vecchi o duplicati;
+- nodi vecchi o sconosciuti;
 - route non necessarie;
-- exit node che non usi piu;
+- exit node non usati;
 - pre-auth key ancora valide;
-- API key scadute o troppo lunghe;
-- dispositivi non riconosciuti.
+- API key troppo lunghe;
+- dispositivi duplicati.
 
-Azioni:
+Azioni tipiche:
 
 ```bash
-docker exec headscale headscale nodes delete -i DEVICE_ID
 docker exec headscale headscale nodes expire -i DEVICE_ID
-```
-
-Rigenera pre-auth key solo quando devi aggiungere un device:
-
-```bash
+docker exec headscale headscale nodes delete -i DEVICE_ID
 docker exec headscale headscale preauthkeys create -u 1 --expiration 2h
 ```
 
 ---
 
-## Phase H: Test di sicurezza
+## Fonti ufficiali
 
-Da un device utente non admin:
-
-- deve risolvere DNS via AdGuard;
-- deve raggiungere servizi web personali;
-- non deve raggiungere UI admin non autorizzate;
-- deve poter usare exit node solo se policy e client lo permettono.
-
-Da un device admin:
-
-- deve raggiungere Headscale-UI, Homepage, Uptime Kuma, Beszel;
-- deve poter gestire route e nodi;
-- deve poter disattivare exit node dal client.
-
----
-
-## Reference
-
-- Headscale policy/ACL: <https://headscale.net/stable/ref/acls/>
-- Headscale routes: <https://headscale.net/stable/ref/routes/>
+- Headscale configuration: <https://headscale.net/stable/ref/configuration/>
+- Headscale ACL/policy: <https://headscale.net/stable/ref/acls/>
+- Headscale routes and exit nodes: <https://headscale.net/stable/ref/routes/>
 - Headscale OIDC: <https://headscale.net/stable/ref/oidc/>
+- Tailscale policy file: <https://tailscale.com/docs/reference/syntax/policy-file>
 - Tailscale grants: <https://tailscale.com/docs/reference/syntax/grants>
-- Tailscale tags: <https://tailscale.com/docs/features/tags>
 
 ---
 

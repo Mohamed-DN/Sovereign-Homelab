@@ -135,6 +135,16 @@ Runbook:
 
 - [doc_11_security_operations.md](doc_11_security_operations.md)
 
+## Guide trasversali obbligatorie
+
+Usale durante ogni fase:
+
+- [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md)
+- [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md)
+- [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md)
+- [TROUBLESHOOTING_MATRIX.md](TROUBLESHOOTING_MATRIX.md)
+- [TOP_OPEN_SOURCE_STACK.md](TOP_OPEN_SOURCE_STACK.md)
+
 ## Regole di rollout
 
 - Un servizio per volta.

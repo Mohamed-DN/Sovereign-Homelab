@@ -31,6 +31,8 @@ stacks/identity/
 
 ## Phase B: Preparare i segreti
 
+Prima controlla [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md).
+
 Copia il template:
 
 ```bash
@@ -57,6 +59,17 @@ Non committare mai `.env`.
 ---
 
 ## Phase C: Avviare Authentik
+
+Approccio consigliato:
+
+- per bootstrap rapido: usa `stacks/identity`;
+- per produzione/upgrade: scarica il compose ufficiale Authentik e confrontalo con il template locale.
+
+```bash
+mkdir -p /opt/sovereign/reference/authentik
+cd /opt/sovereign/reference/authentik
+curl -O https://docs.goauthentik.io/compose.yml
+```
 
 ```bash
 docker compose --env-file .env up -d
@@ -172,6 +185,14 @@ Prima di usare Authentik in produzione, aggiungi:
 - monitor Uptime Kuma su `https://auth.<domain>`;
 - backup PBS del container/host;
 - eventuale backup restic dei volumi applicativi.
+
+Verifica operativa:
+
+```bash
+docker compose ps
+docker compose logs --tail=100 authentik-server
+curl -I https://auth.<domain>
+```
 
 ---
 

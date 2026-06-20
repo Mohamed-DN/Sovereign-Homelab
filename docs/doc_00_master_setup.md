@@ -4,6 +4,8 @@ This document contains the master deployment script. It creates the necessary di
 
 > 🎓 **Why we do this**: Setting up a server manually file-by-file is prone to human error. By using a single Bash script and a Docker Compose file, we define our entire infrastructure as "Code". If the server crashes, running this one script will rebuild the entire Core Network in 10 seconds perfectly.
 
+> **Production note**: this runbook is a bootstrap path. It uses upstream `latest` images for simplicity. Once the stack is working, record tested versions, back up `/opt/core-network`, and upgrade intentionally with `docker compose pull`, `docker compose config`, `docker compose up -d`, and a rollback plan.
+
 ## The Master Deployment Script
 
 Run this script directly in the terminal of your LXC container (`core-network`) as the `root` user.
@@ -91,4 +93,10 @@ docker compose up -d
 
 ## Next Steps
 Once the stack is running, proceed with the other runbooks to configure AdGuard, setup your Headscale domain, and secure everything with Nginx Proxy Manager.
+
+Before adding real personal data, continue with:
+
+- [Runbook 06: Headscale Hardening](doc_06_headscale_hardening.md)
+- [Runbook 09: Backup and DR](doc_09_backup_dr.md)
+- [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md)
 

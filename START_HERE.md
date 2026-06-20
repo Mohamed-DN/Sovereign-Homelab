@@ -15,7 +15,8 @@ Il modello scelto e:
 
 1. Leggi la roadmap: [ROADMAP_SOVEREIGN_HOMELAB.md](docs/ROADMAP_SOVEREIGN_HOMELAB.md).
 2. Verifica la mappa: [infrastructure_plan_and_map.md](docs/infrastructure_plan_and_map.md).
-3. Scegli il dominio DuckDNS e mantieni una naming convention stabile.
+3. Apri la matrice: [PORTS_AND_DNS_MATRIX.md](docs/PORTS_AND_DNS_MATRIX.md).
+4. Scegli il dominio DuckDNS e mantieni una naming convention stabile.
 
 ### 1. Foundation rete
 
@@ -41,6 +42,13 @@ Il modello scelto e:
 1. [Runbook 10](docs/doc_10_core_apps.md): Vaultwarden, Immich, Nextcloud AIO e Syncthing.
 2. [Runbook 11](docs/doc_11_security_operations.md): hardening, rotation, update policy, CrowdSec/Wazuh.
 3. Consulta il catalogo: [STACK_CATALOG_OPEN_SOURCE.md](docs/STACK_CATALOG_OPEN_SOURCE.md).
+4. Consulta il catalogo top-tier: [TOP_OPEN_SOURCE_STACK.md](docs/TOP_OPEN_SOURCE_STACK.md).
+
+### 5. Validazione e troubleshooting
+
+1. [CHECKLIST_PRE_DEPLOY.md](docs/CHECKLIST_PRE_DEPLOY.md): prima di installare o aggiornare.
+2. [VALIDATION_COMMANDS.md](docs/VALIDATION_COMMANDS.md): comandi di test.
+3. [TROUBLESHOOTING_MATRIX.md](docs/TROUBLESHOOTING_MATRIX.md): sintomi e fix.
 
 ## Naming standard
 

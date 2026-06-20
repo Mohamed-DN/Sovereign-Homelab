@@ -28,6 +28,8 @@ Dozzle legge il Docker socket. Trattalo come strumento admin, non come app pubbl
 
 ## Phase B: Deploy
 
+Prima controlla [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md) e [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md).
+
 Template:
 
 ```text
@@ -87,6 +89,8 @@ Alert consigliati:
 - Telegram;
 - email;
 - webhook locale.
+
+Regola: ogni servizio che compare in Homepage deve avere anche un monitor Uptime Kuma o una ragione scritta per non averlo.
 
 ---
 
