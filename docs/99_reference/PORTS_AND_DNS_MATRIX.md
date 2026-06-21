@@ -69,6 +69,7 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | Repos + SSH, backup-sensitive |
 | Open WebUI | `ai.internal` | 3004 | VPN only | Local AI or private providers |
 | Ollama API | none | 11434 | LAN/VPN only | Do not publish |
+| Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
 ## Recommended DNS Rewrites
 
@@ -91,6 +92,11 @@ In AdGuard:
 | `paper.internal` | NPM IP when Paperless is ready |
 | `rss.internal` | NPM IP when FreshRSS is ready |
 | `bookmarks.internal` | NPM IP when Karakeep is ready |
+| `media.internal` | NPM IP when Jellyfin is ready |
+| `ha.internal` | NPM IP when Home Assistant is ready |
+| `search.internal` | NPM IP when SearXNG is ready |
+| `git.internal` | NPM IP when Forgejo is ready |
+| `ai.internal` | NPM IP when Open WebUI is ready |
 
 If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, update this matrix before changing AdGuard.
 

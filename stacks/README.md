@@ -19,6 +19,7 @@ Rules:
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
 | `apps/` | Vaultwarden, Syncthing, Immich, Nextcloud AIO |
 | `security/` | CrowdSec template |
+| `extended-services/` | Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, Jellyfin, Ollama/Open WebUI, optional Wazuh |
 
 ## Deploy Pattern
 

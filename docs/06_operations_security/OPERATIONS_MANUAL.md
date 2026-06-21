@@ -1,12 +1,16 @@
 # Operations Manual
 
+**Previous:** [Runbook 11 - Security Operations](doc_11_security_operations.md)
+
+**Next:** [Pre-Deploy Checklist](CHECKLIST_PRE_DEPLOY.md)
+
 This manual explains how to operate the Sovereign Homelab after installation. The rule is: observe first, change second, validate third, document last.
 
 The manual uses these supporting documents:
 
-- [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md)
-- [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md)
-- [Validation Commands](VALIDATION_COMMANDS.md)
+- [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md)
+- [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md)
+- [Validation Commands](../99_reference/VALIDATION_COMMANDS.md)
 - [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
 - [Deployment Workflow](DEPLOYMENT_WORKFLOW.md)
 
@@ -130,8 +134,8 @@ Expected time: 1-2 hours.
    - Vaultwarden admin token;
    - restic keys.
 5. Update documentation:
-   - every new app goes into [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md);
-   - every port goes into [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md);
+   - every new app goes into [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md);
+   - every port goes into [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md);
    - every recurring failure goes into [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md).
 
 ## Standard Update Procedure
@@ -224,7 +228,7 @@ docker logs --tail=100 headscale
 docker exec headscale headscale configtest
 ```
 
-3. If policy breaks access, follow the rollback in [Runbook 06](doc_06_headscale_hardening.md).
+3. If policy breaks access, follow the rollback in [Runbook 06](../02_network_vpn/doc_06_headscale_hardening.md).
 
 ### Proxy or Certificates Broken
 

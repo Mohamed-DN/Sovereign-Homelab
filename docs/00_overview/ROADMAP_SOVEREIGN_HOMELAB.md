@@ -46,9 +46,9 @@ Checklist:
 
 Runbooks:
 
-- [doc_04_headscale_vpn.md](doc_04_headscale_vpn.md)
-- [doc_05_proxmox_exit_node.md](doc_05_proxmox_exit_node.md)
-- [doc_06_headscale_hardening.md](doc_06_headscale_hardening.md)
+- [doc_04_headscale_vpn.md](../02_network_vpn/doc_04_headscale_vpn.md)
+- [doc_05_proxmox_exit_node.md](../02_network_vpn/doc_05_proxmox_exit_node.md)
+- [doc_06_headscale_hardening.md](../02_network_vpn/doc_06_headscale_hardening.md)
 
 ## Phase 2: Identity and Web Access
 
@@ -69,7 +69,7 @@ Checklist:
 
 Runbook:
 
-- [doc_07_identity_sso_authentik.md](doc_07_identity_sso_authentik.md)
+- [doc_07_identity_sso_authentik.md](../03_platform_services/doc_07_identity_sso_authentik.md)
 
 ## Phase 3: Observability
 
@@ -84,7 +84,7 @@ Minimum checklist:
 
 Runbook:
 
-- [doc_08_observability_dashboard.md](doc_08_observability_dashboard.md)
+- [doc_08_observability_dashboard.md](../03_platform_services/doc_08_observability_dashboard.md)
 
 ## Phase 4: Backup and Disaster Recovery
 
@@ -101,7 +101,7 @@ Minimum checklist:
 
 Runbook:
 
-- [doc_09_backup_dr.md](doc_09_backup_dr.md)
+- [doc_09_backup_dr.md](../05_backup_dr/doc_09_backup_dr.md)
 
 ## Phase 5: Personal Core Apps
 
@@ -116,7 +116,7 @@ Recommended order:
 
 Runbook:
 
-- [doc_10_core_apps.md](doc_10_core_apps.md)
+- [doc_10_core_apps.md](../04_apps/doc_10_core_apps.md)
 
 ## Phase 6: Security Operations
 
@@ -134,7 +134,7 @@ Checklist:
 
 Runbook:
 
-- [doc_11_security_operations.md](doc_11_security_operations.md)
+- [doc_11_security_operations.md](../06_operations_security/doc_11_security_operations.md)
 
 ## Phase 7: Operational Core v2
 
@@ -150,22 +150,22 @@ Checklist:
 
 Guides:
 
-- [OPERATIONS_MANUAL.md](OPERATIONS_MANUAL.md)
-- [INVENTORY_AND_IP_PLAN.md](INVENTORY_AND_IP_PLAN.md)
-- [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)
+- [OPERATIONS_MANUAL.md](../06_operations_security/OPERATIONS_MANUAL.md)
+- [INVENTORY_AND_IP_PLAN.md](../99_reference/INVENTORY_AND_IP_PLAN.md)
+- [DEPLOYMENT_WORKFLOW.md](../06_operations_security/DEPLOYMENT_WORKFLOW.md)
 
 ## Required Cross-Guides
 
 Use these during every phase:
 
-- [OPERATIONS_MANUAL.md](OPERATIONS_MANUAL.md)
-- [INVENTORY_AND_IP_PLAN.md](INVENTORY_AND_IP_PLAN.md)
-- [DEPLOYMENT_WORKFLOW.md](DEPLOYMENT_WORKFLOW.md)
-- [CHECKLIST_PRE_DEPLOY.md](CHECKLIST_PRE_DEPLOY.md)
-- [PORTS_AND_DNS_MATRIX.md](PORTS_AND_DNS_MATRIX.md)
-- [VALIDATION_COMMANDS.md](VALIDATION_COMMANDS.md)
-- [TROUBLESHOOTING_MATRIX.md](TROUBLESHOOTING_MATRIX.md)
-- [TOP_OPEN_SOURCE_STACK.md](TOP_OPEN_SOURCE_STACK.md)
+- [OPERATIONS_MANUAL.md](../06_operations_security/OPERATIONS_MANUAL.md)
+- [INVENTORY_AND_IP_PLAN.md](../99_reference/INVENTORY_AND_IP_PLAN.md)
+- [DEPLOYMENT_WORKFLOW.md](../06_operations_security/DEPLOYMENT_WORKFLOW.md)
+- [CHECKLIST_PRE_DEPLOY.md](../06_operations_security/CHECKLIST_PRE_DEPLOY.md)
+- [PORTS_AND_DNS_MATRIX.md](../99_reference/PORTS_AND_DNS_MATRIX.md)
+- [VALIDATION_COMMANDS.md](../99_reference/VALIDATION_COMMANDS.md)
+- [TROUBLESHOOTING_MATRIX.md](../06_operations_security/TROUBLESHOOTING_MATRIX.md)
+- [TOP_OPEN_SOURCE_STACK.md](../99_reference/TOP_OPEN_SOURCE_STACK.md)
 
 ## Rollout Rules
 

@@ -43,7 +43,7 @@ This catalog separates the core stack from optional tools. The rule is simple: i
 
 ## Expansion Priority
 
-Do not install everything at once. Use [Deployment Workflow](DEPLOYMENT_WORKFLOW.md) and add an app only when you have monitoring, backup, and rollback.
+Do not install everything at once. Use [Deployment Workflow](../06_operations_security/DEPLOYMENT_WORKFLOW.md) and add an app only when you have monitoring, backup, and rollback.
 
 | Priority | Services | Reason |
 |---|---|---|
