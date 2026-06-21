@@ -68,7 +68,7 @@ Design references:
 | Dozzle | `logs.internal` | 8088 | VPN/Auth admin | Docker logs |
 | CrowdSec LAPI | none | 8089 | localhost/LAN only | Detection API |
 
-Live bootstrap state as of 2026-06-21:
+Live bootstrap state as of 2026-06-22:
 
 | Alias | Client-side URL | Upstream |
 |---|---|---|
@@ -82,10 +82,18 @@ Live bootstrap state as of 2026-06-21:
 | `status.internal` | `http://status.internal` | `http://192.168.1.51:3001` |
 | `monitor.internal` | `http://monitor.internal` | `http://192.168.1.51:8090` |
 | `logs.internal` | `http://logs.internal` | `http://192.168.1.51:8088` |
+| `pwd.internal` | `http://pwd.internal` | `http://192.168.1.52:8082` |
+| `sync.internal` | `http://sync.internal` | `http://192.168.1.52:8384` |
+| `paper.internal` | `http://paper.internal` | `http://192.168.1.52:8010` |
+| `rss.internal` | `http://rss.internal` | `http://192.168.1.52:8087` |
+| `bookmarks.internal` | `http://bookmarks.internal` | `http://192.168.1.52:3010` |
+| `search.internal` | `http://search.internal` | `http://192.168.1.52:8084` |
+| `git.internal` | `http://git.internal` | `http://192.168.1.52:3003` |
+| `foto.internal` | `http://foto.internal` | `http://192.168.1.110:2283` |
 
 This is acceptable during the VPN-only bootstrap phase. Move to trusted private HTTPS after deploying an internal CA.
 
-## Apps
+## Live Apps
 
 | Service | Hostname | Template port | Access | Backup |
 |---|---:|---:|---|---|
@@ -94,8 +102,13 @@ This is acceptable during the VPN-only bootstrap phase. Move to trusted private 
 | Syncthing UI | `sync.internal` | 8384 | VPN/Auth admin | config + folders |
 | Syncthing sync | none | 22000/tcp+udp | LAN/VPN/device | data folders |
 | Syncthing discovery | none | 21027/udp | LAN | local discovery |
-| Nextcloud AIO UI | none | 8086 | VPN admin | AIO backup |
-| Nextcloud Apache | `files.internal` | 11000 | VPN-first | AIO backup |
+| Paperless-ngx | `paper.internal` | 8010 | VPN/Auth | media + consume + DB |
+| FreshRSS | `rss.internal` | 8087 | VPN/Auth | data volume or DB |
+| Karakeep | `bookmarks.internal` | 3010 | VPN/Auth | DB + assets + search index |
+| SearXNG | `search.internal` | 8084 | VPN/Auth | config |
+| Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | repos + DB |
+| RustDesk ID/NAT | `rustdesk.internal` | 21115/tcp, 21116/tcp+udp | LAN/VPN or explicitly approved clients | server keys/config |
+| RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | server keys/config |
 
 ## Planned App Reservations
 
@@ -103,17 +116,12 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 
 | Service | Hostname | Recommended port | Default access | Notes |
 |---|---:|---:|---|---|
-| Paperless-ngx | `paper.internal` | 8010 | VPN/Auth | OCR documents, DB + media required in backup |
+| Nextcloud AIO UI | none | 8086 | VPN admin | AIO backup |
+| Nextcloud Apache | `files.internal` | 11000 | VPN-first | AIO backup |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | Better as a dedicated Proxmox VM |
 | Jellyfin | `media.internal` | 8096 | VPN/Auth | Requires storage plan |
-| FreshRSS | `rss.internal` | 8087 | VPN/Auth | Lightweight, useful after base backup |
-| Karakeep | `bookmarks.internal` | 3010 | VPN/Auth | Bookmarks + assets + DB |
-| SearXNG | `search.internal` | 8084 | VPN/Auth | Private metasearch |
-| Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | Repos + SSH, backup-sensitive |
 | Open WebUI | `ai.internal` | 3004 | VPN only | Local AI or private providers |
 | Ollama API | none | 11434 | LAN/VPN only | Do not publish |
-| RustDesk ID/NAT | `rustdesk.internal` | 21115/tcp, 21116/tcp+udp | LAN/VPN or explicitly approved clients | Remote desktop ID registration and NAT checks |
-| RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | Relay and optional web client support |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
 ## Operations Extensions

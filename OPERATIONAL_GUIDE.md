@@ -83,7 +83,7 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up LXC 100 and 101 daily, and LXC 101 has been restored to a temporary CT for a successful drill. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,110` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102 and VM110 backups exist, but their restore drills are still required before importing real passwords, photos, documents, or repositories. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
 
 ### Layer 3: Core Network
 
@@ -173,7 +173,7 @@ curl -I http://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub, and Dozzle. Uptime Kuma has 15 core monitors green. Authentik initial setup and Beszel agent enrollment remain manual gates.
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 27 green live monitors covering VPN, DNS, core aliases, app aliases, Immich, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
 
 Optional operations extensions belong after this layer, not before it:
 
@@ -214,7 +214,7 @@ curl -I https://paper.internal
 curl -I https://git.internal
 ```
 
-Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor.
+Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, and RustDesk OSS server; VM 110 serves Immich. Nextcloud, Home Assistant OS, Jellyfin, and Open WebUI remain planned.
 
 ### Layer 7: Maintenance and Updates
 
