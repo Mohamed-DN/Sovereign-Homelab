@@ -1,7 +1,7 @@
 # SearXNG Deployment Runbook
 
 ## 1. Overview & Sizing
-SearXNG is a privacy-respecting metasearch engine. Do not expose this publicly to avoid your IP being banned by search providers.
+SearXNG is a privacy-respecting metasearch engine. Do not expose this publicly to avoid your IP being banned by upstream search providers.
 - **Target**: LXC 102 (`apps-light`)
 - **CPU / RAM**: 1 vCPU / 1 GB
 - **Access**: Strict VPN/Internal access only.
@@ -15,6 +15,7 @@ nano .env
 ```
 Update the required variables:
 - `SEARXNG_SECRET_KEY`: Generate a random string using `openssl rand -hex 32`.
+- `SEARXNG_BASE_URL=https://search.internal`
 
 ## 3. Deployment
 Validate and start the container along with its Redis cache:
@@ -37,4 +38,12 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
 
 ## 6. Backup & Restore
 - **Backup**: Only the `searxng_config` needs to be backed up via PBS, as user data is intentionally not retained.
-- **Restore Test**: Restore config and verify search engines (e.g., Google, DuckDuckGo) load without API blocks.
+- **Restore Drill**:
+  1. Restore config to a test instance.
+  2. Run a query and ensure engines respond.
+
+## 7. Rollback and Troubleshooting
+- If engines fail, update SearXNG and review engine config (`settings.yml`). Upstream engines often change HTML structures breaking SearXNG extractors.
+- Do not expose publicly or you will be quickly rate-limited by Google/Bing.
+
+*Source: [SearXNG Docker Install](https://docs.searxng.org/admin/installation-docker.html)*

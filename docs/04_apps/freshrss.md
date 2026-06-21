@@ -36,4 +36,12 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
 
 ## 6. Backup & Restore
 - **Backup**: Backup the `freshrss_data` volume via PBS. Optionally, perform an OPML export from the Web UI after major feed additions.
-- **Restore Test**: Import an OPML file into a fresh instance and verify feeds update successfully.
+- **Restore Drill**:
+  1. Import an OPML file into a fresh instance.
+  2. Confirm feeds update correctly.
+
+## 7. Rollback and Troubleshooting
+- If updates fail, check cron settings and container logs.
+- If feeds disappear, restore data volume from PBS or import OPML.
+
+*Source: [FreshRSS Docker Image](https://hub.docker.com/r/freshrss/freshrss)*
