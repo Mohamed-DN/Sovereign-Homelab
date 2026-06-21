@@ -1,0 +1,216 @@
+name: sovereign-extended-services
+
+services:
+  paperless-db:
+    profiles: ["paperless"]
+    image: docker.io/library/postgres:16-alpine
+    container_name: paperless-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PAPERLESS_DB}
+      POSTGRES_USER: ${PAPERLESS_DB_USER}
+      POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
+    volumes:
+      - paperless_db:/var/lib/postgresql/data
+
+  paperless-redis:
+    profiles: ["paperless"]
+    image: docker.io/library/redis:7-alpine
+    container_name: paperless-redis
+    restart: unless-stopped
+    volumes:
+      - paperless_redis:/data
+
+  paperless:
+    profiles: ["paperless"]
+    image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_TAG}
+    container_name: paperless
+    restart: unless-stopped
+    depends_on:
+      - paperless-db
+      - paperless-redis
+    environment:
+      PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
+      PAPERLESS_URL: ${PAPERLESS_URL}
+      PAPERLESS_REDIS: redis://paperless-redis:6379
+      PAPERLESS_DBHOST: paperless-db
+      PAPERLESS_DBNAME: ${PAPERLESS_DB}
+      PAPERLESS_DBUSER: ${PAPERLESS_DB_USER}
+      PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
+      PAPERLESS_TIME_ZONE: ${TZ}
+    ports:
+      - "${PAPERLESS_PORT}:8000"
+    volumes:
+      - paperless_data:/usr/src/paperless/data
+      - paperless_media:/usr/src/paperless/media
+      - ./data/paperless/export:/usr/src/paperless/export
+      - ./data/paperless/consume:/usr/src/paperless/consume
+
+  freshrss:
+    profiles: ["freshrss"]
+    image: freshrss/freshrss:${FRESHRSS_TAG}
+    container_name: freshrss
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      CRON_MIN: "3,33"
+      BASE_URL: ${FRESHRSS_BASE_URL}
+    ports:
+      - "${FRESHRSS_PORT}:80"
+    volumes:
+      - freshrss_data:/var/www/FreshRSS/data
+      - freshrss_extensions:/var/www/FreshRSS/extensions
+
+  karakeep:
+    profiles: ["karakeep"]
+    image: ghcr.io/karakeep-app/karakeep:${KARAKEEP_TAG}
+    container_name: karakeep
+    restart: unless-stopped
+    environment:
+      MEILI_ADDR: http://karakeep-meilisearch:7700
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+      NEXTAUTH_SECRET: ${KARAKEEP_NEXTAUTH_SECRET}
+      NEXTAUTH_URL: https://bookmarks.internal
+      BROWSER_WEB_URL: http://karakeep-chrome:9222
+    ports:
+      - "${KARAKEEP_PORT}:3000"
+    volumes:
+      - karakeep_data:/data
+    depends_on:
+      - karakeep-meilisearch
+      - karakeep-chrome
+
+  karakeep-meilisearch:
+    profiles: ["karakeep"]
+    image: getmeili/meilisearch:v1.13
+    container_name: karakeep-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${KARAKEEP_MEILI_MASTER_KEY}
+    volumes:
+      - karakeep_meili:/meili_data
+
+  karakeep-chrome:
+    profiles: ["karakeep"]
+    image: gcr.io/zenika-hub/alpine-chrome:124
+    container_name: karakeep-chrome
+    restart: unless-stopped
+    command: ["--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--remote-debugging-address=0.0.0.0", "--remote-debugging-port=9222"]
+
+  searxng-redis:
+    profiles: ["searxng"]
+    image: docker.io/library/redis:7-alpine
+    container_name: searxng-redis
+    restart: unless-stopped
+
+  searxng:
+    profiles: ["searxng"]
+    image: searxng/searxng:${SEARXNG_TAG}
+    container_name: searxng
+    restart: unless-stopped
+    environment:
+      SEARXNG_BASE_URL: https://search.internal
+      SEARXNG_SECRET: ${SEARXNG_SECRET_KEY}
+    ports:
+      - "${SEARXNG_PORT}:8080"
+    volumes:
+      - searxng_config:/etc/searxng
+    depends_on:
+      - searxng-redis
+
+  forgejo-db:
+    profiles: ["forgejo"]
+    image: docker.io/library/postgres:16-alpine
+    container_name: forgejo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${FORGEJO_DB}
+      POSTGRES_USER: ${FORGEJO_DB_USER}
+      POSTGRES_PASSWORD: ${FORGEJO_DB_PASSWORD}
+    volumes:
+      - forgejo_db:/var/lib/postgresql/data
+
+  forgejo:
+    profiles: ["forgejo"]
+    image: codeberg.org/forgejo/forgejo:${FORGEJO_TAG}
+    container_name: forgejo
+    restart: unless-stopped
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: forgejo-db:5432
+      FORGEJO__database__NAME: ${FORGEJO_DB}
+      FORGEJO__database__USER: ${FORGEJO_DB_USER}
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD}
+      FORGEJO__server__ROOT_URL: https://git.internal/
+      FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT}
+    ports:
+      - "${FORGEJO_HTTP_PORT}:3000"
+      - "${FORGEJO_SSH_PORT}:22"
+    volumes:
+      - forgejo_data:/data
+    depends_on:
+      - forgejo-db
+
+  jellyfin:
+    profiles: ["jellyfin"]
+    image: jellyfin/jellyfin:${JELLYFIN_TAG}
+    container_name: jellyfin
+    restart: unless-stopped
+    ports:
+      - "${JELLYFIN_PORT}:8096"
+    volumes:
+      - ${JELLYFIN_CONFIG_PATH}:/config
+      - ${JELLYFIN_CACHE_PATH}:/cache
+      - ${JELLYFIN_MEDIA_PATH}:/media:ro
+
+  ollama:
+    profiles: ["ai"]
+    image: ollama/ollama:${OLLAMA_TAG}
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "${OLLAMA_PORT}:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+
+  open-webui:
+    profiles: ["ai"]
+    image: ghcr.io/open-webui/open-webui:${OPEN_WEBUI_TAG}
+    container_name: open-webui
+    restart: unless-stopped
+    environment:
+      OLLAMA_BASE_URL: http://ollama:11434
+    ports:
+      - "${OPEN_WEBUI_PORT}:8080"
+    volumes:
+      - open_webui_data:/app/backend/data
+    depends_on:
+      - ollama
+
+  wazuh-manager:
+    profiles: ["wazuh"]
+    image: wazuh/wazuh-manager:${WAZUH_TAG}
+    container_name: wazuh-manager
+    restart: unless-stopped
+    ports:
+      - "${WAZUH_API_PORT}:55000"
+    volumes:
+      - wazuh_data:/var/ossec/data
+
+volumes:
+  paperless_db:
+  paperless_redis:
+  paperless_data:
+  paperless_media:
+  freshrss_data:
+  freshrss_extensions:
+  karakeep_data:
+  karakeep_meili:
+  searxng_config:
+  forgejo_db:
+  forgejo_data:
+  ollama_data:
+  open_webui_data:
+  wazuh_data:

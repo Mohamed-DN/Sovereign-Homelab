@@ -157,9 +157,9 @@ For apps with databases:
 
 Update:
 
-- [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md)
-- [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md)
-- [Validation Commands](VALIDATION_COMMANDS.md), if service-specific tests are needed
+- [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md)
+- [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md)
+- [Validation Commands](../99_reference/VALIDATION_COMMANDS.md), if service-specific tests are needed
 - [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md), if you find recurring failures
 - Homepage config in the observability stack, if managed by this repo
 

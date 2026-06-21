@@ -93,8 +93,8 @@ Completed or documented:
 - **Nginx Proxy Manager** for HTTPS and `/web` Headscale-UI routing.
 - **MagicDNS** forcing remote clients to use AdGuard at `192.168.1.50`.
 - **LXC 100 subnet router** advertising `192.168.1.0/24`.
-- **Proxmox host exit node** documented in [Runbook 05](doc_05_proxmox_exit_node.md).
-- **Headscale hardening** documented in [Runbook 06](doc_06_headscale_hardening.md).
+- **Proxmox host exit node** documented in [Runbook 05](../02_network_vpn/doc_05_proxmox_exit_node.md).
+- **Headscale hardening** documented in [Runbook 06](../02_network_vpn/doc_06_headscale_hardening.md).
 
 Validation checklist:
 
@@ -114,7 +114,7 @@ Planned services:
 - **Proxy provider / forward auth** for internal UIs.
 - **OIDC for Headscale** as an advanced step after the VPN base is stable.
 
-Runbook: [doc_07_identity_sso_authentik.md](doc_07_identity_sso_authentik.md)
+Runbook: [doc_07_identity_sso_authentik.md](../03_platform_services/doc_07_identity_sso_authentik.md)
 
 ### Phase 3: Observability and Dashboard
 
@@ -127,7 +127,7 @@ Planned services:
 - **Beszel** for host/container metrics.
 - **Dozzle** for live Docker logs.
 
-Runbook: [doc_08_observability_dashboard.md](doc_08_observability_dashboard.md)
+Runbook: [doc_08_observability_dashboard.md](../03_platform_services/doc_08_observability_dashboard.md)
 
 ### Phase 4: Backup and Disaster Recovery
 
@@ -139,7 +139,7 @@ Planned services:
 - **restic** for optional encrypted offsite backups.
 - Scheduled restore tests.
 
-Runbook: [doc_09_backup_dr.md](doc_09_backup_dr.md)
+Runbook: [doc_09_backup_dr.md](../05_backup_dr/doc_09_backup_dr.md)
 
 ### Phase 5: Traffic Forwarding and Core Services
 
@@ -152,7 +152,7 @@ Planned services:
 - **Nextcloud / Syncthing** for file synchronization.
 - **Nginx Proxy Manager** as the HTTPS entry point for internal services.
 
-Runbook: [doc_10_core_apps.md](doc_10_core_apps.md)
+Runbook: [doc_10_core_apps.md](../04_apps/doc_10_core_apps.md)
 
 ### Phase 6: Security Operations
 
@@ -164,7 +164,7 @@ Planned services:
 - **Wazuh** as advanced SIEM/XDR if resources allow.
 - Update, secret rotation and incident-response runbooks.
 
-Runbook: [doc_11_security_operations.md](doc_11_security_operations.md)
+Runbook: [doc_11_security_operations.md](../06_operations_security/doc_11_security_operations.md)
 
 ### Phase 7: Future Expansion
 
@@ -179,5 +179,5 @@ Planned services:
 
 ---
 
-**Previous:** [Runbook 11: Security Operations](doc_11_security_operations.md)
-**Next:** [Start Here](../START_HERE.md)
+**Previous:** [Runbook 11: Security Operations](../06_operations_security/doc_11_security_operations.md)
+**Next:** [Start Here](../../START_HERE.md)

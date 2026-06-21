@@ -9,6 +9,7 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 - Main LAN: `192.168.1.0/24`
 - LAN router: `192.168.1.1`
 - Core network LXC: `192.168.1.50`
+- Proxmox host target: P710, 20 CPU threads, 64 GB RAM, 2 TB usable mirrored storage.
 - Public endpoint: `vpn.yourdomain.duckdns.org`, used only for the VPN entrypoint unless a future exception is documented.
 - Internal domain: `.internal`, used for LAN/VPN-only services.
 - Default access: VPN or Authentik.
@@ -33,9 +34,15 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 |---|---:|---|---|---|---|
 | TIM Router | `192.168.1.1` | LAN gateway | LAN only | Export config if possible | High |
 | Proxmox P710 | TBD | Hypervisor, exit node | LAN/VPN | PBS config + manual notes | Critical |
-| PBS | TBD | Infrastructure backup | LAN/VPN | datastore + config | Critical |
+| PBS VM 140 | TBD | Infrastructure backup | LAN/VPN | datastore + config | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
-| LXC 101 services-apps | TBD | NPM, identity, apps, and monitoring if separated | LAN/VPN | PBS + stack volumes | High |
+| LXC 101 platform-services | TBD | NPM, identity, observability, CrowdSec | LAN/VPN | PBS + stack volumes | High |
+| LXC 102 apps-light | TBD | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo | LAN/VPN | PBS + app data | High |
+| VM 110 immich | TBD | Photos and videos | VPN/Auth | PBS + DB/upload offsite | Critical |
+| VM 120 nextcloud-aio | TBD | Full cloud suite | VPN/Auth | PBS + AIO backup | High |
+| VM 130 home-assistant-os | TBD | Home automation | VPN/Auth | PBS + HA backup export | Medium |
+| VM 150 jellyfin | TBD | Media server | VPN/Auth | PBS + media metadata | Medium |
+| VM 160 wazuh | TBD | Optional SIEM | VPN/Auth admin | PBS + log retention | Medium |
 
 Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The target topology separates core network and apps into LXC 100/101. Before migrating NPM, update this inventory and [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md).
 
@@ -70,6 +77,10 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | SearXNG | `search.internal` | P2 | VPN/Auth | config | config |
 | Forgejo/Gitea | `git.internal` | P2 | VPN/Auth | repos + DB | repos + DB |
 | Ollama/Open WebUI | `ai.internal` | P2 | VPN only | model cache + chat DB | app data, models optional |
+
+## Resource Sizing
+
+Canonical sizing is in [P710 Hardware and Resource Plan](../01_proxmox_foundation/HARDWARE_AND_RESOURCE_PLAN.md). Update that file first when CPU, RAM, disk, or service placement changes.
 
 ## Backup Criticality
 
