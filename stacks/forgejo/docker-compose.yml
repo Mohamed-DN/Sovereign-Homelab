@@ -10,8 +10,15 @@ services:
       POSTGRES_USER: ${FORGEJO_DB_USER}
       POSTGRES_PASSWORD: ${FORGEJO_DB_PASSWORD}
     volumes:
-      - forgejo_db:/var/lib/postgresql/data
+    - forgejo_db:/var/lib/postgresql/data
 
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-db}
+      interval: 10s
+      timeout: 5s
+      retries: 5
   forgejo:
     image: codeberg.org/forgejo/forgejo:${FORGEJO_TAG}
     container_name: forgejo
@@ -27,12 +34,12 @@ services:
       FORGEJO__server__ROOT_URL: https://git.internal/
       FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT}
     ports:
-      - "${FORGEJO_HTTP_PORT}:3000"
-      - "${FORGEJO_SSH_PORT}:22"
+    - "${FORGEJO_HTTP_PORT}:3000"
+    - "${FORGEJO_SSH_PORT}:22"
     volumes:
-      - forgejo_data:/data
+    - forgejo_data:/data
     depends_on:
-      - forgejo-db
+    - forgejo-db
 
 volumes:
   forgejo_db:

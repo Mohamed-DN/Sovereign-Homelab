@@ -8,13 +8,22 @@ services:
     environment:
       TZ: ${TZ}
     ports:
-      - "${SYNCTHING_UI_PORT}:8384"
-      - "${SYNCTHING_TCP_PORT}:22000/tcp"
-      - "${SYNCTHING_TCP_PORT}:22000/udp"
-      - "${SYNCTHING_DISCOVERY_PORT}:21027/udp"
+    - "${SYNCTHING_UI_PORT}:8384"
+    - "${SYNCTHING_TCP_PORT}:22000/tcp"
+    - "${SYNCTHING_TCP_PORT}:22000/udp"
+    - "${SYNCTHING_DISCOVERY_PORT}:21027/udp"
     volumes:
-      - syncthing_config:/var/syncthing/config
-      - ./data/syncthing:/var/syncthing/data
+    - syncthing_config:/var/syncthing/config
+    - ./data/syncthing:/var/syncthing/data
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8384/rest/noauth/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
 volumes:
   syncthing_config:
