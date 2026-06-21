@@ -30,7 +30,7 @@ Use the real DuckDNS hostname during live validation, but keep repository exampl
 
 ## Current Live Status
 
-Last checked: 2026-06-21.
+Last checked: 2026-06-22.
 
 | Check | Status |
 |---|---|
@@ -42,19 +42,21 @@ Last checked: 2026-06-21.
 | Subnet router | `core-network` serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
 | Platform services | LXC 101 `platform-services` deployed on `192.168.1.51` |
-| Internal aliases | `adguard.internal`, `npm.internal`, `headscale.internal`, `proxmox.internal`, `pbs.internal`, `auth.internal`, `dash.internal`, `status.internal`, `monitor.internal`, and `logs.internal` respond through NPM |
-| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 15 core monitors green |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; LXC 101 backup and restore drill completed |
+| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110` |
+| Internal aliases | core, platform, LXC102 apps, and Immich aliases respond through NPM |
+| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 27 live monitors green |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110`; LXC101 restore drill completed; CT102 and VM110 backups completed |
 | Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
 
 Live caveats:
 
-- Authentik containers are healthy, but the Authentik initial setup flow still needs to be completed before it protects services.
-- Beszel Hub is reachable, but the Beszel agent is intentionally disabled until an agent key is generated from the Beszel UI.
+- Authentik is deployed and reachable, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate.
+- Beszel Hub and a platform-services agent are enrolled. Beszel agent health is checked in Beszel because the live agent uses hub/WebSocket enrollment instead of a separate inbound TCP monitor.
 - `.internal` aliases currently use HTTP on the client side over LAN/VPN. Upstreams such as Proxmox and PBS still use HTTPS behind NPM. Add an internal CA before requiring HTTPS for all private aliases.
-- LXC 102 exists but is stopped and undersized; do not reuse it for production apps without resizing or recreating it intentionally.
+- LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
+- VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
 
 ## Phase A: Access Gate
 
@@ -246,9 +248,10 @@ Check Uptime Kuma:
 - `AdGuard resolves dash.internal`: DNS monitor using `192.168.1.50`;
 - `AdGuard DNS TCP`: TCP `192.168.1.50:53`;
 - `Nginx Proxy Manager UI`, `Headscale UI`, `Proxmox VE`, `Proxmox Backup Server`;
-- `Authentik initial setup`, `Homepage`, `Uptime Kuma`, `Beszel Hub`, `Dozzle`;
+- `Authentik`, `Homepage`, `Uptime Kuma`, `Beszel Hub`, `Dozzle`;
 - `PBS API TCP`, `Headscale API TCP`;
-- critical app monitors only after those apps are deployed;
+- deployed app monitors for Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, and Immich;
+- protocol monitors for Forgejo SSH, Syncthing sync TCP, and RustDesk TCP endpoints;
 - optional operations extension monitors only after deployment.
 
 Check Beszel and Dozzle:
@@ -319,7 +322,7 @@ Current scheduled backup:
 
 | Job | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101` | `03:00` daily | `pbs-p710` | excludes PBS itself and future app VMs until restore drills are complete |
+| `sovereign-core-nightly` | `100,101,102,110` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102 and VM110 still require restore drills before real data import |
 
 If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 

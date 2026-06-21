@@ -122,28 +122,28 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `Headscale UI` | HTTP | `http://headscale.internal/web` | 60s | HTTP 200/302 |
 | `Proxmox VE` | HTTP alias | `http://proxmox.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
 | `Proxmox Backup Server` | HTTP alias | `http://pbs.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
-| `Authentik initial setup` | HTTP | `http://auth.internal/if/flow/initial-setup/` | 60s | HTTP 200 until setup is completed |
+| `Authentik` | HTTP | `http://auth.internal/if/user/` | 60s | HTTP 200/302 after setup is completed |
 | `Homepage` | HTTP | `http://dash.internal` | 60s | HTTP 200 |
 | `Uptime Kuma` | HTTP | `http://status.internal` | 60s | HTTP 200/302 |
 | `Beszel Hub` | HTTP | `http://monitor.internal` | 60s | HTTP 200 |
 | `Dozzle` | HTTP | `http://logs.internal` | 60s | HTTP 200 |
 | `PBS API TCP` | TCP Port | `PBS_IP:8007` | 60s | open TCP port |
 | `Headscale API TCP` | TCP Port | `LXC100_IP:8080` | 60s | open TCP port |
-| `ops-netalertx` | HTTP(s) | `https://netalert.internal` | 60s | HTTP response after deployment |
-| `ops-scrutiny` | HTTP(s) | `https://disks.internal` | 60s | HTTP response after deployment |
-| `ops-ntfy` | HTTP(s) | `https://alerts.internal` | 60s | HTTP response after deployment |
-| `app-vaultwarden` | HTTP(s) | `https://pwd.internal` | 60s | HTTP response |
-| `app-immich` | HTTP(s) | `https://foto.internal` | 60s | HTTP response |
-| `app-nextcloud` | HTTP(s) | `https://files.internal` | 60s | HTTP response |
-| `app-syncthing-ui` | HTTP(s) | `https://sync.internal` | 60s | HTTP response |
-| `app-paperless` | HTTP(s) | `https://paper.internal` | 60s | HTTP response |
-| `app-home-assistant` | HTTP(s) | `https://ha.internal` | 60s | HTTP response |
-| `app-jellyfin` | HTTP(s) | `https://media.internal` | 60s | HTTP response |
-| `app-freshrss` | HTTP(s) | `https://rss.internal` | 60s | HTTP response |
-| `app-karakeep` | HTTP(s) | `https://bookmarks.internal` | 60s | HTTP response |
-| `app-searxng` | HTTP(s) | `https://search.internal` | 60s | HTTP response |
-| `app-forgejo` | HTTP(s) | `https://git.internal` | 60s | HTTP response |
-| `app-open-webui` | HTTP(s) | `https://ai.internal` | 60s | HTTP response |
+| `ops-netalertx` | HTTP | `http://netalert.internal` | 60s | HTTP response after deployment |
+| `ops-scrutiny` | HTTP | `http://disks.internal` | 60s | HTTP response after deployment |
+| `ops-ntfy` | HTTP | `http://alerts.internal` | 60s | HTTP response after deployment |
+| `app-vaultwarden` | HTTP | `http://pwd.internal` | 60s | HTTP response |
+| `app-immich` | HTTP | `http://foto.internal/api/server/ping` | 60s | JSON ping response |
+| `app-nextcloud` | HTTP | `http://files.internal` | 60s | HTTP response after deployment |
+| `app-syncthing-ui` | HTTP | `http://sync.internal` | 60s | HTTP response |
+| `app-paperless` | HTTP | `http://paper.internal` | 60s | HTTP response |
+| `app-home-assistant` | HTTP | `http://ha.internal` | 60s | HTTP response after deployment |
+| `app-jellyfin` | HTTP | `http://media.internal` | 60s | HTTP response after deployment |
+| `app-freshrss` | HTTP | `http://rss.internal` | 60s | HTTP response |
+| `app-karakeep` | HTTP | `http://bookmarks.internal` | 60s | HTTP response |
+| `app-searxng` | HTTP | `http://search.internal` | 60s | HTTP response |
+| `app-forgejo` | HTTP | `http://git.internal` | 60s | HTTP response |
+| `app-open-webui` | HTTP | `http://ai.internal` | 60s | HTTP response after deployment |
 | `tcp-syncthing-sync` | TCP Port | `LXC102_IP:22000` | 60s | open TCP port |
 | `tcp-forgejo-ssh` | TCP Port | `LXC102_IP:2222` | 60s | open TCP port |
 | `tcp-rustdesk-hbbs-nat` | TCP Port | `rustdesk.internal:21115` | 60s | open TCP port |
@@ -154,7 +154,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-21: the 15 core monitors above were created and green in Uptime Kuma 2.4. Uptime Kuma was initialized with SQLite; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-06-22: 27 monitors are green in Uptime Kuma. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Forgejo SSH, Syncthing sync TCP, and RustDesk TCP endpoints. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
@@ -191,8 +191,10 @@ Setup:
 1. Open `http://monitor.internal`.
 2. Create the admin account.
 3. Add Proxmox and each Docker host.
-4. Copy the agent token into the target host configuration.
+4. Use hub/WebSocket enrollment for agents when inbound agent ports are not wanted.
 5. Add alerts for disk over 80%, RAM pressure, and repeated container restarts.
+
+Live note: the platform-services agent is enrolled. Do not create a Kuma TCP monitor for the Beszel agent when it is running in outbound hub/WebSocket mode; check agent health inside Beszel instead.
 
 ## Phase G: Dozzle Usage
 

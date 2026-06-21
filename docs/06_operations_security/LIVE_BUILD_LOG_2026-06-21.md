@@ -2,7 +2,7 @@
 
 **Previous:** [Live Proxmox Validation](LIVE_PROXMOX_VALIDATION.md)
 
-**Next:** [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
+**Next:** [Live Build Log: 2026-06-22](LIVE_BUILD_LOG_2026-06-22.md)
 
 This file records the live changes made during the first production foundation build-out. It is intentionally factual: what changed, what was validated, what remains manual, and what must not be considered production-ready yet.
 
@@ -167,4 +167,3 @@ confirm AdGuard logs still show DNS queries
 - NPM database was backed up before adding internal aliases.
 - NPM static proxy configs can be removed from the LXC 100 NPM proxy config directory if the aliases are later recreated through the NPM UI/API.
 - The temporary restore CT `901` was destroyed after validation.
-

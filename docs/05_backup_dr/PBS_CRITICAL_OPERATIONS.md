@@ -16,7 +16,7 @@ Target VM:
 
 If PBS runs on the same P710 mirror, it protects against bad updates and accidental deletion. It does not protect against full host loss. Add offsite restic or a second PBS later.
 
-Live state as of 2026-06-21:
+Live state as of 2026-06-22:
 
 | Item | Value |
 |---|---|
@@ -26,8 +26,10 @@ Live state as of 2026-06-21:
 | Datastore path | `/mnt/datastore/p710-local` |
 | PVE storage ID | `pbs-p710` |
 | Integration auth | dedicated PBS user/token stored only on the server |
-| Scheduled job | `sovereign-core-nightly`, guests `100,101`, daily `03:00` |
+| Scheduled job | `sovereign-core-nightly`, guests `100,101,102,110`, daily `03:00` |
+| Completed backups | LXC 101, LXC 102, VM 110 |
 | Restore drill | LXC 101 restored to temporary CT `901`, mounted, verified, destroyed |
+| Pending restore drills | LXC 102 `apps-light`, VM 110 `immich`, and app-aware critical data restores |
 
 ## Phase A: Install PBS
 
@@ -167,6 +169,15 @@ Validation: restored config, mounted rootfs, verified /opt/sovereign-homelab/sta
 Issues: restored CT retained original static IP, so it was not started to avoid conflict
 Next action: repeat with an app VM before importing critical data
 ```
+
+Additional live backup evidence:
+
+| Date | Guest | Result | Notes |
+|---|---|---|---|
+| 2026-06-22 | LXC 102 `apps-light` | backup completed | restore drill still pending |
+| 2026-06-22 | VM 110 `immich` | backup completed | valid after correcting the Immich data disk to 500 GB |
+
+Do not treat these backups as production-ready for personal data until a restore drill proves that the guest and application data are usable.
 
 ## Phase G: App-Aware Critical Backups
 

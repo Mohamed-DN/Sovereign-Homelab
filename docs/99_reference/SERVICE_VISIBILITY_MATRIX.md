@@ -17,9 +17,9 @@ Target placeholders:
 | `PVE_IP` | Proxmox host IP |
 | `PBS_IP` | Proxmox Backup Server VM IP |
 | `LXC100_IP` | core-network LXC, currently `192.168.1.50` |
-| `LXC101_IP` | platform-services LXC |
-| `LXC102_IP` | apps-light LXC |
-| `VM110_IP` | Immich VM |
+| `LXC101_IP` | platform-services LXC, currently `192.168.1.51` |
+| `LXC102_IP` | apps-light LXC, currently `192.168.1.52` |
+| `VM110_IP` | Immich VM, currently `192.168.1.110` |
 | `VM120_IP` | Nextcloud AIO VM |
 | `VM130_IP` | Home Assistant OS VM |
 | `VM150_IP` | Jellyfin VM |
@@ -59,23 +59,23 @@ Live note: until an internal CA is deployed, the current NPM aliases are HTTP on
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTPS monitor | VPN-first | volume + encrypted export |
-| Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTPS monitor | VPN-first | upload directory + DB backup |
-| Nextcloud | `files.internal` | `http://VM120_IP:11000` | yes | yes | HTTPS monitor | VPN-first | AIO backup + PBS |
-| Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTPS monitor | VPN/admin | config + synchronized source data |
-| Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTPS monitor | VPN/Auth | PostgreSQL + media + consume/export |
+| Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export |
+| Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup |
+| Nextcloud | `files.internal` | `http://VM120_IP:11000` | yes | yes | HTTP alias monitor after deployment | VPN-first | AIO backup + PBS |
+| Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTP alias monitor until internal CA | VPN/admin | config + synchronized source data |
+| Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export |
 
 ## High-Value Apps
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Home Assistant OS | `ha.internal` | `http://VM130_IP:8123` | yes | yes | HTTPS monitor | VPN/Auth | HA backup export + PBS |
-| Jellyfin | `media.internal` | `http://VM150_IP:8096` | yes | yes | HTTPS monitor | VPN/Auth | config + metadata + media source plan |
-| FreshRSS | `rss.internal` | `http://LXC102_IP:8087` | yes | yes | HTTPS monitor | VPN/Auth | data volume or DB |
-| Karakeep | `bookmarks.internal` | `http://LXC102_IP:3010` | yes | yes | HTTPS monitor | VPN/Auth | DB + assets + search index |
-| SearXNG | `search.internal` | `http://LXC102_IP:8084` | yes | yes | HTTPS monitor | VPN/Auth | config |
-| Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTPS monitor + TCP `2222` | VPN/Auth | repositories + DB |
-| Open WebUI | `ai.internal` | `http://AI_HOST_IP:3004` | yes | yes | HTTPS monitor | VPN only | WebUI data |
+| Home Assistant OS | `ha.internal` | `http://VM130_IP:8123` | yes | yes | HTTP alias monitor after deployment | VPN/Auth | HA backup export + PBS |
+| Jellyfin | `media.internal` | `http://VM150_IP:8096` | yes | yes | HTTP alias monitor after deployment | VPN/Auth | config + metadata + media source plan |
+| FreshRSS | `rss.internal` | `http://LXC102_IP:8087` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | data volume or DB |
+| Karakeep | `bookmarks.internal` | `http://LXC102_IP:3010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | DB + assets + search index |
+| SearXNG | `search.internal` | `http://LXC102_IP:8084` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | config |
+| Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTP alias monitor + TCP `2222` | VPN/Auth | repositories + DB |
+| Open WebUI | `ai.internal` | `http://AI_HOST_IP:3004` | yes | yes | HTTP alias monitor after deployment | VPN only | WebUI data |
 
 ## Operations Extensions
 
@@ -95,6 +95,7 @@ These are optional panels for running the lab at a higher operational level. The
 | AdGuard DHCP | `LXC100_IP:67/udp` | DHCP broadcast service, not proxied | no | not normally monitored by Kuma |
 | Headscale metrics | `LXC100_IP:9090` | metrics endpoint, not public UI | no | optional internal HTTP monitor |
 | CrowdSec LAPI | `LXC101_IP:8089` | security API, not UI | no | optional TCP monitor |
+| Beszel agent | hub/WebSocket enrollment | live platform agent connects outbound to the hub; no separate inbound TCP port is monitored | no | verify inside Beszel system list |
 | Syncthing sync | `LXC102_IP:22000/tcp+udp` | device sync protocol, not HTTP | UI card uses `sync.internal` | TCP monitor |
 | Syncthing discovery | `LXC102_IP:21027/udp` | local discovery, not proxied | no | no |
 | Forgejo SSH | `LXC102_IP:2222` | Git over SSH, not HTTP | UI card uses `git.internal` | TCP monitor |

@@ -26,16 +26,18 @@ The repository is written in English and is designed to be used like an infrastr
 
 ## Live Foundation Status
 
-Last live build log: [2026-06-21](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md).
+Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md).
 
 | Area | Current state |
 |---|---|
 | VPN | public Headscale endpoint online; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
-| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub, and Dozzle deployed on LXC 101 |
-| Monitoring | Uptime Kuma initialized with 15 green core monitors |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; LXC 101 backup and restore drill completed |
-| Open gates | Authentik initial setup, Beszel agent enrollment, internal CA, offsite backup, and app-specific restore drills |
+| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101 |
+| Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, and RustDesk OSS server |
+| Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk |
+| Monitoring | Uptime Kuma initialized with 27 green live monitors covering VPN, DNS, core aliases, apps, Immich, and protocol checks |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,110`; LXC 101 restore drill completed; CT102 and VM110 backups completed |
+| Open gates | Internal CA, offsite backup, Authentik MFA/app protection policy, and restore drills for LXC 102 and VM 110 before importing real critical data |
 
 ## Network and Access Model
 

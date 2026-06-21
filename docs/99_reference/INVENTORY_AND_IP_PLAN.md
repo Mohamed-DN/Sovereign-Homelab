@@ -31,21 +31,24 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 
 ## Live Audit Snapshot
 
-Last checked: 2026-06-21.
+Last checked: 2026-06-22.
 
 | Area | Observed state |
 |---|---|
 | Proxmox host | `192.168.1.150`, ThinkStation P710, Proxmox VE 9.2.2 |
 | LXC 100 | running as `core-network`, `192.168.1.50` |
 | LXC 101 | running as `platform-services`, `192.168.1.51` |
-| LXC 102 | present but stopped, currently named `CT102`, DHCP, 2 vCPU, 256 MB RAM, 10 GB disk |
+| LXC 102 | running as `apps-light`, `192.168.1.52`, 4 vCPU, 12 GB RAM, 200 GB disk |
+| VM 110 | running as `immich`, `192.168.1.110`, 6 vCPU, 16 GB RAM, 120 GB OS disk, 500 GB data disk mounted at `/mnt/immich-library` |
 | VM 140 | running as `pbs`, `192.168.1.20`, PBS 4.2.2 |
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
-| Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle running on LXC 101 |
+| Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle running on LXC 101 |
+| Apps-light stack | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server running on LXC 102 |
+| Immich stack | Immich server, machine learning, PostgreSQL, and Valkey running on VM 110 |
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, LXC101 backup and restore drill completed |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,110`, LXC101 restore drill completed, CT102 and VM110 backups completed |
 
 ## Hosts and LXC
 
@@ -56,8 +59,8 @@ Last checked: 2026-06-21.
 | PBS VM 140 | `192.168.1.20` | Infrastructure backup, `pbs.internal` | LAN/VPN | datastore + config; offsite still required | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
 | LXC 101 platform-services | `192.168.1.51` | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle | LAN/VPN | PBS + stack volumes | High |
-| LXC 102 apps-light | TBD | Target for Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo; live CT currently stopped and undersized | LAN/VPN | PBS + app data | High |
-| VM 110 immich | TBD | Photos and videos | VPN/Auth | PBS + DB/upload offsite | Critical |
+| LXC 102 apps-light | `192.168.1.52` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server | LAN/VPN | PBS + app-aware exports | High |
+| VM 110 immich | `192.168.1.110` | Photos and videos, `foto.internal` | VPN/Auth | PBS + DB/upload offsite | Critical |
 | VM 120 nextcloud-aio | TBD | Full cloud suite | VPN/Auth | PBS + AIO backup | High |
 | VM 130 home-assistant-os | TBD | Home automation | VPN/Auth | PBS + HA backup export | Medium |
 | VM 150 jellyfin | TBD | Media server | VPN/Auth | PBS + media metadata | Medium |
@@ -78,7 +81,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `authentik-server` | LXC 101 | 9000 | `auth.internal` | VPN/Auth by default | DB + media + config | Identity |
 | `uptime-kuma` | LXC 101 | 3001 | `status.internal` | VPN/Auth | app volume | Monitoring |
 | `homepage` | LXC 101 | 3002 | `dash.internal` | VPN/Auth | YAML config | Dashboard |
-| `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics hub; agent setup pending |
+| `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics hub; platform agent enrolled |
 | `dozzle` | LXC 101 | 8088 | `logs.internal` | VPN/Auth admin | no critical data | Live logs |
 | `crowdsec` | LXC 101 | 8089 | none | LAN/local only | config + DB | Detection |
 | `netalertx` | LXC 103 | 20211 | `netalert.internal` | VPN/Auth | config + DB | Optional network asset visibility |
@@ -89,19 +92,19 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 
 | Service | Hostname | Priority | Default access | Critical data | Minimum backup |
 |---|---|---:|---|---|---|
-| Vaultwarden | `pwd.internal` | P0 | VPN-first | Passwords, attachments | volume + export |
-| Immich | `foto.internal` | P0 | VPN-first | Photos/videos + DB | uploads + consistent DB |
-| Syncthing | `sync.internal` | P1 | VPN/Auth UI | Config + sync folders | config + source folders |
+| Vaultwarden | `pwd.internal` | P0 live on LXC102 | VPN-first | Passwords, attachments | volume + export |
+| Immich | `foto.internal` | P0 live on VM110 | VPN-first | Photos/videos + DB | uploads + consistent DB |
+| Syncthing | `sync.internal` | P1 live on LXC102 | VPN/Auth UI | Config + sync folders | config + source folders |
 | Nextcloud AIO | `files.internal` | P1 | VPN-first | Files + DB | AIO backup |
-| Paperless-ngx | `paper.internal` | P1 next | VPN/Auth | OCR documents + DB | media + consume + DB |
+| Paperless-ngx | `paper.internal` | P1 live on LXC102 | VPN/Auth | OCR documents + DB | media + consume + DB |
 | Home Assistant OS | `ha.internal` | P1 next | VPN/Auth | Home automations | VM snapshot + HA backup |
 | Jellyfin | `media.internal` | P1 next | VPN/Auth | Metadata + libraries | config + media source |
-| FreshRSS | `rss.internal` | P1 next | VPN/Auth | Feeds, accounts, DB | data volume or DB |
-| Karakeep | `bookmarks.internal` | P1 next | VPN/Auth | Bookmarks, assets, DB | data + DB |
-| SearXNG | `search.internal` | P2 | VPN/Auth | config | config |
-| Forgejo/Gitea | `git.internal` | P2 | VPN/Auth | repos + DB | repos + DB |
+| FreshRSS | `rss.internal` | P1 live on LXC102 | VPN/Auth | Feeds, accounts, DB | data volume or DB |
+| Karakeep | `bookmarks.internal` | P1 live on LXC102 | VPN/Auth | Bookmarks, assets, DB | data + DB |
+| SearXNG | `search.internal` | P2 live on LXC102 | VPN/Auth | config | config |
+| Forgejo/Gitea | `git.internal` | P2 live on LXC102 | VPN/Auth | repos + DB | repos + DB |
 | Ollama/Open WebUI | `ai.internal` | P2 | VPN only | model cache + chat DB | app data, models optional |
-| RustDesk OSS Server | `rustdesk.internal` | P2 optional | VPN/LAN by default | server keys/config | data directory + stack files |
+| RustDesk OSS Server | `rustdesk.internal` | P2 live on LXC102 | VPN/LAN by default | server keys/config | data directory + stack files |
 | NetAlertX | `netalert.internal` | Ops optional | VPN/Auth | device inventory + config | config + DB |
 | Scrutiny | `disks.internal` | Ops optional | VPN/admin | SMART history + config | config + InfluxDB data |
 | ntfy | `alerts.internal` | Ops optional | VPN/Auth | notification topics + attachments if enabled | config + cache/attachments |

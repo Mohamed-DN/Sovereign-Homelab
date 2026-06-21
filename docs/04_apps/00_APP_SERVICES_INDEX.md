@@ -22,6 +22,18 @@ This index is the entry point for the application layer. Deploy one app at a tim
 | AI host | Ollama and Open WebUI |
 | Dedicated or protocol host | RustDesk if remote desktop relay is required |
 
+## Current Live App State
+
+Last checked: 2026-06-22.
+
+| State | Services |
+|---|---|
+| Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server |
+| Live on VM 110 `immich` | Immich |
+| Planned | Nextcloud AIO, Home Assistant OS, Jellyfin, Ollama/Open WebUI |
+
+Live means the service has an alias or documented protocol endpoint, NPM rule where applicable, Homepage visibility, and Uptime Kuma monitoring. It does not mean production critical data is approved. Production approval still requires a restore drill with representative data.
+
 ## Runbooks
 
 | Service | Runbook | Stack | Alias or endpoint |
