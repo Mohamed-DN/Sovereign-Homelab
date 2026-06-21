@@ -8,7 +8,7 @@ FreshRSS is a lightweight self-hosted RSS feed aggregator.
 ## 2. Environment & Pre-requisites
 Log into LXC 102 and navigate to the pre-configured FreshRSS stack directory:
 ```bash
-cd /opt/sovereign/stacks/freshrss
+cd /opt/sovereign-homelab/stacks/freshrss
 ```
 
 ## 3. Docker Compose & Environment Variables
@@ -37,7 +37,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a Proxy Host:
+Log into NPM at `http://npm.internal` and create a Proxy Host:
 - **Domain Names**: `rss.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8087`
 - **Websockets Support**: disabled; FreshRSS does not need it.

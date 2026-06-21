@@ -113,7 +113,7 @@ vpn.yourdomain.duckdns.org
 
 In NPM:
 
-1. Open `https://npm.internal` or the bootstrap URL `http://LXC100_IP:81`.
+1. Open `http://npm.internal` or the bootstrap URL `http://LXC100_IP:81`.
 2. Go to **SSL Certificates**.
 3. Add a Let's Encrypt certificate.
 4. Domain Names: `vpn.yourdomain.duckdns.org`.
@@ -199,8 +199,10 @@ Headscale-UI custom location:
 Use:
 
 ```text
-https://headscale.internal/web
+http://headscale.internal/web
 ```
+
+Live note: the first internal aliases were added as NPM static proxy config files on LXC 100 so they could be validated before the NPM API/UI workflow was automated. The public Headscale proxy remains NPM-managed and must stay public with no access list. For long-term operations, recreate internal aliases through the NPM UI/API during a maintenance window, then remove the static files after testing.
 
 ## Phase G: Internal Platform Proxy Hosts
 

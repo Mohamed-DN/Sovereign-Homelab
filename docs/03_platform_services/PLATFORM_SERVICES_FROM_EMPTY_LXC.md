@@ -12,7 +12,7 @@ Target sizing:
 | Disk | 100 GB |
 | IP | static LAN IP from `.50-.79` |
 | Hostname | `platform-services` |
-| Stack path | `/opt/sovereign/stacks` |
+| Stack path | `/opt/sovereign-homelab/stacks` |
 
 Services:
 
@@ -29,17 +29,17 @@ Services:
 Follow [Create LXC Runbook](../01_proxmox_foundation/CREATE_LXC_RUNBOOK.md), then:
 
 ```bash
-mkdir -p /opt/sovereign/stacks
-cd /opt/sovereign/stacks
+mkdir -p /opt/sovereign-homelab/stacks
+cd /opt/sovereign-homelab/stacks
 ```
 
 Copy the repo stack templates to the host:
 
 ```bash
-git clone https://github.com/Mohamed-DN/Sovereign-Homelab.git /opt/sovereign/repo
-cp -a /opt/sovereign/repo/stacks/identity /opt/sovereign/stacks/
-cp -a /opt/sovereign/repo/stacks/observability /opt/sovereign/stacks/
-cp -a /opt/sovereign/repo/stacks/security /opt/sovereign/stacks/
+git clone https://github.com/Mohamed-DN/Sovereign-Homelab.git /opt/sovereign-homelab/repo
+cp -a /opt/sovereign-homelab/repo/stacks/identity /opt/sovereign-homelab/stacks/
+cp -a /opt/sovereign-homelab/repo/stacks/observability /opt/sovereign-homelab/stacks/
+cp -a /opt/sovereign-homelab/repo/stacks/security /opt/sovereign-homelab/stacks/
 ```
 
 ## Phase B: Authentik
@@ -55,7 +55,7 @@ cp -a /opt/sovereign/repo/stacks/security /opt/sovereign/stacks/
 Deploy:
 
 ```bash
-cd /opt/sovereign/stacks/identity
+cd /opt/sovereign-homelab/stacks/identity
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
@@ -74,8 +74,10 @@ NPM:
 
 Monitor:
 
-- Uptime Kuma HTTP monitor: `https://auth.internal`
+- Uptime Kuma HTTP monitor: `http://auth.internal/if/flow/initial-setup/` during bootstrap
 - Alert if HTTP status is not reachable.
+
+After Authentik initial setup and internal CA deployment, update the monitor to the final HTTPS URL.
 
 Rollback:
 
@@ -97,7 +99,7 @@ Restore Authentik from PBS or restore PostgreSQL/media volumes from the same poi
 Deploy:
 
 ```bash
-cd /opt/sovereign/stacks/observability
+cd /opt/sovereign-homelab/stacks/observability
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
@@ -132,7 +134,7 @@ Backup:
 Deploy:
 
 ```bash
-cd /opt/sovereign/stacks/security
+cd /opt/sovereign-homelab/stacks/security
 cp .env.example .env
 nano .env
 docker compose --env-file .env config

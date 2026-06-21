@@ -11,7 +11,7 @@ RustDesk OSS server is not a normal web application. It does not get an NPM prox
 | Purpose | Private remote desktop ID and relay server |
 | Preferred target | Dedicated lightweight LXC or trusted Docker host |
 | Suggested size | 2 vCPU, 2 GB RAM, 24 GB disk |
-| Stack path | `/opt/sovereign/stacks/rustdesk` |
+| Stack path | `/opt/sovereign-homelab/stacks/rustdesk` |
 | DNS name | `rustdesk.internal` |
 | NPM proxy | no, protocol service |
 | Homepage | no web UI in OSS server |
@@ -60,8 +60,8 @@ Default recommendation: keep RustDesk VPN-only. If you later expose it publicly,
 On the target Docker host:
 
 ```bash
-mkdir -p /opt/sovereign/stacks
-cd /opt/sovereign/stacks
+mkdir -p /opt/sovereign-homelab/stacks
+cd /opt/sovereign-homelab/stacks
 git clone <repo-url> sovereign-homelab
 cd sovereign-homelab/stacks/rustdesk
 cp .env.example .env
@@ -159,9 +159,9 @@ Back up:
 
 | Path | Reason |
 |---|---|
-| `/opt/sovereign/stacks/rustdesk/.env` | runtime settings |
-| `/opt/sovereign/stacks/rustdesk/docker-compose.yml` | deployment definition |
-| `/opt/sovereign/stacks/rustdesk/data` | RustDesk server keys and persistent state |
+| `/opt/sovereign-homelab/stacks/rustdesk/.env` | runtime settings |
+| `/opt/sovereign-homelab/stacks/rustdesk/docker-compose.yml` | deployment definition |
+| `/opt/sovereign-homelab/stacks/rustdesk/data` | RustDesk server keys and persistent state |
 
 The `data` directory is critical because it contains server identity material. Losing it can force clients to re-trust or reconfigure the server.
 

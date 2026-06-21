@@ -297,9 +297,9 @@ Uptime Kuma should include:
 | Monitor | Type | Target | Purpose |
 |---|---|---|---|
 | `vpn-headscale-public` | HTTPS | `https://vpn.yourdomain.duckdns.org` | public control-plane reachability |
-| `ui-headscale` | HTTPS | `https://headscale.internal/web` | admin UI reachability |
+| `ui-headscale` | HTTP until internal CA | `http://headscale.internal/web` | admin UI reachability |
 | `dns-adguard` | DNS | server `192.168.1.50`, query `example.com` | DNS service health |
-| `ui-homepage` | HTTPS | `https://dash.internal` | `.internal` rewrite plus NPM path |
+| `ui-homepage` | HTTP until internal CA | `http://dash.internal` | `.internal` rewrite plus NPM path |
 
 Manual exit-node checks still matter because Uptime Kuma cannot prove mobile-client routing:
 

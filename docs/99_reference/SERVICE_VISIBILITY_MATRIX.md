@@ -37,21 +37,23 @@ Target placeholders:
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Proxmox VE | `proxmox.internal` | `https://PVE_IP:8006` | yes | yes | HTTPS monitor | VPN/admin | host config notes + PBS restore plan |
-| Proxmox Backup Server | `pbs.internal` | `https://PBS_IP:8007` | yes | yes | HTTPS monitor | VPN/admin | datastore + PBS config/offsite plan |
+| Proxmox VE | `proxmox.internal` | `https://PVE_IP:8006` | yes | yes | HTTP alias monitor plus optional direct TCP/HTTPS | VPN/admin | host config notes + PBS restore plan |
+| Proxmox Backup Server | `pbs.internal` | `https://PBS_IP:8007` | yes | yes | HTTP alias monitor plus TCP `8007` | VPN/admin | datastore + PBS config/offsite plan |
 | AdGuard UI | `adguard.internal` | `http://LXC100_IP:3000` | yes | yes | HTTP monitor | VPN/admin | config + work dir |
 | NPM UI | `npm.internal` | `http://LXC100_IP:81` or `http://LXC101_IP:81` | yes | yes | HTTP monitor | VPN/admin | `/data` + `/letsencrypt` |
-| Headscale-UI | `headscale.internal/web` | `http://LXC100_IP:8081` custom location | yes | yes | HTTPS monitor | VPN/admin | config if present |
+| Headscale-UI | `headscale.internal/web` | `http://LXC100_IP:8081` custom location | yes | yes | HTTP monitor until internal CA | VPN/admin | config if present |
+
+Live note: until an internal CA is deployed, the current NPM aliases are HTTP on the client side over LAN/VPN and may proxy to HTTPS upstreams such as Proxmox and PBS. In that bootstrap state, Uptime Kuma should monitor `http://*.internal` aliases and separately monitor TCP/API ports where useful.
 
 ## Platform Services
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Authentik | `auth.internal` | `http://LXC101_IP:9000` | yes | yes | HTTPS monitor | VPN/Auth | PostgreSQL + media + `.env` |
-| Homepage | `dash.internal` | `http://LXC101_IP:3002` | yes | yes | HTTPS monitor | VPN/Auth | YAML config |
-| Uptime Kuma | `status.internal` | `http://LXC101_IP:3001` | yes | yes | HTTPS monitor | VPN/Auth | Kuma data volume |
-| Beszel | `monitor.internal` | `http://LXC101_IP:8090` | yes | yes | HTTPS monitor | VPN/Auth | Beszel data volume |
-| Dozzle | `logs.internal` | `http://LXC101_IP:8088` | yes | yes | HTTPS monitor | VPN/admin | no critical data |
+| Authentik | `auth.internal` | `http://LXC101_IP:9000` | yes | yes | HTTP monitor until internal CA | VPN/Auth | PostgreSQL + media + `.env` |
+| Homepage | `dash.internal` | `http://LXC101_IP:3002` | yes | yes | HTTP monitor until internal CA | VPN/Auth | YAML config |
+| Uptime Kuma | `status.internal` | `http://LXC101_IP:3001` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Kuma data volume |
+| Beszel | `monitor.internal` | `http://LXC101_IP:8090` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Beszel data volume |
+| Dozzle | `logs.internal` | `http://LXC101_IP:8088` | yes | yes | HTTP monitor until internal CA | VPN/admin | no critical data |
 
 ## Critical Data Apps
 

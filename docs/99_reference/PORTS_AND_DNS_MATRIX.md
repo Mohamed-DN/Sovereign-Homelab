@@ -68,6 +68,23 @@ Design references:
 | Dozzle | `logs.internal` | 8088 | VPN/Auth admin | Docker logs |
 | CrowdSec LAPI | none | 8089 | localhost/LAN only | Detection API |
 
+Live bootstrap state as of 2026-06-21:
+
+| Alias | Client-side URL | Upstream |
+|---|---|---|
+| `adguard.internal` | `http://adguard.internal` | `http://192.168.1.50:3000` |
+| `npm.internal` | `http://npm.internal` | `http://192.168.1.50:81` |
+| `headscale.internal/web` | `http://headscale.internal/web` | `http://192.168.1.50:8081` |
+| `proxmox.internal` | `http://proxmox.internal` | `https://192.168.1.150:8006` |
+| `pbs.internal` | `http://pbs.internal` | `https://192.168.1.20:8007` |
+| `auth.internal` | `http://auth.internal` | `http://192.168.1.51:9000` |
+| `dash.internal` | `http://dash.internal` | `http://192.168.1.51:3002` |
+| `status.internal` | `http://status.internal` | `http://192.168.1.51:3001` |
+| `monitor.internal` | `http://monitor.internal` | `http://192.168.1.51:8090` |
+| `logs.internal` | `http://logs.internal` | `http://192.168.1.51:8088` |
+
+This is acceptable during the VPN-only bootstrap phase. Move to trusted private HTTPS after deploying an internal CA.
+
 ## Apps
 
 | Service | Hostname | Template port | Access | Backup |

@@ -17,7 +17,7 @@ Goal:
 |---|---|---|
 | LXC 100 core-network | PBS | config export |
 | App VM/LXC | PBS | restic for volumes |
-| Docker Compose | Git repo | copy `/opt/sovereign` |
+| Docker Compose | Git repo | copy `/opt/sovereign-homelab` |
 | Real `.env` files | offline vault/encrypted restic | printed recovery |
 | Immich uploads | PBS + restic | external disk |
 | Vaultwarden data | PBS + restic | encrypted export |
@@ -109,7 +109,7 @@ restic init
 Backup:
 
 ```bash
-restic backup /opt/sovereign /opt/core-network
+restic backup /opt/sovereign-homelab /opt/core-network
 restic snapshots
 restic check
 ```

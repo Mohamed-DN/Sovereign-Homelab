@@ -16,13 +16,46 @@ Target VM:
 
 If PBS runs on the same P710 mirror, it protects against bad updates and accidental deletion. It does not protect against full host loss. Add offsite restic or a second PBS later.
 
+Live state as of 2026-06-21:
+
+| Item | Value |
+|---|---|
+| VM | `140` `pbs` |
+| IP | `192.168.1.20` |
+| Datastore | `p710-local` |
+| Datastore path | `/mnt/datastore/p710-local` |
+| PVE storage ID | `pbs-p710` |
+| Integration auth | dedicated PBS user/token stored only on the server |
+| Scheduled job | `sovereign-core-nightly`, guests `100,101`, daily `03:00` |
+| Restore drill | LXC 101 restored to temporary CT `901`, mounted, verified, destroyed |
+
 ## Phase A: Install PBS
 
 1. Create VM 140 with [Create VM Runbook](../01_proxmox_foundation/CREATE_VM_RUNBOOK.md).
-2. Install PBS from the official ISO.
+2. Install PBS either from the official ISO or from Debian using the official PBS repository.
 3. Set static IP from the infrastructure range.
 4. Update packages.
 5. Enable MFA for admin access if available.
+
+Debian-based install pattern used in the live build:
+
+```bash
+apt-get update
+apt-get install -y wget ca-certificates gnupg qemu-guest-agent
+wget -q https://enterprise.proxmox.com/debian/proxmox-archive-keyring-trixie.gpg \
+  -O /usr/share/keyrings/proxmox-archive-keyring.gpg
+
+cat >/etc/apt/sources.list.d/proxmox.sources <<'EOF'
+Types: deb
+URIs: http://download.proxmox.com/debian/pbs
+Suites: trixie
+Components: pbs-no-subscription
+Signed-By: /usr/share/keyrings/proxmox-archive-keyring.gpg
+EOF
+
+apt-get update
+apt-get install -y proxmox-backup-server
+```
 
 ## Phase B: Create Datastore
 
@@ -32,6 +65,18 @@ In PBS UI:
 2. Create datastore, for example `p710-local`.
 3. Put datastore on the dedicated data disk/path.
 4. Record path in [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md).
+
+CLI pattern:
+
+```bash
+mkfs.ext4 -L pbs-p710-local /dev/sdb
+mkdir -p /mnt/datastore/p710-local
+UUID=$(blkid -s UUID -o value /dev/sdb)
+echo "UUID=$UUID /mnt/datastore/p710-local ext4 defaults,noatime 0 2" >> /etc/fstab
+mount -a
+chown backup:backup /mnt/datastore/p710-local
+proxmox-backup-manager datastore create p710-local /mnt/datastore/p710-local
+```
 
 ## Phase C: Add PBS Storage to Proxmox VE
 
@@ -51,6 +96,8 @@ Recommended settings:
 | Username | dedicated backup user if available |
 | Fingerprint | paste PBS fingerprint |
 | Content | VZDump backup file |
+
+Live storage ID is `pbs-p710`. The token requires enough datastore rights for the selected retention behavior. In PBS 4.2, `DatastorePowerUser` plus `DatastoreReader` on the datastore allowed PVE backup, read, verify, and prune of owned backups.
 
 ## Phase D: Backup Jobs
 
@@ -109,6 +156,18 @@ Issues:
 Next action:
 ```
 
+Live restore drill record:
+
+```text
+Date: 2026-06-21
+Source backup: pbs-p710:backup/ct/101/2026-06-21T18:18:54Z
+Target VM/CT: temporary CT 901
+Restore duration: under 2 minutes
+Validation: restored config, mounted rootfs, verified /opt/sovereign-homelab/stacks files
+Issues: restored CT retained original static IP, so it was not started to avoid conflict
+Next action: repeat with an app VM before importing critical data
+```
+
 ## Phase G: App-Aware Critical Backups
 
 PBS is not enough for every application failure. Add app-aware/offsite backup for:
@@ -129,7 +188,7 @@ Minimum restic command pattern:
 export RESTIC_REPOSITORY=/mnt/offsite/sovereign
 export RESTIC_PASSWORD_FILE=/root/.config/restic/sovereign.pass
 restic init
-restic backup /opt/sovereign /opt/core-network
+restic backup /opt/sovereign-homelab /opt/core-network
 restic check
 restic forget --keep-daily 14 --keep-weekly 8 --keep-monthly 6 --prune
 ```

@@ -37,13 +37,15 @@ Last checked: 2026-06-21.
 |---|---|
 | Proxmox host | `192.168.1.150`, ThinkStation P710, Proxmox VE 9.2.2 |
 | LXC 100 | running as `core-network`, `192.168.1.50` |
+| LXC 101 | running as `platform-services`, `192.168.1.51` |
 | LXC 102 | present but stopped, currently named `CT102`, DHCP, 2 vCPU, 256 MB RAM, 10 GB disk |
-| VMs | none present during audit |
+| VM 140 | running as `pbs`, `192.168.1.20`, PBS 4.2.2 |
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
+| Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle running on LXC 101 |
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | not deployed yet; required before production critical data import |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, LXC101 backup and restore drill completed |
 
 ## Hosts and LXC
 
@@ -51,9 +53,9 @@ Last checked: 2026-06-21.
 |---|---:|---|---|---|---|
 | TIM Router | `192.168.1.1` | LAN gateway | LAN only | Export config if possible | High |
 | Proxmox P710 | `192.168.1.150` | Hypervisor, exit node, `proxmox.internal` | LAN/VPN | PBS config + manual notes | Critical |
-| PBS VM 140 | TBD | Infrastructure backup, `pbs.internal` | LAN/VPN | datastore + config | Critical |
+| PBS VM 140 | `192.168.1.20` | Infrastructure backup, `pbs.internal` | LAN/VPN | datastore + config; offsite still required | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
-| LXC 101 platform-services | TBD | NPM, identity, observability, CrowdSec | LAN/VPN | PBS + stack volumes | High |
+| LXC 101 platform-services | `192.168.1.51` | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle | LAN/VPN | PBS + stack volumes | High |
 | LXC 102 apps-light | TBD | Target for Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo; live CT currently stopped and undersized | LAN/VPN | PBS + app data | High |
 | VM 110 immich | TBD | Photos and videos | VPN/Auth | PBS + DB/upload offsite | Critical |
 | VM 120 nextcloud-aio | TBD | Full cloud suite | VPN/Auth | PBS + AIO backup | High |
@@ -72,11 +74,11 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `adguard` | LXC 100 | 53, 67, 3000 | `adguard.internal` | VPN/Auth | config + work dir | Critical DNS |
 | `headscale` | LXC 100 | 8080 | `vpn.yourdomain.duckdns.org` | Public HTTPS | config + DB/data | VPN control plane |
 | `headscale-ui` | LXC 100 | 8081 | `headscale.internal/web` | VPN/Auth | config if present | Admin UI |
-| `npm` | LXC 100 or 101 | 80, 443, 81 | `npm.internal` | UI VPN/Auth | `/data`, `/letsencrypt` | Reverse proxy |
+| `npm` | LXC 100 | 80, 443, 81 | `npm.internal` | UI VPN/Auth | `/data`, `/letsencrypt` | Reverse proxy; public Headscale edge stays here |
 | `authentik-server` | LXC 101 | 9000 | `auth.internal` | VPN/Auth by default | DB + media + config | Identity |
 | `uptime-kuma` | LXC 101 | 3001 | `status.internal` | VPN/Auth | app volume | Monitoring |
 | `homepage` | LXC 101 | 3002 | `dash.internal` | VPN/Auth | YAML config | Dashboard |
-| `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics |
+| `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics hub; agent setup pending |
 | `dozzle` | LXC 101 | 8088 | `logs.internal` | VPN/Auth admin | no critical data | Live logs |
 | `crowdsec` | LXC 101 | 8089 | none | LAN/local only | config + DB | Detection |
 | `netalertx` | LXC 103 | 20211 | `netalert.internal` | VPN/Auth | config + DB | Optional network asset visibility |

@@ -28,8 +28,8 @@ docker run --rm -it vaultwarden/server:1.30.5 /vaultwarden hash
 Copy the generated Argon2 hash to use in your `.env` file later.
 4. Create the deployment directory:
 ```bash
-mkdir -p /opt/sovereign/stacks/vaultwarden/vw-data
-cd /opt/sovereign/stacks/vaultwarden
+mkdir -p /opt/sovereign-homelab/stacks/vaultwarden/vw-data
+cd /opt/sovereign-homelab/stacks/vaultwarden
 ```
 
 ### 3.2 Docker Compose Configuration
@@ -87,7 +87,7 @@ The `./vw-data` folder should then be backed up by Proxmox Backup Server (PBS).
 
 ### 5.3 Restore Drill (Verified Procedure)
 1. Spin up a fresh LXC and install Docker.
-2. Restore the `/opt/sovereign/stacks/vaultwarden` directory (including `./vw-data` and `.env`) from PBS or file-level backup.
+2. Restore the `/opt/sovereign-homelab/stacks/vaultwarden` directory (including `./vw-data` and `.env`) from PBS or file-level backup.
 3. If using `.bak`, rename `db.sqlite3.bak` to `db.sqlite3` and ensure `db.sqlite3-wal` and `db.sqlite3-shm` are deleted to prevent corruption.
 4. Run `docker compose up -d`.
 5. Access the Web Vault, verify password entries and attachments are intact.

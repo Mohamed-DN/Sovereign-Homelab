@@ -34,7 +34,7 @@ Jellyfin is a Free Software Media System that puts you in control of managing an
    - Verify access: `ls -l /dev/dri`. You should see `renderD128`.
 
 ## 3. Environment Variables Deep-Dive
-Within the `/opt/sovereign/stacks/jellyfin` directory, create your `.env` file from `.env.example`. 
+Within the `/opt/sovereign-homelab/stacks/jellyfin` directory, create your `.env` file from `.env.example`.
 
 | Variable | Description |
 |----------|-------------|
@@ -72,7 +72,7 @@ services:
 
 ### Execution
 ```bash
-cd /opt/sovereign/stacks/jellyfin
+cd /opt/sovereign-homelab/stacks/jellyfin
 cp .env.example .env
 nano .env # Adjust paths and timezone
 docker compose up -d
@@ -118,17 +118,17 @@ Add Jellyfin to your `services.yaml` to show active streams and server status:
 - **DO NOT BACKUP**: The folder defined in `JELLYFIN_CACHE_PATH`. It is volatile and wastes backup space.
 - **Media**: Follow your standard NAS/Storage 3-2-1 backup strategy for the actual video files.
 
-**Sample Cron Backup Script (`/opt/sovereign/scripts/backup_jellyfin.sh`)**:
+**Sample Cron Backup Script (`/opt/sovereign-homelab/scripts/backup_jellyfin.sh`)**:
 ```bash
 #!/bin/bash
-source /opt/sovereign/stacks/jellyfin/.env
+source /opt/sovereign-homelab/stacks/jellyfin/.env
 tar -czvf /backups/jellyfin_config_$(date +%F).tar.gz -C ${JELLYFIN_CONFIG_PATH} .
 ```
 
 ### Restore Drill (A-Z)
 1. Provision a fresh VM or LXC and install Docker.
-2. Re-create the folder structure: `mkdir -p /opt/sovereign/stacks/jellyfin/data/config`
-3. Extract the backup: `tar -xzvf /backups/jellyfin_config_YYYY-MM-DD.tar.gz -C /opt/sovereign/stacks/jellyfin/data/config`
+2. Re-create the folder structure: `mkdir -p /opt/sovereign-homelab/stacks/jellyfin/data/config`
+3. Extract the backup: `tar -xzvf /backups/jellyfin_config_YYYY-MM-DD.tar.gz -C /opt/sovereign-homelab/stacks/jellyfin/data/config`
 4. Copy over your `docker-compose.yml` and `.env` files.
 5. Remount your `/mnt/media` drive.
 6. Run `docker compose up -d`. Jellyfin will start with all users, passwords, and watch progress intact.

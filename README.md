@@ -20,9 +20,22 @@ The repository is written in English and is designed to be used like an infrastr
 | Hypervisor | Proxmox VE on P710 |
 | Hardware baseline | 20 CPU threads, 64 GB RAM, 2 TB usable mirrored storage |
 | Core network | LXC 100 `core-network`, currently `192.168.1.50` |
-| Platform services | LXC 101 `platform-services` |
+| Platform services | LXC 101 `platform-services`, live at `192.168.1.51` |
 | Lightweight apps | LXC 102 `apps-light` |
 | Critical app VMs | Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, Wazuh as dedicated VMs when appropriate |
+
+## Live Foundation Status
+
+Last live build log: [2026-06-21](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md).
+
+| Area | Current state |
+|---|---|
+| VPN | public Headscale endpoint online; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
+| DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
+| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub, and Dozzle deployed on LXC 101 |
+| Monitoring | Uptime Kuma initialized with 15 green core monitors |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; LXC 101 backup and restore drill completed |
+| Open gates | Authentik initial setup, Beszel agent enrollment, internal CA, offsite backup, and app-specific restore drills |
 
 ## Network and Access Model
 

@@ -12,7 +12,7 @@ The required service list is tracked in `docs/99_reference/SERVICE_VISIBILITY_MA
 ## Deploy
 
 ```bash
-cd /opt/sovereign/stacks/observability
+cd /opt/sovereign-homelab/stacks/observability
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
@@ -43,11 +43,13 @@ curl -I http://LXC101_IP:8088
 NPM aliases:
 
 ```bash
-curl -I https://dash.internal
-curl -I https://status.internal
-curl -I https://monitor.internal
-curl -I https://logs.internal
+curl -I http://dash.internal
+curl -I http://status.internal
+curl -I http://monitor.internal
+curl -I http://logs.internal
 ```
+
+Use HTTP for the current VPN-only bootstrap. After an internal CA is deployed, move these aliases to HTTPS and update the monitors.
 
 ## Homepage
 

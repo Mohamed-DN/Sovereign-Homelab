@@ -9,7 +9,7 @@ Forgejo is a lightweight, self-hosted Git service. It becomes **P1 Critical** wh
 ## 2. Directory & Secrets Setup
 Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/forgejo
+cd /opt/sovereign-homelab/stacks/forgejo
 cp .env.example .env
 nano .env
 ```
@@ -26,7 +26,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a Proxy Host for HTTPS:
+Log into NPM at `http://npm.internal` and create a Proxy Host for HTTPS:
 - **Domain Names**: `git.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `3003`
 - **Websockets Support**: enabled

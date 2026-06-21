@@ -36,12 +36,12 @@ Target:
 | CPU | 4 vCPU shared with platform services |
 | RAM | part of 8 GB LXC allocation |
 | Disk | part of 100 GB LXC allocation |
-| Compose path | `/opt/sovereign/stacks/observability` |
+| Compose path | `/opt/sovereign-homelab/stacks/observability` |
 
 Install:
 
 ```bash
-cd /opt/sovereign/stacks/observability
+cd /opt/sovereign-homelab/stacks/observability
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
@@ -72,11 +72,13 @@ Create the proxy hosts documented in [Runbook 03](../02_network_vpn/doc_03_nginx
 Validate:
 
 ```bash
-curl -I https://dash.internal
-curl -I https://status.internal
-curl -I https://monitor.internal
-curl -I https://logs.internal
+curl -I http://dash.internal
+curl -I http://status.internal
+curl -I http://monitor.internal
+curl -I http://logs.internal
 ```
+
+Bootstrap note: until the internal CA is deployed, internal aliases use HTTP over LAN/VPN. Keep the services VPN-only and move to trusted private HTTPS later.
 
 ## Phase C: Homepage as the Clean App List
 
@@ -112,18 +114,21 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 | Monitor name | Type | Target | Interval | Expected result |
 |---|---|---|---:|---|
-| `dns-adguard` | DNS | Server `LXC100_IP`, query `example.com` | 60s | DNS answer |
-| `vpn-headscale-public` | HTTP(s) | `https://vpn.yourdomain.duckdns.org` | 60s | HTTP response |
-| `ui-headscale` | HTTP(s) | `https://headscale.internal/web` | 60s | HTTP response |
-| `ui-proxmox` | HTTP(s) | `https://proxmox.internal` | 60s | HTTP response |
-| `ui-pbs` | HTTP(s) | `https://pbs.internal` | 60s | HTTP response |
-| `ui-adguard` | HTTP(s) | `https://adguard.internal` | 60s | HTTP response |
-| `ui-npm` | HTTP(s) | `https://npm.internal` | 60s | HTTP response |
-| `ui-authentik` | HTTP(s) | `https://auth.internal` | 60s | HTTP response |
-| `ui-homepage` | HTTP(s) | `https://dash.internal` | 60s | HTTP response |
-| `ui-uptime-kuma` | HTTP(s) | `https://status.internal` | 60s | HTTP response |
-| `ui-beszel` | HTTP(s) | `https://monitor.internal` | 60s | HTTP response |
-| `ui-dozzle` | HTTP(s) | `https://logs.internal` | 60s | HTTP response |
+| `Headscale public VPN` | HTTP(s) | `https://vpn.yourdomain.duckdns.org` | 60s | HTTP 200 |
+| `AdGuard resolves dash.internal` | DNS | query `dash.internal` through `192.168.1.50:53` | 60s | A record `192.168.1.50` |
+| `AdGuard DNS TCP` | TCP Port | `192.168.1.50:53` | 60s | open TCP port |
+| `AdGuard UI` | HTTP | `http://adguard.internal` | 60s | HTTP 200/302 |
+| `Nginx Proxy Manager UI` | HTTP | `http://npm.internal` | 60s | HTTP 200 |
+| `Headscale UI` | HTTP | `http://headscale.internal/web` | 60s | HTTP 200/302 |
+| `Proxmox VE` | HTTP alias | `http://proxmox.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
+| `Proxmox Backup Server` | HTTP alias | `http://pbs.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
+| `Authentik initial setup` | HTTP | `http://auth.internal/if/flow/initial-setup/` | 60s | HTTP 200 until setup is completed |
+| `Homepage` | HTTP | `http://dash.internal` | 60s | HTTP 200 |
+| `Uptime Kuma` | HTTP | `http://status.internal` | 60s | HTTP 200/302 |
+| `Beszel Hub` | HTTP | `http://monitor.internal` | 60s | HTTP 200 |
+| `Dozzle` | HTTP | `http://logs.internal` | 60s | HTTP 200 |
+| `PBS API TCP` | TCP Port | `PBS_IP:8007` | 60s | open TCP port |
+| `Headscale API TCP` | TCP Port | `LXC100_IP:8080` | 60s | open TCP port |
 | `ops-netalertx` | HTTP(s) | `https://netalert.internal` | 60s | HTTP response after deployment |
 | `ops-scrutiny` | HTTP(s) | `https://disks.internal` | 60s | HTTP response after deployment |
 | `ops-ntfy` | HTTP(s) | `https://alerts.internal` | 60s | HTTP response after deployment |
@@ -148,6 +153,8 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `tcp-rustdesk-web-hbbr` | TCP Port | `rustdesk.internal:21119` | 60s | open TCP port if web client support is enabled |
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
+
+Live state as of 2026-06-21: the 15 core monitors above were created and green in Uptime Kuma 2.4. Uptime Kuma was initialized with SQLite; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
@@ -181,7 +188,7 @@ Use Beszel to watch:
 
 Setup:
 
-1. Open `https://monitor.internal`.
+1. Open `http://monitor.internal`.
 2. Create the admin account.
 3. Add Proxmox and each Docker host.
 4. Copy the agent token into the target host configuration.
@@ -206,7 +213,7 @@ docker logs --tail=100 SERVICE_CONTAINER
 Dozzle gives the same visibility through:
 
 ```text
-https://logs.internal
+http://logs.internal
 ```
 
 ## Phase H: Optional Operations Extensions

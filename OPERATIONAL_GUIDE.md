@@ -83,6 +83,8 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up LXC 100 and 101 daily, and LXC 101 has been restored to a temporary CT for a successful drill. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
+
 ### Layer 3: Core Network
 
 **Action/Command**
@@ -117,7 +119,7 @@ Expected: `.internal` resolves to NPM, the public VPN name split-resolves to the
 ```bash
 less docs/02_network_vpn/doc_03_nginx_proxy_manager.md
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I https://dash.internal
+curl -I http://dash.internal
 ```
 
 **Clear Explanation**
@@ -130,25 +132,25 @@ Run the public Headscale check from cellular data or another non-home network. A
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I https://auth.internal
-curl -I https://status.internal
-curl -I https://pwd.internal
+curl -I http://auth.internal
+curl -I http://status.internal
+curl -I http://dash.internal
 ```
 
-Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN.
+Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. During bootstrap, internal aliases are HTTP over LAN/VPN. Move them to private HTTPS after an internal CA is deployed.
 
 ### Layer 5: Platform Services
 
 **Action/Command**
 
 ```bash
-cd /opt/sovereign/stacks/identity
+cd /opt/sovereign-homelab/stacks/identity
 cp .env.example .env
 nano .env
 docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d
 
-cd /opt/sovereign/stacks/observability
+cd /opt/sovereign-homelab/stacks/observability
 cp .env.example .env
 nano .env
 docker compose --env-file .env config --quiet
@@ -162,14 +164,16 @@ LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, Dozz
 **Success Verification**
 
 ```bash
-curl -I https://auth.internal
-curl -I https://dash.internal
-curl -I https://status.internal
-curl -I https://monitor.internal
-curl -I https://logs.internal
+curl -I http://auth.internal
+curl -I http://dash.internal
+curl -I http://status.internal
+curl -I http://monitor.internal
+curl -I http://logs.internal
 ```
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
+
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub, and Dozzle. Uptime Kuma has 15 core monitors green. Authentik initial setup and Beszel agent enrollment remain manual gates.
 
 Optional operations extensions belong after this layer, not before it:
 

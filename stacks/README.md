@@ -37,7 +37,7 @@ Rules:
 ## Deploy Pattern
 
 ```bash
-cd /opt/sovereign/stacks/<stack_name>
+cd /opt/sovereign-homelab/stacks/<stack_name>
 cp .env.example .env
 nano .env
 docker compose --env-file .env config

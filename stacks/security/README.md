@@ -7,7 +7,7 @@ Important: CrowdSec alone detects. Blocking requires a remediation component, fo
 ## Deploy
 
 ```bash
-cd /opt/sovereign/stacks/security
+cd /opt/sovereign-homelab/stacks/security
 cp .env.example .env
 nano .env
 docker compose --env-file .env config

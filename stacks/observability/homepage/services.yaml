@@ -1,93 +1,93 @@
 - Network:
     - AdGuard Home:
-        href: https://adguard.internal
+        href: http://adguard.internal
         description: DNS filtering, rewrites, and optional DHCP
     - Headscale API:
         href: https://vpn.yourdomain.duckdns.org
         description: Public VPN control plane
     - Headscale UI:
-        href: https://headscale.internal/web
+        href: http://headscale.internal/web
         description: Device, route, and user management
     - Nginx Proxy Manager:
-        href: https://npm.internal
+        href: http://npm.internal
         description: Reverse proxy, aliases, and certificates
 
 - Admin:
     - Proxmox VE:
-        href: https://proxmox.internal
+        href: http://proxmox.internal
         description: Hypervisor for VMs, LXCs, storage, and snapshots
     - Proxmox Backup Server:
-        href: https://pbs.internal
+        href: http://pbs.internal
         description: Backup datastore, verify jobs, prune jobs, and restores
 
 - Identity:
     - Authentik:
-        href: https://auth.internal
+        href: http://auth.internal
         description: SSO, MFA, proxy providers, and OIDC
 
 - Monitoring:
     - Homepage:
-        href: https://dash.internal
+        href: http://dash.internal
         description: Clean service launchpad
     - Uptime Kuma:
-        href: https://status.internal
+        href: http://status.internal
         description: Service health, alerting, and restore confidence
     - Beszel:
-        href: https://monitor.internal
+        href: http://monitor.internal
         description: Host and container metrics
     - Dozzle:
-        href: https://logs.internal
+        href: http://logs.internal
         description: Docker live logs, admin only
 
 - Operations Extensions:
     - NetAlertX:
-        href: https://netalert.internal
+        href: http://netalert.internal
         description: LAN asset inventory and device change visibility
     - Scrutiny:
-        href: https://disks.internal
+        href: http://disks.internal
         description: SMART disk health and failure trend dashboard
     - ntfy:
-        href: https://alerts.internal
+        href: http://alerts.internal
         description: Self-hosted notifications for alerts and jobs
 
 - Critical Data:
     - Vaultwarden:
-        href: https://pwd.internal
+        href: http://pwd.internal
         description: Password vault, critical restore required
     - Immich:
-        href: https://foto.internal
+        href: http://foto.internal
         description: Photo and video library, DB plus upload backup required
     - Nextcloud:
-        href: https://files.internal
+        href: http://files.internal
         description: Personal cloud and file access
     - Syncthing:
-        href: https://sync.internal
+        href: http://sync.internal
         description: Peer-to-peer file sync UI
     - Paperless-ngx:
-        href: https://paper.internal
+        href: http://paper.internal
         description: OCR documents and personal archive
 
 - Apps:
     - Home Assistant:
-        href: https://ha.internal
+        href: http://ha.internal
         description: Home automation VM
     - Jellyfin:
-        href: https://media.internal
+        href: http://media.internal
         description: Private media server
     - FreshRSS:
-        href: https://rss.internal
+        href: http://rss.internal
         description: RSS reader
     - Karakeep:
-        href: https://bookmarks.internal
+        href: http://bookmarks.internal
         description: Bookmarks and web archive
     - SearXNG:
-        href: https://search.internal
+        href: http://search.internal
         description: Private metasearch
     - Forgejo:
-        href: https://git.internal
+        href: http://git.internal
         description: Git repositories and infrastructure code
 
 - Advanced Future:
     - Open WebUI:
-        href: https://ai.internal
+        href: http://ai.internal
         description: Local AI interface backed by Ollama
