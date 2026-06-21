@@ -11,10 +11,19 @@ services:
       APACHE_IP_BINDING: 0.0.0.0
       NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR}
     ports:
-      - "${NEXTCLOUD_AIO_PORT}:8080"
+    - "${NEXTCLOUD_AIO_PORT}:8080"
     volumes:
-      - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
+    - /var/run/docker.sock:/var/run/docker.sock:ro
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8080/
+      interval: 60s
+      timeout: 10s
+      retries: 3
 volumes:
   nextcloud_aio_mastercontainer:

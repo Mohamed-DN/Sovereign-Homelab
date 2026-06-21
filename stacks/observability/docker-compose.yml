@@ -8,28 +8,46 @@ services:
     environment:
       HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS}
     ports:
-      - "${HOMEPAGE_PORT}:3000"
+    - "${HOMEPAGE_PORT}:3000"
     volumes:
-      - ./homepage:/app/config
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ./homepage:/app/config
+    - /var/run/docker.sock:/var/run/docker.sock:ro
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:3000/api/health
+      interval: 30s
+      timeout: 10s
+      retries: 3
   uptime-kuma:
     image: louislam/uptime-kuma:${UPTIME_KUMA_TAG}
     container_name: uptime-kuma
     restart: unless-stopped
     ports:
-      - "${UPTIME_KUMA_PORT}:3001"
+    - "${UPTIME_KUMA_PORT}:3001"
     volumes:
-      - uptime_kuma_data:/app/data
+    - uptime_kuma_data:/app/data
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:3001/
+      interval: 30s
+      timeout: 10s
+      retries: 3
   beszel:
     image: henrygd/beszel:${BESZEL_TAG}
     container_name: beszel
     restart: unless-stopped
     ports:
-      - "${BESZEL_PORT}:8090"
+    - "${BESZEL_PORT}:8090"
     volumes:
-      - beszel_data:/beszel_data
+    - beszel_data:/beszel_data
 
   beszel-agent:
     image: henrygd/beszel-agent:${BESZEL_AGENT_TAG}
@@ -40,17 +58,26 @@ services:
       KEY: ${BESZEL_AGENT_KEY}
       TOKEN: ${BESZEL_AGENT_TOKEN}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
 
   dozzle:
     image: amir20/dozzle:${DOZZLE_TAG}
     container_name: dozzle
     restart: unless-stopped
     ports:
-      - "${DOZZLE_PORT}:8080"
+    - "${DOZZLE_PORT}:8080"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
+    - /var/run/docker.sock:/var/run/docker.sock:ro
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8080/healthcheck
+      interval: 30s
+      timeout: 10s
+      retries: 3
 volumes:
   uptime_kuma_data:
   beszel_data:

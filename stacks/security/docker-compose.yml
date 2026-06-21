@@ -9,13 +9,21 @@ services:
       COLLECTIONS: ${CROWDSEC_COLLECTIONS}
       GID: "1000"
     ports:
-      - "${CROWDSEC_API_PORT}:8080"
+    - "${CROWDSEC_API_PORT}:8080"
     volumes:
-      - crowdsec_data:/var/lib/crowdsec/data
-      - crowdsec_config:/etc/crowdsec
-      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
-      - ${NPM_LOG_DIR}:/var/log/npm:ro
+    - crowdsec_data:/var/lib/crowdsec/data
+    - crowdsec_config:/etc/crowdsec
+    - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+    - ${NPM_LOG_DIR}:/var/log/npm:ro
 
+    healthcheck:
+      test:
+      - CMD
+      - cscli
+      - metrics
+      interval: 60s
+      timeout: 10s
+      retries: 3
 volumes:
   crowdsec_data:
   crowdsec_config:

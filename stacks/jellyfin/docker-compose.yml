@@ -6,12 +6,21 @@ services:
     container_name: jellyfin
     restart: unless-stopped
     environment:
-      - TZ=${TZ}
+    - TZ=${TZ}
     ports:
-      - "${JELLYFIN_PORT}:8096"
+    - "${JELLYFIN_PORT}:8096"
     volumes:
-      - ${JELLYFIN_CONFIG_PATH}:/config
-      - ${JELLYFIN_CACHE_PATH}:/cache
-      - ${JELLYFIN_MEDIA_PATH}:/media:ro
+    - ${JELLYFIN_CONFIG_PATH}:/config
+    - ${JELLYFIN_CACHE_PATH}:/cache
+    - ${JELLYFIN_MEDIA_PATH}:/media:ro
     devices:
-      - /dev/dri:/dev/dri # Required for Intel QuickSync / AMD VAAPI transcoding
+    - /dev/dri:/dev/dri   # Required for Intel QuickSync / AMD VAAPI transcoding
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8096/health
+      interval: 30s
+      timeout: 10s
+      retries: 3

@@ -10,11 +10,20 @@ services:
       CRON_MIN: "3,33"
       BASE_URL: ${FRESHRSS_BASE_URL}
     ports:
-      - "${FRESHRSS_PORT}:80"
+    - "${FRESHRSS_PORT}:80"
     volumes:
-      - freshrss_data:/var/www/FreshRSS/data
-      - freshrss_extensions:/var/www/FreshRSS/extensions
+    - freshrss_data:/var/www/FreshRSS/data
+    - freshrss_extensions:/var/www/FreshRSS/extensions
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:80/i/
+      interval: 30s
+      timeout: 10s
+      retries: 3
 volumes:
   freshrss_data:
   freshrss_extensions:
