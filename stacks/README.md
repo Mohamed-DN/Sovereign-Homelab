@@ -30,6 +30,8 @@ Rules:
 | `jellyfin/` | Media server |
 | `ai-ollama/` | Local LLMs (Ollama + Open WebUI) |
 | `wazuh/` | Security and SIEM (Optional) |
+| `npm/` | Nginx Proxy Manager |
+| `rustdesk/` | Private remote desktop support |
 
 ## Deploy Pattern
 

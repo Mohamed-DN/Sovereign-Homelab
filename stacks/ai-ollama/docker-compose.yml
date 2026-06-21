@@ -6,36 +6,45 @@ services:
     container_name: ollama
     restart: unless-stopped
     ports:
-      - "${OLLAMA_PORT}:11434"
+    - "${OLLAMA_PORT}:11434"
     environment:
-      - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
-      - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
-      - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
-      - OLLAMA_MAX_VRAM=${OLLAMA_MAX_VRAM:-0}
+    - OLLAMA_KEEP_ALIVE=${OLLAMA_KEEP_ALIVE:-5m}
+    - OLLAMA_HOST=${OLLAMA_HOST:-0.0.0.0}
+    - OLLAMA_FLASH_ATTENTION=${OLLAMA_FLASH_ATTENTION:-1}
+    - OLLAMA_MAX_VRAM=${OLLAMA_MAX_VRAM:-0}
     volumes:
-      - ollama_data:/root/.ollama
+    - ollama_data:/root/.ollama
     deploy:
       resources:
         reservations:
           devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:11434/api/tags
+      interval: 30s
+      timeout: 10s
+      retries: 3
   open-webui:
     image: ghcr.io/open-webui/open-webui:${OPEN_WEBUI_TAG}
     container_name: open-webui
     restart: unless-stopped
     environment:
-      - OLLAMA_BASE_URL=http://ollama:11434
-      - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
-      - WEBUI_AUTH=${WEBUI_AUTH:-True}
+    - OLLAMA_BASE_URL=http://ollama:11434
+    - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
+    - WEBUI_AUTH=${WEBUI_AUTH:-True}
     ports:
-      - "${OPEN_WEBUI_PORT}:8080"
+    - "${OPEN_WEBUI_PORT}:8080"
     volumes:
-      - open_webui_data:/app/backend/data
+    - open_webui_data:/app/backend/data
     depends_on:
-      - ollama
+    - ollama
 
 volumes:
   ollama_data:

@@ -111,3 +111,11 @@ graph TD
 ---
 
 *Built for Data Sovereignty.*
+
+## Maintenance
+
+A maintenance script is provided to automate ZFS snapshots and Docker updates across all micro-stacks:
+
+```bash
+sudo ./maintenance.sh
+```

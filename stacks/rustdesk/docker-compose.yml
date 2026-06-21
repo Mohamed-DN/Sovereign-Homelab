@@ -1,0 +1,38 @@
+name: rustdesk
+
+services:
+  hbbs:
+    container_name: rustdesk-hbbs
+    ports:
+      - "${HBBS_PORT}:21115"
+      - "${HBBS_PORT_NAT}:21116" # For NAT type test
+      - "${HBBS_PORT_NAT}:21116/udp" # For ID registration and heartbeat service
+      - "${HBBS_PORT_TCP}:21118"
+    image: rustdesk/rustdesk-server:latest
+    command: hbbs -r rustdesk.internal:${HBBR_PORT}
+    volumes:
+      - rustdesk_data:/root
+    networks:
+      - rustdesk-net
+    depends_on:
+      - hbbr
+    restart: unless-stopped
+
+  hbbr:
+    container_name: rustdesk-hbbr
+    ports:
+      - "${HBBR_PORT}:21117"
+      - "${HBBR_PORT_UDP}:21119"
+    image: rustdesk/rustdesk-server:latest
+    command: hbbr
+    volumes:
+      - rustdesk_data:/root
+    networks:
+      - rustdesk-net
+    restart: unless-stopped
+
+volumes:
+  rustdesk_data:
+
+networks:
+  rustdesk-net:
