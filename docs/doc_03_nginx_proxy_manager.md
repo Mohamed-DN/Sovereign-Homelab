@@ -1,58 +1,64 @@
-# Runbook 03: Nginx Proxy Manager & HTTPS (Guided Tutorial)
+# Runbook 03: Nginx Proxy Manager, Public VPN, and Internal HTTPS
 
-This document explains how to configure Nginx Proxy Manager (NPM). NPM is the "Traffic Cop" of your network.
+This document explains how to configure Nginx Proxy Manager (NPM). NPM is the reverse proxy for both the public VPN entrypoint and internal/VPN-only services.
 
-> 🎓 **The Theory: Why a Reverse Proxy?**: If you have 10 services running on your server, remembering IP addresses and port numbers (like `192.168.1.50:8080`, `192.168.1.51:3000`) is a nightmare. NPM listens on the standard web ports (80 and 443). When you type `foto.local` or `vpn.yourdomain.duckdns.org` in your browser, NPM intercepts the request, reads the domain name, and silently routes you to the correct internal port. It also automatically generates secure HTTPS certificates for you.
+The naming model is:
 
-## 1. Verifying Port 80
-NPM absolutely needs port 80 and 443 to act as the "universal dispatcher".
-Fortunately, in our setup AdGuard Home listens on port `3000` (and Headscale on `8080`), which means port `80` is natively free and ready to be assigned to NPM without causing any downtime!
+- `vpn.yourdomain.duckdns.org` for the public Headscale API, because clients outside the home must reach it.
+- `*.internal` for internal/VPN-only services.
+- DuckDNS is the public door. `.internal` is the private service namespace.
 
-## 2. Obtaining HTTPS Certificates (DuckDNS DNS-01 Challenge)
-Instead of opening your router's ports to the internet, we use the DNS challenge.
+## 1. Verify Ports 80 and 443
 
-> 🎓 **Why DNS-01 Challenge?**: Modern operating systems (especially iOS) are very strict. If an app tries to connect to a server without a valid HTTPS certificate (the green padlock), the OS will block the connection. Normally, Let's Encrypt verifies you own a domain by pinging your server over the internet. But our server is hidden! Instead, NPM talks to DuckDNS via an API token and says: *"If I can log in and modify the DNS records of this domain, it proves I own it."* Let's Encrypt verifies the DNS record and issues the certificate. Boom, bank-grade encryption without open ports!
+NPM needs ports `80` and `443` to act as the HTTP/HTTPS gateway.
 
-1. In NPM (`http://192.168.1.50:81`), go to **SSL Certificates** -> **Add SSL Certificate** -> **Let's Encrypt**.
-2. **Domain Names**: Enter `*.yourdomain.duckdns.org` (and press Enter).
+In this setup, AdGuard Home listens on `3000` for its UI and Headscale listens on `8080`, so ports `80` and `443` can be assigned to NPM.
+
+## 2. Public Certificate for Headscale
+
+Use DuckDNS only for the public VPN control plane.
+
+In NPM (`http://192.168.1.50:81`):
+
+1. Go to **SSL Certificates** -> **Add SSL Certificate** -> **Let's Encrypt**.
+2. **Domain Names**: enter `vpn.yourdomain.duckdns.org`.
 3. Email: your email.
 4. Enable **Use a DNS Challenge**.
-5. **DNS Provider**: Choose `DuckDNS`.
-6. In the `Credentials File Content` field that appears below, replace `your-duckdns-token` with your actual token.
+5. **DNS Provider**: choose `DuckDNS`.
+6. In `Credentials File Content`, replace `your-duckdns-token` with your real token.
 7. Check the agreements and press **Save**.
-In about 60 seconds you will get a globally recognized valid HTTPS Wildcard certificate!
 
-## 3. Split-Brain DNS (Rewrites in AdGuard)
-To prevent traffic from going out to the internet only to come back in, we configure "Split-Brain DNS".
+This certificate is for the public Headscale endpoint. Internal apps stay under `.internal`.
 
-> 🎓 **What is Split-Brain DNS?**: When you are at home on Wi-Fi and type `vpn.yourdomain.duckdns.org`, normal DNS would send your request out to the public internet, hit your router's external IP, and bounce back inside. This is inefficient (and many routers block it). By adding a "DNS Rewrite" in AdGuard, when you are at home, AdGuard intercepts the request and says: *"I know that guy! He's right here at 192.168.1.50."* The traffic stays 100% local and blazingly fast.
+## 3. Internal DNS Rewrites in AdGuard
 
-1. Open AdGuard Home (`http://192.168.1.50:3000`).
-2. Go to **Filters** -> **DNS Rewrites**.
-3. Add: `*.yourdomain.duckdns.org` -> `192.168.1.50`.
+In AdGuard Home (`http://192.168.1.50:3000`), create DNS rewrites:
 
-## 4. Exposing Services (Headscale Specific Configuration)
-Now we tell NPM to route traffic for Headscale.
+| Pattern | Target |
+|---|---|
+| `vpn.yourdomain.duckdns.org` | `192.168.1.50` |
+| `*.internal` | NPM IP, usually `192.168.1.50` or LXC 101 |
+
+Why:
+
+- At home, `vpn.yourdomain.duckdns.org` should resolve directly to the local Headscale/NPM host.
+- Internal services such as `dash.internal`, `pwd.internal`, and `files.internal` stay in the private namespace.
+
+## 4. Public Proxy Host: Headscale API
 
 In NPM, go to **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
-- **Domain Names**: `vpn.yourdomain.duckdns.org`
-- **Scheme**: `http`
-- **Forward Hostname / IP**: `192.168.1.50`
-- **Forward Port**: `8080` (Headscale's Port)
-- **WARNING**: You MUST check the **Websockets Support** option.
-> 🎓 **Why WebSockets?**: Normal web traffic is "Ask and Receive". WebSockets keep the connection constantly open like a telephone call. VPN apps require constant, uninterrupted communication to maintain the mesh tunnel. Without this checkbox, NPM will sever the connection, and Tailscale will fail to connect.
 
-Go to the **Custom Locations** tab to expose the Headscale Graphical Interface securely:
-- Click **Add location**
-- **Location**: `/web`
-- **Scheme**: `http`
-- **Forward Hostname / IP**: `192.168.1.50`
-- **Forward Port**: `8081` (The external port of the UI container)
-> 🎓 **Why a Custom Location?**: Headscale doesn't have a built-in GUI. We installed `headscale-ui` in a separate container. By mapping it to `/web`, Nginx takes any request for `https://vpn.yourdomain.duckdns.org/web` and silently hands it over to the UI container. This perfectly bypasses all CORS security blocks because your browser thinks the UI and the API are coming from the exact same domain!
+| Field | Value |
+|---|---|
+| Domain Names | `vpn.yourdomain.duckdns.org` |
+| Scheme | `http` |
+| Forward Hostname / IP | `192.168.1.50` |
+| Forward Port | `8080` |
+| Websockets Support | Enabled |
+| SSL | DuckDNS certificate, Force SSL |
 
-Go to the **SSL** tab, select the certificate generated earlier, and check `Force SSL`.
+Advanced config:
 
-Go to the **Advanced** tab and add this code into the *Custom Nginx Configuration* box:
 ```nginx
 proxy_http_version 1.1;
 proxy_set_header Upgrade $http_upgrade;
@@ -62,8 +68,65 @@ proxy_read_timeout 86400s;
 proxy_connect_timeout 86400s;
 proxy_send_timeout 86400s;
 ```
-> 🎓 **Why disable buffering?**: Nginx normally tries to buffer (hold) data until it has a complete chunk before sending it. This is great for websites, but terrible for real-time VPN data streams. Disabling buffering ensures the keys and VPN traffic pass through instantly. The `86400s` (24 hours) timeout ensures Nginx doesn't abruptly hang up the phone on long-running VPN connections.
 
-- Save.
+Headscale clients need stable long-running HTTPS/WebSocket behavior. The Headscale API stays reachable without generic web forward-auth so clients can join from outside the LAN.
 
-From this moment on, `https://vpn.yourdomain.duckdns.org` is active, secure, and ready!
+## 5. Internal Proxy Host: Headscale-UI
+
+Headscale-UI is an admin interface, so use an internal name:
+
+| Field | Value |
+|---|---|
+| Domain Names | `headscale.internal` |
+| Scheme | `http` |
+| Forward Hostname / IP | `192.168.1.50` |
+| Forward Port | `8080` |
+| Access | VPN/Auth |
+
+Add a custom location:
+
+| Field | Value |
+|---|---|
+| Location | `/web` |
+| Scheme | `http` |
+| Forward Hostname / IP | `192.168.1.50` |
+| Forward Port | `8081` |
+
+Use:
+
+```text
+https://headscale.internal/web
+```
+
+The public VPN hostname is reserved for the Headscale API. The admin UI stays on `headscale.internal/web`.
+
+## 6. Internal App Proxy Hosts
+
+Internal apps use `.internal`:
+
+| Service | Hostname | Forward |
+|---|---|---|
+| Authentik | `auth.internal` | `http://HOST:9000` |
+| Homepage | `dash.internal` | `http://HOST:3002` |
+| Uptime Kuma | `status.internal` | `http://HOST:3001` |
+| Beszel | `monitor.internal` | `http://HOST:8090` |
+| Dozzle | `logs.internal` | `http://HOST:8088` |
+| Vaultwarden | `pwd.internal` | `http://HOST:8082` |
+| Immich | `foto.internal` | `http://HOST:2283` |
+| Nextcloud | `files.internal` | `http://HOST:11000` |
+| Syncthing UI | `sync.internal` | `http://HOST:8384` |
+
+For `.internal` HTTPS, use one of these approaches:
+
+- HTTP only inside VPN if you accept it for admin/internal use.
+- NPM self-signed/internal certificate and trust the CA on your devices.
+- Future high-level option: Smallstep `step-ca` as the internal certificate authority.
+
+## 7. Rule
+
+DuckDNS is the public door. `.internal` is the private service namespace.
+
+From this point:
+
+- `https://vpn.yourdomain.duckdns.org` is the public VPN API.
+- `https://dash.internal`, `https://pwd.internal`, and similar names are internal/VPN-only.

@@ -27,8 +27,8 @@ Expected time: 5-10 minutes.
    - check whether any widget or link is broken.
 2. Open Uptime Kuma:
    - AdGuard DNS must respond;
-   - `vpn.<domain>` must be up;
-   - `auth.<domain>`, `dash.<domain>`, `pwd.<domain>`, and core apps must be up;
+   - `vpn.yourdomain.duckdns.org` must be up;
+   - `auth.internal`, `dash.internal`, `pwd.internal`, and core apps must be up;
    - every alert must have a known cause or a note.
 3. Check recent backups:
    - on Proxmox: LXC/VM backup tasks succeeded;
@@ -86,7 +86,8 @@ Verify:
 
 4. Check NPM certificates:
 
-- wildcard DuckDNS certificate exists;
+- public Headscale certificate exists for `vpn.yourdomain.duckdns.org`;
+- internal service certificate strategy is documented;
 - certificates are not close to expiry;
 - proxy hosts have WebSockets enabled where needed;
 - admin UIs are protected by VPN/Auth or an access list.
@@ -214,7 +215,7 @@ ss -tulpn | grep ':53'
 
 ### VPN Down
 
-1. Check whether `vpn.<domain>` responds from the internet.
+1. Check whether `vpn.yourdomain.duckdns.org` responds from the internet.
 2. Check NPM and Headscale:
 
 ```bash
@@ -229,7 +230,7 @@ docker exec headscale headscale configtest
 
 1. Verify public DuckDNS resolution.
 2. Verify AdGuard DNS rewrite.
-3. Check the wildcard certificate in NPM.
+3. Check the public Headscale certificate in NPM.
 4. Temporarily disable non-critical proxy hosts, not Headscale.
 
 ### Possible Compromise

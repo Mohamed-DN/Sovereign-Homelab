@@ -1,99 +1,301 @@
-# Runbook 02: AdGuard Home & The DNS Dictatorship (Guided Tutorial)
+# Runbook 02: AdGuard Home, DHCP, and Internal DNS
 
-This document outlines the steps to deploy the AdGuard Home DNS server. More importantly, it explains the logic behind hijacking your home router's network to enforce a network-wide ad-blocker.
+AdGuard Home is the DNS control point for the lab. It provides:
 
-## 1. Directory Structure and Docker Compose
+- DNS filtering for LAN and VPN clients;
+- optional DHCP for the home LAN;
+- internal DNS rewrites for `.internal` services;
+- split DNS for the public VPN entrypoint.
 
-Inside the `core-network` container (e.g., `192.168.1.50`), the AdGuard Home service is defined within the `docker-compose.yml` file like this:
+Expected result:
+
+- LAN clients receive `192.168.1.50` as DNS.
+- VPN clients use `192.168.1.50` through Headscale DNS settings.
+- `*.internal` resolves to Nginx Proxy Manager.
+- `vpn.yourdomain.duckdns.org` resolves to the local Headscale/NPM endpoint when the client is at home or connected to the VPN.
+
+---
+
+## Phase A: Docker Service
+
+Inside the `core-network` host or LXC, AdGuard Home runs with host networking:
+
 ```yaml
-  adguardhome:
-    image: adguard/adguardhome:latest
-    container_name: adguardhome
-    network_mode: "host"
-    volumes:
-      - ./adguard/work:/opt/adguardhome/work
-      - ./adguard/conf:/opt/adguardhome/conf
-    restart: unless-stopped
+adguardhome:
+  image: adguard/adguardhome:latest
+  container_name: adguardhome
+  network_mode: "host"
+  volumes:
+    - ./adguard/work:/opt/adguardhome/work
+    - ./adguard/conf:/opt/adguardhome/conf
+  restart: unless-stopped
 ```
 
-> 🎓 **Why `network_mode: "host"`?**: By default, Docker puts containers in a private subnet (like `172.16.x.x`). They can reach the internet, but they cannot see low-level signals from your physical home network (like a smartphone broadcasting "Hello, I just joined the Wi-Fi, who can give me an IP address?"). By using `network_mode: "host"`, we shatter that barrier. AdGuard is connected directly to the physical `192.168.1.x` network, allowing it to hear those DHCP broadcasts and answer them.
+Host networking is intentional. DHCP uses LAN broadcasts, and those broadcasts are not reliably visible from a normal Docker bridge network. With `network_mode: "host"`, AdGuard listens directly on `192.168.1.50`.
 
-Start the stack with:
+Start or restart the stack:
+
 ```bash
-docker compose up -d
+cd /opt/core-network
+docker compose up -d adguardhome
+docker logs --tail=100 adguardhome
 ```
 
-## 2. Initialization (First Boot)
-1. Open a browser from a PC on the same LAN and navigate to `http://192.168.1.50:3000`.
-2. Follow the setup wizard:
-   - **Web Interface**: ⚠️ **CRITICAL**: Change the listening port from `80` to `3000`.
-   > 🎓 **Why move away from Port 80?**: Port 80 is the global standard for HTTP web traffic. If we let AdGuard claim it, Nginx Proxy Manager (which we will install later) will fail to start. NPM *needs* port 80 to catch all web traffic and to prove to Let's Encrypt that we own our domain. By moving AdGuard's UI to `3000`, we prevent a fatal clash.
-   - **DNS Server**: Set or confirm listening on port `53`. (Port 53 is the universal standard for DNS. It must remain 53).
-3. Create an Administrator account (Username and Password).
-4. Complete the setup. The interface will now be permanently accessible at `http://192.168.1.50:3000`.
+---
 
-*Note: If you accidentally set it to port 80 and NPM fails to start, you must edit `/opt/core-network/adguard/conf/AdGuardHome.yaml`, find `bind_port: 80` under `http:`, change it to `3000`, and run `docker restart adguardhome`.*
+## Phase B: First Boot
 
-## 3. Centralized DHCP Configuration (The Takeover)
+Open:
 
-To gain full control over devices and resolve local names, we must take over DHCP cleanly and intentionally.
+```text
+http://192.168.1.50:3000
+```
 
-> 🎓 **The Theory**: Your ISP router (like a TIM Hub) currently acts as the DHCP server. Whenever a device joins the Wi-Fi, the router hands it an IP and says: *"I am your DNS server"*. ISP routers are notoriously locked down. They don't allow you to block ads, and they certainly don't let you invent custom local domains like `foto.local`.
->
-> To fix this, we kill the router's DHCP and activate AdGuard's DHCP. Now, when a device joins the Wi-Fi, AdGuard hands out the IP and says: *"I am your DNS server"*. From that second onwards, every single internet request from that device passes through AdGuard's blacklists before hitting the internet.
+During the setup wizard:
 
-### 3a. Router Configuration (Disabling TIM DHCP)
-For a TIM ZTE Gateway (or similar ISP router), we must prevent "Dual DHCP" packet conflicts.
-1. Access the web panel via pure HTTP: `http://192.168.1.1`
-2. Navigate to: **Rete Locale** -> **LAN** -> **Server DHCP**
-3. Set the **Server DHCP** to `[Off]` and click **Applica**.
+| Setting | Value |
+|---|---|
+| Web UI listen address | `0.0.0.0` |
+| Web UI port | `3000` |
+| DNS listen address | `0.0.0.0` |
+| DNS port | `53` |
 
-### 3b. Cold Boot YAML Fix (Optional but Recommended)
-Sometimes the AdGuard Web UI refuses to activate the DHCP server because it cannot verify the static IP of a Docker container. To bypass this, we can force it via code before configuring the UI.
-Edit `/opt/core-network/adguard/conf/AdGuardHome.yaml`:
+Port `3000` keeps AdGuard away from ports `80` and `443`, which are reserved for Nginx Proxy Manager.
+
+If AdGuard was accidentally configured on port `80`, edit:
+
+```bash
+nano /opt/core-network/adguard/conf/AdGuardHome.yaml
+```
+
+Set:
+
+```yaml
+http:
+  address: 0.0.0.0:3000
+```
+
+Restart:
+
+```bash
+docker restart adguardhome
+```
+
+---
+
+## Phase C: DHCP Ownership
+
+The clean model is one DHCP server per LAN.
+
+Recommended state:
+
+- TIM/ISP router: DHCP disabled.
+- AdGuard: DHCP enabled.
+- Gateway: `192.168.1.1`.
+- DNS server handed to clients: `192.168.1.50`.
+
+In the router UI, disable DHCP. On many TIM/ZTE routers:
+
+```text
+Rete Locale -> LAN -> Server DHCP -> Off
+```
+
+Then configure AdGuard DHCP:
+
+| Setting | Value |
+|---|---|
+| DHCP server | Enabled |
+| Interface | `eth0` or the interface with `192.168.1.50` |
+| Gateway IP | `192.168.1.1` |
+| Subnet mask | `255.255.255.0` |
+| Range start | `192.168.1.100` |
+| Range end | `192.168.1.200` |
+| Lease time | `86400` |
+| IPv6 DHCP | Disabled unless the IPv6 design is documented |
+
+Infrastructure IPs below `.100` stay available for static assignments and DHCP reservations.
+
+If the UI refuses to enable DHCP because it cannot verify the static address, set it directly in:
+
+```bash
+nano /opt/core-network/adguard/conf/AdGuardHome.yaml
+```
+
+Example:
+
 ```yaml
 dhcp:
   enabled: true
   interface_name: eth0
 ```
-Then run `docker restart adguardhome`.
 
-### 3c. AdGuard DHCP Settings
-Go to AdGuard Settings -> DHCP Settings (`http://192.168.1.50:3000`):
-- **DHCP Server**: `Enabled`
-- **Interface**: `eth0 - 192.168.1.50`
-- **Gateway IP**: `192.168.1.1`
-- **Subnet Mask**: `255.255.255.0`
-- **Range Start**: `192.168.1.100`
-- **Range End**: `192.168.1.200`
-- **DHCP Lease Time**: `86400` (24 hours)
-- **DHCP IPv6 Settings**: *Disabled* (Leave all fields empty)
+Restart:
 
-*(Note: IPs from `.2` to `.99` are deliberately excluded from the range so we can manually assign them to servers and infrastructure).*
+```bash
+docker restart adguardhome
+```
 
-## 4. Blocklists and Security Strategy (HaGeZi)
+---
 
-AdGuard needs blocklists to know what to block. We will use the absolute best lists available that minimize false positives on shared home networks.
+## Phase D: Internal DNS Rewrites
 
-Go to **Filters** -> **DNS blocklists** -> **Add blocklist** -> **Add a custom list**:
+Create rewrites in **Filters** -> **DNS Rewrites**:
 
-1. **HaGeZi Multi PRO** (Primary filter for Ads, Tracking, and Telemetry)
-   - URL: `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt`
-2. **HaGeZi Threat Intelligence TIF** (Security block for Malware, Phishing, and Scams)
-   - URL: `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt`
+| Domain | Answer |
+|---|---|
+| `*.internal` | NPM IP, usually `192.168.1.50` or LXC 101 |
+| `vpn.yourdomain.duckdns.org` | `192.168.1.50` |
 
-## 5. Client Alignment (Flush Cache)
+Meaning:
 
-Because devices keep the old DHCP leases from the TIM router in their memory, we must force them to renew their connection and grab AdGuard's new settings.
+- `*.internal` sends private service names to Nginx Proxy Manager.
+- `vpn.yourdomain.duckdns.org` uses split DNS so LAN/VPN clients reach the local Headscale endpoint directly.
 
-### Windows Clients (PCs)
-1. Open network settings and disable the Wi-Fi interface for 5 seconds.
-2. Re-enable the Wi-Fi. It will connect to AdGuard.
-3. Open PowerShell and verify: `ipconfig /all`. Ensure both "DHCP Server" and "DNS Servers" point to `192.168.1.50`.
+Examples:
 
-### iOS Clients (iPhone / iPad)
-1. Go to **Settings** -> **Wi-Fi**.
-2. Tap the `[i]` next to your home network and select **"Forget This Network"**, then reconnect.
-3. ⚠️ **CRITICAL APPLE SETTINGS**: Apple uses masking features that can bypass local DNS blocks. On the same Wi-Fi screen, disable the following:
-   - **Limit IP Address Tracking**: *Turn OFF*.
-   - **Private Wi-Fi Address**: *Turn OFF*. (This ensures AdGuard sees the real MAC address of the phone, allowing you to assign stable aliases and rules).
+| Query | Expected result |
+|---|---|
+| `dash.internal` | NPM IP |
+| `pwd.internal` | NPM IP |
+| `foto.internal` | NPM IP |
+| `files.internal` | NPM IP |
+| `vpn.yourdomain.duckdns.org` | `192.168.1.50` |
+
+DuckDNS is the public door. `.internal` is the private service namespace.
+
+---
+
+## Phase E: Upstream DNS and Blocklists
+
+Recommended upstream DNS:
+
+```text
+https://dns.quad9.net/dns-query
+https://cloudflare-dns.com/dns-query
+```
+
+Recommended blocklists:
+
+| List | URL |
+|---|---|
+| HaGeZi Multi PRO | `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/pro.txt` |
+| HaGeZi Threat Intelligence TIF | `https://raw.githubusercontent.com/hagezi/dns-blocklists/main/adblock/tif.txt` |
+
+After adding blocklists, update them and check the query log for false positives before adding more lists.
+
+---
+
+## Phase F: Client Renewal
+
+Clients with old leases must renew DHCP.
+
+Windows:
+
+```powershell
+ipconfig /release
+ipconfig /renew
+ipconfig /all
+```
+
+Expected:
+
+- DHCP server: `192.168.1.50`
+- DNS server: `192.168.1.50`
+
+iOS:
+
+1. Forget and rejoin the Wi-Fi network.
+2. Disable **Limit IP Address Tracking** for the home Wi-Fi if it breaks local DNS policy.
+3. Keep **Private Wi-Fi Address** off if you rely on per-device DHCP reservations.
+
+Android:
+
+1. Forget and rejoin the Wi-Fi network.
+2. Check the Wi-Fi details and confirm DNS points to `192.168.1.50`.
+
+---
+
+## Phase G: Verification
+
+From a LAN client:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+nslookup vpn.yourdomain.duckdns.org 192.168.1.50
+```
+
+Expected:
+
+- `example.com` resolves normally.
+- `dash.internal` resolves to the NPM IP.
+- `vpn.yourdomain.duckdns.org` resolves to `192.168.1.50`.
+
+From LXC 100:
+
+```bash
+ss -tulpn | grep ':53'
+docker logs --tail=100 adguardhome
+```
+
+---
+
+## Troubleshooting
+
+### Clients Still Use the Router as DNS
+
+Check:
+
+```bash
+ipconfig /all
+```
+
+or the client network details. If the router is still DHCP server, disable DHCP on the router and renew the client lease.
+
+### `*.internal` Does Not Resolve
+
+Verify the AdGuard rewrite and query directly:
+
+```bash
+nslookup dash.internal 192.168.1.50
+```
+
+If the answer is missing, fix the rewrite before debugging NPM.
+
+### VPN Clients Cannot Resolve Internal Names
+
+Check Headscale DNS settings in [Runbook 04](doc_04_headscale_vpn.md). Remote clients must use `192.168.1.50` as the Headscale global DNS server, and the subnet router must allow them to reach it.
+
+### NPM Proxy Opens but the App Fails
+
+DNS is working if `service.internal` resolves to NPM. Continue debugging in [Runbook 03](doc_03_nginx_proxy_manager.md): proxy host, upstream port, SSL mode, and WebSockets.
+
+---
+
+## Rollback
+
+If DHCP breaks the LAN:
+
+1. Re-enable DHCP on the router.
+2. Disable DHCP in AdGuard.
+3. Renew client leases.
+4. Fix the AdGuard DHCP settings offline.
+
+If DNS filtering breaks a critical service:
+
+1. Disable the newest blocklist.
+2. Check the AdGuard query log.
+3. Add an allowlist rule only for the exact blocked domain.
+
+---
+
+## Official Sources
+
+- AdGuard Home: <https://github.com/AdguardTeam/AdGuardHome>
+- AdGuard Home DNS rewrites: <https://github.com/AdguardTeam/AdGuardHome/wiki/Hosts-Blocklists>
+- Tailscale DNS behavior: <https://tailscale.com/docs/reference/dns-in-tailscale>
+
+---
+
+**Previous:** [Runbook 01: Proxmox Docker LXC](doc_01_proxmox_docker_lxc.md)
+**Next:** [Runbook 03: Nginx Proxy Manager](doc_03_nginx_proxy_manager.md)

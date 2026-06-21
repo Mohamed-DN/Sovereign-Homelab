@@ -10,7 +10,16 @@ This homelab is built around three pillars:
 
 1. **Total Local Control**: Core services run locally on Proxmox.
 2. **Private Mesh Access**: Remote access is handled through Headscale and Tailscale-compatible clients.
-3. **Seamless Internal Access**: Local domains and HTTPS routing are handled through AdGuard Home and Nginx Proxy Manager.
+3. **Seamless Internal Access**: `.internal` DNS names and HTTPS routing are handled through AdGuard Home and Nginx Proxy Manager.
+
+## DNS and Access Model
+
+The lab follows a two-zone model:
+
+- **Public edge**: `vpn.yourdomain.duckdns.org` is the only required public hostname, used by remote clients to reach Headscale.
+- **Private services**: internal apps use `.internal` names such as `auth.internal`, `dash.internal`, `pwd.internal`, `foto.internal`, and `files.internal`.
+
+DuckDNS is the public door. `.internal` is the private service namespace.
 
 ## Architecture Overview
 
@@ -58,10 +67,10 @@ graph TD
     DNS -->|Filtered DNS| Internet
     User -->|HTTPS services| Proxy
 
-    Proxy -->|pwd.local| V["Vaultwarden"]
-    Proxy -->|foto.local| I["Immich"]
-    Proxy -->|files.local| N["Nextcloud"]
-    Proxy -->|dash.local| H["Homepage"]
+    Proxy -->|pwd.internal| V["Vaultwarden"]
+    Proxy -->|foto.internal| I["Immich"]
+    Proxy -->|files.internal| N["Nextcloud"]
+    Proxy -->|dash.internal| H["Homepage"]
 ```
 
 ## Documentation and Guided Tutorials

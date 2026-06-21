@@ -22,7 +22,7 @@ docker compose ps
 
 | Hostname | Forward | Notes |
 |---|---|---|
-| `auth.<domain>` | `http://HOST:9000` | Force SSL, WebSockets enabled |
+| `auth.internal` | `http://HOST:9000` | WebSockets enabled; use internal TLS when ready |
 
 ## Verification
 
