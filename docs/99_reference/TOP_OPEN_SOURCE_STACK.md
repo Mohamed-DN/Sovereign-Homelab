@@ -24,6 +24,9 @@ This is the canonical open-source stack catalog for this repository. It is not a
 | Live logs | Dozzle | quick Docker logs |
 | App backup | restic | encrypted, scriptable, offsite-friendly |
 | Security detection | CrowdSec | community intelligence, bouncer model |
+| Asset visibility | NetAlertX | LAN inventory and device-change awareness |
+| Disk health | Scrutiny | SMART history and failure trend visibility |
+| Notifications | ntfy | self-hosted alert target for Kuma, PBS, CrowdSec, and scripts |
 
 ## Tier 2: Personal Cloud
 
@@ -90,6 +93,9 @@ A service enters the core only if:
 | P2 later | SearXNG | Private metasearch, not critical for the core. |
 | P2 later | Forgejo | Private Git for configs, scripts, and documentation. |
 | P2 later | Ollama + Open WebUI | Only with adequate hardware and a clear data policy. |
+| Ops extension | NetAlertX | Add when you need a clean inventory of devices and IP drift. |
+| Ops extension | Scrutiny | Add when disk SMART visibility matters more than another app. |
+| Ops extension | ntfy | Add when Uptime Kuma/PBS/CrowdSec alerts need a self-hosted notification target. |
 | P3 only if needed | Full Wazuh | Powerful but heavy; needs a log strategy first. |
 | P3 only if needed | Full media automation | Adds many moving parts; stabilize Jellyfin first. |
 
@@ -120,5 +126,8 @@ Stack templates use pinned image tags where stable tags exist. Review [PINNED_IM
 - Forgejo: <https://forgejo.org/docs/latest/>
 - Ollama: <https://ollama.com/>
 - Open WebUI: <https://docs.openwebui.com/>
+- NetAlertX: <https://github.com/netalertx/NetAlertX>
+- Scrutiny: <https://github.com/AnalogJ/scrutiny>
+- ntfy: <https://docs.ntfy.sh/install/>
 - NetBird self-hosted apps list: <https://netbird.io/knowledge-hub/10-self-hosted-apps-2026>
 - Perfect Media Server app list: <https://perfectmediaserver.com/04-day-two/top10apps/>

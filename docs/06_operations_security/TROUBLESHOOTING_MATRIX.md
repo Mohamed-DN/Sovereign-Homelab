@@ -7,6 +7,7 @@
 | Client does not register | `docker logs headscale` | check `server_url`, NPM, WebSocket, certificate |
 | Phone on 4G cannot reach LAN | `headscale nodes list-routes` | approve `192.168.1.0/24`, enable `accept-routes` on the client |
 | Exit node does not appear | `headscale nodes list-routes` | approve `0.0.0.0/0`, verify `--advertise-exit-node` |
+| Exit node works but ads are not filtered | AdGuard query log and `nslookup example.com 192.168.1.50` | fix client DNS acceptance or the subnet route; do not create private DuckDNS app names |
 | DNS is unstable on servers | `tailscale debug prefs` | run `tailscale set --accept-dns=false` on infrastructure nodes |
 | Tailscale does not start | `ls -l /dev/net/tun` | load the `tun` module, enable TUN for LXC |
 | Policy breaks access | `headscale configtest` | roll back the policy or comment out `policy.path` |
@@ -38,6 +39,9 @@
 | Beszel agent offline | Beszel UI or agent logs | update KEY/TOKEN from the UI |
 | Dozzle does not show logs | Docker socket | verify `/var/run/docker.sock` mount |
 | Uptime Kuma false negative | monitor target | use the correct internal endpoint |
+| NetAlertX is noisy | scan scope and notification settings | start with main LAN only, then add VLANs/sites intentionally |
+| Scrutiny shows no disks | container device mappings and capabilities | map the disk devices explicitly and allow required SMART access |
+| ntfy receives no alerts | Kuma notification URL and ntfy logs | verify topic URL, auth mode, and NPM proxy path |
 
 ## Apps
 

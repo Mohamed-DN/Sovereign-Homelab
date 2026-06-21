@@ -35,6 +35,7 @@ Target placeholders:
 | `VM130_IP` | Home Assistant OS VM |
 | `VM150_IP` | Jellyfin VM |
 | `RUSTDESK_HOST_IP` | Host or LXC running RustDesk OSS server |
+| `LXC103_IP` | Optional operations extensions LXC |
 
 ## Phase A: Verify NPM Ports
 
@@ -163,6 +164,9 @@ https://headscale.internal/web
 | Uptime Kuma | `status.internal` | `http` | `LXC101_IP:3001` | yes | VPN/Auth |
 | Beszel | `monitor.internal` | `http` | `LXC101_IP:8090` | yes | VPN/Auth |
 | Dozzle | `logs.internal` | `http` | `LXC101_IP:8088` | yes | VPN/admin |
+| NetAlertX | `netalert.internal` | `http` | `LXC103_IP:20211` | no | VPN/Auth |
+| Scrutiny | `disks.internal` | `http` | `LXC103_IP:8080` | no | VPN/admin |
+| ntfy | `alerts.internal` | `http` | `LXC103_IP:80` | yes | VPN/Auth |
 
 ## Phase G: Internal App Proxy Hosts
 
@@ -252,7 +256,7 @@ Common causes:
 
 ### Login or WebSocket Breaks
 
-Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, Vaultwarden, Immich, Nextcloud, Syncthing UI, Forgejo, Home Assistant, Jellyfin, and Open WebUI.
+Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, ntfy, Vaultwarden, Immich, Nextcloud, Syncthing UI, Forgejo, Home Assistant, Jellyfin, and Open WebUI.
 
 ## Sources
 

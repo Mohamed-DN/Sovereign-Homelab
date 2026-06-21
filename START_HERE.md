@@ -65,6 +65,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 3. [Runbook 08](docs/03_platform_services/doc_08_observability_dashboard.md): Homepage, Uptime Kuma, Beszel, and Dozzle.
 4. [Runbook 09](docs/05_backup_dr/doc_09_backup_dr.md): Proxmox Backup Server, restore tests, and restic offsite.
 5. [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md): datastore, jobs, verify, prune, restore drills, offsite.
+6. Optional after the core is stable: add NetAlertX, Scrutiny, and ntfy as operations extensions for asset visibility, disk health, and self-hosted alerts.
 
 ### 4. Personal Applications
 
@@ -90,6 +91,7 @@ Recommended order for new apps:
 1. Paperless-ngx, Home Assistant OS, Jellyfin, FreshRSS, Karakeep.
 2. SearXNG, Forgejo/Gitea, Ollama/Open WebUI.
 3. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
+4. Operations extensions can be added before more apps if visibility is weak: NetAlertX, Scrutiny, then ntfy.
 
 ## Naming Standard
 
@@ -101,6 +103,9 @@ Recommended order for new apps:
 | Homepage | `dash.internal` | VPN or Authentik |
 | Uptime Kuma | `status.internal` | VPN or Authentik |
 | Beszel | `monitor.internal` | VPN or Authentik |
+| NetAlertX | `netalert.internal` | VPN/Auth, optional operations extension |
+| Scrutiny | `disks.internal` | VPN/admin, optional operations extension |
+| ntfy | `alerts.internal` | VPN/Auth, optional operations extension |
 | Vaultwarden | `pwd.internal` | VPN-first |
 | Immich | `foto.internal` | VPN-first |
 | Nextcloud | `files.internal` | VPN-first |

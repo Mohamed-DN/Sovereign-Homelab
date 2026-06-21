@@ -15,7 +15,7 @@ git diff --check
 rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
-rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|netalert\\.yourdomain\\.duckdns\\.org|disks\\.yourdomain\\.duckdns\\.org|alerts\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "STACK_CATALOG_OPEN_SOURCE|PROJECT\\.md|compatibility stubs|APP_SERVICE_RUNBOOKS|stacks/apps|extended-services|IN_PROGRESS|\\.agents" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md'
 ```
@@ -54,14 +54,14 @@ Write-Host 'Markdown local links resolve.'
 Every service with a web UI must be represented in the service visibility matrix, Homepage, NPM documentation, and Uptime Kuma catalog.
 
 ```bash
-rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
+rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|netalert.internal|disks.internal|alerts.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
 ```
 
 Minimal Homepage YAML shape check on Windows PowerShell:
 
 ```powershell
 $s = Get-Content -Raw stacks/observability/homepage/services.yaml
-$required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal','headscale.internal','auth.internal','dash.internal','status.internal','monitor.internal','logs.internal','pwd.internal','foto.internal','files.internal','sync.internal','paper.internal','ha.internal','media.internal','rss.internal','bookmarks.internal','search.internal','git.internal','ai.internal')
+$required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal','headscale.internal','auth.internal','dash.internal','status.internal','monitor.internal','logs.internal','netalert.internal','disks.internal','alerts.internal','pwd.internal','foto.internal','files.internal','sync.internal','paper.internal','ha.internal','media.internal','rss.internal','bookmarks.internal','search.internal','git.internal','ai.internal')
 $missing = $required | Where-Object { $s -notmatch [regex]::Escape($_) }
 if ($missing) { $missing; exit 1 }
 if (-not $s.TrimStart().StartsWith('- ')) { exit 1 }
@@ -177,7 +177,22 @@ From VPN/4G client:
 ```bash
 ping 192.168.1.50
 nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
 ```
+
+With the Proxmox exit node selected on the same VPN/4G client:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Then confirm:
+
+- AdGuard query log shows the remote client's queries.
+- `dash.internal` resolves to the NPM IP.
+- An IP-check website shows the home public IP when the exit node is selected.
+- DNS filtering remains active before and after exit-node selection.
 
 ## NPM/TLS
 
@@ -204,6 +219,16 @@ curl -I https://git.internal
 curl -I https://media.internal
 curl -I https://ha.internal
 curl -I https://ai.internal
+```
+
+## Optional Operations Extension Checks
+
+Run these only after the related operations extension is deployed and added to NPM:
+
+```bash
+curl -I https://netalert.internal
+curl -I https://disks.internal
+curl -I https://alerts.internal
 ```
 
 ## Protocol Checks

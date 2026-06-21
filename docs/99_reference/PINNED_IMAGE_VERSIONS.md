@@ -46,6 +46,12 @@ These images are used in the early `/opt/core-network` bootstrap example before 
 | AdGuard Home | `adguard/adguardhome` | `v0.107.77` | AdGuard Home release tag and Docker Hub tag check | Host networking is intentional for DNS/DHCP. |
 | Nginx Proxy Manager | `jc21/nginx-proxy-manager` | `2.15.1` | Docker Hub tag check | Same tag as the `stacks/npm` template. |
 
+## Why Not `latest`?
+
+`latest`, `main`, and `release` are convenient, but they are moving targets. A restore performed next month can pull a different image than the one that was running when the backup was taken. That makes incident analysis, rollback, and disaster recovery harder.
+
+This repo uses pinned default tags so the running state can be audited and reproduced. Updates still happen, but they are deliberate: read the upstream release notes, take or confirm a backup, bump the tag, validate the stack, and keep a rollback path. A rolling tag is allowed only when upstream does not publish a usable stable tag, and that exception must be documented in this file before it is used.
+
 ## Update Procedure
 
 1. Read the upstream release notes for the target service.

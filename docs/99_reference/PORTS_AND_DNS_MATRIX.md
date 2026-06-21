@@ -20,6 +20,17 @@ Design references:
 - Tailscale DNS guidance explains global nameservers, split DNS, and DNS override behavior: <https://tailscale.com/docs/reference/dns-in-tailscale>
 - NIST Zero Trust Architecture frames access around users, devices, and resources instead of implicit network trust: <https://csrc.nist.gov/pubs/sp/800/207/final>
 
+## Traffic Flow Rules
+
+| Flow | Path | Rule |
+|---|---|---|
+| Control plane | Remote client -> `vpn.yourdomain.duckdns.org` -> NPM -> Headscale | This is the only public default hostname. It is used for login, keys, route metadata, and DNS settings, not for private app access. |
+| DNS | LAN/VPN client -> AdGuard `192.168.1.50` | Normal clients must accept pushed VPN DNS. Infrastructure nodes such as LXC 100 and the Proxmox host keep `--accept-dns=false` to avoid DNS loops. |
+| Private app access | Client -> AdGuard `.internal` rewrite -> NPM -> app upstream | Every web UI uses a `.internal` alias. No private app hostname belongs under DuckDNS. |
+| LAN access | Remote client -> LXC 100 subnet router -> `192.168.1.0/24` | The subnet route is what lets remote devices reach AdGuard, Proxmox, PBS, and other LAN targets. |
+| Internet full tunnel | Remote client -> selected exit node -> internet | The exit node is an optional default route. Selecting it must not bypass AdGuard DNS. |
+| Public exposure | Internet -> NPM -> approved public service | Default public exposure is Headscale only. Any additional public hostname requires an explicit exception runbook. |
+
 ## Core Network
 
 | Service | Hostname | IP/Target | Port | Access | Notes |
@@ -82,6 +93,16 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | Relay and optional web client support |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
+## Operations Extensions
+
+These panels improve visibility but are not mandatory day-one services. Deploy them after DNS, VPN, NPM, Homepage, Uptime Kuma, Beszel, and PBS are already stable.
+
+| Service | Hostname | Recommended target | Recommended port | Default access | Notes |
+|---|---|---|---:|---|---|
+| NetAlertX | `netalert.internal` | LXC 103 `ops-extensions` | 20211 | VPN/Auth | LAN device inventory, asset discovery, change awareness |
+| Scrutiny | `disks.internal` | LXC 103 `ops-extensions` or Proxmox host-aware container | 8080 | VPN/admin | SMART disk health; needs explicit device access |
+| ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 80 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
+
 ## Recommended DNS Rewrites
 
 In AdGuard:
@@ -111,6 +132,9 @@ In AdGuard:
 | `git.internal` | NPM IP when Forgejo is ready |
 | `ai.internal` | NPM IP when Open WebUI is ready |
 | `rustdesk.internal` | RustDesk host IP, not NPM |
+| `netalert.internal` | NPM IP when NetAlertX is ready |
+| `disks.internal` | NPM IP when Scrutiny is ready |
+| `alerts.internal` | NPM IP when ntfy is ready |
 
 If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, update this matrix before changing AdGuard.
 
@@ -118,6 +142,6 @@ If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, up
 
 - Required public exposure: `vpn.yourdomain.duckdns.org`.
 - Private service namespace: `.internal`.
-- Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay.
+- Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay, NetAlertX, Scrutiny, ntfy.
 
 Public exceptions require a separate written decision, a rollback plan, TLS, MFA where possible, and monitoring before exposure.

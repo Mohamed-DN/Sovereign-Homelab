@@ -169,6 +169,14 @@ curl -I https://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
+Optional operations extensions belong after this layer, not before it:
+
+| Extension | Alias | Purpose | Deploy gate |
+|---|---|---|---|
+| NetAlertX | `netalert.internal` | device inventory and LAN change visibility | core DNS/VPN/NPM/Kuma green |
+| Scrutiny | `disks.internal` | SMART disk health visibility | mapped disks documented |
+| ntfy | `alerts.internal` | self-hosted alert delivery | Kuma alert rules defined |
+
 ### Layer 6: Application Micro-Stacks
 
 **Action/Command**
@@ -231,29 +239,36 @@ Expected: containers are healthy or clearly failed in one stack only; repository
 
 ```mermaid
 flowchart TD
-    Remote["Remote devices on 4G/travel"]
+    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
     LAN["LAN clients"]
-    Duck["vpn.yourdomain.duckdns.org"]
-    AGH["AdGuard Home\nLXC100 192.168.1.50"]
-    NPM["Nginx Proxy Manager\nLXC100 or LXC101"]
-    HS["Headscale API\nLXC100:8080"]
-    TS["Subnet Router\n192.168.1.0/24"]
-    Exit["Proxmox Host Exit Node"]
+    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
+    HS["Headscale\nidentity, keys, routes, DNS settings"]
+    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
+    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
+    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
+    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Platform Services\nLXC101"]
-    Apps["Application Micro-Stacks\nLXC102 and VMs"]
+    Apps["Internal apps\n*.internal"]
     PBS["Proxmox Backup Server\nVM140"]
     Offsite["restic/offsite copy"]
+    Internet(("Internet"))
 
-    Remote --> Duck --> NPM --> HS
-    Remote --> TS --> LAN
-    Remote --> Exit
-    LAN --> AGH --> NPM
+    Remote -->|control-plane login only| PublicVPN --> NPM --> HS
+    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
+    Remote -->|LAN access 192.168.1.0/24| Subnet
+    Remote -->|optional default route| Exit --> Internet
+
+    LAN -->|DNS| AGH
+    AGH -->|filtered upstream DNS| Internet
+    AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
     NPM --> Apps
     Platform --> PBS
     Apps --> PBS
     PBS --> Offsite
 ```
+
+The operational invariant is simple: Headscale is public only for device login and coordination, AdGuard is authoritative for LAN/VPN DNS, NPM receives only resolved HTTP/S aliases, and an exit node is only the default route to the internet. A client may use the Proxmox exit node, but `nslookup example.com 192.168.1.50` and `nslookup dash.internal 192.168.1.50` must still work and appear in the AdGuard query log.
 
 ### Recovery Model
 
