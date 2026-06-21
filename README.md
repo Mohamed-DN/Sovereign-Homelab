@@ -102,7 +102,7 @@ graph TD
 - **[09. Backup and DR](docs/05_backup_dr/doc_09_backup_dr.md)**: PBS, restore tests, retention and restic offsite.
 - **[PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md)**: Datastore, backup jobs, verify, prune, garbage collection, restore drills and offsite policy.
 - **[10. Core Apps](docs/04_apps/doc_10_core_apps.md)**: Vaultwarden, Immich, Nextcloud AIO and Syncthing.
-- **[Application Service Runbooks](docs/04_apps/APP_SERVICE_RUNBOOKS.md)**: Per-service build, DNS, monitoring, backup, restore and rollback for core and top apps.
+- **[Application Service Runbooks](docs/04_apps/00_APP_SERVICES_INDEX.md)**: Per-service build, DNS, monitoring, backup, restore and rollback for core and top apps.
 - **[11. Security Operations](docs/06_operations_security/doc_11_security_operations.md)**: Update policy, secret rotation, exposure registry, CrowdSec and Wazuh.
 - **[Stack Templates](stacks/README.md)**: Docker Compose templates for identity, observability, apps and security.
 - **[Infrastructure Plan & Map](docs/00_overview/infrastructure_plan_and_map.md)**: Current physical/logical layout and roadmap.

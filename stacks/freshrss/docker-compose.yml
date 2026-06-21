@@ -1,0 +1,20 @@
+name: freshrss
+
+services:
+  freshrss:
+    image: freshrss/freshrss:${FRESHRSS_TAG}
+    container_name: freshrss
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+      CRON_MIN: "3,33"
+      BASE_URL: ${FRESHRSS_BASE_URL}
+    ports:
+      - "${FRESHRSS_PORT}:80"
+    volumes:
+      - freshrss_data:/var/www/FreshRSS/data
+      - freshrss_extensions:/var/www/FreshRSS/extensions
+
+volumes:
+  freshrss_data:
+  freshrss_extensions:

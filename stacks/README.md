@@ -1,6 +1,6 @@
 # Stack Templates
 
-This directory contains reusable Docker Compose templates.
+This directory contains independent, isolated Docker Compose micro-stacks. Each stack is self-contained to ensure that updating or modifying one service does not affect any others.
 
 Rules:
 
@@ -11,20 +11,30 @@ Rules:
 - use Nginx Proxy Manager for HTTPS and hostnames;
 - put admin UIs behind VPN or Authentik.
 
-## Directory
+## Micro-Stacks Directory
 
-| Directory | Contents |
+| Stack | Purpose |
 |---|---|
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
-| `apps/` | Vaultwarden, Syncthing, Immich, Nextcloud AIO |
-| `security/` | CrowdSec template |
-| `extended-services/` | Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, Jellyfin, Ollama/Open WebUI, optional Wazuh |
+| `security/` | CrowdSec templates |
+| `vaultwarden/` | Password manager |
+| `syncthing/` | File sync |
+| `immich/` | Photo backup |
+| `nextcloud/` | Cloud suite (Nextcloud AIO) |
+| `paperless/` | Document management and OCR |
+| `freshrss/` | RSS reader |
+| `karakeep/` | Bookmarks and web archiving |
+| `searxng/` | Private meta-search engine |
+| `forgejo/` | Git repositories |
+| `jellyfin/` | Media server |
+| `ai-ollama/` | Local LLMs (Ollama + Open WebUI) |
+| `wazuh/` | Security and SIEM (Optional) |
 
 ## Deploy Pattern
 
 ```bash
-cd /opt/sovereign/stacks/<stack>
+cd /opt/sovereign/stacks/<stack_name>
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
