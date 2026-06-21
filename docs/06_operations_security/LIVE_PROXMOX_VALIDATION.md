@@ -28,6 +28,25 @@ The rule is simple: collect evidence first, change only what is necessary, valid
 
 Use the real DuckDNS hostname during live validation, but keep repository examples generic unless the hostname is intentionally public documentation.
 
+## Current Live Status
+
+Last checked: 2026-06-21.
+
+| Check | Status |
+|---|---|
+| Proxmox host access | SSH reachable on `192.168.1.150` |
+| Core LXC | LXC 100 `core-network` running on `192.168.1.50` |
+| Headscale config | `configtest` passes after adding the minimal policy file |
+| Public VPN proxy | NPM forwards public VPN hostname to `http://192.168.1.50:8080` with WebSocket support |
+| AdGuard rewrites | public VPN split rewrite and `*.internal -> 192.168.1.50` active |
+| Subnet router | `core-network` serves `192.168.1.0/24` |
+| Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
+| Platform services | not deployed yet |
+| PBS/backup | not deployed yet; required before critical data import |
+| Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
+
+Keep this table factual. Update it after every live audit instead of relying on memory.
+
 ## Phase A: Access Gate
 
 From the workstation running the audit:
@@ -160,6 +179,14 @@ Accepted result:
 - DNS queries appear in AdGuard.
 
 LAN/VPN split DNS may return the VPN hostname as `192.168.1.50`. That is expected when AdGuard is the resolver. The authoritative public-access test is the phone joining from cellular data.
+
+Client audit:
+
+```bash
+tailscale debug prefs
+```
+
+Any phone or laptop that must reconnect away from home should use the public HTTPS Headscale control URL, not `http://192.168.1.50:8080`. A LAN-only control URL can work at home and fail during travel.
 
 ## Phase E: Exit Node Validation
 

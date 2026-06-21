@@ -22,8 +22,8 @@ The final result must provide:
 | AdGuard Home | In use | DNS, optional DHCP, split-brain DNS |
 | Nginx Proxy Manager | In use | HTTPS and proxy |
 | Headscale | In use | VPN control plane |
-| Subnet router | Documented | LXC 100 advertises `192.168.1.0/24` |
-| Exit node | Documented | Proxmox host advertises `0.0.0.0/0` |
+| Subnet router | In use | LXC 100 advertises and serves `192.168.1.0/24` |
+| Exit node | In use | Proxmox host advertises and serves `0.0.0.0/0` |
 | Identity | Planned | Authentik |
 | Observability | Planned | Homepage, Uptime Kuma, Beszel, Dozzle |
 | Backup DR | Planned | PBS, restore test, optional restic |
@@ -43,6 +43,8 @@ Checklist:
 - The Proxmox host advertises `0.0.0.0/0`.
 - A phone on 4G can reach `192.168.1.50`.
 - The phone can select the Proxmox host as exit node.
+
+Live audit note: the network/VPN core is now operational. The next blockers are platform services, PBS, restore drills, and app deployment.
 
 Runbooks:
 
