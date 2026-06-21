@@ -32,10 +32,10 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 | Asset | IP | Role | Admin access | Backup | Criticality |
 |---|---:|---|---|---|---|
 | TIM Router | `192.168.1.1` | LAN gateway | LAN only | Export config if possible | High |
-| Proxmox P710 | to confirm | Hypervisor, exit node | LAN/VPN | PBS config + manual notes | Critical |
-| PBS | to confirm | Infrastructure backup | LAN/VPN | datastore + config | Critical |
+| Proxmox P710 | TBD | Hypervisor, exit node | LAN/VPN | PBS config + manual notes | Critical |
+| PBS | TBD | Infrastructure backup | LAN/VPN | datastore + config | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
-| LXC 101 services-apps | to confirm | NPM, identity, apps, and monitoring if separated | LAN/VPN | PBS + stack volumes | High |
+| LXC 101 services-apps | TBD | NPM, identity, apps, and monitoring if separated | LAN/VPN | PBS + stack volumes | High |
 
 Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The target topology separates core network and apps into LXC 100/101. Before migrating NPM, update this inventory and [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md).
 

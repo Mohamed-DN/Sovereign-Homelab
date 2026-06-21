@@ -130,3 +130,8 @@ From this point:
 
 - `https://vpn.yourdomain.duckdns.org` is the public VPN API.
 - `https://dash.internal`, `https://pwd.internal`, and similar names are internal/VPN-only.
+
+---
+
+**Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md)
+**Next:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)

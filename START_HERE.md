@@ -11,6 +11,16 @@ The chosen model is:
 
 ## Recommended Path
 
+Use this file as the human reading order. The runbooks are the installation path. The cross-guides are the operating manuals you keep open while deploying, validating, or troubleshooting.
+
+| When | Read |
+|---|---|
+| First orientation | Roadmap, infrastructure map, ports/DNS matrix, inventory |
+| First build | Runbooks 00 to 06 |
+| Make it usable | Runbooks 07 to 10 |
+| Make it safe to operate | Runbook 11, operations manual, validation commands |
+| Add a new service | pre-deploy checklist, deployment workflow, ports/DNS matrix, inventory |
+
 ### 0. Preparation
 
 1. Read the roadmap: [ROADMAP_SOVEREIGN_HOMELAB.md](docs/ROADMAP_SOVEREIGN_HOMELAB.md).
@@ -92,3 +102,7 @@ DuckDNS is the public door. `.internal` is the private service namespace.
 First stabilize the network. Then add identity, monitoring, backup, and the operations manual. Only then add apps that store important data.
 
 If an app contains personal data and you do not have a verified backup, it is not production.
+
+## Navigation Rule
+
+Every numbered runbook has a **Previous** and **Next** link at the bottom. If you are lost, return here and continue from the first unchecked step in the recommended path.
