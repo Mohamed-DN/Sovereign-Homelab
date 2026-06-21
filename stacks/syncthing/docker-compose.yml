@@ -1,0 +1,20 @@
+name: syncthing
+
+services:
+  syncthing:
+    image: syncthing/syncthing:${SYNCTHING_TAG}
+    container_name: syncthing
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ}
+    ports:
+      - "${SYNCTHING_UI_PORT}:8384"
+      - "${SYNCTHING_TCP_PORT}:22000/tcp"
+      - "${SYNCTHING_TCP_PORT}:22000/udp"
+      - "${SYNCTHING_DISCOVERY_PORT}:21027/udp"
+    volumes:
+      - syncthing_config:/var/syncthing/config
+      - ./data/syncthing:/var/syncthing/data
+
+volumes:
+  syncthing_config:

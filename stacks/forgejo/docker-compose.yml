@@ -1,0 +1,39 @@
+name: forgejo
+
+services:
+  forgejo-db:
+    image: docker.io/library/postgres:16-alpine
+    container_name: forgejo-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${FORGEJO_DB}
+      POSTGRES_USER: ${FORGEJO_DB_USER}
+      POSTGRES_PASSWORD: ${FORGEJO_DB_PASSWORD}
+    volumes:
+      - forgejo_db:/var/lib/postgresql/data
+
+  forgejo:
+    image: codeberg.org/forgejo/forgejo:${FORGEJO_TAG}
+    container_name: forgejo
+    restart: unless-stopped
+    environment:
+      USER_UID: "1000"
+      USER_GID: "1000"
+      FORGEJO__database__DB_TYPE: postgres
+      FORGEJO__database__HOST: forgejo-db:5432
+      FORGEJO__database__NAME: ${FORGEJO_DB}
+      FORGEJO__database__USER: ${FORGEJO_DB_USER}
+      FORGEJO__database__PASSWD: ${FORGEJO_DB_PASSWORD}
+      FORGEJO__server__ROOT_URL: https://git.internal/
+      FORGEJO__server__SSH_PORT: ${FORGEJO_SSH_PORT}
+    ports:
+      - "${FORGEJO_HTTP_PORT}:3000"
+      - "${FORGEJO_SSH_PORT}:22"
+    volumes:
+      - forgejo_data:/data
+    depends_on:
+      - forgejo-db
+
+volumes:
+  forgejo_db:
+  forgejo_data:

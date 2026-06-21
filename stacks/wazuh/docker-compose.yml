@@ -1,0 +1,14 @@
+name: wazuh
+
+services:
+  wazuh-manager:
+    image: wazuh/wazuh-manager:${WAZUH_TAG}
+    container_name: wazuh-manager
+    restart: unless-stopped
+    ports:
+      - "${WAZUH_API_PORT}:55000"
+    volumes:
+      - wazuh_data:/var/ossec/data
+
+volumes:
+  wazuh_data:
