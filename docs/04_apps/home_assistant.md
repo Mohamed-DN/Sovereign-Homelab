@@ -58,29 +58,29 @@ Unlike standard Docker deployments where configuration and secrets are passed vi
    ```yaml
    # /config/configuration.yaml
    recorder:
-     db_url: mysql://homeassistant:!secret db_password@192.168.1.x/homeassistant
+     db_url: mysql://homeassistant:!secret db_password@DB_HOST_IP/homeassistant
    ```
 
 ## 5. Reverse Proxy (NPM) Integration
 Home Assistant aggressively rejects incoming proxy connections by default. You must explicitly trust the Nginx Proxy Manager (NPM).
 
 1. **Update `configuration.yaml`**:
-   Add the following `http` block to accept forwarded traffic from NPM (assume NPM is on `192.168.1.51`):
+   Add the following `http` block to accept forwarded traffic from NPM. Replace `NPM_IP` with the IP that runs NPM:
    ```yaml
    http:
      use_x_forwarded_for: true
      trusted_proxies:
-       - 192.168.1.51
+       - NPM_IP
    ```
 2. **Restart HA**: Go to **Developer Tools -> YAML -> Restart** to apply the changes.
 3. **Configure NPM**:
    Log into NPM and create a Proxy Host:
-   - **Domain Names**: `ha.internal` (or your external domain)
+   - **Domain Names**: `ha.internal`
    - **Scheme**: `http`
    - **Forward IP**: `<VM130_IP>`
    - **Forward Port**: `8123`
-   - **Websockets Support**: [x] **Enabled** *(Absolutely critical for Home Assistant UI and live updates to function)*.
-   - **SSL**: Select your wildcard certificate and enable Force SSL.
+   - **Websockets Support**: enabled; Home Assistant needs it for the live UI.
+   - **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 ## 6. USB Passthrough (Zigbee/Z-Wave)
 For local smart home control, USB coordinators must be passed from the Proxmox host directly to VM 130.

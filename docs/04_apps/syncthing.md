@@ -54,11 +54,11 @@ services:
   - **Ignore Patterns (`.stignore`)**: Consider ignoring `.DS_Store`, `Thumbs.db`, `.nomedia`, etc.
 
 ## 5. Nginx Proxy Manager (NPM) Setup
-Log into NPM (`http://192.168.1.51:81`) to expose the Administrative Web UI securely:
+Log into NPM at `https://npm.internal` to expose the Administrative Web UI securely:
 - **Domain Names**: `sync.internal`
 - **Scheme / Forward IP / Port**: `http` / `<LXC_IP>` / `8384`
-- **Websockets Support**: ✅ Enabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Websockets Support**: enabled
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 *Note: Port 22000 (Sync) bypasses NPM and is reached directly via the VPN IP. Ensure global discovery is disabled and hardcode the server IP (`tcp://<LXC_IP>:22000`) in the clients to enforce LAN/VPN-only traffic.*
 

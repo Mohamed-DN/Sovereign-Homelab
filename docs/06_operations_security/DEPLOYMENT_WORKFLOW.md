@@ -35,6 +35,7 @@ Use this convention:
 | Bookmarks | `bookmarks.internal` |
 | Media | `media.internal` |
 | Home automation | `ha.internal` |
+| Remote desktop relay | `rustdesk.internal` |
 
 Before deployment:
 
@@ -131,6 +132,7 @@ Minimum Uptime Kuma coverage:
 - HTTP monitor on `https://service.internal`;
 - TCP monitor for non-HTTP services;
 - DNS monitor for AdGuard and critical records.
+- TCP monitor for protocol services such as RustDesk, Syncthing sync, and Forgejo SSH.
 
 Homepage:
 

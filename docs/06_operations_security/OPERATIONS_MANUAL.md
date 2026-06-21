@@ -46,7 +46,6 @@ Quick commands:
 
 ```bash
 docker ps
-docker compose ps
 docker logs --tail=50 headscale
 docker logs --tail=50 npm
 docker logs --tail=50 uptime-kuma
@@ -66,10 +65,10 @@ git pull --ff-only
 2. Validate Compose files before any update:
 
 ```bash
-docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config
-docker compose --env-file stacks/observability/.env.example -f stacks/observability/docker-compose.yml config
-docker compose --env-file stacks/apps/.env.example -f stacks/apps/docker-compose.yml config
-docker compose --env-file stacks/security/.env.example -f stacks/security/docker-compose.yml config
+for stack in stacks/*; do
+  [ -f "$stack/docker-compose.yml" ] || continue
+  docker compose --env-file "$stack/.env.example" -f "$stack/docker-compose.yml" config --quiet
+done
 ```
 
 3. Check Headscale:
@@ -99,16 +98,10 @@ Verify:
 5. Check updates without applying them immediately:
 
 ```bash
-docker compose pull --dry-run
+./maintenance.sh
 ```
 
-If `--dry-run` is not supported by your Docker Compose version, use:
-
-```bash
-docker compose pull --ignore-pull-failures
-```
-
-and do not run `up -d` until you have read the changelog and confirmed backup coverage.
+The script validates deployed stacks in check-only mode. Do not run `./maintenance.sh --apply` until you have read upstream changelogs and confirmed backup coverage.
 
 ## Monthly Routine
 
@@ -163,10 +156,7 @@ docker compose --env-file .env config
 5. Update:
 
 ```bash
-docker compose pull
-docker compose up -d
-docker compose ps
-docker compose logs --tail=100
+./deploy.sh <service> --pull
 ```
 
 6. Validate the service:

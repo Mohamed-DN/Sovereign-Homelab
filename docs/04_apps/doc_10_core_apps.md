@@ -1,106 +1,65 @@
 # Runbook 10: Core Apps
 
-This phase installs the main personal apps.
+This phase installs the main personal applications. Treat it as a controlled rollout, not a bulk install. Deploy one service, validate the alias, add the dashboard card, add the monitor, test backup and restore, then move to the next service.
 
-Detailed per-service installation, NPM, Homepage, Uptime Kuma, backup, restore, and rollback steps live in [Application Service Runbooks](APP_SERVICE_RUNBOOKS.md). This runbook is the shorter install path for the first four core apps.
+Detailed per-service procedures live in [Application Service Index](00_APP_SERVICES_INDEX.md).
 
-Recommended order:
+Recommended production order:
 
 1. Vaultwarden.
 2. Syncthing.
 3. Immich.
-4. Nextcloud AIO, only if a full suite is needed.
+4. Paperless-ngx.
+5. Nextcloud AIO only if you need a full collaboration suite.
 
-Do not add real data until backup has been verified.
-
----
+Do not add real passwords, photos, documents, or files until backup and restore have been verified.
 
 ## Phase A: Access Model
 
-| App | Hostname | Recommended access |
-|---|---|---|
-| Vaultwarden | `pwd.internal` | VPN-first |
-| Immich | `foto.internal` | VPN-first |
-| Syncthing | `sync.internal` | VPN/admin only |
-| Nextcloud | `files.internal` | VPN-first |
+| App | Hostname | Target | Recommended access |
+|---|---|---|---|
+| Vaultwarden | `pwd.internal` | LXC 102 | VPN-first |
+| Syncthing UI | `sync.internal` | LXC 102 | VPN/admin only |
+| Immich | `foto.internal` | VM 110 | VPN-first |
+| Paperless-ngx | `paper.internal` | LXC 102 | VPN/Auth |
+| Nextcloud | `files.internal` | VM 120 | VPN-first |
 
-For apps with mobile clients, keep access VPN-first. A public exception requires a separate written decision and must include:
+Public exposure for any app requires a separate written decision with TLS, MFA where possible, monitoring, backups, and rollback.
 
-- valid TLS;
-- active backup;
-- MFA where supported;
-- strong passwords;
-- Uptime Kuma monitor.
-- rollback plan.
+Before installing anything, complete [Pre-Deploy Checklist](../06_operations_security/CHECKLIST_PRE_DEPLOY.md).
 
-Before installing: [CHECKLIST_PRE_DEPLOY.md](../06_operations_security/CHECKLIST_PRE_DEPLOY.md).
+## Phase B: Standard Micro-Stack Install
 
----
-
-## Phase B: Vaultwarden
-
-Template:
-
-```text
-stacks/apps/docker-compose.yml
-```
-
-Start:
+For a service under `stacks/<service>`:
 
 ```bash
-cd /opt/sovereign/stacks/apps
+cd /opt/sovereign/stacks/<service>
 cp .env.example .env
+nano .env
 docker compose --env-file .env config
-docker compose --env-file .env up -d vaultwarden
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-NPM:
-
-| Field | Value |
-|---|---|
-| Domain | `pwd.internal` |
-| Forward port | `8082` |
-| Websockets | Enabled |
-| SSL | Force SSL |
-
-Hardening:
-
-- disable registrations after creating the first account;
-- use a strong `ADMIN_TOKEN`, preferably an Argon2 hash if supported;
-- back up the `vaultwarden_data` volume.
-
----
-
-## Phase C: Syncthing
-
-Syncthing is peer-to-peer. It is not a backup replacement.
-
-Start:
+From the repository root you can use:
 
 ```bash
-docker compose --env-file .env up -d syncthing
+./deploy.sh <service>
 ```
 
-UI access:
+Use this for `vaultwarden`, `syncthing`, `paperless`, `freshrss`, `karakeep`, `searxng`, `forgejo`, `jellyfin`, `ai-ollama`, `rustdesk`, and other independent stacks.
 
-```text
-https://sync.internal
-```
+## Phase C: Official-First Applications
 
-Rules:
+Some applications have upstream lifecycle assumptions that matter more than local convenience.
 
-- UI only through VPN/admin access;
-- enable UI password;
-- do not sync folders without understanding delete propagation;
-- use versioning for important folders.
+| Application | Preferred approach |
+|---|---|
+| Immich | compare this repo template with the official Immich Compose before production or major upgrades |
+| Nextcloud AIO | use the AIO mastercontainer model and follow the AIO reverse proxy requirements |
+| Home Assistant OS | deploy as a VM appliance, not as a generic Docker app |
 
----
-
-## Phase D: Immich
-
-Immich is the photo/video replacement. It is powerful but changes often: always check the official documentation before important upgrades.
-
-Official-first approach:
+For Immich reference files:
 
 ```bash
 mkdir -p /opt/sovereign/reference/immich
@@ -109,83 +68,62 @@ wget -O docker-compose.official.yml https://github.com/immich-app/immich/release
 wget -O example.official.env https://github.com/immich-app/immich/releases/latest/download/example.env
 ```
 
-Compare those files with `stacks/apps` before adding real data.
+Do not overwrite your production files with downloaded examples. Compare them, then update intentionally.
 
-Start from the template:
+## Phase D: NPM, Homepage, and Uptime Kuma
 
-```bash
-docker compose --env-file .env --profile immich up -d
-```
+Every web UI must pass this contract:
 
-NPM:
-
-| Field | Value |
+| Step | Requirement |
 |---|---|
-| Domain | `foto.internal` |
-| Forward port | `2283` |
-| Websockets | Enabled |
-| SSL | Force SSL |
-
-Minimum backup:
-
-- upload directory;
-- Immich database;
-- `.env`;
-- Compose file.
-
-Before importing the full photo library, run a test with a few images and try a restore.
-
-Critical note: the Immich database backup does not contain photos and videos. You must also protect `UPLOAD_LOCATION`.
-
----
-
-## Phase E: Nextcloud AIO
-
-Nextcloud AIO is recommended if you want a full suite: files, calendar, contacts, office/talk.
-
-Start:
-
-```bash
-docker compose --env-file .env --profile nextcloud up -d nextcloud-aio-mastercontainer
-```
-
-Then open:
-
-```text
-http://VM120_IP:8086
-```
-
-Note: Nextcloud AIO manages internal child containers and requires care with reverse proxy and ports. Follow the AIO UI and the official documentation.
-
-If simple file sync is enough, prefer Syncthing.
-
----
-
-## Phase F: Required Monitoring and Backup
-
-For every app:
-
-- create the `.internal` alias;
-- create the NPM proxy host;
-- add the Homepage card;
-- create an Uptime Kuma monitor;
-- add volumes to PBS/restic backup;
-- document ports and hostnames;
-- verify login from LAN, VPN, and mobile if expected.
+| DNS | `.internal` name resolves through AdGuard |
+| NPM | proxy host points to the correct target and port |
+| Homepage | service card exists in `stacks/observability/homepage/services.yaml` |
+| Uptime Kuma | monitor exists and is green |
+| Backup | data paths are included in PBS or restic |
+| Restore | test restore is documented |
 
 Use [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md) as the acceptance checklist.
 
----
+Protocol-only services such as RustDesk and Forgejo SSH are documented exceptions. They still need DNS, firewall rules, and Uptime Kuma TCP checks.
+
+## Phase E: Critical Data Rules
+
+Vaultwarden:
+
+- disable registrations after the first account;
+- use a strong admin token;
+- back up SQLite safely and include attachments, sends, keys, `.env`, and Compose files.
+
+Immich:
+
+- back up both database and upload library;
+- run a restore drill with a small library before importing all photos;
+- read release notes before upgrades.
+
+Paperless-ngx:
+
+- back up PostgreSQL plus media;
+- run native exporter regularly for software-independent recovery;
+- test document importer into a clean instance.
+
+Nextcloud:
+
+- prefer the AIO backup workflow;
+- include the VM in PBS;
+- test restore before storing irreplaceable files.
 
 ## Reference
 
 - Vaultwarden: <https://github.com/dani-garcia/vaultwarden>
-- Immich quick start: <https://docs.immich.app/overview/quick-start>
+- Immich quick start: <https://docs.immich.app/install/docker-compose/>
 - Immich backup: <https://docs.immich.app/administration/backup-and-restore>
 - Nextcloud AIO: <https://github.com/nextcloud/all-in-one>
 - Syncthing: <https://syncthing.net/>
+- Paperless-ngx: <https://docs.paperless-ngx.com/setup/>
 
 ---
 
 **Previous:** [PBS Critical Operations](../05_backup_dr/PBS_CRITICAL_OPERATIONS.md)
-**Next:** [Application Service Runbooks](APP_SERVICE_RUNBOOKS.md)
+
+**Next:** [Application Service Index](00_APP_SERVICES_INDEX.md)

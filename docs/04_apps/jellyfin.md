@@ -88,8 +88,8 @@ docker compose logs -f
    - **Scheme**: `http`
    - **Forward IP**: `[Target_IP]`
    - **Forward Port**: `8096`
-   - **Websockets Support**: ✅ Enabled (Crucial for playback progress sync and client communication)
-   - **Block Common Exploits**: ✅ Enabled
+   - **Websockets Support**: enabled; Jellyfin uses it for playback progress sync and client communication.
+   - **Block Common Exploits**: enabled.
    - **SSL**: Select your certificate, enable Force SSL, HTTP/2, and HSTS.
 
 ## 6. Dashboard & Monitoring

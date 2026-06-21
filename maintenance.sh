@@ -1,47 +1,87 @@
 #!/usr/bin/env bash
-# Sovereign Homelab - Maintenance and Update Script
-# This script automates the safe update process for all stacks.
+set -Eeuo pipefail
 
-set -e
+usage() {
+  cat <<'USAGE'
+Usage:
+  ./maintenance.sh [--apply]
 
-echo "Starting Sovereign Homelab Maintenance..."
+Default mode is a non-destructive check. Use --apply only after PBS/restic coverage is verified.
 
-# 1. ZFS Snapshot (if ZFS is available)
-if command -v zfs &> /dev/null; then
-    SNAP_NAME="maintenance-$(date +%F-%H%M)"
-    echo "Creating ZFS snapshot: tank/apps@$SNAP_NAME"
-    sudo zfs snapshot -r tank/apps@"$SNAP_NAME" || echo "Warning: ZFS snapshot failed or ZFS dataset tank/apps not found."
-else
-    echo "ZFS not detected, skipping snapshot."
+Optional environment variables:
+  ZFS_DATASET       Dataset to snapshot before updates, for example rpool/data.
+  SKIP_DOCKER_PULL  Set to 1 to skip image pulls in --apply mode.
+
+Safety rules:
+  - This script never prunes Docker volumes.
+  - This script never deletes app data.
+  - ZFS snapshots are skipped unless ZFS_DATASET is explicitly set.
+USAGE
+}
+
+APPLY=0
+if [[ "${1:-}" == "--apply" ]]; then
+  APPLY=1
+elif [[ $# -gt 0 ]]; then
+  usage
+  exit 1
 fi
 
-# 2. Update all Docker Compose stacks
-BASE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-STACKS_DIR="$BASE_DIR/stacks"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+STACKS_DIR="$ROOT_DIR/stacks"
+SNAP_NAME="maintenance-$(date +%F-%H%M)"
 
-echo "Updating Docker containers..."
-for dir in "$STACKS_DIR"/*/; do
-    if [ -f "${dir}docker-compose.yml" ] || [ -f "${dir}docker-compose.yaml" ]; then
-        STACK_NAME=$(basename "$dir")
-        echo "========================================"
-        echo "Updating stack: $STACK_NAME"
-        cd "$dir"
-        
-        # Check if .env exists, if not warn
-        if [ ! -f ".env" ] && [ -f ".env.example" ]; then
-            echo "Warning: .env not found in $STACK_NAME! Skipping..."
-            continue
-        fi
+echo "Sovereign Homelab maintenance"
+echo "Mode: $([[ "$APPLY" -eq 1 ]] && echo apply || echo check-only)"
 
-        docker compose pull
-        docker compose up -d --remove-orphans
+if [[ -n "${ZFS_DATASET:-}" ]]; then
+  if command -v zfs >/dev/null 2>&1; then
+    echo "Checking ZFS dataset: $ZFS_DATASET"
+    zfs list "$ZFS_DATASET" >/dev/null
+    if [[ "$APPLY" -eq 1 ]]; then
+      echo "Creating recursive ZFS snapshot: ${ZFS_DATASET}@${SNAP_NAME}"
+      sudo zfs snapshot -r "${ZFS_DATASET}@${SNAP_NAME}"
+    else
+      echo "Would create recursive ZFS snapshot: ${ZFS_DATASET}@${SNAP_NAME}"
     fi
+  else
+    echo "ERROR: ZFS_DATASET is set but zfs command is not available." >&2
+    exit 1
+  fi
+else
+  echo "ZFS_DATASET not set; skipping ZFS snapshot."
+fi
+
+for dir in "$STACKS_DIR"/*/; do
+  [[ -f "${dir}docker-compose.yml" ]] || continue
+  stack_name="$(basename "$dir")"
+  env_file="${dir}.env"
+
+  echo "========================================"
+  echo "Stack: $stack_name"
+
+  if [[ ! -f "$env_file" ]]; then
+    echo "Skipping: .env is missing. Copy .env.example and fill secrets before deployment."
+    continue
+  fi
+
+  (
+    cd "$dir"
+    docker compose --env-file "$env_file" config --quiet
+
+    if [[ "$APPLY" -eq 1 ]]; then
+      if [[ "${SKIP_DOCKER_PULL:-0}" != "1" ]]; then
+        docker compose --env-file "$env_file" pull
+      fi
+      docker compose --env-file "$env_file" up -d --remove-orphans
+    else
+      docker compose --env-file "$env_file" ps
+    fi
+  )
 done
 
-# 3. Cleanup unused images
 echo "========================================"
-echo "Cleaning up dangling Docker images and volumes..."
-docker image prune -af
-docker volume prune -f
-
-echo "Maintenance complete!"
+echo "Docker cleanup guidance:"
+echo "  Safe image cleanup, manual only: docker image prune"
+echo "  Do not run docker volume prune unless every anonymous volume has been audited."
+echo "Maintenance complete."

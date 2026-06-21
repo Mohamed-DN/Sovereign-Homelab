@@ -26,11 +26,11 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `search.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8084`
-- **Websockets Support**: ❌ Disabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8084`
+- **Websockets Support**: disabled; SearXNG does not need it.
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 ## 5. Dashboard & Monitoring
 - **Homepage.dev**: Add to `services.yaml` pointing to `https://search.internal`.

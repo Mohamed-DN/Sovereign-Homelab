@@ -24,12 +24,13 @@ Use this file as the human reading order. The runbooks are the installation path
 ### 0. Preparation
 
 1. Read the roadmap: [ROADMAP_SOVEREIGN_HOMELAB.md](docs/00_overview/ROADMAP_SOVEREIGN_HOMELAB.md).
-2. Review the map: [infrastructure_plan_and_map.md](docs/00_overview/infrastructure_plan_and_map.md).
-3. Open the matrix: [PORTS_AND_DNS_MATRIX.md](docs/99_reference/PORTS_AND_DNS_MATRIX.md).
-4. Open the service visibility matrix: [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
-5. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/99_reference/INVENTORY_AND_IP_PLAN.md).
-6. Choose the DuckDNS domain for public VPN entry only.
-7. Use `.internal` for internal/VPN-only services.
+2. Read the consolidated operating guide: [OPERATIONAL_GUIDE.md](OPERATIONAL_GUIDE.md).
+3. Review the map: [infrastructure_plan_and_map.md](docs/00_overview/infrastructure_plan_and_map.md).
+4. Open the matrix: [PORTS_AND_DNS_MATRIX.md](docs/99_reference/PORTS_AND_DNS_MATRIX.md).
+5. Open the service visibility matrix: [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
+6. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/99_reference/INVENTORY_AND_IP_PLAN.md).
+7. Choose the DuckDNS domain for public VPN entry only.
+8. Use `.internal` for internal/VPN-only services.
 
 ### Enterprise DNS Decision
 
@@ -68,7 +69,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 ### 4. Personal Applications
 
 1. [Runbook 10](docs/04_apps/doc_10_core_apps.md): Vaultwarden, Immich, Nextcloud AIO, and Syncthing.
-2. [Application Service Runbooks](docs/04_apps/APP_SERVICE_RUNBOOKS.md): per-service CT/VM target, DNS, NPM, monitoring, backup, restore, rollback.
+2. [Application Service Index](docs/04_apps/00_APP_SERVICES_INDEX.md): per-service CT/VM target, DNS, NPM, monitoring, backup, restore, rollback.
 3. [Runbook 11](docs/06_operations_security/doc_11_security_operations.md): hardening, rotation, update policy, CrowdSec/Wazuh.
 4. Before adding a new app, follow [DEPLOYMENT_WORKFLOW.md](docs/06_operations_security/DEPLOYMENT_WORKFLOW.md).
 5. Review the catalog: [STACK_CATALOG_OPEN_SOURCE.md](docs/99_reference/STACK_CATALOG_OPEN_SOURCE.md).

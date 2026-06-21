@@ -4,7 +4,7 @@
 
 Paperless-ngx is a document management system that performs OCR on scanned documents. It becomes **P1 Critical** when used for tax or legal documents.
 
-- **Target**: LXC 102 (`apps-light`) - IP: `192.168.1.52`
+- **Target**: LXC 102 (`apps-light`) - placeholder `LXC102_IP`
 - **CPU / RAM**: Minimum 2 vCPU / 4 GB RAM. Recommend **8 GB RAM** for intensive OCR tasks.
 - **Storage**:
   - Fast SSD storage required for PostgreSQL, Redis, and the app database.
@@ -76,12 +76,12 @@ docker compose exec paperless manage.py createsuperuser
 
 ## 5. Reverse Proxy Configuration (NPM)
 
-Access Nginx Proxy Manager (NPM) at `http://192.168.1.51:81` and create a Proxy Host.
+Access Nginx Proxy Manager (NPM) at `https://npm.internal` and create a Proxy Host.
 
 - **Domain Names**: `paper.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8010`
-- **Websockets Support**: ✅ **Enabled** (Crucial for live UI updates during document consumption).
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8010`
+- **Websockets Support**: enabled; required for live UI updates during document consumption.
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 **Critical NGINX Custom Configuration:**
 Go to the **Advanced** tab in the proxy host settings and add:
