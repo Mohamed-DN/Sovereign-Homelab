@@ -1,11 +1,13 @@
 # Observability Stack
 
-Services:
+This stack provides the clean dashboard and monitoring layer:
 
-- Homepage: dashboard.
-- Uptime Kuma: monitors and alerts.
-- Beszel: host/container metrics.
-- Dozzle: live Docker logs.
+- Homepage: service launchpad at `dash.internal`.
+- Uptime Kuma: service monitors at `status.internal`.
+- Beszel: host/container metrics at `monitor.internal`.
+- Dozzle: live Docker logs at `logs.internal`.
+
+The required service list is tracked in `docs/99_reference/SERVICE_VISIBILITY_MATRIX.md`.
 
 ## Deploy
 
@@ -18,27 +20,48 @@ docker compose --env-file .env up -d
 docker compose ps
 ```
 
-## NPM
+## NPM Aliases
 
 | Hostname | Forward | Access |
 |---|---|---|
-| `dash.internal` | `http://HOST:3002` | VPN/Auth |
-| `status.internal` | `http://HOST:3001` | VPN/Auth |
-| `monitor.internal` | `http://HOST:8090` | VPN/Auth |
-| `logs.internal` | `http://HOST:8088` | Admin only |
+| `dash.internal` | `http://LXC101_IP:3002` | VPN/Auth |
+| `status.internal` | `http://LXC101_IP:3001` | VPN/Auth |
+| `monitor.internal` | `http://LXC101_IP:8090` | VPN/Auth |
+| `logs.internal` | `http://LXC101_IP:8088` | Admin only |
 
 ## Verification
 
+Direct upstream:
+
 ```bash
-curl -I http://HOST:3002
-curl -I http://HOST:3001
-curl -I http://HOST:8090
-curl -I http://HOST:8088
+curl -I http://LXC101_IP:3002
+curl -I http://LXC101_IP:3001
+curl -I http://LXC101_IP:8090
+curl -I http://LXC101_IP:8088
 ```
+
+NPM aliases:
+
+```bash
+curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
+curl -I https://logs.internal
+```
+
+## Homepage
+
+The dashboard entries live in:
+
+```text
+homepage/services.yaml
+```
+
+Every visible web service must have a matching Uptime Kuma monitor unless it is listed as an exception in the service visibility matrix.
 
 ## Beszel Agent
 
-The Beszel UI generates `KEY` and `TOKEN` values when you add a system. Copy them into `.env`:
+The Beszel UI generates agent values when you add a system. Copy them into `.env`:
 
 ```text
 BESZEL_AGENT_KEY=...
@@ -53,6 +76,7 @@ docker compose --env-file .env up -d beszel-agent
 
 ## Security Notes
 
-- Dozzle and Beszel agent use the Docker socket or host metrics: admin access only.
-- Homepage can show internal links, but it must not contain tokens in YAML.
-- Uptime Kuma must monitor DNS, VPN, Authentik, proxy, and core apps.
+- Dozzle and Beszel agent use privileged visibility into Docker or host metrics.
+- Keep Dozzle admin-only.
+- Do not commit Homepage widget API keys.
+- Uptime Kuma must monitor DNS, VPN, proxy, identity, backup, and all production apps.

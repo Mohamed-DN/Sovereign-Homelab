@@ -20,24 +20,43 @@ rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdom
 
 Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
 
+## Service Visibility
+
+Every service with a web UI must be represented in the service visibility matrix, Homepage, NPM documentation, and Uptime Kuma catalog.
+
+```bash
+rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
+```
+
+Minimal Homepage YAML shape check on Windows PowerShell:
+
+```powershell
+$s = Get-Content -Raw stacks/observability/homepage/services.yaml
+$required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal','headscale.internal','auth.internal','dash.internal','status.internal','monitor.internal','logs.internal','pwd.internal','foto.internal','files.internal','sync.internal','paper.internal','ha.internal','media.internal','rss.internal','bookmarks.internal','search.internal','git.internal','ai.internal')
+$missing = $required | Where-Object { $s -notmatch [regex]::Escape($_) }
+if ($missing) { $missing; exit 1 }
+if (-not $s.TrimStart().StartsWith('- ')) { exit 1 }
+'Homepage services.yaml contains required aliases'
+```
+
 ## Docker Compose Templates
 
 ```bash
-docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config
-docker compose --env-file stacks/observability/.env.example -f stacks/observability/docker-compose.yml config
-docker compose --env-file stacks/apps/.env.example -f stacks/apps/docker-compose.yml config
-docker compose --env-file stacks/apps/.env.example --profile immich -f stacks/apps/docker-compose.yml config
-docker compose --env-file stacks/apps/.env.example --profile nextcloud -f stacks/apps/docker-compose.yml config
-docker compose --env-file stacks/security/.env.example -f stacks/security/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile paperless -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile freshrss -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile karakeep -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile searxng -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile forgejo -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile jellyfin -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile ai -f stacks/extended-services/docker-compose.yml config
-docker compose --env-file stacks/extended-services/.env.example --profile wazuh -f stacks/extended-services/docker-compose.yml config
+docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config --quiet
+docker compose --env-file stacks/observability/.env.example -f stacks/observability/docker-compose.yml config --quiet
+docker compose --env-file stacks/apps/.env.example -f stacks/apps/docker-compose.yml config --quiet
+docker compose --env-file stacks/apps/.env.example --profile immich -f stacks/apps/docker-compose.yml config --quiet
+docker compose --env-file stacks/apps/.env.example --profile nextcloud -f stacks/apps/docker-compose.yml config --quiet
+docker compose --env-file stacks/security/.env.example -f stacks/security/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile paperless -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile freshrss -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile karakeep -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile searxng -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile forgejo -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile jellyfin -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile ai -f stacks/extended-services/docker-compose.yml config --quiet
+docker compose --env-file stacks/extended-services/.env.example --profile wazuh -f stacks/extended-services/docker-compose.yml config --quiet
 ```
 
 ## Headscale
@@ -98,6 +117,8 @@ nslookup example.com 192.168.1.50
 curl -I https://vpn.yourdomain.duckdns.org
 curl -I https://auth.internal
 curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
 ```
 
 ## App Checks
@@ -106,6 +127,15 @@ curl -I https://dash.internal
 curl -I https://pwd.internal
 curl -I https://foto.internal
 curl -I https://files.internal
+curl -I https://sync.internal
+curl -I https://paper.internal
+curl -I https://rss.internal
+curl -I https://bookmarks.internal
+curl -I https://search.internal
+curl -I https://git.internal
+curl -I https://media.internal
+curl -I https://ha.internal
+curl -I https://ai.internal
 ```
 
 ## Backup Checks

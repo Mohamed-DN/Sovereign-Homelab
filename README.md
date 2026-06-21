@@ -84,6 +84,7 @@ graph TD
 - **[Top Open Source Stack](docs/99_reference/TOP_OPEN_SOURCE_STACK.md)**: Top-tier catalog for foundation, operations, apps, AI, and security.
 - **[Pre-Deploy Checklist](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md)**: Checklist before installing or updating services.
 - **[Ports and DNS Matrix](docs/99_reference/PORTS_AND_DNS_MATRIX.md)**: Ports, hostnames, access model, and DNS rewrites.
+- **[Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md)**: Required alias, NPM proxy, Homepage card, Uptime Kuma monitor, access and backup rule for every service.
 - **[Validation Commands](docs/99_reference/VALIDATION_COMMANDS.md)**: Verification commands for Git, Compose, VPN, DNS, apps, and backup.
 - **[Troubleshooting Matrix](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md)**: Symptoms, checks, and quick fixes.
 - **[00. Master Setup & Docker Compose](docs/01_proxmox_foundation/doc_00_master_setup.md)**: Build the core Docker stack.

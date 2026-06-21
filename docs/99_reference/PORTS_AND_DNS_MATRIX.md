@@ -2,6 +2,8 @@
 
 This matrix is the single source of truth for hostnames, ports, and access model.
 
+For dashboard and monitoring coverage, use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md).
+
 ## Enterprise DNS Model
 
 This lab uses two DNS zones:
@@ -30,6 +32,13 @@ Design references:
 | Headscale API | `vpn.yourdomain.duckdns.org` | `192.168.1.50` | 8080 | public HTTPS | VPN control plane |
 | Headscale-UI | `headscale.internal/web` | `192.168.1.50` | 8081 | VPN/Auth | Admin only |
 | Headscale metrics | none | `192.168.1.50` | 9090 | LAN/VPN | Not public |
+
+## Admin Infrastructure
+
+| Service | Hostname | IP/Target | Port | Access | Notes |
+|---|---|---:|---:|---|---|
+| Proxmox VE | `proxmox.internal` | Proxmox host | 8006 | VPN/admin | Hypervisor UI |
+| Proxmox Backup Server | `pbs.internal` | PBS VM 140 | 8007 | VPN/admin | Backup and restore UI |
 
 ## Identity and Ops
 
@@ -79,6 +88,8 @@ In AdGuard:
 |---|---|
 | `*.internal` | NPM IP |
 | `vpn.yourdomain.duckdns.org` | `192.168.1.50` |
+| `proxmox.internal` | NPM IP |
+| `pbs.internal` | NPM IP |
 | `headscale.internal` | NPM IP |
 | `auth.internal` | NPM IP |
 | `dash.internal` | NPM IP |

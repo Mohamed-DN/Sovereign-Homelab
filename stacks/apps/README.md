@@ -55,9 +55,15 @@ docker compose --env-file .env --profile nextcloud up -d
 
 ## NPM
 
-| Hostname | Forward |
-|---|---|
-| `pwd.internal` | `http://HOST:8082` |
-| `foto.internal` | `http://HOST:2283` |
-| `sync.internal` | `http://HOST:8384` admin only |
-| `files.internal` | `http://HOST:11000` |
+| Hostname | Forward | Homepage group | Uptime Kuma monitor |
+|---|---|---|---|
+| `pwd.internal` | `http://LXC102_IP:8082` | Critical Data | `app-vaultwarden` |
+| `foto.internal` | `http://VM110_IP:2283` | Critical Data | `app-immich` |
+| `sync.internal` | `http://LXC102_IP:8384` admin only | Critical Data | `app-syncthing-ui` |
+| `files.internal` | `http://VM120_IP:11000` | Critical Data | `app-nextcloud` |
+
+Non-HTTP app ports:
+
+| Service | Port | Monitor |
+|---|---:|---|
+| Syncthing sync | 22000/tcp | `tcp-syncthing-sync` |

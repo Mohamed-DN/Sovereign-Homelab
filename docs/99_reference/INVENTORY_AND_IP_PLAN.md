@@ -2,7 +2,7 @@
 
 This document is the operational table to update every time you add, move, or remove a service.
 
-The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). This file answers: where the service runs, who owns it, which data it stores, and how critical it is.
+The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). Visibility coverage remains in [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md). This file answers: where the service runs, who owns it, which data it stores, and how critical it is.
 
 ## Conventions
 
@@ -33,8 +33,8 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 | Asset | IP | Role | Admin access | Backup | Criticality |
 |---|---:|---|---|---|---|
 | TIM Router | `192.168.1.1` | LAN gateway | LAN only | Export config if possible | High |
-| Proxmox P710 | TBD | Hypervisor, exit node | LAN/VPN | PBS config + manual notes | Critical |
-| PBS VM 140 | TBD | Infrastructure backup | LAN/VPN | datastore + config | Critical |
+| Proxmox P710 | TBD | Hypervisor, exit node, `proxmox.internal` | LAN/VPN | PBS config + manual notes | Critical |
+| PBS VM 140 | TBD | Infrastructure backup, `pbs.internal` | LAN/VPN | datastore + config | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
 | LXC 101 platform-services | TBD | NPM, identity, observability, CrowdSec | LAN/VPN | PBS + stack volumes | High |
 | LXC 102 apps-light | TBD | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo | LAN/VPN | PBS + app data | High |
@@ -114,7 +114,7 @@ Fill this row before deployment:
 ## Update Rules
 
 - If IP changes, update this file and AdGuard.
-- If hostname changes, update this file, NPM, Homepage, and Uptime Kuma.
+- If hostname changes, update this file, NPM, Homepage, Uptime Kuma, and [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md).
 - If port changes, update this file, NPM, and [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md).
 - If data volume changes, update backup and restore.
 - If a service becomes public, record the exception reason and protect it with TLS, MFA where possible, monitoring, and explicit rollback.
