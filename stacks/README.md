@@ -8,6 +8,7 @@ Rules:
 - replace every `CHANGE_ME` value;
 - never commit `.env`;
 - run `docker compose --env-file .env config` before deployment;
+- keep image tags pinned according to [Pinned Image Versions](../docs/99_reference/PINNED_IMAGE_VERSIONS.md);
 - use Nginx Proxy Manager for HTTPS and hostnames;
 - put admin UIs behind VPN or Authentik.
 

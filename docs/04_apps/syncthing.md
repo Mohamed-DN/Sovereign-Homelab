@@ -11,24 +11,21 @@ Syncthing needs a place to store its config and the actual data it syncs.
 Create an LXC (e.g., ID 102). Bind mount the host's storage dataset to the LXC (e.g., `/mnt/data/sync` to `/data`). Ensure the user running Docker inside LXC has read/write access.
 
 ## 3. Docker Compose & Environment Variables
-Use the `linuxserver/syncthing` image for best permission management.
+Use the repository template in `stacks/syncthing`. It uses the official `syncthing/syncthing` image and a pinned tag from [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md).
 
 Create `docker-compose.yml` in `/opt/sovereign/stacks/syncthing/`:
 
 ```yaml
 services:
   syncthing:
-    image: lscr.io/linuxserver/syncthing:latest
+    image: syncthing/syncthing:${SYNCTHING_TAG}
     container_name: syncthing
     hostname: syncthing # Optional, determines the default device name
     environment:
-      - PUID=1000   # Critical: The UID of the user owning the data folder
-      - PGID=1000   # Critical: The GID of the group owning the data folder
       - TZ=Europe/Rome
-      - UMASK_SET=022 # Controls file permissions (022 = 755 for dirs, 644 for files)
     volumes:
-      - /opt/sovereign/stacks/syncthing/config:/config
-      - /mnt/data/sync:/data1
+      - syncthing_config:/var/syncthing/config
+      - ./data/syncthing:/var/syncthing/data
     ports:
       - 8384:8384 # Web UI
       - 22000:22000/tcp # TCP file transfers
@@ -37,9 +34,11 @@ services:
     restart: unless-stopped
 ```
 
-**Env Var Deep-Dive**: 
-- `PUID`/`PGID`: Syncthing runs as this user. If your host data directory is owned by UID 1000, setting `PUID=1000` ensures Syncthing can read/write without `chmod 777`.
-- `UMASK_SET`: Ensures new files synced from remote devices inherit the correct permissions on the local filesystem.
+**Env Var Deep-Dive**:
+- `SYNCTHING_TAG`: pinned image tag. Do not change it without reading [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md).
+- `SYNCTHING_UI_PORT`: local web UI port, proxied as `sync.internal`.
+- `SYNCTHING_TCP_PORT`: sync engine port, monitored directly by Uptime Kuma.
+- `SYNCTHING_DISCOVERY_PORT`: local discovery UDP port, useful on LAN but not proxied by NPM.
 
 ## 4. Configuration & Hardening (GUI & `config.xml`)
 - **First Boot**: Access `http://<IP>:8384`. Immediately set a GUI Authentication User and Password (Settings > GUI).
@@ -84,3 +83,24 @@ If the database is corrupted, use the `syncthing -reset-database` command (or de
 - **Uptime Kuma**: 
   - Add an `HTTP(s)` monitor targeting `https://sync.internal` for the UI, with authentication if necessary.
   - Add a `TCP` monitor targeting `<LXC_IP>:22000` to verify the sync engine is listening.
+
+## 8. Rollback
+
+If a Syncthing update breaks synchronization:
+
+1. Stop the stack.
+2. Restore the previous `.env`, `docker-compose.yml`, and `syncthing_config` volume from the same backup timestamp.
+3. Keep the synchronized data directory intact; do not delete it during rollback.
+4. Start the stack and confirm the Device ID did not change.
+5. Resume one folder at a time and watch for unexpected deletes before enabling all peers.
+
+## 9. Sources
+
+- Syncthing documentation: <https://docs.syncthing.net/>
+- Syncthing Docker image: <https://hub.docker.com/r/syncthing/syncthing>
+
+---
+
+**Previous:** [Nextcloud AIO](nextcloud.md)
+
+**Next:** [Paperless-ngx](paperless.md)

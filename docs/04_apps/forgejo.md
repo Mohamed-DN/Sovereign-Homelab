@@ -52,3 +52,9 @@ Log into NPM at `https://npm.internal` and create a Proxy Host for HTTPS:
 - If SSH fails, verify port `2222` and the `SSH_DOMAIN` in configuration.
 
 *Source: [Forgejo Docker Install](https://forgejo.org/docs/latest/admin/installation/docker/)*
+
+---
+
+**Previous:** [SearXNG](searxng.md)
+
+**Next:** [Ollama and Open WebUI](ai_ollama.md)

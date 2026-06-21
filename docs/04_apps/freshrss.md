@@ -23,7 +23,7 @@ nano .env
 ### Environment Variables Deep Dive
 The `.env` file exposes the following variables for customization:
 - `TZ`: Crucial for correct feed timestamps (e.g., `Europe/Rome`).
-- `FRESHRSS_TAG`: Specifies the Docker image tag (e.g., `latest`).
+- `FRESHRSS_TAG`: pinned Docker image tag. Review [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md) before changing it.
 - `FRESHRSS_PORT`: The host port exposed for the web interface (default: `8087`).
 - `FRESHRSS_BASE_URL`: The URL where FreshRSS will be reachable (e.g., `https://rss.internal`).
 
@@ -97,4 +97,20 @@ Disaster recovery should be approached in layers. *Crucial Note:* OPML only save
 - **API Connection Failing:** 
   - Ensure the reverse proxy isn't blocking `/api/` paths and the user specifically set an *API password* (which is distinct from the web login password).
 
+## 9. Rollback
+
+If a FreshRSS update breaks feeds or login:
+
+1. Stop the stack.
+2. Restore the previous FreshRSS data volume from PBS/restic.
+3. Restore the previous `.env` and pinned `FRESHRSS_TAG`.
+4. Start the stack and verify login, feed refresh, starred articles, and API client sync.
+5. Use OPML only as a last-resort migration method because it does not preserve full read/unread state.
+
 *Source: [FreshRSS Docker Image](https://hub.docker.com/r/freshrss/freshrss)*
+
+---
+
+**Previous:** [Jellyfin](jellyfin.md)
+
+**Next:** [Karakeep](karakeep.md)

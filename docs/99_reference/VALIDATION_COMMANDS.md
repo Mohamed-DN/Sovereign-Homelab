@@ -16,9 +16,38 @@ rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --g
 rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
 rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "STACK_CATALOG_OPEN_SOURCE|PROJECT\\.md|compatibility stubs|APP_SERVICE_RUNBOOKS|stacks/apps|extended-services|IN_PROGRESS|\\.agents" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md'
 ```
 
 Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
+
+The stale-doc and rolling-tag checks above should return no output. If a project requires a rolling channel, document the exception in [Pinned Image Versions](PINNED_IMAGE_VERSIONS.md) before committing it.
+
+## Markdown Local Links
+
+```powershell
+$errors = @()
+$files = Get-ChildItem -Path README.md,START_HERE.md,OPERATIONAL_GUIDE.md,docs,stacks -Recurse -File -Include *.md
+foreach ($file in $files) {
+  $text = Get-Content -Raw $file.FullName
+  $matches = [regex]::Matches($text, '\[[^\]]+\]\(([^)]+)\)')
+  foreach ($m in $matches) {
+    $target = $m.Groups[1].Value.Trim()
+    if ($target -match '^(https?:|mailto:|#)') { continue }
+    $targetNoAnchor = ($target -split '#')[0]
+    if ([string]::IsNullOrWhiteSpace($targetNoAnchor)) { continue }
+    if ($targetNoAnchor -match '^[A-Za-z]+:') { continue }
+    $base = Split-Path -Parent $file.FullName
+    $full = [System.IO.Path]::GetFullPath((Join-Path $base $targetNoAnchor))
+    if (-not (Test-Path -LiteralPath $full)) {
+      $errors += "$($file.FullName) -> $target"
+    }
+  }
+}
+if ($errors) { $errors | Sort-Object -Unique; exit 1 }
+Write-Host 'Markdown local links resolve.'
+```
 
 ## Service Visibility
 
@@ -57,6 +86,7 @@ Windows PowerShell equivalent:
 ```powershell
 $failed = @()
 Get-ChildItem stacks -Directory | ForEach-Object {
+  $stackName = $_.Name
   $compose = Join-Path $_.FullName 'docker-compose.yml'
   $env = Join-Path $_.FullName '.env.example'
   if (Test-Path $compose) {
@@ -70,6 +100,31 @@ Get-ChildItem stacks -Directory | ForEach-Object {
 }
 if ($failed) { $failed; exit 1 }
 Write-Host 'All stack compose files validate.'
+```
+
+## Compose Environment Coverage
+
+Every `${VAR}` in a Compose file must exist in the matching `.env.example`.
+
+```powershell
+$errors = @()
+Get-ChildItem stacks -Directory | ForEach-Object {
+  $stackName = $_.Name
+  $compose = Join-Path $_.FullName 'docker-compose.yml'
+  $env = Join-Path $_.FullName '.env.example'
+  if ((Test-Path $compose) -and (Test-Path $env)) {
+    $composeText = Get-Content -Raw $compose
+    $envText = Get-Content -Raw $env
+    $vars = [regex]::Matches($composeText, '\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-[^}]*)?\}') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+    foreach ($var in $vars) {
+      if ($envText -notmatch "(?m)^$([regex]::Escape($var))=") {
+        $errors += "${stackName}: missing $var in .env.example"
+      }
+    }
+  }
+}
+if ($errors) { $errors; exit 1 }
+Write-Host 'All Compose variables are represented in .env.example files.'
 ```
 
 ## Headscale

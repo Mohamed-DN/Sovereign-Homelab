@@ -110,3 +110,9 @@ The `ollama_data` volume contains the downloaded model weights.
   - Verify the `deploy` block is correctly configured in `docker-compose.yml`.
 
 *Source: [Open WebUI Quick Start](https://docs.openwebui.com/getting-started/quick-start/)*
+
+---
+
+**Previous:** [Forgejo](forgejo.md)
+
+**Next:** [RustDesk OSS Server](rustdesk.md)

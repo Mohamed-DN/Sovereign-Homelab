@@ -39,7 +39,7 @@ Within the `/opt/sovereign/stacks/jellyfin` directory, create your `.env` file f
 | Variable | Description |
 |----------|-------------|
 | `TZ` | **Timezone** (e.g., `Europe/Rome`). Ensures accurate log timestamps and scheduled tasks (like library scans). |
-| `JELLYFIN_TAG` | **Docker Image Tag**. Use `latest` for stable rolling releases, or pin to a specific version like `10.8.13` for stability. |
+| `JELLYFIN_TAG` | **Docker Image Tag**. Keep the pinned tag from [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md) unless you are performing a tested update. |
 | `JELLYFIN_PORT` | **Host Port Binding**. The port exposed on your host (default `8096`). Change only if there are host port conflicts. |
 | `JELLYFIN_CONFIG_PATH` | **Configuration Path**. Persistent storage for users, database, and metadata. *Crucial for backups.* |
 | `JELLYFIN_CACHE_PATH` | **Cache Path**. Temporary transcoding chunks and resized images. *Should NOT be backed up.* Can be mapped to a fast SSD or `tmpfs`. |
@@ -84,7 +84,7 @@ docker compose logs -f
 1. Navigate to `http://[Target_IP]:8096` and complete the initial setup wizard.
 2. In the Jellyfin UI, go to **Dashboard > Playback** and enable **Hardware Acceleration** (e.g., Video Acceleration API (VAAPI) or Intel QuickSync).
 3. Log into NPM (`http://[NPM_IP]:81`) and create a Proxy Host:
-   - **Domain Names**: `media.internal` (or your public domain)
+   - **Domain Names**: `media.internal`
    - **Scheme**: `http`
    - **Forward IP**: `[Target_IP]`
    - **Forward Port**: `8096`
@@ -141,3 +141,23 @@ tar -czvf /backups/jellyfin_config_$(date +%F).tar.gz -C ${JELLYFIN_CONFIG_PATH}
 | **Media Files Not Showing** | Check permissions of `JELLYFIN_MEDIA_PATH`. The Jellyfin container runs as root by default unless specified otherwise. Ensure the host path is readable by Docker. Verify the NFS mount is active on the host. |
 | **Clients Unsyncing / Not Pausing** | Verify that **WebSockets** are enabled in Nginx Proxy Manager. Jellyfin requires WebSockets for real-time client-server communication. |
 | **Out of Space Errors** | Check your Cache directory size. If `/cache` is on a small root partition, transcoding large 4K files can fill it up. Move the cache to a larger disk. |
+
+## 9. Rollback
+
+If a Jellyfin update breaks playback or metadata:
+
+1. Stop the stack.
+2. Restore the previous `JELLYFIN_CONFIG_PATH` backup and `.env`.
+3. Keep `JELLYFIN_MEDIA_PATH` mounted read-only and unchanged.
+4. Start the previous image tag.
+5. Verify login, library scan, one direct-play stream, and one transcode stream.
+
+## 10. Official Sources
+
+- Jellyfin container documentation: <https://jellyfin.org/docs/general/installation/container/>
+
+---
+
+**Previous:** [Home Assistant OS](home_assistant.md)
+
+**Next:** [FreshRSS](freshrss.md)

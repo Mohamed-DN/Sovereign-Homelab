@@ -72,8 +72,8 @@ Large environments usually use a private subdomain of a registered corporate dom
 2. [Application Service Index](docs/04_apps/00_APP_SERVICES_INDEX.md): per-service CT/VM target, DNS, NPM, monitoring, backup, restore, rollback.
 3. [Runbook 11](docs/06_operations_security/doc_11_security_operations.md): hardening, rotation, update policy, CrowdSec/Wazuh.
 4. Before adding a new app, follow [DEPLOYMENT_WORKFLOW.md](docs/06_operations_security/DEPLOYMENT_WORKFLOW.md).
-5. Review the catalog: [STACK_CATALOG_OPEN_SOURCE.md](docs/99_reference/STACK_CATALOG_OPEN_SOURCE.md).
-6. Review the top-tier catalog: [TOP_OPEN_SOURCE_STACK.md](docs/99_reference/TOP_OPEN_SOURCE_STACK.md).
+5. Review the top-tier catalog: [TOP_OPEN_SOURCE_STACK.md](docs/99_reference/TOP_OPEN_SOURCE_STACK.md).
+6. Review pinned image defaults before deploying: [PINNED_IMAGE_VERSIONS.md](docs/99_reference/PINNED_IMAGE_VERSIONS.md).
 
 ### 5. Operations
 

@@ -45,3 +45,9 @@ Protocol services such as RustDesk, Syncthing sync, Forgejo SSH, and Ollama API 
 5. Add PBS/restic backup coverage.
 6. Run a restore test with sample data.
 7. Record the result in the operations log.
+
+---
+
+**Previous:** [RustDesk OSS Server](rustdesk.md)
+
+**Next:** [Production Acceptance Checklist](production_acceptance_checklist.md)

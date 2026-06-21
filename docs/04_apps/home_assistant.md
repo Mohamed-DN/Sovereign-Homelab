@@ -11,18 +11,19 @@ Home Assistant is the central brain of our home automation. Instead of a standar
 Deploying HAOS requires importing a pre-built `.qcow2` image rather than running a traditional installer. Follow these steps via the Proxmox Shell and Web UI:
 
 1. **Download HAOS Image**:
-   SSH into your Proxmox host and download the latest HAOS KVM image:
+   SSH into your Proxmox host and copy the current KVM/Proxmox `.qcow2.xz` download URL from the official Home Assistant installation page. Do not reuse an old hardcoded image URL.
    ```bash
-   wget https://github.com/home-assistant/operating-system/releases/download/12.3/haos_ova-12.3.qcow2.xz
-   unxz haos_ova-12.3.qcow2.xz
+   HAOS_QCOW2_URL="PASTE_CURRENT_HAOS_KVM_QCOW2_XZ_URL_HERE"
+   wget -O haos_ova.qcow2.xz "$HAOS_QCOW2_URL"
+   unxz haos_ova.qcow2.xz
    ```
-   *(Check the official [HAOS release page](https://github.com/home-assistant/operating-system/releases) for the latest version).*
+   Verify the source is the official Home Assistant KVM/Proxmox image before importing it.
 
 2. **Create the VM (`qm create`)**:
    Create VM 130 with UEFI boot and q35 machine type, matching the hardware specs:
    ```bash
    qm create 130 --name home-assistant-os --memory 4096 --cores 2 --net0 virtio,bridge=vmbr0
-   qm importdisk 130 haos_ova-12.3.qcow2 local-lvm
+   qm importdisk 130 haos_ova.qcow2 local-lvm
    ```
 
 3. **Configure VM Hardware via UI/CLI**:
@@ -50,8 +51,8 @@ Unlike standard Docker deployments where configuration and secrets are passed vi
    Open or create `/config/secrets.yaml` and add your sensitive data:
    ```yaml
    # /config/secrets.yaml
-   db_password: "SuperSecretDatabasePassword123"
-   weather_api_key: "ab12cd34ef56gh78"
+   db_password: "CHANGE_ME_LONG_RANDOM_DB_PASSWORD"
+   weather_api_key: "CHANGE_ME_PROVIDER_API_KEY"
    ```
 3. **Reference Secrets**:
    Use the `!secret` tag in your `configuration.yaml` to reference these values safely:
@@ -127,7 +128,17 @@ If VM 130 is completely lost:
 4. Upload your latest exported HA `.tar` backup file.
 5. Wait for the restoration to complete (can take 30+ minutes). The system will reboot into its exact previous state.
 
-## 9. Troubleshooting
+## 9. Rollback
+
+If an HAOS update or add-on breaks the instance:
+
+1. Try a native Home Assistant backup restore first from **Settings -> System -> Backups**.
+2. If the VM is unstable or will not boot, restore VM 130 from PBS to a temporary VM ID.
+3. Keep the broken VM powered off until the restored VM is verified.
+4. Re-test `https://ha.internal`, automations, integrations, and USB coordinator access.
+5. Document the failed version before attempting another update.
+
+## 10. Troubleshooting
 - **NPM 400 Bad Request Error**:
   If you access `https://ha.internal` and receive a `400 Bad Request`, it means your `trusted_proxies` configuration is missing or incorrect. Verify the IP in `configuration.yaml` matches NPM's IP and restart HA.
 - **Boot Issues / Safe Mode**:
@@ -140,4 +151,10 @@ If VM 130 is completely lost:
 - **USB Device Not Found**:
   Verify the USB device is still passed through in Proxmox. Sometimes, moving the USB physical port changes its ID. Always pass through by **Vendor/Device ID** rather than by physical port.
 
-*Source: [Home Assistant Installation](https://www.home-assistant.io/installation/)*
+*Sources: [Home Assistant alternative installation](https://www.home-assistant.io/installation/alternative/) | [Home Assistant OS releases](https://github.com/home-assistant/operating-system/releases)*
+
+---
+
+**Previous:** [Paperless-ngx](paperless.md)
+
+**Next:** [Jellyfin](jellyfin.md)
