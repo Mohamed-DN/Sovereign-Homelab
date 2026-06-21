@@ -2,7 +2,7 @@ name: nginx-proxy-manager
 
 services:
   app:
-    image: 'jc21/nginx-proxy-manager:latest'
+    image: 'jc21/nginx-proxy-manager:${NPM_TAG}'
     container_name: nginx-proxy-manager
     restart: unless-stopped
     ports:
@@ -32,7 +32,7 @@ services:
       retries: 3
 
   db:
-    image: 'jc21/mariadb-aria:latest'
+    image: 'jc21/mariadb-aria:${NPM_DB_TAG}'
     container_name: npm-db
     restart: unless-stopped
     environment:

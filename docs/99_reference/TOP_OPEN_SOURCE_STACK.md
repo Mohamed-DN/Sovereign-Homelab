@@ -1,6 +1,6 @@
 # Top Open Source Homelab Stack
 
-This is not a list of things to install all at once. It is an opinionated catalog of top open-source components for a modern homelab.
+This is the canonical open-source stack catalog for this repository. It is not a list of things to install all at once. A service enters the build path only when it has a clear role, a private access model, a monitor, and a restore path.
 
 ## Tier 0: Required Foundation
 
@@ -67,9 +67,58 @@ Practical order after the core: Paperless-ngx, Home Assistant OS, Jellyfin, Fres
 - Wazuh immediately: too heavy without a log strategy.
 - Full media automation: storage and security first.
 
-## Scouting Sources
+## Selection Criteria
+
+A service enters the core only if:
+
+- it has maintained images or official installation documentation;
+- it can stay behind VPN or Authentik;
+- it stores data in clear volumes or documented appliance backups;
+- it has a backup and restore procedure;
+- it has an Uptime Kuma or Beszel monitor;
+- it does not require unnecessary public ports.
+
+## Expansion Priority
+
+| Priority | Services | Reason |
+|---|---|---|
+| P1 next | Paperless-ngx | High value for OCR and personal records; requires DB + media backup. |
+| P1 next | Home Assistant OS | High value if smart home devices exist; keep it in a dedicated VM. |
+| P1 next | Jellyfin | Useful for personal media after the storage plan is clear. |
+| P1 next | FreshRSS | Lightweight replacement for cloud feed readers. |
+| P1 next | Karakeep | Personal bookmark and link archive after identity/backup are stable. |
+| P2 later | SearXNG | Private metasearch, not critical for the core. |
+| P2 later | Forgejo | Private Git for configs, scripts, and documentation. |
+| P2 later | Ollama + Open WebUI | Only with adequate hardware and a clear data policy. |
+| P3 only if needed | Full Wazuh | Powerful but heavy; needs a log strategy first. |
+| P3 only if needed | Full media automation | Adds many moving parts; stabilize Jellyfin first. |
+
+## Version Policy
+
+Stack templates use pinned image tags where stable tags exist. Review [PINNED_IMAGE_VERSIONS.md](PINNED_IMAGE_VERSIONS.md) before updates. Do not replace pinned tags with `latest`, `main`, or `release` during normal deployment.
+
+## Main Sources
 
 - Awesome Selfhosted: <https://awesome-selfhosted.net/>
 - selfh.st apps: <https://selfh.st/apps/>
+- Headscale: <https://headscale.net/>
+- Tailscale docs: <https://tailscale.com/docs/>
+- Authentik docs: <https://docs.goauthentik.io/>
+- Homepage: <https://gethomepage.dev/>
+- Uptime Kuma: <https://github.com/louislam/uptime-kuma>
+- Beszel: <https://beszel.dev/>
+- Proxmox VE: <https://pve.proxmox.com/pve-docs/>
+- Proxmox Backup Server: <https://pbs.proxmox.com/docs/>
+- restic: <https://restic.net/>
+- Immich: <https://docs.immich.app/>
+- Nextcloud AIO: <https://github.com/nextcloud/all-in-one>
+- Syncthing: <https://syncthing.net/>
+- Jellyfin: <https://jellyfin.org/docs/>
+- Paperless-ngx: <https://docs.paperless-ngx.com/>
+- SearXNG: <https://docs.searxng.org/>
+- FreshRSS: <https://freshrss.github.io/FreshRSS/>
+- Forgejo: <https://forgejo.org/docs/latest/>
+- Ollama: <https://ollama.com/>
+- Open WebUI: <https://docs.openwebui.com/>
 - NetBird self-hosted apps list: <https://netbird.io/knowledge-hub/10-self-hosted-apps-2026>
 - Perfect Media Server app list: <https://perfectmediaserver.com/04-day-two/top10apps/>

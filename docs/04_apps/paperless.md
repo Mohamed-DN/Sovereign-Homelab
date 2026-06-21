@@ -140,3 +140,9 @@ docker compose logs -f paperless paperless-redis
 ```
 
 *Source: [Paperless-ngx Setup Docs](https://docs.paperless-ngx.com/setup/)*
+
+---
+
+**Previous:** [Syncthing](syncthing.md)
+
+**Next:** [Home Assistant OS](home_assistant.md)

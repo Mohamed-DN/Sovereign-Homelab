@@ -32,7 +32,7 @@ Create `/opt/core-network/docker-compose.yml`:
 cat << 'EOF' > docker-compose.yml
 services:
   headscale:
-    image: headscale/headscale:latest
+    image: headscale/headscale:v0.28.0
     container_name: headscale
     volumes:
       - ./headscale/config:/etc/headscale
@@ -44,14 +44,14 @@ services:
     restart: unless-stopped
 
   headscale-ui:
-    image: ghcr.io/gurucomputing/headscale-ui:latest
+    image: ghcr.io/gurucomputing/headscale-ui:2026.03.17
     container_name: headscale-ui
     ports:
       - "8081:8080"
     restart: unless-stopped
 
   adguardhome:
-    image: adguard/adguardhome:latest
+    image: adguard/adguardhome:v0.107.77
     container_name: adguardhome
     network_mode: "host"
     volumes:
@@ -60,7 +60,7 @@ services:
     restart: unless-stopped
 
   npm:
-    image: jc21/nginx-proxy-manager:latest
+    image: jc21/nginx-proxy-manager:2.15.1
     container_name: npm
     ports:
       - "80:80"
@@ -80,7 +80,7 @@ Why this layout:
 - AdGuard uses host networking so DNS and DHCP can bind directly on the LAN.
 - NPM owns ports `80`, `443`, and `81` for proxying and management.
 
-Production note: these bootstrap images use `latest` for simplicity. Before storing real data, record tested image versions and use the update workflow in [Operations Manual](../06_operations_security/OPERATIONS_MANUAL.md).
+Production note: these bootstrap images are pinned in [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md). Before upgrading any of them, read the release notes, back up the related volumes, and update one service at a time.
 
 ---
 

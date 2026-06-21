@@ -100,3 +100,9 @@ Data integrity for Karakeep relies on SQLite and Meilisearch. **Live backups can
   - If the index is hopelessly corrupted, stop the stack, delete the `karakeep_meili` volume, start the stack, and trigger a full re-index from the Karakeep settings menu.
 
 *Source: [Karakeep Docker Docs](https://docs.karakeep.app/installation/docker/)*
+
+---
+
+**Previous:** [FreshRSS](freshrss.md)
+
+**Next:** [SearXNG](searxng.md)

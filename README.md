@@ -76,7 +76,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | [docs/04_apps](docs/04_apps) | Per-app runbooks and app index |
 | [docs/05_backup_dr](docs/05_backup_dr) | PBS, restore drills, restic/offsite |
 | [docs/06_operations_security](docs/06_operations_security) | Operations manual, deployment workflow, security operations |
-| [docs/99_reference](docs/99_reference) | Matrices, validation commands, inventory, stack catalogs |
+| [docs/99_reference](docs/99_reference) | Matrices, validation commands, inventory, pinned image versions, and stack catalog |
 | [stacks](stacks) | Independent Docker Compose micro-stacks |
 
 ## Deployment Workflow
@@ -101,6 +101,8 @@ docker compose --env-file .env config --quiet
 docker compose --env-file .env up -d
 docker compose --env-file .env ps
 ```
+
+Before updating or pulling images, compare the stack against [Pinned Image Versions](docs/99_reference/PINNED_IMAGE_VERSIONS.md). The repository defaults are pinned to tested tags unless the upstream project only publishes an official rolling channel.
 
 Or use the validated wrapper:
 

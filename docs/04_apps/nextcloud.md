@@ -54,3 +54,9 @@ Return to the AIO Setup Interface at `https://[VM120_IP]:8080` and enter `files.
 - If memory crashes occur during large file syncs, allocate more RAM to the VM and adjust PHP memory limits in AIO settings.
 
 *Source: [Nextcloud AIO Reverse Proxy Docs](https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md)*
+
+---
+
+**Previous:** [Immich](immich.md)
+
+**Next:** [Syncthing](syncthing.md)

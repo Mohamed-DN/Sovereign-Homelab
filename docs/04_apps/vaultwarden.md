@@ -108,3 +108,14 @@ If an update to Vaultwarden causes issues or database corruption, use the follow
 - **Attachments fail to upload**: Check the `DOMAIN` environment variable exactly matches your proxy address.
 - **Live sync isn't working**: Ensure Websockets support is checked in Nginx Proxy Manager.
 - **Admin token invalid**: Ensure the Argon2 hash is wrapped in single quotes in the `.env` file if it contains special characters (`$` signs).
+
+## 7. Official Sources
+
+- Vaultwarden wiki: <https://github.com/dani-garcia/vaultwarden/wiki>
+- Vaultwarden Docker image: <https://hub.docker.com/r/vaultwarden/server>
+
+---
+
+**Previous:** [Application Service Index](00_APP_SERVICES_INDEX.md)
+
+**Next:** [Immich](immich.md)

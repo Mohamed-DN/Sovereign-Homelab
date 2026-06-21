@@ -52,3 +52,9 @@ Log into NPM at `https://npm.internal` and create a new Proxy Host:
 - If an update breaks the database, restore the Postgres volume and `dump.sql` from PBS. Always read Immich release notes before updating!
 
 *Sources: [Immich Docker Compose](https://docs.immich.app/install/docker-compose/) | [Immich Backup and Restore](https://docs.immich.app/administration/backup-and-restore/)*
+
+---
+
+**Previous:** [Vaultwarden](vaultwarden.md)
+
+**Next:** [Nextcloud AIO](nextcloud.md)

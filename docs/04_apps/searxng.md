@@ -47,3 +47,9 @@ Log into NPM at `https://npm.internal` and create a Proxy Host:
 - Do not expose publicly or you will be quickly rate-limited by Google/Bing.
 
 *Source: [SearXNG Docker Install](https://docs.searxng.org/admin/installation-docker.html)*
+
+---
+
+**Previous:** [Karakeep](karakeep.md)
+
+**Next:** [Forgejo](forgejo.md)

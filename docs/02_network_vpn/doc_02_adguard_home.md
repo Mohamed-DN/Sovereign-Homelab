@@ -22,7 +22,7 @@ Inside the `core-network` host or LXC, AdGuard Home runs with host networking:
 
 ```yaml
 adguardhome:
-  image: adguard/adguardhome:latest
+  image: adguard/adguardhome:v0.107.77
   container_name: adguardhome
   network_mode: "host"
   volumes:
