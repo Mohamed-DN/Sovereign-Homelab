@@ -1,61 +1,109 @@
-# Runbook 03: Nginx Proxy Manager, Public VPN, and Internal HTTPS
+# Runbook 03: Nginx Proxy Manager, Public VPN, and Internal Aliases
 
-This document explains how to configure Nginx Proxy Manager (NPM). NPM is the reverse proxy for both the public VPN entrypoint and internal/VPN-only services.
+Nginx Proxy Manager (NPM) is the HTTP/HTTPS entry point for the lab. It has two jobs:
 
-The naming model is:
+1. publish the Headscale control plane at `vpn.yourdomain.duckdns.org`;
+2. expose internal services through clean `.internal` aliases for LAN/VPN clients.
 
-- `vpn.yourdomain.duckdns.org` for the public Headscale API, because clients outside the home must reach it.
-- `*.internal` for internal/VPN-only services.
-- DuckDNS is the public door. `.internal` is the private service namespace.
+The full visibility contract is documented in [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md).
 
-## 1. Verify Ports 80 and 443
+## Architecture
 
-NPM needs ports `80` and `443` to act as the HTTP/HTTPS gateway.
+```text
+Internet client -> DuckDNS -> router/NAT -> NPM -> Headscale API
+LAN/VPN client -> AdGuard -> *.internal -> NPM -> internal service
+```
 
-In this setup, AdGuard Home listens on `3000` for its UI and Headscale listens on `8080`, so ports `80` and `443` can be assigned to NPM.
+Rules:
 
-## 2. Public Certificate for Headscale
+- DuckDNS is only the public door for Headscale.
+- Internal apps use `.internal`.
+- Admin UIs stay VPN/Auth only.
+- If a service has a web UI, it needs an alias, an NPM proxy host, a Homepage card, and an Uptime Kuma monitor.
 
-Use DuckDNS only for the public VPN control plane.
+Target placeholders:
 
-In NPM (`http://192.168.1.50:81`):
+| Placeholder | Meaning |
+|---|---|
+| `LXC100_IP` | core-network LXC, currently `192.168.1.50` |
+| `LXC101_IP` | platform-services LXC |
+| `LXC102_IP` | apps-light LXC |
+| `PVE_IP` | Proxmox host IP |
+| `PBS_IP` | Proxmox Backup Server VM IP |
+| `VM110_IP` | Immich VM |
+| `VM120_IP` | Nextcloud AIO VM |
+| `VM130_IP` | Home Assistant OS VM |
+| `VM150_IP` | Jellyfin VM |
 
-1. Go to **SSL Certificates** -> **Add SSL Certificate** -> **Let's Encrypt**.
-2. **Domain Names**: enter `vpn.yourdomain.duckdns.org`.
-3. Email: your email.
-4. Enable **Use a DNS Challenge**.
-5. **DNS Provider**: choose `DuckDNS`.
-6. In `Credentials File Content`, replace `your-duckdns-token` with your real token.
-7. Check the agreements and press **Save**.
+## Phase A: Verify NPM Ports
 
-This certificate is for the public Headscale endpoint. Internal apps stay under `.internal`.
+NPM needs:
 
-## 3. Internal DNS Rewrites in AdGuard
+| Port | Purpose |
+|---:|---|
+| 80/tcp | HTTP challenge/redirect and plain HTTP entry |
+| 443/tcp | HTTPS proxy entry |
+| 81/tcp | NPM admin UI |
 
-In AdGuard Home (`http://192.168.1.50:3000`), create DNS rewrites:
+On the current core stack, AdGuard UI uses `3000` and Headscale uses `8080`, so NPM can bind `80` and `443`.
+
+Verify on the Docker host:
+
+```bash
+docker ps
+ss -tulpn | grep -E ':80|:443|:81'
+```
+
+## Phase B: Public Certificate for Headscale
+
+Create a Let's Encrypt certificate only for:
+
+```text
+vpn.yourdomain.duckdns.org
+```
+
+In NPM:
+
+1. Open `https://npm.internal` or the bootstrap URL `http://LXC100_IP:81`.
+2. Go to **SSL Certificates**.
+3. Add a Let's Encrypt certificate.
+4. Domain Names: `vpn.yourdomain.duckdns.org`.
+5. Enable DNS Challenge.
+6. DNS Provider: DuckDNS.
+7. Replace `your-duckdns-token` with the real token in the credentials field.
+8. Save.
+
+Do not request public certificates for private app hostnames.
+
+## Phase C: AdGuard DNS Rewrites
+
+AdGuard must resolve internal names to NPM:
 
 | Pattern | Target |
 |---|---|
-| `vpn.yourdomain.duckdns.org` | `192.168.1.50` |
-| `*.internal` | NPM IP, usually `192.168.1.50` or LXC 101 |
+| `*.internal` | NPM IP |
+| `vpn.yourdomain.duckdns.org` | `LXC100_IP` |
 
 Why:
 
-- At home, `vpn.yourdomain.duckdns.org` should resolve directly to the local Headscale/NPM host.
-- Internal services such as `dash.internal`, `pwd.internal`, and `files.internal` stay in the private namespace.
+- LAN/VPN users reach internal services through NPM.
+- Remote VPN clients use AdGuard as DNS and get the same private aliases.
+- Headscale clients at home avoid hairpin routing for `vpn.yourdomain.duckdns.org`.
 
-## 4. Public Proxy Host: Headscale API
+## Phase D: Public Proxy Host
 
-In NPM, go to **Hosts** -> **Proxy Hosts** -> **Add Proxy Host**:
+Create one public proxy host:
 
 | Field | Value |
 |---|---|
 | Domain Names | `vpn.yourdomain.duckdns.org` |
 | Scheme | `http` |
-| Forward Hostname / IP | `192.168.1.50` |
+| Forward Hostname / IP | `LXC100_IP` |
 | Forward Port | `8080` |
-| Websockets Support | Enabled |
-| SSL | DuckDNS certificate, Force SSL |
+| Websockets Support | enabled |
+| SSL | DuckDNS Let's Encrypt certificate |
+| Force SSL | enabled |
+| Access List | none; Headscale clients must connect without web login |
 
 Advanced config:
 
@@ -69,27 +117,34 @@ proxy_connect_timeout 86400s;
 proxy_send_timeout 86400s;
 ```
 
-Headscale clients need stable long-running HTTPS/WebSocket behavior. The Headscale API stays reachable without generic web forward-auth so clients can join from outside the LAN.
+Validation:
 
-## 5. Internal Proxy Host: Headscale-UI
+```bash
+curl -I https://vpn.yourdomain.duckdns.org
+```
 
-Headscale-UI is an admin interface, so use an internal name:
+Expected result: HTTP response from Headscale through NPM with a valid public certificate.
+
+## Phase E: Internal Admin Proxy Hosts
+
+These aliases are internal only. Protect them with VPN, Authentik forward auth, or an NPM access list.
+
+| Service | Hostname | Scheme | Upstream | WebSocket | Access |
+|---|---|---|---|---|---|
+| Proxmox VE | `proxmox.internal` | `https` | `PVE_IP:8006` | yes | VPN/admin |
+| PBS | `pbs.internal` | `https` | `PBS_IP:8007` | yes | VPN/admin |
+| AdGuard UI | `adguard.internal` | `http` | `LXC100_IP:3000` | no | VPN/admin |
+| NPM UI | `npm.internal` | `http` | `LXC100_IP:81` or `LXC101_IP:81` | yes | VPN/admin |
+| Headscale base | `headscale.internal` | `http` | `LXC100_IP:8080` | yes | VPN/admin |
+
+Headscale-UI custom location:
 
 | Field | Value |
 |---|---|
-| Domain Names | `headscale.internal` |
-| Scheme | `http` |
-| Forward Hostname / IP | `192.168.1.50` |
-| Forward Port | `8080` |
-| Access | VPN/Auth |
-
-Add a custom location:
-
-| Field | Value |
-|---|---|
+| Parent host | `headscale.internal` |
 | Location | `/web` |
 | Scheme | `http` |
-| Forward Hostname / IP | `192.168.1.50` |
+| Forward Hostname / IP | `LXC100_IP` |
 | Forward Port | `8081` |
 
 Use:
@@ -98,40 +153,100 @@ Use:
 https://headscale.internal/web
 ```
 
-The public VPN hostname is reserved for the Headscale API. The admin UI stays on `headscale.internal/web`.
+## Phase F: Internal Platform Proxy Hosts
 
-## 6. Internal App Proxy Hosts
+| Service | Hostname | Scheme | Upstream | WebSocket | Access |
+|---|---|---|---|---|---|
+| Authentik | `auth.internal` | `http` | `LXC101_IP:9000` | yes | VPN/Auth |
+| Homepage | `dash.internal` | `http` | `LXC101_IP:3002` | no | VPN/Auth |
+| Uptime Kuma | `status.internal` | `http` | `LXC101_IP:3001` | yes | VPN/Auth |
+| Beszel | `monitor.internal` | `http` | `LXC101_IP:8090` | yes | VPN/Auth |
+| Dozzle | `logs.internal` | `http` | `LXC101_IP:8088` | yes | VPN/admin |
 
-Internal apps use `.internal`:
+## Phase G: Internal App Proxy Hosts
 
-| Service | Hostname | Forward |
-|---|---|---|
-| Authentik | `auth.internal` | `http://HOST:9000` |
-| Homepage | `dash.internal` | `http://HOST:3002` |
-| Uptime Kuma | `status.internal` | `http://HOST:3001` |
-| Beszel | `monitor.internal` | `http://HOST:8090` |
-| Dozzle | `logs.internal` | `http://HOST:8088` |
-| Vaultwarden | `pwd.internal` | `http://HOST:8082` |
-| Immich | `foto.internal` | `http://HOST:2283` |
-| Nextcloud | `files.internal` | `http://HOST:11000` |
-| Syncthing UI | `sync.internal` | `http://HOST:8384` |
+| Service | Hostname | Scheme | Upstream | WebSocket | Access |
+|---|---|---|---|---|---|
+| Vaultwarden | `pwd.internal` | `http` | `LXC102_IP:8082` | yes | VPN-first |
+| Immich | `foto.internal` | `http` | `VM110_IP:2283` | yes | VPN-first |
+| Nextcloud | `files.internal` | `http` | `VM120_IP:11000` | yes | VPN-first |
+| Syncthing UI | `sync.internal` | `http` | `LXC102_IP:8384` | yes | VPN/admin |
+| Paperless-ngx | `paper.internal` | `http` | `LXC102_IP:8010` | yes | VPN/Auth |
+| FreshRSS | `rss.internal` | `http` | `LXC102_IP:8087` | no | VPN/Auth |
+| Karakeep | `bookmarks.internal` | `http` | `LXC102_IP:3010` | yes | VPN/Auth |
+| SearXNG | `search.internal` | `http` | `LXC102_IP:8084` | no | VPN/Auth |
+| Forgejo | `git.internal` | `http` | `LXC102_IP:3003` | yes | VPN/Auth |
+| Home Assistant | `ha.internal` | `http` | `VM130_IP:8123` | yes | VPN/Auth |
+| Jellyfin | `media.internal` | `http` | `VM150_IP:8096` | yes | VPN/Auth |
+| Open WebUI | `ai.internal` | `http` | `AI_HOST_IP:3004` | yes | VPN only |
 
-For `.internal` HTTPS, use one of these approaches:
+Enable each proxy host only after the service is installed and validated. Reserved aliases can appear in documentation and Homepage, but NPM should not forward to an empty target.
 
-- HTTP only inside VPN if you accept it for admin/internal use.
-- NPM self-signed/internal certificate and trust the CA on your devices.
-- Future high-level option: Smallstep `step-ca` as the internal certificate authority.
+## Phase H: TLS for `.internal`
 
-## 7. Rule
+Private `.internal` names cannot use public Let's Encrypt certificates directly.
 
-DuckDNS is the public door. `.internal` is the private service namespace.
+Accepted options:
 
-From this point:
+1. HTTP inside VPN during bootstrap.
+2. NPM self-signed or custom internal certificate.
+3. A future internal CA such as Smallstep `step-ca`.
 
-- `https://vpn.yourdomain.duckdns.org` is the public VPN API.
-- `https://dash.internal`, `https://pwd.internal`, and similar names are internal/VPN-only.
+For the current lab, VPN-first HTTP upstreams behind NPM are acceptable while internal CA work is planned separately.
+
+## Phase I: Homepage and Uptime Kuma
+
+After every proxy host is created:
+
+1. Add the service card to `stacks/observability/homepage/services.yaml`.
+2. Add the matching Uptime Kuma monitor from [Runbook 08](../03_platform_services/doc_08_observability_dashboard.md).
+3. Record the service in [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md).
+4. Record IP/port/data path in [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md).
+
+Operational rule:
+
+```text
+No alias + no Homepage + no monitor = not operational.
+```
+
+## Troubleshooting
+
+### Alias Resolves but App Does Not Open
+
+Check:
+
+```bash
+nslookup app.internal LXC100_IP
+curl -I http://UPSTREAM_IP:PORT
+docker ps
+docker logs --tail=100 SERVICE_CONTAINER
+```
+
+If direct upstream fails, fix the app before changing NPM.
+
+### NPM Shows 502 Bad Gateway
+
+Common causes:
+
+- wrong upstream IP;
+- wrong upstream port;
+- service container down;
+- NPM cannot reach a VM/LXC because firewall or route is wrong;
+- HTTPS selected to an HTTP upstream.
+
+### Login or WebSocket Breaks
+
+Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, Vaultwarden, Immich, Nextcloud, Syncthing UI, Forgejo, Home Assistant, Jellyfin, and Open WebUI.
+
+## Sources
+
+- Nginx Proxy Manager docs: <https://nginxproxymanager.com/>
+- Nextcloud AIO reverse proxy: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>
+- Authentik reverse proxy docs: <https://docs.goauthentik.io/install-config/reverse-proxy/>
+- Headscale docs: <https://headscale.net/>
 
 ---
 
 **Previous:** [Runbook 02: AdGuard Home](doc_02_adguard_home.md)
+
 **Next:** [Runbook 04: Headscale VPN](doc_04_headscale_vpn.md)

@@ -26,9 +26,10 @@ Use this file as the human reading order. The runbooks are the installation path
 1. Read the roadmap: [ROADMAP_SOVEREIGN_HOMELAB.md](docs/00_overview/ROADMAP_SOVEREIGN_HOMELAB.md).
 2. Review the map: [infrastructure_plan_and_map.md](docs/00_overview/infrastructure_plan_and_map.md).
 3. Open the matrix: [PORTS_AND_DNS_MATRIX.md](docs/99_reference/PORTS_AND_DNS_MATRIX.md).
-4. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/99_reference/INVENTORY_AND_IP_PLAN.md).
-5. Choose the DuckDNS domain for public VPN entry only.
-6. Use `.internal` for internal/VPN-only services.
+4. Open the service visibility matrix: [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
+5. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/99_reference/INVENTORY_AND_IP_PLAN.md).
+6. Choose the DuckDNS domain for public VPN entry only.
+7. Use `.internal` for internal/VPN-only services.
 
 ### Enterprise DNS Decision
 
@@ -79,6 +80,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 2. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
 3. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
 4. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
+5. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
 
 ### 6. Controlled Expansion
 
@@ -103,6 +105,18 @@ Recommended order for new apps:
 | Nextcloud | `files.internal` | VPN-first |
 
 DuckDNS is the public door. `.internal` is the private service namespace.
+
+## Visibility Rule
+
+If a service has a web UI, it must have:
+
+1. `.internal` alias;
+2. Nginx Proxy Manager proxy host;
+3. Homepage card;
+4. Uptime Kuma monitor;
+5. documented backup and restore path.
+
+Exceptions are allowed only when documented in [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
 
 ## Golden Rule
 

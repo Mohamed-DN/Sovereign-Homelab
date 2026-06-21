@@ -2,6 +2,8 @@
 
 This phase installs the main personal apps.
 
+Detailed per-service installation, NPM, Homepage, Uptime Kuma, backup, restore, and rollback steps live in [Application Service Runbooks](APP_SERVICE_RUNBOOKS.md). This runbook is the shorter install path for the first four core apps.
+
 Recommended order:
 
 1. Vaultwarden.
@@ -22,13 +24,14 @@ Do not add real data until backup has been verified.
 | Syncthing | `sync.internal` | VPN/admin only |
 | Nextcloud | `files.internal` | VPN-first |
 
-For apps with mobile clients, public HTTPS exposure is acceptable only after:
+For apps with mobile clients, keep access VPN-first. A public exception requires a separate written decision and must include:
 
 - valid TLS;
 - active backup;
 - MFA where supported;
 - strong passwords;
 - Uptime Kuma monitor.
+- rollback plan.
 
 Before installing: [CHECKLIST_PRE_DEPLOY.md](../06_operations_security/CHECKLIST_PRE_DEPLOY.md).
 
@@ -81,7 +84,7 @@ docker compose --env-file .env up -d syncthing
 UI access:
 
 ```text
-http://SERVER_IP:8384
+https://sync.internal
 ```
 
 Rules:
@@ -149,7 +152,7 @@ docker compose --env-file .env --profile nextcloud up -d nextcloud-aio-mastercon
 Then open:
 
 ```text
-http://SERVER_IP:8086
+http://VM120_IP:8086
 ```
 
 Note: Nextcloud AIO manages internal child containers and requires care with reverse proxy and ports. Follow the AIO UI and the official documentation.
@@ -162,11 +165,15 @@ If simple file sync is enough, prefer Syncthing.
 
 For every app:
 
+- create the `.internal` alias;
+- create the NPM proxy host;
+- add the Homepage card;
 - create an Uptime Kuma monitor;
-- add a Homepage link;
 - add volumes to PBS/restic backup;
 - document ports and hostnames;
 - verify login from LAN, VPN, and mobile if expected.
+
+Use [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md) as the acceptance checklist.
 
 ---
 

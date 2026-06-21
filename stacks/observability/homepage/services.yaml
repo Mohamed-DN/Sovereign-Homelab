@@ -1,41 +1,82 @@
 - Network:
     - AdGuard Home:
-        href: http://192.168.1.50:3000
-        description: DNS filtering and rewrites
-    - Headscale:
+        href: https://adguard.internal
+        description: DNS filtering, rewrites, and optional DHCP
+    - Headscale API:
         href: https://vpn.yourdomain.duckdns.org
-        description: Mesh VPN control plane
+        description: Public VPN control plane
     - Headscale UI:
         href: https://headscale.internal/web
-        description: Device and route management
+        description: Device, route, and user management
     - Nginx Proxy Manager:
-        href: http://192.168.1.50:81
-        description: Reverse proxy and certificates
+        href: https://npm.internal
+        description: Reverse proxy, aliases, and certificates
 
-- Operations:
+- Admin:
+    - Proxmox VE:
+        href: https://proxmox.internal
+        description: Hypervisor for VMs, LXCs, storage, and snapshots
+    - Proxmox Backup Server:
+        href: https://pbs.internal
+        description: Backup datastore, verify jobs, prune jobs, and restores
+
+- Identity:
     - Authentik:
         href: https://auth.internal
-        description: SSO and MFA
+        description: SSO, MFA, proxy providers, and OIDC
+
+- Monitoring:
+    - Homepage:
+        href: https://dash.internal
+        description: Clean service launchpad
     - Uptime Kuma:
         href: https://status.internal
-        description: Uptime and alerts
+        description: Service health, alerting, and restore confidence
     - Beszel:
         href: https://monitor.internal
         description: Host and container metrics
     - Dozzle:
         href: https://logs.internal
-        description: Docker live logs
+        description: Docker live logs, admin only
 
-- Apps:
+- Critical Data:
     - Vaultwarden:
         href: https://pwd.internal
-        description: Password vault
+        description: Password vault, critical restore required
     - Immich:
         href: https://foto.internal
-        description: Photo and video backup
+        description: Photo and video library, DB plus upload backup required
     - Nextcloud:
         href: https://files.internal
-        description: Personal cloud
+        description: Personal cloud and file access
     - Syncthing:
         href: https://sync.internal
-        description: Peer-to-peer file sync
+        description: Peer-to-peer file sync UI
+    - Paperless-ngx:
+        href: https://paper.internal
+        description: OCR documents and personal archive
+
+- Apps:
+    - Home Assistant:
+        href: https://ha.internal
+        description: Home automation VM
+    - Jellyfin:
+        href: https://media.internal
+        description: Private media server
+    - FreshRSS:
+        href: https://rss.internal
+        description: RSS reader
+    - Karakeep:
+        href: https://bookmarks.internal
+        description: Bookmarks and web archive
+    - SearXNG:
+        href: https://search.internal
+        description: Private metasearch
+    - Forgejo:
+        href: https://git.internal
+        description: Git repositories and infrastructure code
+
+- Advanced Future:
+    - Open WebUI:
+        href: https://ai.internal
+        description: Local AI interface backed by Ollama

@@ -22,15 +22,21 @@ docker compose ps
 
 | Hostname | Forward | Notes |
 |---|---|---|
-| `auth.internal` | `http://HOST:9000` | WebSockets enabled; use internal TLS when ready |
+| `auth.internal` | `http://LXC101_IP:9000` | WebSockets enabled; use internal TLS when ready |
 
 ## Verification
 
 ```bash
 docker compose ps
 docker compose logs --tail=100 authentik-server
-curl -I http://HOST:9000
+curl -I http://LXC101_IP:9000
+curl -I https://auth.internal
 ```
+
+## Dashboard and Monitor
+
+- Homepage card: `auth.internal`, group `Identity`.
+- Uptime Kuma monitor: `ui-authentik`, HTTP(s), `https://auth.internal`.
 
 ## Backup
 

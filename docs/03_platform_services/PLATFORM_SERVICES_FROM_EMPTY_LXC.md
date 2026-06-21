@@ -145,7 +145,9 @@ CrowdSec detection alone does not block traffic. Blocking requires a remediation
 ## Production Checklist
 
 - All services listed in [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md).
+- All web UIs listed in [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md).
 - All service data listed in [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md).
+- Homepage cards exist.
 - Uptime Kuma monitors exist.
 - PBS job covers LXC 101.
 - Restore test for Uptime Kuma or Authentik has been documented.
