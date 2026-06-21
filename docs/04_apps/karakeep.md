@@ -1,63 +1,40 @@
-# Karakeep
+# Karakeep Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Karakeep is a modern bookmarking and web archiving tool.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 2 vCPU / 4 GB
 
-Karakeep stores bookmarks, saved pages, and archived assets. It becomes personal-data critical if it is your only bookmark archive.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 2 vCPU |
-| RAM | 4 GB |
-| Profile | `karakeep` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/karakeep
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile karakeep config
-docker compose --env-file .env --profile karakeep up -d
+```
+Set the following security values:
+- `KARAKEEP_NEXTAUTH_SECRET`: Strong random key.
+- `KARAKEEP_MEILI_MASTER_KEY`: Strong random key for the Meilisearch database.
+
+## 3. Deployment
+Validate the configuration and start the containers (app, meilisearch, headless chrome):
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-Set:
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `bookmarks.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `3010`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Variable | Value |
-|---|---|
-| `KARAKEEP_NEXTAUTH_SECRET` | long random value |
-| `KARAKEEP_MEILI_MASTER_KEY` | long random value |
-| `NEXTAUTH_URL` | `https://bookmarks.internal` in Compose |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://bookmarks.internal`.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor targeting `https://bookmarks.internal`.
 
-### Alias, Proxy, Dashboard, Monitor
-
-| Item | Value |
-|---|---|
-| Alias | `bookmarks.internal` |
-| NPM upstream | `http://LXC102_IP:3010` |
-| WebSocket | yes |
-| Homepage group | Apps |
-| Uptime Kuma | `app-karakeep`, HTTP(s), `https://bookmarks.internal` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up:
-
-- Karakeep data;
-- Meilisearch data;
-- `.env`.
-
-### Restore Drill
-
-1. Save a test page.
-2. Restore DB/data/search index to test instance.
-3. Confirm page metadata and archived content.
-
-### Rollback and Troubleshooting
-
-- If archived pages fail, check Chrome sidecar logs.
-- If search fails, restore or rebuild Meilisearch index.
-
-Source: <https://docs.karakeep.app/installation/docker/>
+## 6. Backup & Restore
+- **Backup**: Include the `karakeep_data` and `karakeep_meili` volumes in PBS backups.
+- **Restore Test**: Restore the volumes and verify that a previously saved page and its metadata load correctly.

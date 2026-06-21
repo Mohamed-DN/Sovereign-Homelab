@@ -1,87 +1,44 @@
-# Immich
+# Immich Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Immich is a high-performance photo and video backup solution. It is a **P0 Critical** service due to irreplaceable personal data.
+- **Target**: VM 110 (`immich`)
+- **CPU / RAM**: 6 vCPU / 16 GB
+- **Storage**: OS Disk (120GB) + Dedicated Mount (1TB+) for `/usr/src/app/upload`.
 
-Immich is the photo and video library. It is P0 critical because it stores irreplaceable personal data.
-
-Do not import the full library until a restore test succeeds with sample photos.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | VM 110 `immich` |
-| CPU | 6 vCPU |
-| RAM | 16 GB |
-| OS disk | 120 GB |
-| Data mount | start with 800 GB-1 TB for photos/videos |
-| Preferred install | official Immich Docker Compose |
-
-### Install
-
-Preferred production install:
-
+## 2. Directory & Secrets Setup
+Log into VM 110 and navigate to the dedicated stack directory:
 ```bash
-mkdir -p /opt/immich
-cd /opt/immich
-wget -O docker-compose.yml https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
-wget -O .env https://github.com/immich-app/immich/releases/latest/download/example.env
+cd /opt/sovereign/stacks/immich
+cp .env.example .env
 nano .env
-docker compose config
-docker compose up -d
+```
+Update the following critical values:
+- `IMMICH_UPLOAD_LOCATION`: Set this to your dedicated large storage mount (e.g., `/mnt/photos`).
+- `IMMICH_DB_DATA_LOCATION`: Local VM disk path for PostgreSQL.
+- `IMMICH_DB_PASSWORD`: Generate a strong password using `openssl rand -base64 36`.
+
+## 3. Deployment
+Validate the configuration and start the database, redis, ML, and server containers:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
 docker compose ps
 ```
+*Note: The Machine Learning container may take a few minutes to download models on first boot.*
 
-Required `.env` decisions:
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a new Proxy Host:
+- **Domain Names**: `foto.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.60` (VM 110 IP) / `2283`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Advanced**: Ensure Client Max Body Size is set to `0` to allow large video uploads.
 
-| Variable | Value |
-|---|---|
-| `UPLOAD_LOCATION` | dedicated photo mount, not the OS disk |
-| `DB_DATA_LOCATION` | local VM disk path; do not put the database on an unreliable network share |
-| `IMMICH_VERSION` | pin a version before production upgrades |
-| `DB_PASSWORD` | strong alphanumeric password |
-| `TZ` | `Europe/Rome` |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` under "Critical Data" pointing to `https://foto.internal`. Add the Immich API widget.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor named `app-immich` targeting `https://foto.internal`.
 
-The repo `stacks/apps` Immich profile is a reference template, but production should track the official Immich Compose release.
-
-### Alias, Proxy, Dashboard, Monitor
-
-| Item | Value |
-|---|---|
-| Alias | `foto.internal` |
-| NPM upstream | `http://VM110_IP:2283` |
-| WebSocket | yes |
-| Homepage group | Critical Data |
-| Uptime Kuma | `app-immich`, HTTP(s), `https://foto.internal` |
-| Access | VPN-first |
-
-### Backup
-
-Back up together:
-
-- `UPLOAD_LOCATION`;
-- database backups under `UPLOAD_LOCATION/backups`;
-- `.env`;
-- `docker-compose.yml`.
-
-The database backup does not contain photos or videos. The upload directory without the database is also incomplete.
-
-### Restore Drill
-
-1. Create a fresh test VM or isolated test directory.
-2. Restore `UPLOAD_LOCATION` from the same point in time as the database backup.
-3. Restore `.env` and Compose.
-4. Start Immich.
-5. Use the web restore flow or documented CLI restore.
-6. Verify login, thumbnails, search, download original file, and mobile app connection.
-
-### Rollback and Troubleshooting
-
-- Before upgrades, create a PBS backup and an app-aware DB backup.
-- If migrations fail, restore VM plus upload/database from the same timestamp.
-- If media appears missing, verify mount path and storage template paths.
-
-Sources:
-
-- <https://docs.immich.app/install/docker-compose/>
-- <https://docs.immich.app/administration/backup-and-restore/>
+## 6. Backup & Restore
+- **Backup**: Run a daily database dump. Backup the database dump, `.env`, `docker-compose.yml`, and the entire `IMMICH_UPLOAD_LOCATION` folder via PBS.
+- **Restore Test**: Mount a snapshot of the upload directory and database on a test VM. Run the database restore command and verify thumbnails load correctly.

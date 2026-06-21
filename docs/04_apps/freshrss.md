@@ -1,51 +1,39 @@
-# FreshRSS
+# FreshRSS Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+FreshRSS is a lightweight self-hosted RSS feed aggregator.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 1 vCPU / 1 GB
 
-FreshRSS is a lightweight RSS reader. It is low risk and high value after monitoring and backup are stable.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 1 vCPU |
-| RAM | 1 GB |
-| Profile | `freshrss` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/freshrss
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile freshrss config
-docker compose --env-file .env --profile freshrss up -d
+```
+Ensure the URL matches the reverse proxy:
+- `FRESHRSS_BASE_URL=https://rss.internal`
+
+## 3. Deployment
+Validate and start the container:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-Set `FRESHRSS_BASE_URL=https://rss.internal`.
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `rss.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8087`
+- **Websockets Support**: ❌ Disabled (Not needed for FreshRSS)
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-### Alias, Proxy, Dashboard, Monitor
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://rss.internal`.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor targeting `https://rss.internal`.
 
-| Item | Value |
-|---|---|
-| Alias | `rss.internal` |
-| NPM upstream | `http://LXC102_IP:8087` |
-| WebSocket | no |
-| Homepage group | Apps |
-| Uptime Kuma | `app-freshrss`, HTTP(s), `https://rss.internal` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up FreshRSS data volume and export OPML after major feed changes.
-
-### Restore Drill
-
-Restore the volume or import OPML into a test instance and confirm feeds update.
-
-### Rollback and Troubleshooting
-
-- If updates fail, check cron setting and container logs.
-- If feeds disappear, restore data volume or OPML.
-
-Source: <https://hub.docker.com/r/freshrss/freshrss>
+## 6. Backup & Restore
+- **Backup**: Backup the `freshrss_data` volume via PBS. Optionally, perform an OPML export from the Web UI after major feed additions.
+- **Restore Test**: Import an OPML file into a fresh instance and verify feeds update successfully.

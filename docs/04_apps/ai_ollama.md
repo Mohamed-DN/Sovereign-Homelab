@@ -1,55 +1,44 @@
-# Ollama and Open WebUI
+# AI & Ollama Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+This stack deploys a local Large Language Model (LLM) engine (Ollama) paired with a beautiful ChatGPT-like interface (Open WebUI). 
+- **Target**: Dedicated AI Host or VM (Requires GPU passthrough for reasonable performance).
+- **CPU / RAM**: 4+ vCPU / 8-16 GB minimum.
 
-Ollama runs local models. Open WebUI provides the web interface. Keep model APIs private.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | dedicated AI host, VM, or LXC depending on GPU |
-| CPU | 4+ vCPU |
-| RAM | 8-16 GB minimum |
-| Profile | `ai` |
-| Ports | 11434 Ollama, 3004 Open WebUI |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Navigate to the dedicated stack directory on your AI host:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/ai-ollama
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile ai config
-docker compose --env-file .env --profile ai up -d
+```
+Ensure ports are correct (`11434` for Ollama API, `3004` for Open WebUI).
+
+## 3. Deployment
+Validate and start the containers:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
+```
+Once running, you must download a model. For example, to download Llama 3:
+```bash
+docker exec -it ollama ollama run llama3
 ```
 
-### Alias, Proxy, Dashboard, Monitor
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for the UI:
+- **Domain Names**: `ai.internal`
+- **Scheme / Forward IP / Port**: `http` / `[Target_IP]` / `3004`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Item | Value |
-|---|---|
-| Alias | `ai.internal` |
-| NPM upstream | `http://AI_HOST_IP:3004` |
-| WebSocket | yes |
-| Homepage group | Advanced Future |
-| Uptime Kuma | `app-open-webui`, HTTP(s), `https://ai.internal` |
-| Access | VPN only |
-| Exception | Ollama API `11434` is not proxied through NPM |
+*Note: Do not expose the Ollama API port (`11434`) publicly.*
 
-### Backup
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://ai.internal`.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor targeting `https://ai.internal`.
 
-Back up:
-
-- Open WebUI data;
-- prompts/chats if used;
-- model cache only if bandwidth is a concern.
-
-### Restore Drill
-
-Restore Open WebUI data to a test instance and verify login/history. Models can be pulled again if not backed up.
-
-### Rollback and Troubleshooting
-
-- If model pulls fail, check disk and network.
-- If GPU acceleration is required, document passthrough separately before production use.
-
-Source: <https://docs.openwebui.com/getting-started/quick-start/>
+## 6. Backup & Restore
+- **Backup**: Backup the `open_webui_data` volume containing your chats and prompts. The `ollama_data` volume containing the models can be recreated by re-downloading the models.
+- **Restore Test**: Restore `open_webui_data` to a test instance, start it, and verify chat history is present.

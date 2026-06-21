@@ -1,69 +1,46 @@
-# Paperless-ngx
+# Paperless-ngx Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Paperless-ngx is a document management system that performs OCR on scanned documents. It becomes **P1 Critical** when used for tax or legal documents.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 2 vCPU / 4 GB
+- **Storage**: Minimum 40GB plus future growth for documents.
 
-Paperless-ngx stores scanned documents and OCR metadata. It becomes P1 critical once it contains tax, identity, medical, or legal documents.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 2 vCPU |
-| RAM | 4 GB |
-| Disk | 40 GB minimum plus document growth |
-| Profile | `paperless` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/paperless
 cp .env.example .env
 nano .env
-docker compose --env-file .env --profile paperless config
-docker compose --env-file .env --profile paperless up -d
-docker compose --env-file .env --profile paperless logs -f paperless
+```
+Update the following values:
+- `PAPERLESS_URL=https://paper.internal`
+- `PAPERLESS_SECRET_KEY`: Generate a long random string.
+- `PAPERLESS_DB_PASSWORD`: Set a strong database password.
+
+## 3. Deployment
+Validate the configuration and start the containers (app, redis, db):
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
+```
+Create the first superuser:
+```bash
+docker exec -it paperless document_sanitizer manage.py createsuperuser
 ```
 
-Important values:
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `paper.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8010`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Variable | Value |
-|---|---|
-| `PAPERLESS_URL` | `https://paper.internal` |
-| `PAPERLESS_SECRET_KEY` | long random value |
-| `PAPERLESS_DB_PASSWORD` | strong password |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` under "Critical Data" pointing to `https://paper.internal`. Add the Paperless API widget.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor named `app-paperless` targeting `https://paper.internal`.
 
-### Alias, Proxy, Dashboard, Monitor
-
-| Item | Value |
-|---|---|
-| Alias | `paper.internal` |
-| NPM upstream | `http://LXC102_IP:8010` |
-| WebSocket | yes |
-| Homepage group | Critical Data |
-| Uptime Kuma | `app-paperless`, HTTP(s), `https://paper.internal` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up together:
-
-- PostgreSQL volume;
-- media directory;
-- consume/export directories;
-- `.env`.
-
-### Restore Drill
-
-1. Upload a test PDF.
-2. Confirm OCR and search.
-3. Back up DB and media.
-4. Restore to a test container.
-5. Confirm document opens and search still works.
-
-### Rollback and Troubleshooting
-
-- If OCR fails, check worker logs and Redis.
-- If documents are missing, restore DB and media from the same timestamp.
-
-Source: <https://docs.paperless-ngx.com/setup/>
+## 6. Backup & Restore
+- **Backup**: Include `paperless_data`, `paperless_media`, and `paperless_db` volumes in your PBS backup schedule.
+- **Restore Test**: Restore all volumes to an isolated test LXC. Verify OCR search works and previous PDFs are viewable.

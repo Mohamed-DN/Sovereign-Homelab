@@ -1,60 +1,41 @@
-# Syncthing
+# Syncthing Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Syncthing is a continuous file synchronization program. It synchronizes files between devices in real-time. It is NOT a backup system.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 1 vCPU / 1 GB
+- **Access**: UI restricted to Admin/VPN only. Sync ports reachable via VPN.
 
-Syncthing synchronizes folders between devices. It is not a backup system.
-
-Use it for device-to-device sync. Use PBS/restic/versioning for recovery.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 1 vCPU |
-| RAM | 1 GB |
-| Ports | 8384 UI, 22000 sync, 21027 discovery |
-| Compose | `stacks/apps` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/apps
+cd /opt/sovereign/stacks/syncthing
+cp .env.example .env
+nano .env
+```
+Update the timezone and verify ports (Default UI: `8384`, Sync: `22000` TCP/UDP).
+
+## 3. Deployment
+Validate the configuration and start the container:
+```bash
 docker compose --env-file .env config
-docker compose --env-file .env up -d syncthing
-docker compose --env-file .env logs -f syncthing
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-### Alias, Proxy, Dashboard, Monitor
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) to expose the Administrative Web UI securely:
+- **Domain Names**: `sync.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8384`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Item | Value |
-|---|---|
-| Alias | `sync.internal` |
-| NPM upstream | `http://LXC102_IP:8384` |
-| WebSocket | yes |
-| Homepage group | Critical Data |
-| Uptime Kuma UI | `app-syncthing-ui`, HTTP(s), `https://sync.internal` |
-| Uptime Kuma sync | `tcp-syncthing-sync`, TCP, `LXC102_IP:22000` |
-| Access | VPN/admin for UI |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` under "Critical Data" pointing to `https://sync.internal`.
+- **Uptime Kuma**: 
+  - Add an `HTTP(s)` monitor targeting `https://sync.internal` for the UI.
+  - Add a `TCP` monitor targeting `192.168.1.52:22000` to verify the sync engine is listening.
 
-### Backup
-
-Back up:
-
-- Syncthing config volume;
-- synchronized source folders;
-- versioned folders if enabled.
-
-### Restore Drill
-
-1. Restore config to a test container.
-2. Confirm device IDs and folder IDs.
-3. Do not connect restored test instance to production peers until you understand sync direction.
-
-### Rollback and Troubleshooting
-
-- If a bad deletion syncs, stop affected peers immediately.
-- Restore from versioning or backup.
-- Verify ignore patterns before reconnecting peers.
-
-Source: <https://docs.syncthing.net/>
+## 6. Backup & Restore
+- **Backup**: Backup the `syncthing_config` volume. File versioning should be enabled inside the Syncthing UI for critical folders.
+- **Restore Test**: Restore the config volume. Verify Device IDs are intact before reconnecting production peers.

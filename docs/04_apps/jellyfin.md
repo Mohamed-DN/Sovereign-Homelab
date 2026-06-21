@@ -1,64 +1,42 @@
-# Jellyfin
+# Jellyfin Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Jellyfin is a self-hosted media system for movies, TV shows, and music.
+- **Target**: VM 150 (`jellyfin`) or LXC 102
+- **CPU / RAM**: 4 vCPU / 8 GB (Requires GPU passthrough for transcoding)
+- **Storage**: Requires a dedicated large mount for media files.
 
-Jellyfin serves private media. It is not as critical as photos/passwords, but metadata and watched state are worth protecting.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | VM 150 `jellyfin` or LXC 102 profile for light use |
-| CPU | 4 vCPU |
-| RAM | 8 GB |
-| Disk | media mount plus config/cache |
-| Profile | `jellyfin` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Navigate to the dedicated stack directory on your target host:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/jellyfin
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile jellyfin config
-docker compose --env-file .env --profile jellyfin up -d
+```
+Map the correct paths for your host:
+- `JELLYFIN_CONFIG_PATH`: Persistent config folder.
+- `JELLYFIN_CACHE_PATH`: Cache folder.
+- `JELLYFIN_MEDIA_PATH`: The read-only path to your actual media library.
+
+## 3. Deployment
+Validate and start the container:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-Set:
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `media.internal`
+- **Scheme / Forward IP / Port**: `http` / `[Target_IP]` / `8096`
+- **Websockets Support**: ✅ Enabled (Crucial for playback progress sync)
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Variable | Value |
-|---|---|
-| `JELLYFIN_CONFIG_PATH` | persistent config path |
-| `JELLYFIN_CACHE_PATH` | cache path |
-| `JELLYFIN_MEDIA_PATH` | read-only media path |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://media.internal`. Include the Jellyfin widget for active streams.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor targeting `https://media.internal`.
 
-### Alias, Proxy, Dashboard, Monitor
-
-| Item | Value |
-|---|---|
-| Alias | `media.internal` |
-| NPM upstream | `http://VM150_IP:8096` or `http://LXC102_IP:8096` |
-| WebSocket | yes |
-| Homepage group | Apps |
-| Uptime Kuma | `app-jellyfin`, HTTP(s), `https://media.internal` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up:
-
-- Jellyfin config;
-- metadata if you care about watched state;
-- media library source separately.
-
-### Restore Drill
-
-1. Restore config to test container/VM.
-2. Mount a small test media folder.
-3. Verify library scan and playback.
-
-### Rollback and Troubleshooting
-
-- If playback fails, test direct upstream before NPM.
-- Add GPU passthrough only if transcoding is required.
-
-Source: <https://jellyfin.org/docs/general/installation/container/>
+## 6. Backup & Restore
+- **Backup**: Backup the `JELLYFIN_CONFIG_PATH` directory. You do not strictly need to backup the cache. Media files should be backed up separately based on your storage strategy.
+- **Restore Test**: Restore the config directory to a test instance. Mount a small test media folder and verify metadata and watched status are preserved.

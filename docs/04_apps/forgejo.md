@@ -1,68 +1,44 @@
-# Forgejo
+# Forgejo Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Forgejo is a lightweight, self-hosted Git service. It becomes **P1 Critical** when storing infrastructure-as-code or this homelab repository.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 2 vCPU / 4 GB
 
-Forgejo stores Git repositories and infrastructure code. It becomes critical if it holds the homelab repo or automation code.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 2 vCPU |
-| RAM | 4 GB |
-| Profile | `forgejo` |
-| Ports | 3003 HTTP, 2222 SSH |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/forgejo
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile forgejo config
-docker compose --env-file .env --profile forgejo up -d
+```
+Ensure the correct configuration parameters:
+- `FORGEJO_DB_PASSWORD`: Strong database password.
+- Verify ports `FORGEJO_HTTP_PORT=3003` and `FORGEJO_SSH_PORT=2222`.
+
+## 3. Deployment
+Validate and start the database and the Forgejo container:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-Set:
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for HTTPS:
+- **Domain Names**: `git.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `3003`
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-| Variable | Value |
-|---|---|
-| `FORGEJO_HTTP_PORT` | `3003` |
-| `FORGEJO_SSH_PORT` | `2222` |
-| `FORGEJO_DB_PASSWORD` | strong password |
+*(SSH traffic on port 2222 goes directly to the LXC IP and does not pass through NPM).*
 
-### Alias, Proxy, Dashboard, Monitor
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://git.internal`.
+- **Uptime Kuma**: 
+  - Add an `HTTP(s)` monitor targeting `https://git.internal`.
+  - Add a `TCP` monitor targeting `192.168.1.52:2222` to ensure SSH clones are working.
 
-| Item | Value |
-|---|---|
-| Alias | `git.internal` |
-| NPM upstream | `http://LXC102_IP:3003` |
-| WebSocket | yes |
-| Homepage group | Apps |
-| Uptime Kuma web | `app-forgejo`, HTTP(s), `https://git.internal` |
-| Uptime Kuma SSH | `tcp-forgejo-ssh`, TCP, `LXC102_IP:2222` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up together:
-
-- Forgejo data volume;
-- PostgreSQL database;
-- repositories;
-- SSH keys;
-- `.env`.
-
-### Restore Drill
-
-1. Restore DB and repositories to test instance.
-2. Log in.
-3. Clone a test repository over HTTPS and SSH.
-4. Push a test commit.
-
-### Rollback and Troubleshooting
-
-- If repository metadata and DB are out of sync, restore DB and repos from the same timestamp.
-- If SSH fails, verify port `2222` and SSH URL.
-
-Source: <https://forgejo.org/docs/latest/admin/installation/docker/>
+## 6. Backup & Restore
+- **Backup**: Include `forgejo_db` and `forgejo_data` volumes in PBS backups.
+- **Restore Test**: Restore the database and data volumes. Verify you can clone a repository over both HTTPS and SSH, and push a test commit successfully.

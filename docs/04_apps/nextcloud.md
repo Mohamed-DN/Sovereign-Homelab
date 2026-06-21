@@ -1,68 +1,44 @@
-# Nextcloud AIO
+# Nextcloud AIO Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+Nextcloud All-in-One (AIO) provides file hosting, calendar, and collaboration tools. 
+- **Target**: VM 120 (`nextcloud-aio`)
+- **CPU / RAM**: 4 vCPU / 8-12 GB
+- **Storage**: OS Disk (120GB) + Dedicated Mount for `/opt/sovereign/data/nextcloud`.
 
-Nextcloud AIO provides a full cloud suite. Use it only if you need Nextcloud features beyond simple file sync.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | VM 120 `nextcloud-aio` |
-| CPU | 4 vCPU |
-| RAM | 8-12 GB |
-| OS disk | 120 GB |
-| Data mount | dedicated if used seriously |
-| Compose | official Nextcloud AIO mastercontainer |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into VM 120 and navigate to the dedicated stack directory:
 ```bash
-mkdir -p /opt/nextcloud-aio
-cd /opt/nextcloud-aio
-nano compose.yml
-docker compose config
-docker compose up -d
+cd /opt/sovereign/stacks/nextcloud
+cp .env.example .env
+nano .env
 ```
+Ensure the datadir is set to your large mount:
+- `NEXTCLOUD_DATADIR=/opt/sovereign/data/nextcloud`
 
-Required reverse proxy model:
+## 3. Deployment (Mastercontainer)
+Nextcloud AIO uses a Mastercontainer to spawn the other containers automatically.
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
+```
+Access `https://VM120_IP:8080` (bypass the SSL warning) to reach the AIO Setup Interface and enter the provided setup password.
 
-| Setting | Value |
-|---|---|
-| Public/internal app hostname | `files.internal` |
-| Apache port | `11000` |
-| AIO admin UI | `VM120_IP:8086`, VPN/admin only |
-| NPM proxy | `files.internal -> http://VM120_IP:11000` |
+## 4. Nginx Proxy Manager (NPM) Setup
+Before completing the AIO setup, configure the reverse proxy:
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `files.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.70` (VM 120 IP) / `11000` *(Note: 11000 is the Apache port, NOT 8080!)*
+- **Websockets Support**: ✅ Enabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-### Alias, Proxy, Dashboard, Monitor
+Return to the AIO Setup Interface at `https://VM120_IP:8080` and enter `files.internal` as your domain. Nextcloud will verify the proxy and spin up the remaining containers.
 
-| Item | Value |
-|---|---|
-| Alias | `files.internal` |
-| NPM upstream | `http://VM120_IP:11000` |
-| WebSocket | yes |
-| Homepage group | Critical Data |
-| Uptime Kuma | `app-nextcloud`, HTTP(s), `https://files.internal` |
-| Access | VPN-first |
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://files.internal`.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor named `app-nextcloud` targeting `https://files.internal`.
 
-### Backup
-
-Use:
-
-- Nextcloud AIO backup;
-- PBS VM backup;
-- separate data mount backup if large.
-
-### Restore Drill
-
-1. Restore AIO backup into a test VM.
-2. Verify admin login.
-3. Verify file listing and file download.
-4. Verify calendar/contact if used.
-
-### Rollback and Troubleshooting
-
-- If AIO update fails, use the AIO backup first.
-- If proxy fails, verify NPM forwards to Apache port `11000`, not the AIO UI port.
-
-Source: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>
+## 6. Backup & Restore
+- **Backup**: Use the built-in Nextcloud AIO backup system through the `8080` interface. Include the VM in your PBS schedules.
+- **Restore Test**: Restore a built-in AIO backup onto a clean test VM and verify files and calendars are accessible.
