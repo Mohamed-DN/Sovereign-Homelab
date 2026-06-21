@@ -9,7 +9,8 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 - Main LAN: `192.168.1.0/24`
 - LAN router: `192.168.1.1`
 - Core network LXC: `192.168.1.50`
-- Proxmox host target: P710, 20 CPU threads, 64 GB RAM, 2 TB usable mirrored storage.
+- Proxmox host: `192.168.1.150`
+- Proxmox host target: P710, 20 CPU cores / 40 threads, 64 GB RAM class, 2 TB usable mirrored storage.
 - Public endpoint: `vpn.yourdomain.duckdns.org`, used only for the VPN entrypoint unless a future exception is documented.
 - Internal domain: `.internal`, used for LAN/VPN-only services.
 - Default access: VPN or Authentik.
@@ -28,16 +29,32 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 | `192.168.1.200-239` | IoT, TV, media | DHCP reservation or future VLAN |
 | `192.168.1.240-254` | Temporary tests | Documented expiration |
 
+## Live Audit Snapshot
+
+Last checked: 2026-06-21.
+
+| Area | Observed state |
+|---|---|
+| Proxmox host | `192.168.1.150`, ThinkStation P710, Proxmox VE 9.2.2 |
+| LXC 100 | running as `core-network`, `192.168.1.50` |
+| LXC 102 | present but stopped, currently named `CT102`, DHCP, 2 vCPU, 256 MB RAM, 10 GB disk |
+| VMs | none present during audit |
+| Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
+| Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
+| Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
+| Internal DNS | `*.internal` rewrites to `192.168.1.50` |
+| Backup/PBS | not deployed yet; required before production critical data import |
+
 ## Hosts and LXC
 
 | Asset | IP | Role | Admin access | Backup | Criticality |
 |---|---:|---|---|---|---|
 | TIM Router | `192.168.1.1` | LAN gateway | LAN only | Export config if possible | High |
-| Proxmox P710 | TBD | Hypervisor, exit node, `proxmox.internal` | LAN/VPN | PBS config + manual notes | Critical |
+| Proxmox P710 | `192.168.1.150` | Hypervisor, exit node, `proxmox.internal` | LAN/VPN | PBS config + manual notes | Critical |
 | PBS VM 140 | TBD | Infrastructure backup, `pbs.internal` | LAN/VPN | datastore + config | Critical |
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
 | LXC 101 platform-services | TBD | NPM, identity, observability, CrowdSec | LAN/VPN | PBS + stack volumes | High |
-| LXC 102 apps-light | TBD | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo | LAN/VPN | PBS + app data | High |
+| LXC 102 apps-light | TBD | Target for Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo; live CT currently stopped and undersized | LAN/VPN | PBS + app data | High |
 | VM 110 immich | TBD | Photos and videos | VPN/Auth | PBS + DB/upload offsite | Critical |
 | VM 120 nextcloud-aio | TBD | Full cloud suite | VPN/Auth | PBS + AIO backup | High |
 | VM 130 home-assistant-os | TBD | Home automation | VPN/Auth | PBS + HA backup export | Medium |
