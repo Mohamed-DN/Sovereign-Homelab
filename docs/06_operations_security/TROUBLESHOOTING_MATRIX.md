@@ -23,6 +23,7 @@
 | App opens on LAN but not through domain | NPM proxy host | fix upstream host or port |
 | WebSocket app does not work | NPM Details tab | enable Websockets Support |
 | HTTPS loop | NPM advanced/proxy settings | check scheme, Force SSL, and upstream behavior |
+| Host replies to ping but SSH or web ports fail | `Test-NetConnection HOST -Port PORT` | check host firewall, Proxmox firewall, LXC firewall, service bind address, and whether the workstation is on the expected LAN/VPN segment |
 
 ## Authentik
 

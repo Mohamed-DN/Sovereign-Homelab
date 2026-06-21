@@ -11,6 +11,7 @@ The manual uses these supporting documents:
 - [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md)
 - [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md)
 - [Validation Commands](../99_reference/VALIDATION_COMMANDS.md)
+- [Live Proxmox Validation](LIVE_PROXMOX_VALIDATION.md)
 - [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
 - [Deployment Workflow](DEPLOYMENT_WORKFLOW.md)
 
