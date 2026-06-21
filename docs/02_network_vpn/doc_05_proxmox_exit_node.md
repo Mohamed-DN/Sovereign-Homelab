@@ -199,6 +199,8 @@ In the Tailscale/NovaAccess client:
 3. Select `proxmox-p710` as the exit node.
 4. Enable local LAN access if the client offers that option.
 
+If the phone cannot connect to the tailnet from 4G/5G, stop here. Fix `vpn.yourdomain.duckdns.org`, router TCP `443` forwarding, NPM, certificate, or CGNAT first in [Runbook 03](doc_03_nginx_proxy_manager.md). Exit-node troubleshooting starts only after the mobile client can join the tailnet from outside the house.
+
 Run these checks:
 
 ```bash
@@ -222,6 +224,8 @@ Expected result:
 - DNS still goes through AdGuard Home before and after selecting the exit node.
 - `.internal` aliases still resolve to NPM through AdGuard rewrites.
 - Full-tunnel traffic exits from the Proxmox host.
+
+Do not accept "internet works" as the only exit-node test. The exit node is production-ready only when the client still resolves through AdGuard and the AdGuard query log proves it.
 
 ---
 

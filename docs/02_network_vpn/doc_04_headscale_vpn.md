@@ -85,6 +85,7 @@ DNS and exit-node invariant:
 - LXC 100, the Proxmox host, and other infrastructure routers should use `--accept-dns=false` so they do not replace their own resolver with the DNS service they are publishing.
 - Remote clients reach AdGuard through the approved `192.168.1.0/24` subnet route served by LXC 100.
 - Selecting an exit node changes the client's default internet route, but DNS queries must still go to AdGuard at `192.168.1.50`.
+- Treat DNS with an active exit node as a mandatory per-client test. Some clients can change resolver behavior when a full-tunnel route is selected, so the only accepted production result is proof in AdGuard query logs before and after exit-node selection.
 - If DNS filtering stops after selecting an exit node, fix the subnet route or client DNS settings first; do not add private app names under DuckDNS.
 
 ---
@@ -134,9 +135,25 @@ docker exec headscale headscale nodes list
 
 ---
 
-## Phase D: Add Mobile Devices
+## Phase D: Add Mobile Devices from 4G/5G
 
-The first login is easiest from home Wi-Fi because split-brain DNS already sends `vpn.yourdomain.duckdns.org` to `192.168.1.50`.
+The mobile onboarding test must work from cellular data before the VPN is considered production. Home Wi-Fi can hide public-edge problems because split DNS sends `vpn.yourdomain.duckdns.org` to `192.168.1.50`.
+
+Required public path:
+
+```text
+phone on 4G/5G -> vpn.yourdomain.duckdns.org -> home router/NAT -> NPM:443 -> Headscale LXC100_IP:8080
+```
+
+Before starting mobile enrollment:
+
+```bash
+curl -I https://vpn.yourdomain.duckdns.org
+docker exec headscale headscale configtest
+docker exec headscale headscale users list
+```
+
+Run the `curl` test from a non-home network if possible. If it works only from home Wi-Fi, fix [Runbook 03: NPM Public Reachability](doc_03_nginx_proxy_manager.md) before enrolling mobile devices.
 
 ### iPhone or iPad
 
@@ -156,6 +173,8 @@ Use a client that supports custom Headscale servers reliably. If using NovaAcces
 
 3. Paste the pre-auth key and join the tailnet.
 
+4. Turn off Wi-Fi and confirm the phone remains connected on 4G/5G.
+
 ### Android
 
 In the Tailscale app:
@@ -168,6 +187,31 @@ In the Tailscale app:
    ```bash
    docker exec headscale headscale nodes register -u 1 --key PASTE_THE_NODEKEY_HERE
    ```
+
+### Mobile Validation
+
+From LXC 100:
+
+```bash
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes list-routes
+```
+
+From the phone on 4G/5G:
+
+```bash
+ping 192.168.1.50
+nslookup dash.internal 192.168.1.50
+nslookup example.com 192.168.1.50
+```
+
+Expected:
+
+- the phone appears in `headscale nodes list`;
+- `192.168.1.50` responds through the subnet route;
+- `dash.internal` resolves through AdGuard;
+- AdGuard query log shows the phone's DNS queries;
+- after selecting the Proxmox exit node, public IP changes but DNS still goes to AdGuard.
 
 ---
 

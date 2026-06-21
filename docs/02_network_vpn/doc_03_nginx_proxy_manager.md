@@ -10,7 +10,7 @@ The full visibility contract is documented in [Service Visibility Matrix](../99_
 ## Architecture
 
 ```text
-Internet client -> DuckDNS -> router/NAT -> NPM -> Headscale API
+Phone on 4G -> vpn.yourdomain.duckdns.org -> router/NAT -> NPM:443 -> Headscale API
 LAN/VPN client -> AdGuard -> *.internal -> NPM -> internal service
 ```
 
@@ -19,6 +19,7 @@ Rules:
 - DuckDNS is only the public door for Headscale.
 - Internal apps use `.internal`.
 - Admin UIs stay VPN/Auth only.
+- A phone on 4G must reach Headscale before it can use `.internal`, AdGuard, or the subnet route.
 - If a service has a web UI, it needs an alias, an NPM proxy host, a Homepage card, and an Uptime Kuma monitor.
 
 Target placeholders:
@@ -56,7 +57,53 @@ docker ps
 ss -tulpn | grep -E ':80|:443|:81'
 ```
 
-## Phase B: Public Certificate for Headscale
+## Phase B: 4G-First Public Reachability
+
+The VPN is not ready until a phone can join from cellular data, before it has any LAN route or AdGuard DNS.
+
+Required path:
+
+```text
+phone on 4G/5G -> vpn.yourdomain.duckdns.org -> home router/NAT -> NPM TCP 443 -> Headscale LXC100_IP:8080
+```
+
+Router requirements:
+
+| Item | Required state |
+|---|---|
+| DuckDNS record | points to the current home public IP |
+| TCP `443` | forwarded from the router WAN to the NPM host |
+| TCP `80` | optional for HTTP redirect; not required for DuckDNS DNS-01 certificate issuance |
+| NPM proxy host | `vpn.yourdomain.duckdns.org` to `http://LXC100_IP:8080` |
+| Authentik / NPM access list | disabled for this public Headscale proxy host |
+| WebSocket support | enabled |
+
+External test from a non-home network:
+
+```bash
+curl -I https://vpn.yourdomain.duckdns.org
+```
+
+Expected: an HTTP response through NPM/Headscale. It does not need to look like a normal website, but the TLS handshake and HTTPS connection must work from outside the LAN.
+
+### CGNAT Decision
+
+Compare the router WAN IP with the public IP reported by an external IP-check site.
+
+| Result | Meaning | Decision |
+|---|---|---|
+| Router WAN IP matches public IP | direct inbound access is possible | use DuckDNS plus router port-forward |
+| Router WAN IP is private, shared, or different from public IP | ISP is likely using CGNAT or another upstream NAT | direct 4G access to home will not work with DuckDNS alone |
+
+If CGNAT blocks inbound access, use a small VPS relay as the sovereign fallback:
+
+```text
+phone on 4G -> VPS public IP -> open-source Nginx/Caddy -> WireGuard tunnel -> home NPM -> Headscale
+```
+
+Keep the VPS minimal: no private apps, no dashboard, no passwords beyond tunnel/proxy material. Do not make Cloudflare Tunnel the default path because it adds a third-party control plane to the VPN entrypoint.
+
+## Phase C: Public Certificate for Headscale
 
 Create a Let's Encrypt certificate only for:
 
@@ -77,7 +124,7 @@ In NPM:
 
 Do not request public certificates for private app hostnames.
 
-## Phase C: AdGuard DNS Rewrites
+## Phase D: AdGuard DNS Rewrites
 
 AdGuard must resolve internal names to NPM:
 
@@ -92,7 +139,7 @@ Why:
 - Remote VPN clients use AdGuard as DNS and get the same private aliases.
 - Headscale clients at home avoid hairpin routing for `vpn.yourdomain.duckdns.org`.
 
-## Phase D: Public Proxy Host
+## Phase E: Public Proxy Host
 
 Create one public proxy host:
 
@@ -127,7 +174,7 @@ curl -I https://vpn.yourdomain.duckdns.org
 
 Expected result: HTTP response from Headscale through NPM with a valid public certificate.
 
-## Phase E: Internal Admin Proxy Hosts
+## Phase F: Internal Admin Proxy Hosts
 
 These aliases are internal only. Protect them with VPN, Authentik forward auth, or an NPM access list.
 
@@ -155,7 +202,7 @@ Use:
 https://headscale.internal/web
 ```
 
-## Phase F: Internal Platform Proxy Hosts
+## Phase G: Internal Platform Proxy Hosts
 
 | Service | Hostname | Scheme | Upstream | WebSocket | Access |
 |---|---|---|---|---|---|
@@ -168,7 +215,7 @@ https://headscale.internal/web
 | Scrutiny | `disks.internal` | `http` | `LXC103_IP:8080` | no | VPN/admin |
 | ntfy | `alerts.internal` | `http` | `LXC103_IP:80` | yes | VPN/Auth |
 
-## Phase G: Internal App Proxy Hosts
+## Phase H: Internal App Proxy Hosts
 
 | Service | Hostname | Scheme | Upstream | WebSocket | Access |
 |---|---|---|---|---|---|
@@ -187,7 +234,7 @@ https://headscale.internal/web
 
 Enable each proxy host only after the service is installed and validated. Reserved aliases can appear in documentation and Homepage, but NPM should not forward to an empty target.
 
-## Phase H: Protocol Services Not Proxied by NPM
+## Phase I: Protocol Services Not Proxied by NPM
 
 Some services are not HTTP web UIs. Give them DNS names when useful, but do not create NPM proxy hosts for raw TCP/UDP protocols.
 
@@ -202,7 +249,7 @@ Some services are not HTTP web UIs. Give them DNS names when useful, but do not 
 
 `rustdesk.internal` must resolve directly to `RUSTDESK_HOST_IP`, not to NPM, because RustDesk clients connect to protocol ports directly.
 
-## Phase I: TLS for `.internal`
+## Phase J: TLS for `.internal`
 
 Private `.internal` names cannot use public Let's Encrypt certificates directly.
 
@@ -214,7 +261,7 @@ Accepted options:
 
 For the current lab, VPN-first HTTP upstreams behind NPM are acceptable while internal CA work is planned separately.
 
-## Phase J: Homepage and Uptime Kuma
+## Phase K: Homepage and Uptime Kuma
 
 After every proxy host is created:
 
@@ -264,6 +311,8 @@ Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, ntfy, Vault
 - Nextcloud AIO reverse proxy: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>
 - Authentik reverse proxy docs: <https://docs.goauthentik.io/install-config/reverse-proxy/>
 - Headscale docs: <https://headscale.net/>
+- WireGuard: <https://www.wireguard.com/>
+- Caddy reverse proxy docs: <https://caddyserver.com/docs/quick-starts/reverse-proxy>
 
 ---
 
