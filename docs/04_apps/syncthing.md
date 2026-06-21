@@ -6,47 +6,81 @@ Syncthing is a continuous file synchronization program. It synchronizes files be
 - **CPU / RAM**: 1 vCPU / 1 GB
 - **Access**: UI restricted to Admin/VPN only. Sync ports reachable via VPN.
 
-## 2. Directory & Secrets Setup
-Log into LXC 102 and navigate to the dedicated stack directory:
-```bash
-cd /opt/sovereign/stacks/syncthing
-cp .env.example .env
-nano .env
-```
-Update the timezone and verify ports (Default UI: `8384`, Sync: `22000` TCP/UDP, Discovery: `21027/udp`).
+## 2. VM / LXC Preparation & Storage
+Syncthing needs a place to store its config and the actual data it syncs.
+Create an LXC (e.g., ID 102). Bind mount the host's storage dataset to the LXC (e.g., `/mnt/data/sync` to `/data`). Ensure the user running Docker inside LXC has read/write access.
 
-## 3. Deployment
-Validate the configuration and start the container:
-```bash
-docker compose --env-file .env config
-docker compose --env-file .env up -d
-docker compose ps
+## 3. Docker Compose & Environment Variables
+Use the `linuxserver/syncthing` image for best permission management.
+
+Create `docker-compose.yml` in `/opt/sovereign/stacks/syncthing/`:
+
+```yaml
+services:
+  syncthing:
+    image: lscr.io/linuxserver/syncthing:latest
+    container_name: syncthing
+    hostname: syncthing # Optional, determines the default device name
+    environment:
+      - PUID=1000   # Critical: The UID of the user owning the data folder
+      - PGID=1000   # Critical: The GID of the group owning the data folder
+      - TZ=Europe/Rome
+      - UMASK_SET=022 # Controls file permissions (022 = 755 for dirs, 644 for files)
+    volumes:
+      - /opt/sovereign/stacks/syncthing/config:/config
+      - /mnt/data/sync:/data1
+    ports:
+      - 8384:8384 # Web UI
+      - 22000:22000/tcp # TCP file transfers
+      - 22000:22000/udp # QUIC file transfers
+      - 21027:21027/udp # Receive local discovery broadcasts
+    restart: unless-stopped
 ```
 
-## 4. Nginx Proxy Manager (NPM) Setup
+**Env Var Deep-Dive**: 
+- `PUID`/`PGID`: Syncthing runs as this user. If your host data directory is owned by UID 1000, setting `PUID=1000` ensures Syncthing can read/write without `chmod 777`.
+- `UMASK_SET`: Ensures new files synced from remote devices inherit the correct permissions on the local filesystem.
+
+## 4. Configuration & Hardening (GUI & `config.xml`)
+- **First Boot**: Access `http://<IP>:8384`. Immediately set a GUI Authentication User and Password (Settings > GUI).
+- **Network Hardening** (Settings > Connections):
+  - **Enable NAT Traversal**: Disable if port forwarding is configured or if strictly LAN.
+  - **Global Discovery**: Disable. This prevents your Device ID and IP from being broadcasted to Syncthing's public discovery servers.
+  - **Enable Relaying**: Disable. Forces direct connections. If disabled, traffic will never bounce through public third-party servers.
+  - **Local Discovery**: Enable (uses UDP 21027) so LAN devices find each other automatically.
+- **Folder Settings**:
+  - **Folder Type**: Send & Receive (default), Send Only (server acts as source of truth), or Receive Only (server acts as a backup/sink).
+  - **File Versioning**: Explain "Trash Can Versioning" (keeps deleted files for X days) and "Staggered Versioning" (keeps older versions on a logarithmic scale). This is critical since Syncthing is NOT a backup.
+  - **Ignore Patterns (`.stignore`)**: Consider ignoring `.DS_Store`, `Thumbs.db`, `.nomedia`, etc.
+
+## 5. Nginx Proxy Manager (NPM) Setup
 Log into NPM (`http://192.168.1.51:81`) to expose the Administrative Web UI securely:
 - **Domain Names**: `sync.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8384`
+- **Scheme / Forward IP / Port**: `http` / `<LXC_IP>` / `8384`
 - **Websockets Support**: ✅ Enabled
 - **SSL**: Select your wildcard certificate and enable Force SSL.
 
-*Note: Port 22000 (Sync) bypasses NPM and is reached directly via the VPN IP `192.168.1.52`.*
+*Note: Port 22000 (Sync) bypasses NPM and is reached directly via the VPN IP. Ensure global discovery is disabled and hardcode the server IP (`tcp://<LXC_IP>:22000`) in the clients to enforce LAN/VPN-only traffic.*
 
-## 5. Dashboard & Monitoring
-- **Homepage.dev**: Add to `services.yaml` under "Critical Data" pointing to `https://sync.internal`.
+## 6. Backup & Disaster Recovery
+**What to Backup**: 
+- The actual synchronized data in `/data1`.
+- The configuration directory `/opt/sovereign/stacks/syncthing/config`.
+
+**The Cryptographic Identity**:
+Inside the `config` folder are `cert.pem` and `key.pem`. These files **are** the Device ID.
+
+**Disaster Recovery Steps**:
+1. If the VM dies, deploy a new LXC and Docker stack.
+2. **Crucial**: Before starting the container for the first time, restore the `config` folder containing `config.xml`, `cert.pem`, and `key.pem`.
+3. Start the container. Because the keys match, the Device ID remains the same. Peer devices will seamlessly reconnect without realizing the server was rebuilt.
+4. If keys are lost: The server gets a new Device ID. All clients must remove the old device, add the new device, and re-share all folders, triggering a full hash recalculation (which can take hours/days for terabytes of data).
+
+**Database Reset**: 
+If the database is corrupted, use the `syncthing -reset-database` command (or delete the index folder). It forces a rebuild of the index without losing files or identity.
+
+## 7. Dashboard & Monitoring
+- **Homepage.dev**: Widget config pointing to the API. Add to `services.yaml` under "Critical Data" pointing to `https://sync.internal`.
 - **Uptime Kuma**: 
-  - Add an `HTTP(s)` monitor targeting `https://sync.internal` for the UI.
-  - Add a `TCP` monitor targeting `192.168.1.52:22000` to verify the sync engine is listening.
-
-## 6. Backup & Restore
-- **Backup**: Backup the `syncthing_config` volume. File versioning (Staggered or Trash Can) MUST be enabled inside the Syncthing UI for critical folders.
-- **Restore Drill**:
-  1. Restore the config volume to a test instance.
-  2. Verify that the server's Device ID is intact before reconnecting production peers to prevent full re-syncs.
-
-## 7. Rollback and Troubleshooting
-- If files stop syncing, check UI for folder conflicts, out-of-sync nodes, or permission errors on the mounted host directories.
-- If discovery fails, ensure global discovery is disabled and hardcode the server IP (`tcp://192.168.1.52:22000`) in the clients to enforce LAN/VPN-only traffic.
-- Never restore a severely outdated config while peers are active to avoid metadata mismatches.
-
-*Source: [Syncthing Docs](https://docs.syncthing.net/)*
+  - Add an `HTTP(s)` monitor targeting `https://sync.internal` for the UI, with authentication if necessary.
+  - Add a `TCP` monitor targeting `<LXC_IP>:22000` to verify the sync engine is listening.
