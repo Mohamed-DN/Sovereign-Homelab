@@ -296,7 +296,7 @@ In Headscale `config.yaml`:
 
 ```yaml
 oidc:
-  issuer: "https://auth.yourdomain.duckdns.org/application/o/headscale/"
+  issuer: "https://auth.internal/application/o/headscale/"
   client_id: "headscale"
   client_secret: "PASTE_CLIENT_SECRET"
   pkce:
@@ -304,6 +304,8 @@ oidc:
   allowed_users:
     - "you@example.com"
 ```
+
+For the default design, keep Authentik on `auth.internal`. Onboard new devices with pre-auth keys or from a LAN/VPN session before enabling OIDC as the normal login path. A public identity-provider exception belongs in a separate exposure runbook.
 
 Test:
 

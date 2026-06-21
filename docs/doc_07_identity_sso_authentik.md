@@ -16,7 +16,7 @@ Goal:
 Recommendation:
 
 - install Authentik in the application Docker stack, not inside LXC 100 if you want to keep the gateway lightweight;
-- expose `auth.<domain>` through Nginx Proxy Manager;
+- expose `auth.internal` through Nginx Proxy Manager;
 - protect admin access with MFA immediately.
 
 Template:
@@ -87,12 +87,12 @@ Then create the proxy host in NPM:
 
 | Field | Value |
 |---|---|
-| Domain Names | `auth.<domain>` |
+| Domain Names | `auth.internal` |
 | Scheme | `http` |
 | Forward Hostname/IP | Docker host IP |
 | Forward Port | `9000` |
 | Websockets | Enabled |
-| SSL | Wildcard certificate, Force SSL |
+| SSL | Internal CA/self-signed certificate or HTTP over VPN during bootstrap |
 
 ---
 
@@ -142,7 +142,7 @@ In Authentik:
 3. Redirect URI:
 
    ```text
-   https://vpn.<domain>/oidc/callback
+   https://vpn.yourdomain.duckdns.org/oidc/callback
    ```
 
 4. Leave Encryption Key empty.
@@ -152,7 +152,7 @@ In Headscale:
 
 ```yaml
 oidc:
-  issuer: "https://auth.<domain>/application/o/headscale/"
+  issuer: "https://auth.internal/application/o/headscale/"
   client_id: "headscale"
   client_secret: "PASTE_CLIENT_SECRET"
   pkce:
@@ -160,6 +160,8 @@ oidc:
   allowed_users:
     - "you@example.com"
 ```
+
+For the default design, keep Authentik on `auth.internal`. Onboard new devices with pre-auth keys or from a LAN/VPN session before making OIDC the normal Headscale login path. A public identity-provider exception belongs in a separate exposure runbook.
 
 Restart:
 
@@ -182,7 +184,7 @@ Protect:
 
 Before using Authentik in production, add:
 
-- Uptime Kuma monitor for `https://auth.<domain>`;
+- Uptime Kuma monitor for `https://auth.internal`;
 - PBS backup of the container/host;
 - optional restic backup for application volumes.
 
@@ -191,7 +193,7 @@ Operational verification:
 ```bash
 docker compose ps
 docker compose logs --tail=100 authentik-server
-curl -I https://auth.<domain>
+curl -I https://auth.internal
 ```
 
 ---

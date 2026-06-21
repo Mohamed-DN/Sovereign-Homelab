@@ -58,12 +58,14 @@ To force remote clients on 4G/5G or hotel Wi-Fi to use AdGuard Home, configure H
 ```yaml
 dns:
   magic_dns: true
-  base_domain: home.net
+  base_domain: tailnet.internal
   nameservers:
     global:
       - 192.168.1.50
   override_local_dns: true
 ```
+
+`tailnet.internal` is reserved for VPN device names. Application names such as `auth.internal`, `dash.internal`, and `pwd.internal` remain normal AdGuard rewrites behind Nginx Proxy Manager.
 
 Then restart Headscale:
 
@@ -254,7 +256,7 @@ For full-tunnel internet traffic, continue with [Runbook 05: Proxmox Host as Tai
 Headscale-UI is exposed through Nginx Proxy Manager at:
 
 ```text
-https://vpn.yourdomain.duckdns.org/web
+https://headscale.internal/web
 ```
 
 Generate an API key from LXC 100:

@@ -37,8 +37,8 @@ Goal: personal devices can reach the LAN and use filtered DNS even when outside 
 Checklist:
 
 - AdGuard responds on `192.168.1.50:53`.
-- `vpn.<domain>` points correctly to Headscale through NPM.
-- Headscale uses `server_url: https://vpn.<domain>`.
+- `vpn.yourdomain.duckdns.org` points correctly to Headscale through NPM.
+- Headscale uses `server_url: https://vpn.yourdomain.duckdns.org`.
 - LXC 100 advertises `192.168.1.0/24`.
 - The Proxmox host advertises `0.0.0.0/0`.
 - A phone on 4G can reach `192.168.1.50`.
@@ -62,7 +62,7 @@ Decision:
 
 Checklist:
 
-- `auth.<domain>` is active with TLS.
+- `auth.internal` is active through VPN with either trusted internal TLS or documented bootstrap HTTP.
 - MFA is enabled for the admin user.
 - Authentik groups exist: `homelab-admins`, `homelab-users`.
 - Headscale-UI, Homepage, Uptime Kuma, and Beszel are protected.

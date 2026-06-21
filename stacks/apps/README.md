@@ -57,7 +57,7 @@ docker compose --env-file .env --profile nextcloud up -d
 
 | Hostname | Forward |
 |---|---|
-| `pwd.<domain>` | `http://HOST:8082` |
-| `foto.<domain>` | `http://HOST:2283` |
-| `sync.<domain>` | `http://HOST:8384` admin only |
-| `files.<domain>` | `http://HOST:11000` |
+| `pwd.internal` | `http://HOST:8082` |
+| `foto.internal` | `http://HOST:2283` |
+| `sync.internal` | `http://HOST:8384` admin only |
+| `files.internal` | `http://HOST:11000` |

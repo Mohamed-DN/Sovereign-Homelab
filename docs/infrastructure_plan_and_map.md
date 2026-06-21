@@ -35,13 +35,13 @@ graph TD
     Exit -->|Residential internet exit| Internet
     DNS -->|Filtered DNS recursion| Internet
     User -->|Internal HTTPS names| Proxy
-    Proxy -->|auth.<domain>| Auth
+    Proxy -->|auth.internal| Auth
     Proxy -->|dash/status/monitor| Obs
 
-    Proxy -->|pwd.local| Vault["Vaultwarden"]
-    Proxy -->|foto.local| Immich["Immich"]
-    Proxy -->|files.local| Files["Nextcloud / Syncthing"]
-    Proxy -->|dash.local| Dash["Homepage"]
+    Proxy -->|pwd.internal| Vault["Vaultwarden"]
+    Proxy -->|foto.internal| Immich["Immich"]
+    Proxy -->|files.internal| Files["Nextcloud / Syncthing"]
+    Proxy -->|dash.internal| Dash["Homepage"]
 ```
 
 ## 2. Physical Architecture

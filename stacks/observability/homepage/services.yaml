@@ -6,7 +6,7 @@
         href: https://vpn.yourdomain.duckdns.org
         description: Mesh VPN control plane
     - Headscale UI:
-        href: https://vpn.yourdomain.duckdns.org/web
+        href: https://headscale.internal/web
         description: Device and route management
     - Nginx Proxy Manager:
         href: http://192.168.1.50:81
@@ -14,28 +14,28 @@
 
 - Operations:
     - Authentik:
-        href: https://auth.yourdomain.duckdns.org
+        href: https://auth.internal
         description: SSO and MFA
     - Uptime Kuma:
-        href: https://status.yourdomain.duckdns.org
+        href: https://status.internal
         description: Uptime and alerts
     - Beszel:
-        href: https://monitor.yourdomain.duckdns.org
+        href: https://monitor.internal
         description: Host and container metrics
     - Dozzle:
-        href: https://logs.yourdomain.duckdns.org
+        href: https://logs.internal
         description: Docker live logs
 
 - Apps:
     - Vaultwarden:
-        href: https://pwd.yourdomain.duckdns.org
+        href: https://pwd.internal
         description: Password vault
     - Immich:
-        href: https://foto.yourdomain.duckdns.org
+        href: https://foto.internal
         description: Photo and video backup
     - Nextcloud:
-        href: https://files.yourdomain.duckdns.org
+        href: https://files.internal
         description: Personal cloud
     - Syncthing:
-        href: https://sync.yourdomain.duckdns.org
+        href: https://sync.internal
         description: Peer-to-peer file sync

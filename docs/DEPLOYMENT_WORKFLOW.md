@@ -27,14 +27,14 @@ Use this convention:
 
 | Type | Example |
 |---|---|
-| Passwords | `pwd.<domain>` |
-| Photos | `foto.<domain>` |
-| Files | `files.<domain>` |
-| Documents | `paper.<domain>` |
-| RSS | `rss.<domain>` |
-| Bookmarks | `bookmarks.<domain>` |
-| Media | `media.<domain>` |
-| Home automation | `ha.<domain>` |
+| Passwords | `pwd.internal` |
+| Photos | `foto.internal` |
+| Files | `files.internal` |
+| Documents | `paper.internal` |
+| RSS | `rss.internal` |
+| Bookmarks | `bookmarks.internal` |
+| Media | `media.internal` |
+| Home automation | `ha.internal` |
 
 Before deployment:
 
@@ -98,19 +98,19 @@ docker compose logs --tail=100
 In Nginx Proxy Manager:
 
 1. Add Proxy Host.
-2. Domain: `service.<domain>`.
+2. Domain: `service.internal`.
 3. Scheme: `http`.
 4. Forward Hostname/IP: Docker host IP or container name if on the same network.
 5. Forward Port: published internal port.
 6. Enable WebSockets if the app uses them.
-7. Enable SSL with the wildcard certificate.
-8. Enable Force SSL.
+7. Choose TLS mode: internal CA/self-signed certificate, or HTTP while access is restricted to VPN during bootstrap.
+8. Enable Force SSL only after the certificate is trusted by your clients.
 
 Access:
 
 - admin UI: VPN/Auth;
 - personal app: VPN-first;
-- public only when required and documented.
+- public exception only after a separate written decision.
 
 ## Phase 5: Authentik
 
@@ -122,13 +122,13 @@ If the service does not have strong MFA or is an admin UI:
 4. Configure NPM with forward auth if needed.
 5. Test from a clean browser or private session.
 
-Do not protect the Headscale control plane with generic forward auth: VPN clients must be able to talk to `vpn.<domain>` without an interactive web flow.
+Keep the Headscale control plane free of generic forward auth: VPN clients must be able to talk to `vpn.yourdomain.duckdns.org` without an interactive web flow.
 
 ## Phase 6: Uptime Kuma and Homepage
 
 Minimum Uptime Kuma coverage:
 
-- HTTP monitor on `https://service.<domain>`;
+- HTTP monitor on `https://service.internal`;
 - TCP monitor for non-HTTP services;
 - DNS monitor for AdGuard and critical records.
 
@@ -167,7 +167,7 @@ Update:
 
 Decision:
 
-- hostname: `paper.<domain>`;
+- hostname: `paper.internal`;
 - access: VPN/Auth;
 - data: original documents, OCR media, DB;
 - backup: DB + media + consume/export;
@@ -195,7 +195,7 @@ Validation:
 
 Decision:
 
-- hostname: `rss.<domain>`;
+- hostname: `rss.internal`;
 - access: VPN/Auth;
 - data: feeds, users, DB or data volume;
 - backup: data volume or DB;

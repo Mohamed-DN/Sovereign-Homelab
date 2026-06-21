@@ -17,7 +17,17 @@ The chosen model is:
 2. Review the map: [infrastructure_plan_and_map.md](docs/infrastructure_plan_and_map.md).
 3. Open the matrix: [PORTS_AND_DNS_MATRIX.md](docs/PORTS_AND_DNS_MATRIX.md).
 4. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/INVENTORY_AND_IP_PLAN.md).
-5. Choose the DuckDNS domain and keep a stable naming convention.
+5. Choose the DuckDNS domain for public VPN entry only.
+6. Use `.internal` for internal/VPN-only services.
+
+### Enterprise DNS Decision
+
+This lab uses a two-zone model:
+
+- **Public edge**: `vpn.yourdomain.duckdns.org` is the only required public hostname. It exists so remote clients on 4G, hotel Wi-Fi, or travel networks can reach Headscale.
+- **Private namespace**: every internal service uses `.internal`, for example `auth.internal`, `dash.internal`, `pwd.internal`, and `files.internal`.
+
+Large environments usually use a private subdomain of a registered corporate domain. This lab uses DuckDNS only for the VPN edge, so `.internal` is the clean private namespace for LAN/VPN services.
 
 ### 1. Network Foundation
 
@@ -65,15 +75,17 @@ Recommended order for new apps:
 
 | Service | Recommended hostname | Recommended access |
 |---|---|---|
-| Headscale | `vpn.<domain>` | Public HTTPS, required by clients |
-| Headscale-UI | `vpn.<domain>/web` | VPN or Authentik |
-| Authentik | `auth.<domain>` | Public HTTPS with strong MFA |
-| Homepage | `dash.<domain>` | VPN or Authentik |
-| Uptime Kuma | `status.<domain>` | VPN or Authentik |
-| Beszel | `monitor.<domain>` | VPN or Authentik |
-| Vaultwarden | `pwd.<domain>` | VPN-first; public only if required |
-| Immich | `foto.<domain>` | VPN-first; public only if required |
-| Nextcloud | `files.<domain>` | VPN-first; public only if required |
+| Headscale API | `vpn.yourdomain.duckdns.org` | Public HTTPS, required by clients |
+| Headscale-UI | `headscale.internal/web` | VPN or Authentik |
+| Authentik | `auth.internal` | VPN or Authentik |
+| Homepage | `dash.internal` | VPN or Authentik |
+| Uptime Kuma | `status.internal` | VPN or Authentik |
+| Beszel | `monitor.internal` | VPN or Authentik |
+| Vaultwarden | `pwd.internal` | VPN-first |
+| Immich | `foto.internal` | VPN-first |
+| Nextcloud | `files.internal` | VPN-first |
+
+DuckDNS is the public door. `.internal` is the private service namespace.
 
 ## Golden Rule
 

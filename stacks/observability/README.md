@@ -22,10 +22,10 @@ docker compose ps
 
 | Hostname | Forward | Access |
 |---|---|---|
-| `dash.<domain>` | `http://HOST:3002` | VPN/Auth |
-| `status.<domain>` | `http://HOST:3001` | VPN/Auth |
-| `monitor.<domain>` | `http://HOST:8090` | VPN/Auth |
-| `logs.<domain>` | `http://HOST:8088` | Admin only |
+| `dash.internal` | `http://HOST:3002` | VPN/Auth |
+| `status.internal` | `http://HOST:3001` | VPN/Auth |
+| `monitor.internal` | `http://HOST:8090` | VPN/Auth |
+| `logs.internal` | `http://HOST:8088` | Admin only |
 
 ## Verification
 

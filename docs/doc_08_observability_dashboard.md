@@ -17,10 +17,10 @@ Recommended access:
 
 | Service | Hostname | Access |
 |---|---|---|
-| Homepage | `dash.<domain>` | VPN or Authentik |
-| Uptime Kuma | `status.<domain>` | VPN or Authentik |
-| Beszel | `monitor.<domain>` | VPN or Authentik |
-| Dozzle | `logs.<domain>` | Admin only via VPN or Authentik |
+| Homepage | `dash.internal` | VPN or Authentik |
+| Uptime Kuma | `status.internal` | VPN or Authentik |
+| Beszel | `monitor.internal` | VPN or Authentik |
+| Dozzle | `logs.internal` | Admin only via VPN or Authentik |
 
 Dozzle reads the Docker socket. Treat it as an admin tool, not as a public app.
 
@@ -57,10 +57,10 @@ Configure in Nginx Proxy Manager:
 
 | Hostname | Forward port | Websockets |
 |---|---:|---|
-| `dash.<domain>` | `3002` | No |
-| `status.<domain>` | `3001` | Yes |
-| `monitor.<domain>` | `8090` | Yes |
-| `logs.<domain>` | `8088` | Yes |
+| `dash.internal` | `3002` | No |
+| `status.internal` | `3001` | Yes |
+| `monitor.internal` | `8090` | Yes |
+| `logs.internal` | `8088` | Yes |
 
 Then choose:
 
@@ -76,13 +76,13 @@ Create monitors:
 | Name | Type | Target |
 |---|---|---|
 | AdGuard DNS | DNS | `192.168.1.50`, record `example.com` |
-| Headscale HTTPS | HTTP(s) | `https://vpn.<domain>` |
-| Headscale-UI | HTTP(s) | `https://vpn.<domain>/web` |
+| Headscale HTTPS | HTTP(s) | `https://vpn.yourdomain.duckdns.org` |
+| Headscale-UI | HTTP(s) | `https://headscale.internal/web` |
 | NPM UI | HTTP(s) | `http://192.168.1.50:81` or real IP |
-| Authentik | HTTP(s) | `https://auth.<domain>` |
-| Vaultwarden | HTTP(s) | `https://pwd.<domain>` |
-| Immich | HTTP(s) | `https://foto.<domain>` |
-| Nextcloud | HTTP(s) | `https://files.<domain>` |
+| Authentik | HTTP(s) | `https://auth.internal` |
+| Vaultwarden | HTTP(s) | `https://pwd.internal` |
+| Immich | HTTP(s) | `https://foto.internal` |
+| Nextcloud | HTTP(s) | `https://files.internal` |
 
 Recommended alerts:
 
@@ -142,7 +142,7 @@ docker logs -f container_name
 into:
 
 ```text
-https://logs.<domain>
+https://logs.internal
 ```
 
 Rule: Dozzle is admin-only. Anyone who can read logs can see tokens, errors, paths, and sensitive details.

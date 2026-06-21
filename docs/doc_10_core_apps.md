@@ -17,10 +17,10 @@ Do not add real data until backup has been verified.
 
 | App | Hostname | Recommended access |
 |---|---|---|
-| Vaultwarden | `pwd.<domain>` | VPN-first; public only if required |
-| Immich | `foto.<domain>` | VPN-first; public only if required |
-| Syncthing | `sync.<domain>` | VPN/admin only |
-| Nextcloud | `files.<domain>` | VPN-first; public only if required |
+| Vaultwarden | `pwd.internal` | VPN-first |
+| Immich | `foto.internal` | VPN-first |
+| Syncthing | `sync.internal` | VPN/admin only |
+| Nextcloud | `files.internal` | VPN-first |
 
 For apps with mobile clients, public HTTPS exposure is acceptable only after:
 
@@ -55,7 +55,7 @@ NPM:
 
 | Field | Value |
 |---|---|
-| Domain | `pwd.<domain>` |
+| Domain | `pwd.internal` |
 | Forward port | `8082` |
 | Websockets | Enabled |
 | SSL | Force SSL |
@@ -118,7 +118,7 @@ NPM:
 
 | Field | Value |
 |---|---|
-| Domain | `foto.<domain>` |
+| Domain | `foto.internal` |
 | Forward port | `2283` |
 | Websockets | Enabled |
 | SSL | Force SSL |
