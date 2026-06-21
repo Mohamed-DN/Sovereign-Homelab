@@ -5,9 +5,13 @@ services:
     image: jellyfin/jellyfin:${JELLYFIN_TAG}
     container_name: jellyfin
     restart: unless-stopped
+    environment:
+      - TZ=${TZ}
     ports:
       - "${JELLYFIN_PORT}:8096"
     volumes:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
       - ${JELLYFIN_MEDIA_PATH}:/media:ro
+    devices:
+      - /dev/dri:/dev/dri # Required for Intel QuickSync / AMD VAAPI transcoding
