@@ -1,51 +1,40 @@
-# SearXNG
+# SearXNG Deployment Runbook
 
-### Purpose
+## 1. Overview & Sizing
+SearXNG is a privacy-respecting metasearch engine. Do not expose this publicly to avoid your IP being banned by search providers.
+- **Target**: LXC 102 (`apps-light`)
+- **CPU / RAM**: 1 vCPU / 1 GB
+- **Access**: Strict VPN/Internal access only.
 
-SearXNG is a private metasearch UI. Keep it VPN-only to avoid abuse.
-
-### Target and Sizing
-
-| Field | Value |
-|---|---|
-| Target | LXC 102 `apps-light` |
-| CPU | 1 vCPU |
-| RAM | 1 GB |
-| Profile | `searxng` |
-
-### Install
-
+## 2. Directory & Secrets Setup
+Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/extended-services
+cd /opt/sovereign/stacks/searxng
+cp .env.example .env
 nano .env
-docker compose --env-file .env --profile searxng config
-docker compose --env-file .env --profile searxng up -d
+```
+Update the required variables:
+- `SEARXNG_SECRET_KEY`: Generate a random string using `openssl rand -hex 32`.
+
+## 3. Deployment
+Validate and start the container along with its Redis cache:
+```bash
+docker compose --env-file .env config
+docker compose --env-file .env up -d
+docker compose ps
 ```
 
-Set `SEARXNG_BASE_URL=https://search.internal` in Compose and use a strong `SEARXNG_SECRET_KEY`.
+## 4. Nginx Proxy Manager (NPM) Setup
+Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+- **Domain Names**: `search.internal`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8084`
+- **Websockets Support**: ❌ Disabled
+- **SSL**: Select your wildcard certificate and enable Force SSL.
 
-### Alias, Proxy, Dashboard, Monitor
+## 5. Dashboard & Monitoring
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://search.internal`.
+- **Uptime Kuma**: Add an `HTTP(s)` monitor targeting `https://search.internal`.
 
-| Item | Value |
-|---|---|
-| Alias | `search.internal` |
-| NPM upstream | `http://LXC102_IP:8084` |
-| WebSocket | no |
-| Homepage group | Apps |
-| Uptime Kuma | `app-searxng`, HTTP(s), `https://search.internal` |
-| Access | VPN/Auth |
-
-### Backup
-
-Back up SearXNG config. It has little user data unless customized.
-
-### Restore Drill
-
-Restore config to a test instance and run a query.
-
-### Rollback and Troubleshooting
-
-- If engines fail, update SearXNG and review engine config.
-- Do not expose publicly.
-
-Source: <https://docs.searxng.org/admin/installation-docker.html>
+## 6. Backup & Restore
+- **Backup**: Only the `searxng_config` needs to be backed up via PBS, as user data is intentionally not retained.
+- **Restore Test**: Restore config and verify search engines (e.g., Google, DuckDuckGo) load without API blocks.
