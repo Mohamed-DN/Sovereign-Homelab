@@ -10,22 +10,37 @@ services:
       POSTGRES_USER: ${PAPERLESS_DB_USER}
       POSTGRES_PASSWORD: ${PAPERLESS_DB_PASSWORD}
     volumes:
-      - paperless_db:/var/lib/postgresql/data
+    - paperless_db:/var/lib/postgresql/data
 
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-db}
+      interval: 10s
+      timeout: 5s
+      retries: 5
   paperless-redis:
     image: docker.io/library/redis:7-alpine
     container_name: paperless-redis
     restart: unless-stopped
     volumes:
-      - paperless_redis:/data
+    - paperless_redis:/data
 
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
   paperless:
     image: ghcr.io/paperless-ngx/paperless-ngx:${PAPERLESS_TAG}
     container_name: paperless
     restart: unless-stopped
     depends_on:
-      - paperless-db
-      - paperless-redis
+    - paperless-db
+    - paperless-redis
     environment:
       PAPERLESS_SECRET_KEY: ${PAPERLESS_SECRET_KEY}
       PAPERLESS_URL: ${PAPERLESS_URL}
@@ -36,13 +51,22 @@ services:
       PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
       PAPERLESS_TIME_ZONE: ${TZ}
     ports:
-      - "${PAPERLESS_PORT}:8000"
+    - "${PAPERLESS_PORT}:8000"
     volumes:
-      - paperless_data:/usr/src/paperless/data
-      - paperless_media:/usr/src/paperless/media
-      - ./data/paperless/export:/usr/src/paperless/export
-      - ./data/paperless/consume:/usr/src/paperless/consume
+    - paperless_data:/usr/src/paperless/data
+    - paperless_media:/usr/src/paperless/media
+    - ./data/paperless/export:/usr/src/paperless/export
+    - ./data/paperless/consume:/usr/src/paperless/consume
 
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:8000/
+      interval: 30s
+      timeout: 10s
+      retries: 3
 volumes:
   paperless_db:
   paperless_redis:
