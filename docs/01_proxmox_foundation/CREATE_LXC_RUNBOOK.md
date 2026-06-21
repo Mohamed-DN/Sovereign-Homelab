@@ -70,15 +70,15 @@ docker compose version
 ## Directory Standard
 
 ```bash
-mkdir -p /opt/sovereign/stacks
-mkdir -p /opt/sovereign/backups
-mkdir -p /opt/sovereign/data
+mkdir -p /opt/sovereign-homelab/stacks
+mkdir -p /opt/sovereign-homelab/backups
+mkdir -p /opt/sovereign-homelab/data
 ```
 
 Use:
 
 - `/opt/core-network` only for LXC 100.
-- `/opt/sovereign` for platform and app LXCs.
+- `/opt/sovereign-homelab` for platform and app LXCs.
 
 ## Verification
 

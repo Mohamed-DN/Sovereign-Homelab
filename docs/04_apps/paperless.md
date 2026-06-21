@@ -14,8 +14,8 @@ Paperless-ngx is a document management system that performs OCR on scanned docum
 
 Create a dedicated stack directory for Paperless:
 ```bash
-mkdir -p /opt/sovereign/stacks/paperless
-cd /opt/sovereign/stacks/paperless
+mkdir -p /opt/sovereign-homelab/stacks/paperless
+cd /opt/sovereign-homelab/stacks/paperless
 ```
 
 Your `docker-compose.yml` should define the complete architecture:
@@ -76,7 +76,7 @@ docker compose exec paperless manage.py createsuperuser
 
 ## 5. Reverse Proxy Configuration (NPM)
 
-Access Nginx Proxy Manager (NPM) at `https://npm.internal` and create a Proxy Host.
+Access Nginx Proxy Manager (NPM) at `http://npm.internal` and create a Proxy Host.
 
 - **Domain Names**: `paper.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8010`

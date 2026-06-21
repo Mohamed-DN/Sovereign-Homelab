@@ -9,7 +9,7 @@ SearXNG is a privacy-respecting metasearch engine. Do not expose this publicly t
 ## 2. Directory & Secrets Setup
 Log into LXC 102 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/searxng
+cd /opt/sovereign-homelab/stacks/searxng
 cp .env.example .env
 nano .env
 ```
@@ -26,7 +26,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a Proxy Host:
+Log into NPM at `http://npm.internal` and create a Proxy Host:
 - **Domain Names**: `search.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8084`
 - **Websockets Support**: disabled; SearXNG does not need it.

@@ -12,16 +12,6 @@ services:
     volumes:
     - ./homepage:/app/config
     - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    healthcheck:
-      test:
-      - CMD
-      - curl
-      - -f
-      - http://localhost:3000/api/health
-      interval: 30s
-      timeout: 10s
-      retries: 3
   uptime-kuma:
     image: louislam/uptime-kuma:${UPTIME_KUMA_TAG}
     container_name: uptime-kuma
@@ -52,6 +42,8 @@ services:
   beszel-agent:
     image: henrygd/beszel-agent:${BESZEL_AGENT_TAG}
     container_name: beszel-agent
+    profiles:
+    - manual-agent
     restart: unless-stopped
     network_mode: host
     environment:
@@ -68,16 +60,6 @@ services:
     - "${DOZZLE_PORT}:8080"
     volumes:
     - /var/run/docker.sock:/var/run/docker.sock:ro
-
-    healthcheck:
-      test:
-      - CMD
-      - curl
-      - -f
-      - http://localhost:8080/healthcheck
-      interval: 30s
-      timeout: 10s
-      retries: 3
 volumes:
   uptime_kuma_data:
   beszel_data:

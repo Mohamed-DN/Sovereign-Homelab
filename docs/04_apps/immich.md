@@ -9,7 +9,7 @@ Immich is a high-performance photo and video backup solution. It is a **P0 Criti
 ## 2. Directory & Secrets Setup
 Log into VM 110 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/immich
+cd /opt/sovereign-homelab/stacks/immich
 cp .env.example .env
 nano .env
 ```
@@ -28,7 +28,7 @@ docker compose ps
 *Note: The Machine Learning container may take a few minutes to download models on first boot. Monitor with `docker logs -f immich_machine_learning`.*
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a new Proxy Host:
+Log into NPM at `http://npm.internal` and create a new Proxy Host:
 - **Domain Names**: `foto.internal`
 - **Scheme / Forward IP / Port**: `http` / `VM110_IP` / `2283`
 - **Websockets Support**: enabled

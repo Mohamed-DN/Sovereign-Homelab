@@ -16,13 +16,13 @@ Karakeep requires a container runtime. We host this in our `apps-light` LXC cont
    ```
 3. **Directory Scaffolding**: Create the required directory structure for the stack.
    ```bash
-   mkdir -p /opt/sovereign/stacks/karakeep
-   cd /opt/sovereign/stacks/karakeep
+   mkdir -p /opt/sovereign-homelab/stacks/karakeep
+   cd /opt/sovereign-homelab/stacks/karakeep
    ```
 4. **Create `docker-compose.yml`**: Ensure your compose file defines the app, meilisearch, and headless chrome services, as well as the named volumes (`karakeep_data` and `karakeep_meili`).
 
 ## 3. Environment Variables & Secrets Deep-Dive
-Within the `/opt/sovereign/stacks/karakeep` directory, create your `.env` file (`cp .env.example .env` if you have an example file, or create it fresh):
+Within the `/opt/sovereign-homelab/stacks/karakeep` directory, create your `.env` file (`cp .env.example .env` if you have an example file, or create it fresh):
 ```bash
 nano .env
 ```
@@ -47,7 +47,7 @@ docker compose ps
 ```
 
 ## 5. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a Proxy Host:
+Log into NPM at `http://npm.internal` and create a Proxy Host:
 - **Domain Names**: `bookmarks.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `3010`
 - **Websockets Support**: enabled
@@ -63,7 +63,7 @@ Data integrity for Karakeep relies on SQLite and Meilisearch. **Live backups can
 ### Backup Procedure
 1. **Stop Containers**: You MUST stop the containers before copying data.
    ```bash
-   cd /opt/sovereign/stacks/karakeep
+   cd /opt/sovereign-homelab/stacks/karakeep
    docker compose down
    ```
 2. **Backup Volumes & Config**: Use a temporary container to safely archive the named volumes, and standard `tar` for config files.
@@ -79,7 +79,7 @@ Data integrity for Karakeep relies on SQLite and Meilisearch. **Live backups can
 
 ### Restore Procedure
 1. **Stop running containers** on the target machine (if any): `docker compose down`.
-2. **Restore Config**: Extract the configuration archive into `/opt/sovereign/stacks/karakeep`.
+2. **Restore Config**: Extract the configuration archive into `/opt/sovereign-homelab/stacks/karakeep`.
    ```bash
    tar -xzvf karakeep_config_*.tar.gz
    ```
@@ -87,7 +87,7 @@ Data integrity for Karakeep relies on SQLite and Meilisearch. **Live backups can
    ```bash
    docker run --rm -v karakeep_data:/data -v karakeep_meili:/meili_data -v $(pwd):/backup alpine sh -c "tar -xzvf /backup/karakeep_volumes_*.tar.gz -C /"
    ```
-4. **Start Application**: Run `docker compose up -d` in `/opt/sovereign/stacks/karakeep`.
+4. **Start Application**: Run `docker compose up -d` in `/opt/sovereign-homelab/stacks/karakeep`.
 5. **Verify**: Log in, search for a bookmark, and verify archived pages render correctly.
 
 ## 8. Troubleshooting

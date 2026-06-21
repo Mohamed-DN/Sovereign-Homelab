@@ -1,5 +1,9 @@
 # Troubleshooting Matrix
 
+**Previous:** [Live Build Log: 2026-06-21](LIVE_BUILD_LOG_2026-06-21.md)
+
+**Next:** [Runbook 11: Security Operations](doc_11_security_operations.md)
+
 ## VPN
 
 | Symptom | Check | Fix |

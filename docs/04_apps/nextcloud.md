@@ -4,17 +4,17 @@
 Nextcloud All-in-One (AIO) provides file hosting, calendar, contacts, and collaboration tools. It uses a Mastercontainer architecture to manage its own sub-containers. It is a **P1 Critical** service.
 - **Target**: VM 120 (`nextcloud-aio`)
 - **CPU / RAM**: 4 vCPU / 8-12 GB
-- **Storage**: OS Disk (120GB) + Dedicated Mount for `/opt/sovereign/data/nextcloud`.
+- **Storage**: OS Disk (120GB) + Dedicated Mount for `/opt/sovereign-homelab/data/nextcloud`.
 
 ## 2. Directory & Secrets Setup
 Log into VM 120 and navigate to the dedicated stack directory:
 ```bash
-cd /opt/sovereign/stacks/nextcloud
+cd /opt/sovereign-homelab/stacks/nextcloud
 cp .env.example .env
 nano .env
 ```
 Ensure the datadir is set to your large mount:
-- `NEXTCLOUD_DATADIR=/opt/sovereign/data/nextcloud`
+- `NEXTCLOUD_DATADIR=/opt/sovereign-homelab/data/nextcloud`
 
 ## 3. Deployment (Mastercontainer)
 Nextcloud AIO uses a Mastercontainer to spawn the other containers automatically.
@@ -27,7 +27,7 @@ Access `https://[VM120_IP]:8080` (bypass the SSL warning) to reach the AIO Setup
 
 ## 4. Nginx Proxy Manager (NPM) Setup
 Before completing the AIO setup, configure the reverse proxy:
-Log into NPM at `https://npm.internal` and create a Proxy Host:
+Log into NPM at `http://npm.internal` and create a Proxy Host:
 - **Domain Names**: `files.internal`
 - **Scheme / Forward IP / Port**: `http` / `VM120_IP` / `11000`
 - **Websockets Support**: enabled

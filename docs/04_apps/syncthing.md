@@ -13,7 +13,7 @@ Create an LXC (e.g., ID 102). Bind mount the host's storage dataset to the LXC (
 ## 3. Docker Compose & Environment Variables
 Use the repository template in `stacks/syncthing`. It uses the official `syncthing/syncthing` image and a pinned tag from [Pinned Image Versions](../99_reference/PINNED_IMAGE_VERSIONS.md).
 
-Create `docker-compose.yml` in `/opt/sovereign/stacks/syncthing/`:
+Create `docker-compose.yml` in `/opt/sovereign-homelab/stacks/syncthing/`:
 
 ```yaml
 services:
@@ -53,7 +53,7 @@ services:
   - **Ignore Patterns (`.stignore`)**: Consider ignoring `.DS_Store`, `Thumbs.db`, `.nomedia`, etc.
 
 ## 5. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` to expose the Administrative Web UI securely:
+Log into NPM at `http://npm.internal` to expose the Administrative Web UI securely:
 - **Domain Names**: `sync.internal`
 - **Scheme / Forward IP / Port**: `http` / `<LXC_IP>` / `8384`
 - **Websockets Support**: enabled
@@ -64,7 +64,7 @@ Log into NPM at `https://npm.internal` to expose the Administrative Web UI secur
 ## 6. Backup & Disaster Recovery
 **What to Backup**: 
 - The actual synchronized data in `/data1`.
-- The configuration directory `/opt/sovereign/stacks/syncthing/config`.
+- The configuration directory `/opt/sovereign-homelab/stacks/syncthing/config`.
 
 **The Cryptographic Identity**:
 Inside the `config` folder are `cert.pem` and `key.pem`. These files **are** the Device ID.

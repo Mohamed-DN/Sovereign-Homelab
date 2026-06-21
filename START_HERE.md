@@ -81,10 +81,11 @@ Large environments usually use a private subdomain of a registered corporate dom
 
 1. [OPERATIONS_MANUAL.md](docs/06_operations_security/OPERATIONS_MANUAL.md): daily, weekly, and monthly routines.
 2. [LIVE_PROXMOX_VALIDATION.md](docs/06_operations_security/LIVE_PROXMOX_VALIDATION.md): live server audit, 4G VPN acceptance, dashboards, and backup gate.
-3. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
-4. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
-5. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
-6. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
+3. [LIVE_BUILD_LOG_2026-06-21.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md): factual record of the first live platform/PBS/Kuma build.
+4. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
+5. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
+6. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
+7. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
 
 ### 6. Controlled Expansion
 

@@ -15,7 +15,7 @@ git diff --check
 rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
-rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|netalert\\.yourdomain\\.duckdns\\.org|disks\\.yourdomain\\.duckdns\\.org|alerts\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg --pcre2 -n "\\.x\\b|\\.local\\b|\\.home\\b(?!-assistant)|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|netalert\\.yourdomain\\.duckdns\\.org|disks\\.yourdomain\\.duckdns\\.org|alerts\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "STACK_CATALOG_OPEN_SOURCE|PROJECT\\.md|compatibility stubs|APP_SERVICE_RUNBOOKS|stacks/apps|extended-services|IN_PROGRESS|\\.agents" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md'
 ```
@@ -232,37 +232,43 @@ Then confirm:
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I https://auth.internal
-curl -I https://dash.internal
-curl -I https://status.internal
-curl -I https://monitor.internal
+curl -I http://auth.internal
+curl -I http://dash.internal
+curl -I http://status.internal
+curl -I http://monitor.internal
+curl -I http://logs.internal
+curl -I http://pbs.internal
 ```
+
+Bootstrap note: internal aliases are currently HTTP over LAN/VPN. After an internal CA is deployed, repeat the same checks with `https://*.internal`.
 
 ## App Checks
 
 ```bash
-curl -I https://pwd.internal
-curl -I https://foto.internal
-curl -I https://files.internal
-curl -I https://sync.internal
-curl -I https://paper.internal
-curl -I https://rss.internal
-curl -I https://bookmarks.internal
-curl -I https://search.internal
-curl -I https://git.internal
-curl -I https://media.internal
-curl -I https://ha.internal
-curl -I https://ai.internal
+curl -I http://pwd.internal
+curl -I http://foto.internal
+curl -I http://files.internal
+curl -I http://sync.internal
+curl -I http://paper.internal
+curl -I http://rss.internal
+curl -I http://bookmarks.internal
+curl -I http://search.internal
+curl -I http://git.internal
+curl -I http://media.internal
+curl -I http://ha.internal
+curl -I http://ai.internal
 ```
+
+For production apps that require secure browser contexts, especially Vaultwarden and Nextcloud, deploy an internal CA and switch these checks to HTTPS before storing real data.
 
 ## Optional Operations Extension Checks
 
 Run these only after the related operations extension is deployed and added to NPM:
 
 ```bash
-curl -I https://netalert.internal
-curl -I https://disks.internal
-curl -I https://alerts.internal
+curl -I http://netalert.internal
+curl -I http://disks.internal
+curl -I http://alerts.internal
 ```
 
 ## Protocol Checks

@@ -45,7 +45,7 @@ Frequency:
 Container update procedure:
 
 ```bash
-cd /opt/sovereign/stacks/<stack>
+cd /opt/sovereign-homelab/stacks/<stack>
 docker compose pull
 docker compose --env-file .env config
 docker compose --env-file .env up -d

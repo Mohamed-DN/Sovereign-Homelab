@@ -32,7 +32,7 @@ For NVIDIA GPUs:
 ## 3. Directory & Secrets Setup
 Navigate to the dedicated stack directory on your AI host:
 ```bash
-cd /opt/sovereign/stacks/ai-ollama
+cd /opt/sovereign-homelab/stacks/ai-ollama
 cp .env.example .env
 nano .env
 ```
@@ -67,7 +67,7 @@ docker exec -it ollama ollama run llama3
 ```
 
 ## 6. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `https://npm.internal` and create a Proxy Host for the UI:
+Log into NPM at `http://npm.internal` and create a Proxy Host for the UI:
 - **Domain Names**: `ai.internal`
 - **Scheme / Forward IP / Port**: `http` / `[Target_IP]` / `3004`
 - **Websockets Support**: enabled

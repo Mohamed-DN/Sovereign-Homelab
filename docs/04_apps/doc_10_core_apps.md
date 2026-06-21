@@ -33,7 +33,7 @@ Before installing anything, complete [Pre-Deploy Checklist](../06_operations_sec
 For a service under `stacks/<service>`:
 
 ```bash
-cd /opt/sovereign/stacks/<service>
+cd /opt/sovereign-homelab/stacks/<service>
 cp .env.example .env
 nano .env
 docker compose --env-file .env config
@@ -62,8 +62,8 @@ Some applications have upstream lifecycle assumptions that matter more than loca
 For Immich reference files:
 
 ```bash
-mkdir -p /opt/sovereign/reference/immich
-cd /opt/sovereign/reference/immich
+mkdir -p /opt/sovereign-homelab/reference/immich
+cd /opt/sovereign-homelab/reference/immich
 wget -O docker-compose.official.yml https://github.com/immich-app/immich/releases/latest/download/docker-compose.yml
 wget -O example.official.env https://github.com/immich-app/immich/releases/latest/download/example.env
 ```

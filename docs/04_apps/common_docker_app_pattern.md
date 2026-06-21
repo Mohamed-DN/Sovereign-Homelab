@@ -5,7 +5,7 @@ Use this pattern for every independent Docker Compose micro-stack under `stacks/
 ## Standard Install Flow
 
 ```bash
-cd /opt/sovereign/stacks/<service>
+cd /opt/sovereign-homelab/stacks/<service>
 cp .env.example .env
 nano .env
 docker compose --env-file .env config

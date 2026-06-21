@@ -36,7 +36,7 @@ First check [CHECKLIST_PRE_DEPLOY.md](../06_operations_security/CHECKLIST_PRE_DE
 Copy the template:
 
 ```bash
-cd /opt/sovereign/stacks/identity
+cd /opt/sovereign-homelab/stacks/identity
 cp .env.example .env
 ```
 
@@ -51,8 +51,7 @@ Update `.env` with:
 
 - `AUTHENTIK_SECRET_KEY`
 - `POSTGRES_PASSWORD`
-- `AUTHENTIK_BOOTSTRAP_PASSWORD`
-- `AUTHENTIK_BOOTSTRAP_TOKEN`
+- optional bootstrap values only if you have verified they match the current Authentik release flow
 
 Never commit `.env`.
 
@@ -66,8 +65,8 @@ Recommended approach:
 - for production/upgrades: download the official Authentik Compose file and compare it with the local template.
 
 ```bash
-mkdir -p /opt/sovereign/reference/authentik
-cd /opt/sovereign/reference/authentik
+mkdir -p /opt/sovereign-homelab/reference/authentik
+cd /opt/sovereign-homelab/reference/authentik
 curl -O https://docs.goauthentik.io/compose.yml
 ```
 
@@ -82,6 +81,14 @@ Open:
 ```text
 http://SERVER_IP:9000
 ```
+
+First setup URL:
+
+```text
+http://auth.internal/if/flow/initial-setup/
+```
+
+Live note: the current LXC 101 deployment has healthy Authentik containers and exposes `auth.internal`, but the initial setup flow still needs to be completed manually. Do not mark Authentik as the active SSO/MFA gate until the admin account, recovery method, and MFA policy are configured.
 
 Then create the proxy host in NPM:
 
@@ -184,7 +191,7 @@ Protect:
 
 Before using Authentik in production, add:
 
-- Uptime Kuma monitor for `https://auth.internal`;
+- Uptime Kuma monitor for `http://auth.internal/if/flow/initial-setup/` during bootstrap, then the final Authentik URL after setup;
 - PBS backup of the container/host;
 - optional restic backup for application volumes.
 
@@ -193,7 +200,7 @@ Operational verification:
 ```bash
 docker compose ps
 docker compose logs --tail=100 authentik-server
-curl -I https://auth.internal
+curl -I http://auth.internal/if/flow/initial-setup/
 ```
 
 ---

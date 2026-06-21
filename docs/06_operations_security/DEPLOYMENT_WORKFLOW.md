@@ -41,7 +41,7 @@ Before deployment:
 
 - verify that the port is not already used;
 - create the AdGuard DNS rewrite only when NPM is ready;
-- choose predictable volumes, for example `/opt/sovereign/stacks/<stack>`;
+- choose predictable volumes, for example `/opt/sovereign-homelab/stacks/<stack>`;
 - do not store important data in temporary bind mounts.
 
 Commands:
@@ -56,7 +56,7 @@ docker ps --format "table {{.Names}}\t{{.Ports}}"
 Pattern:
 
 ```bash
-cd /opt/sovereign/stacks
+cd /opt/sovereign-homelab/stacks
 mkdir -p <stack-name>
 cd <stack-name>
 cp .env.example .env

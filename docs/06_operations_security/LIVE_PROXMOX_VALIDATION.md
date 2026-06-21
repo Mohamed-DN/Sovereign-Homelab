@@ -2,7 +2,7 @@
 
 **Previous:** [Operations Manual](OPERATIONS_MANUAL.md)
 
-**Next:** [Pre-Deploy Checklist](CHECKLIST_PRE_DEPLOY.md)
+**Next:** [Live Build Log: 2026-06-21](LIVE_BUILD_LOG_2026-06-21.md)
 
 This runbook is the controlled live-audit path for the real Proxmox lab. Use it before changing the VPN, adding apps, importing real data, or expanding the stack.
 
@@ -41,11 +41,20 @@ Last checked: 2026-06-21.
 | AdGuard rewrites | public VPN split rewrite and `*.internal -> 192.168.1.50` active |
 | Subnet router | `core-network` serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
-| Platform services | not deployed yet |
-| PBS/backup | not deployed yet; required before critical data import |
+| Platform services | LXC 101 `platform-services` deployed on `192.168.1.51` |
+| Internal aliases | `adguard.internal`, `npm.internal`, `headscale.internal`, `proxmox.internal`, `pbs.internal`, `auth.internal`, `dash.internal`, `status.internal`, `monitor.internal`, and `logs.internal` respond through NPM |
+| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 15 core monitors green |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; LXC 101 backup and restore drill completed |
 | Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
+
+Live caveats:
+
+- Authentik containers are healthy, but the Authentik initial setup flow still needs to be completed before it protects services.
+- Beszel Hub is reachable, but the Beszel agent is intentionally disabled until an agent key is generated from the Beszel UI.
+- `.internal` aliases currently use HTTP on the client side over LAN/VPN. Upstreams such as Proxmox and PBS still use HTTPS behind NPM. Add an internal CA before requiring HTTPS for all private aliases.
+- LXC 102 exists but is stopped and undersized; do not reuse it for production apps without resizing or recreating it intentionally.
 
 ## Phase A: Access Gate
 
@@ -233,13 +242,13 @@ Check Homepage:
 
 Check Uptime Kuma:
 
-- public Headscale HTTPS monitor;
-- AdGuard DNS monitor;
-- NPM monitor;
-- Headscale-UI monitor;
-- Homepage monitor;
-- Beszel and Dozzle monitors if deployed;
-- critical app monitors;
+- `Headscale public VPN`: HTTPS monitor for the public VPN endpoint;
+- `AdGuard resolves dash.internal`: DNS monitor using `192.168.1.50`;
+- `AdGuard DNS TCP`: TCP `192.168.1.50:53`;
+- `Nginx Proxy Manager UI`, `Headscale UI`, `Proxmox VE`, `Proxmox Backup Server`;
+- `Authentik initial setup`, `Homepage`, `Uptime Kuma`, `Beszel Hub`, `Dozzle`;
+- `PBS API TCP`, `Headscale API TCP`;
+- critical app monitors only after those apps are deployed;
 - optional operations extension monitors only after deployment.
 
 Check Beszel and Dozzle:
@@ -300,7 +309,19 @@ Required before production data:
   - Paperless media/export;
   - Authentik database/media.
 
-If PBS is missing, create the PBS VM and datastore before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
+Current restore drill evidence:
+
+| Date | Source backup | Target | Result |
+|---|---|---|---|
+| 2026-06-21 | `pbs-p710:backup/ct/101/2026-06-21T18:18:54Z` | temporary CT `901` | restored, mounted, stack files verified, test CT destroyed |
+
+Current scheduled backup:
+
+| Job | Guests | Schedule | Storage | Notes |
+|---|---|---|---|---|
+| `sovereign-core-nightly` | `100,101` | `03:00` daily | `pbs-p710` | excludes PBS itself and future app VMs until restore drills are complete |
+
+If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 
 ## Phase I: Repository Update
 
