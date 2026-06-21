@@ -33,7 +33,7 @@ docker exec -it paperless document_sanitizer manage.py createsuperuser
 ## 4. Nginx Proxy Manager (NPM) Setup
 Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
 - **Domain Names**: `paper.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8010`
+- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `8000`
 - **Websockets Support**: ✅ Enabled
 - **SSL**: Select your wildcard certificate and enable Force SSL.
 
@@ -42,5 +42,13 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
 - **Uptime Kuma**: Add an `HTTP(s)` monitor named `app-paperless` targeting `https://paper.internal`.
 
 ## 6. Backup & Restore
-- **Backup**: Include `paperless_data`, `paperless_media`, and `paperless_db` volumes in your PBS backup schedule.
-- **Restore Test**: Restore all volumes to an isolated test LXC. Verify OCR search works and previous PDFs are viewable.
+- **Backup**: Include `paperless_data`, `paperless_media`, and `paperless_db` volumes in your PBS backup schedule. Optionally use the document exporter script to dump plain PDFs periodically.
+- **Restore Drill**:
+  1. Restore all volumes to an isolated test LXC.
+  2. Verify OCR search works and previous PDFs are viewable.
+
+## 7. Rollback and Troubleshooting
+- If OCR fails or is extremely slow, allocate more vCPUs and verify Redis is running.
+- If an update fails, restore all three volumes (data, media, db) from the exact same point in time from PBS.
+
+*Source: [Paperless-ngx Setup Docs](https://docs.paperless-ngx.com/setup/)*

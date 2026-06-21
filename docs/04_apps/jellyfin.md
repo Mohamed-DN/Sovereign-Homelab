@@ -3,7 +3,7 @@
 ## 1. Overview & Sizing
 Jellyfin is a self-hosted media system for movies, TV shows, and music.
 - **Target**: VM 150 (`jellyfin`) or LXC 102
-- **CPU / RAM**: 4 vCPU / 8 GB (Requires GPU passthrough for transcoding)
+- **CPU / RAM**: 4 vCPU / 8 GB (Requires GPU passthrough for hardware transcoding)
 - **Storage**: Requires a dedicated large mount for media files.
 
 ## 2. Directory & Secrets Setup
@@ -39,4 +39,12 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
 
 ## 6. Backup & Restore
 - **Backup**: Backup the `JELLYFIN_CONFIG_PATH` directory. You do not strictly need to backup the cache. Media files should be backed up separately based on your storage strategy.
-- **Restore Test**: Restore the config directory to a test instance. Mount a small test media folder and verify metadata and watched status are preserved.
+- **Restore Drill**:
+  1. Restore the config directory to a test instance.
+  2. Mount a small test media folder and verify metadata and watched status are preserved.
+
+## 7. Rollback and Troubleshooting
+- If videos buffer endlessly or fail to play, hardware transcoding (VAAPI/NVENC) may be misconfigured. Ensure `/dev/dri` is correctly mapped into the container.
+- If clients fail to sync progress, ensure WebSockets are enabled in NPM.
+
+*Source: [Jellyfin Container Docs](https://jellyfin.org/docs/general/installation/container/)*

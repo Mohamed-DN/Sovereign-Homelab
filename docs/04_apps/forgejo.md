@@ -4,6 +4,7 @@
 Forgejo is a lightweight, self-hosted Git service. It becomes **P1 Critical** when storing infrastructure-as-code or this homelab repository.
 - **Target**: LXC 102 (`apps-light`)
 - **CPU / RAM**: 2 vCPU / 4 GB
+- **Ports**: 3003 HTTP, 2222 SSH
 
 ## 2. Directory & Secrets Setup
 Log into LXC 102 and navigate to the dedicated stack directory:
@@ -31,7 +32,7 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for HTTPS:
 - **Websockets Support**: ✅ Enabled
 - **SSL**: Select your wildcard certificate and enable Force SSL.
 
-*(SSH traffic on port 2222 goes directly to the LXC IP and does not pass through NPM).*
+*(Note: SSH traffic on port 2222 goes directly to the LXC IP and does not pass through NPM).*
 
 ## 5. Dashboard & Monitoring
 - **Homepage.dev**: Add to `services.yaml` pointing to `https://git.internal`.
@@ -40,5 +41,14 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for HTTPS:
   - Add a `TCP` monitor targeting `192.168.1.52:2222` to ensure SSH clones are working.
 
 ## 6. Backup & Restore
-- **Backup**: Include `forgejo_db` and `forgejo_data` volumes in PBS backups.
-- **Restore Test**: Restore the database and data volumes. Verify you can clone a repository over both HTTPS and SSH, and push a test commit successfully.
+- **Backup**: Include `forgejo_db` and `forgejo_data` volumes in PBS backups. Save `.env`.
+- **Restore Drill**:
+  1. Restore the database and data volumes to a test instance.
+  2. Log in and verify repositories.
+  3. Clone a repository over both HTTPS and SSH, and push a test commit successfully.
+
+## 7. Rollback and Troubleshooting
+- If repository metadata and DB are out of sync, restore DB and repos from the exact same timestamp.
+- If SSH fails, verify port `2222` and the `SSH_DOMAIN` in configuration.
+
+*Source: [Forgejo Docker Install](https://forgejo.org/docs/latest/admin/installation/docker/)*
