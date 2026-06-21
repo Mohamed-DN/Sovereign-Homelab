@@ -15,6 +15,7 @@ flowchart TD
     Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
     LAN["LAN clients"]
     PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
+    RouterNAT["Home router/NAT\nTCP 443 to NPM"]
     HS["Headscale\nidentity, keys, routes, DNS settings"]
     Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
     Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
@@ -24,7 +25,7 @@ flowchart TD
     Apps["Internal apps\n*.internal"]
     Internet(("Internet"))
 
-    Remote -->|control-plane login only| PublicVPN --> NPM --> HS
+    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
     Remote -->|DNS to 192.168.1.50| Subnet --> AGH
     Remote -->|LAN access 192.168.1.0/24| Subnet
     Remote -->|optional default route| Exit --> Internet
@@ -103,6 +104,7 @@ Validation checklist:
 - `docker exec headscale headscale nodes list` shows expected clients.
 - `docker exec headscale headscale nodes list-routes` shows `192.168.1.0/24` and `0.0.0.0/0` approved where intended.
 - A phone on 4G can ping `192.168.1.50`.
+- A phone on 4G can join or reconnect to Headscale using `https://vpn.yourdomain.duckdns.org` before it has LAN/VPN DNS.
 - Selecting the Proxmox exit node shows the home Italian public IP.
 - `nslookup dash.internal 192.168.1.50` works from the phone on 4G.
 - After selecting the Proxmox exit node, `nslookup example.com 192.168.1.50` still works.

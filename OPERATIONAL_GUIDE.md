@@ -124,6 +124,8 @@ curl -I https://dash.internal
 
 Only `vpn.yourdomain.duckdns.org` is public by default. Every web UI uses `.internal` through AdGuard and Nginx Proxy Manager. This model keeps the lab VPN-first while preserving clean service names.
 
+Run the public Headscale check from cellular data or another non-home network. A LAN-only success does not prove that a phone can join from 4G.
+
 **Success Verification**
 
 ```bash
@@ -242,6 +244,7 @@ flowchart TD
     Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
     LAN["LAN clients"]
     PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
+    RouterNAT["Home router/NAT\nTCP 443 to NPM"]
     HS["Headscale\nidentity, keys, routes, DNS settings"]
     Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
     Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
@@ -253,7 +256,7 @@ flowchart TD
     Offsite["restic/offsite copy"]
     Internet(("Internet"))
 
-    Remote -->|control-plane login only| PublicVPN --> NPM --> HS
+    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
     Remote -->|DNS to 192.168.1.50| Subnet --> AGH
     Remote -->|LAN access 192.168.1.0/24| Subnet
     Remote -->|optional default route| Exit --> Internet
@@ -268,7 +271,7 @@ flowchart TD
     PBS --> Offsite
 ```
 
-The operational invariant is simple: Headscale is public only for device login and coordination, AdGuard is authoritative for LAN/VPN DNS, NPM receives only resolved HTTP/S aliases, and an exit node is only the default route to the internet. A client may use the Proxmox exit node, but `nslookup example.com 192.168.1.50` and `nslookup dash.internal 192.168.1.50` must still work and appear in the AdGuard query log.
+The operational invariant is simple: Headscale is public only for device login and coordination, AdGuard is authoritative for LAN/VPN DNS, NPM receives only resolved HTTP/S aliases, and an exit node is only the default route to the internet. A phone on 4G must be able to reach `vpn.yourdomain.duckdns.org` through the home router/NAT and NPM before the lab is considered remotely usable. A client may use the Proxmox exit node, but `nslookup example.com 192.168.1.50` and `nslookup dash.internal 192.168.1.50` must still work and appear in the AdGuard query log.
 
 ### Recovery Model
 

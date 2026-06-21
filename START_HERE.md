@@ -57,6 +57,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 1. [Runbook 04](docs/02_network_vpn/doc_04_headscale_vpn.md): Headscale, clients, MagicDNS, and subnet router.
 2. [Runbook 05](docs/02_network_vpn/doc_05_proxmox_exit_node.md): Proxmox host as exit node.
 3. [Runbook 06](docs/02_network_vpn/doc_06_headscale_hardening.md): grants, tags, policy, auto-approval, and audit.
+4. Production gate: disconnect the phone from Wi-Fi and confirm it can join or reconnect on 4G/5G through `https://vpn.yourdomain.duckdns.org`.
 
 ### 3. Identity, Monitoring, and Backup
 

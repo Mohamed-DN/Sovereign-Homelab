@@ -43,6 +43,7 @@ Expected time: 5-10 minutes.
    - no CrowdSec alert is ignored if CrowdSec is enabled.
 5. Check the VPN control loop:
    - Headscale public monitor is green;
+   - `vpn.yourdomain.duckdns.org` works from a non-home network;
    - AdGuard DNS monitor is green;
    - LXC 100 still serves `192.168.1.0/24`;
    - Proxmox still serves `0.0.0.0/0`;
@@ -72,6 +73,8 @@ docker exec headscale headscale apikeys list
 Required state:
 
 - `vpn.yourdomain.duckdns.org` reaches Headscale through NPM.
+- a phone on 4G/5G can join or reconnect before it has LAN/VPN DNS;
+- router TCP `443` forwards to NPM, and NPM forwards the public hostname to `LXC100_IP:8080`;
 - `192.168.1.0/24` is approved and serving through LXC 100.
 - `0.0.0.0/0` is approved and serving through the Proxmox host.
 - personal clients accept VPN DNS;
@@ -81,11 +84,17 @@ Required state:
 Manual mobile test:
 
 ```bash
+curl -I https://vpn.yourdomain.duckdns.org
 nslookup example.com 192.168.1.50
 nslookup dash.internal 192.168.1.50
 ```
 
-Then select the Proxmox exit node and repeat the same checks. Public IP should change to the home exit IP, but DNS must still go through AdGuard.
+Run the `curl` test from cellular data or another non-home network. Then select the Proxmox exit node and repeat the DNS checks. Public IP should change to the home exit IP, but DNS must still go through AdGuard.
+
+CGNAT check:
+
+- If router WAN IP matches the public IP, normal DuckDNS plus port-forward is valid.
+- If router WAN IP is private or different from the public IP, direct 4G inbound access will not work; use a small VPS plus WireGuard relay as the sovereign fallback.
 
 ## Weekly Routine
 

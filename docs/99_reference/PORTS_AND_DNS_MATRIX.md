@@ -24,12 +24,18 @@ Design references:
 
 | Flow | Path | Rule |
 |---|---|---|
-| Control plane | Remote client -> `vpn.yourdomain.duckdns.org` -> NPM -> Headscale | This is the only public default hostname. It is used for login, keys, route metadata, and DNS settings, not for private app access. |
+| Control plane | Phone on 4G -> `vpn.yourdomain.duckdns.org` -> router/NAT TCP `443` -> NPM -> Headscale | This is the only public default hostname. It is used for login, keys, route metadata, and DNS settings, not for private app access. |
 | DNS | LAN/VPN client -> AdGuard `192.168.1.50` | Normal clients must accept pushed VPN DNS. Infrastructure nodes such as LXC 100 and the Proxmox host keep `--accept-dns=false` to avoid DNS loops. |
 | Private app access | Client -> AdGuard `.internal` rewrite -> NPM -> app upstream | Every web UI uses a `.internal` alias. No private app hostname belongs under DuckDNS. |
 | LAN access | Remote client -> LXC 100 subnet router -> `192.168.1.0/24` | The subnet route is what lets remote devices reach AdGuard, Proxmox, PBS, and other LAN targets. |
 | Internet full tunnel | Remote client -> selected exit node -> internet | The exit node is an optional default route. Selecting it must not bypass AdGuard DNS. |
 | Public exposure | Internet -> NPM -> approved public service | Default public exposure is Headscale only. Any additional public hostname requires an explicit exception runbook. |
+
+4G-first readiness rules:
+
+- A mobile device must be able to reach `https://vpn.yourdomain.duckdns.org` before it has VPN DNS, `.internal`, or LAN access.
+- If the router WAN IP does not match the public IP, direct inbound access is likely blocked by CGNAT; use the documented VPS + WireGuard relay fallback instead of assuming DuckDNS is enough.
+- Do not protect the public Headscale proxy host with Authentik or an NPM access list, because VPN clients are not web browsers completing an SSO challenge.
 
 ## Core Network
 

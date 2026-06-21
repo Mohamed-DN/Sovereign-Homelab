@@ -5,6 +5,7 @@
 | Symptom | Check | Fix |
 |---|---|---|
 | Client does not register | `docker logs headscale` | check `server_url`, NPM, WebSocket, certificate |
+| Phone on 4G cannot join at all | `curl -I https://vpn.yourdomain.duckdns.org` from non-home network | fix DuckDNS, router TCP `443` forward, NPM proxy host, certificate, or CGNAT |
 | Phone on 4G cannot reach LAN | `headscale nodes list-routes` | approve `192.168.1.0/24`, enable `accept-routes` on the client |
 | Exit node does not appear | `headscale nodes list-routes` | approve `0.0.0.0/0`, verify `--advertise-exit-node` |
 | Exit node works but ads are not filtered | AdGuard query log and `nslookup example.com 192.168.1.50` | fix client DNS acceptance or the subnet route; do not create private DuckDNS app names |
@@ -18,6 +19,7 @@
 |---|---|---|
 | Internal domain points outside the home network | `nslookup host 192.168.1.50` | add or fix the AdGuard DNS rewrite |
 | Certificate is not issued | NPM logs | verify DuckDNS token and DNS-01 configuration |
+| Public VPN works on Wi-Fi but not from 4G | router WAN IP versus public IP | if CGNAT, use VPS + WireGuard relay; if not CGNAT, fix port-forward TCP `443` to NPM |
 | App opens on LAN but not through domain | NPM proxy host | fix upstream host or port |
 | WebSocket app does not work | NPM Details tab | enable Websockets Support |
 | HTTPS loop | NPM advanced/proxy settings | check scheme, Force SSL, and upstream behavior |

@@ -141,6 +141,38 @@ docker exec headscale headscale nodes list-routes
 docker logs --tail=100 headscale
 ```
 
+## 4G-First Public Edge
+
+Run from a non-home network before trusting mobile VPN onboarding:
+
+```bash
+curl -I https://vpn.yourdomain.duckdns.org
+```
+
+Check on the home side:
+
+```bash
+docker logs --tail=100 npm
+docker logs --tail=100 headscale
+docker exec headscale headscale nodes list
+```
+
+Expected:
+
+- DuckDNS points to the current home public IP.
+- Router TCP `443` forwards to NPM.
+- NPM forwards `vpn.yourdomain.duckdns.org` to `http://LXC100_IP:8080`.
+- The public Headscale proxy host has WebSocket support enabled.
+- The public Headscale proxy host has no Authentik forward auth and no NPM access list.
+
+CGNAT check:
+
+```text
+Compare router WAN IP with the public IP shown by an external IP-check site.
+```
+
+If they do not match, direct 4G access to the home router is likely blocked. Use the documented VPS + WireGuard relay fallback.
+
 ## Tailscale Client on LXC 100
 
 ```bash
@@ -179,6 +211,8 @@ ping 192.168.1.50
 nslookup example.com 192.168.1.50
 nslookup dash.internal 192.168.1.50
 ```
+
+The client must first join from cellular data using `https://vpn.yourdomain.duckdns.org`. `.internal` names are expected to work only after the VPN is connected.
 
 With the Proxmox exit node selected on the same VPN/4G client:
 
