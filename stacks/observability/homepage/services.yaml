@@ -39,6 +39,17 @@
         href: https://logs.internal
         description: Docker live logs, admin only
 
+- Operations Extensions:
+    - NetAlertX:
+        href: https://netalert.internal
+        description: LAN asset inventory and device change visibility
+    - Scrutiny:
+        href: https://disks.internal
+        description: SMART disk health and failure trend dashboard
+    - ntfy:
+        href: https://alerts.internal
+        description: Self-hosted notifications for alerts and jobs
+
 - Critical Data:
     - Vaultwarden:
         href: https://pwd.internal

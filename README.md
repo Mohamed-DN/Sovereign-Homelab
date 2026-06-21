@@ -28,27 +28,40 @@ The repository is written in English and is designed to be used like an infrastr
 
 ```mermaid
 flowchart TD
-    Remote["Remote clients"]
+    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
     LAN["LAN clients"]
-    Duck["vpn.yourdomain.duckdns.org"]
-    AGH["AdGuard Home\nDNS + .internal rewrites"]
+    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
+    HS["Headscale\nidentity, keys, routes, DNS settings"]
+    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
+    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
+    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
-    HS["Headscale\nMesh VPN control plane"]
-    Router["Tailscale subnet router\n192.168.1.0/24"]
-    Exit["Proxmox exit node\n0.0.0.0/0"]
     Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
-    Apps["Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, etc."]
+    Apps["Internal apps\n*.internal"]
     PBS["Proxmox Backup Server"]
+    Internet(("Internet"))
 
-    Remote --> Duck --> NPM --> HS
-    Remote --> Router
-    Remote --> Exit
-    LAN --> AGH --> NPM
+    Remote -->|control-plane login only| PublicVPN --> NPM --> HS
+    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
+    Remote -->|LAN access 192.168.1.0/24| Subnet
+    Remote -->|optional default route| Exit --> Internet
+
+    LAN -->|DNS| AGH
+    AGH -->|filtered upstream DNS| Internet
+    AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
     NPM --> Apps
     Platform --> PBS
     Apps --> PBS
 ```
+
+Traffic rules:
+
+- `vpn.yourdomain.duckdns.org` is only the public Headscale control-plane door.
+- LAN and VPN clients use AdGuard `192.168.1.50` for DNS.
+- `.internal` aliases resolve in AdGuard to NPM, then NPM proxies to the real service.
+- Selecting an exit node changes the default internet route only; DNS must still go to AdGuard.
+- Private app hostnames are never created under DuckDNS.
 
 ## Services and Aliases
 
@@ -59,6 +72,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | Core network | AdGuard, Headscale, Headscale-UI, NPM |
 | Admin | Proxmox, PBS |
 | Platform | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
+| Operations extensions | NetAlertX, Scrutiny, ntfy |
 | Critical data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | High-value apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI |
 | Protocol/API exceptions | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, Wazuh API, CrowdSec LAPI |
@@ -88,6 +102,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 5. Configure PBS and run a restore test using [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md).
 6. Deploy one app at a time from [docs/04_apps/00_APP_SERVICES_INDEX.md](docs/04_apps/00_APP_SERVICES_INDEX.md).
 7. Add alias, NPM proxy, Homepage card, Uptime Kuma monitor, backup, restore, and rollback for each service.
+8. Add optional operations extensions only after the core is green: NetAlertX for asset visibility, Scrutiny for disk SMART, and ntfy for self-hosted alerts.
 
 ## Stack Usage
 
@@ -157,4 +172,4 @@ See [OPERATIONAL_GUIDE.md](OPERATIONAL_GUIDE.md) for the full recovery plan.
 
 ## Official Reference Set
 
-The runbooks prefer official upstream documentation. Key sources include Immich, Nextcloud AIO, Paperless-ngx, Homepage, Beszel, Forgejo, RustDesk, Headscale, Tailscale, Proxmox/PBS, and Authentik.
+The runbooks prefer official upstream documentation. Key sources include Immich, Nextcloud AIO, Paperless-ngx, Homepage, Beszel, NetAlertX, Scrutiny, ntfy, Forgejo, RustDesk, Headscale, Tailscale, Proxmox/PBS, and Authentik.

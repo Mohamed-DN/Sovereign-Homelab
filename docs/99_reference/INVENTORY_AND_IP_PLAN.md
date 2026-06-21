@@ -44,6 +44,7 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 | VM 150 jellyfin | TBD | Media server | VPN/Auth | PBS + media metadata | Medium |
 | VM 160 wazuh | TBD | Optional SIEM | VPN/Auth admin | PBS + log retention | Medium |
 | RustDesk host | TBD | Optional remote desktop relay, `rustdesk.internal` | VPN/LAN by default | server data directory + stack files | Medium |
+| LXC 103 ops-extensions | TBD | Optional NetAlertX, Scrutiny, ntfy | VPN/Auth | PBS + extension data | Medium |
 
 Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The target topology separates core network and apps into LXC 100/101. Before migrating NPM, update this inventory and [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md).
 
@@ -61,6 +62,9 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics |
 | `dozzle` | LXC 101 | 8088 | `logs.internal` | VPN/Auth admin | no critical data | Live logs |
 | `crowdsec` | LXC 101 | 8089 | none | LAN/local only | config + DB | Detection |
+| `netalertx` | LXC 103 | 20211 | `netalert.internal` | VPN/Auth | config + DB | Optional network asset visibility |
+| `scrutiny` | LXC 103 | 8080 | `disks.internal` | VPN/admin | config + InfluxDB data | Optional SMART disk health |
+| `ntfy` | LXC 103 | 80 | `alerts.internal` | VPN/Auth | config + cache/attachments if enabled | Optional self-hosted notifications |
 
 ## Production or Candidate Apps
 
@@ -79,6 +83,9 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Forgejo/Gitea | `git.internal` | P2 | VPN/Auth | repos + DB | repos + DB |
 | Ollama/Open WebUI | `ai.internal` | P2 | VPN only | model cache + chat DB | app data, models optional |
 | RustDesk OSS Server | `rustdesk.internal` | P2 optional | VPN/LAN by default | server keys/config | data directory + stack files |
+| NetAlertX | `netalert.internal` | Ops optional | VPN/Auth | device inventory + config | config + DB |
+| Scrutiny | `disks.internal` | Ops optional | VPN/admin | SMART history + config | config + InfluxDB data |
+| ntfy | `alerts.internal` | Ops optional | VPN/Auth | notification topics + attachments if enabled | config + cache/attachments |
 
 ## Resource Sizing
 

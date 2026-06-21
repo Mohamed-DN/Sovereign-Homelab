@@ -11,37 +11,29 @@ The important design split is:
 ## 1. Network Flow
 
 ```mermaid
-graph TD
-    User["Phones, laptops, travel devices"]
-    Router["Home router<br>192.168.1.1"]
+flowchart TD
+    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
+    LAN["LAN clients"]
+    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
+    HS["Headscale\nidentity, keys, routes, DNS settings"]
+    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
+    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
+    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
+    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
+    Platform["Platform services\nAuthentik, Homepage, Kuma, Beszel, Dozzle"]
+    Apps["Internal apps\n*.internal"]
     Internet(("Internet"))
 
-    DNS["AdGuard Home<br>LXC 100 - 192.168.1.50"]
-    Headscale["Headscale control plane<br>LXC 100 - 192.168.1.50:8080"]
-    UI["Headscale-UI<br>LXC 100 - /web"]
-    Subnet["Subnet router<br>LXC 100 advertises 192.168.1.0/24"]
-    Exit["Exit node<br>Proxmox host P710 advertises 0.0.0.0/0"]
-    Proxy["Nginx Proxy Manager<br>HTTP/HTTPS gateway"]
-    Auth["Authentik<br>SSO and MFA"]
-    Obs["Observability<br>Homepage / Uptime Kuma / Beszel"]
+    Remote -->|control-plane login only| PublicVPN --> NPM --> HS
+    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
+    Remote -->|LAN access 192.168.1.0/24| Subnet
+    Remote -->|optional default route| Exit --> Internet
 
-    User -->|Home Wi-Fi DNS| Router
-    Router -->|DHCP/DNS forward| DNS
-    User -->|Remote control-plane login| Headscale
-    User -->|Manage devices/routes| UI
-    User -->|Access LAN IPs| Subnet
-    User -->|Optional full tunnel| Exit
-    Subnet -->|LAN reachability| DNS
-    Exit -->|Residential internet exit| Internet
-    DNS -->|Filtered DNS recursion| Internet
-    User -->|Internal HTTPS names| Proxy
-    Proxy -->|auth.internal| Auth
-    Proxy -->|dash/status/monitor| Obs
-
-    Proxy -->|pwd.internal| Vault["Vaultwarden"]
-    Proxy -->|foto.internal| Immich["Immich"]
-    Proxy -->|files.internal| Files["Nextcloud / Syncthing"]
-    Proxy -->|dash.internal| Dash["Homepage"]
+    LAN -->|DNS| AGH
+    AGH -->|filtered upstream DNS| Internet
+    AGH -->|.internal to NPM IP| NPM
+    NPM --> Platform
+    NPM --> Apps
 ```
 
 ## 2. Physical Architecture
@@ -65,16 +57,26 @@ mindmap
       Uptime Kuma
       Beszel
       Dozzle
+    LXC 103: Operations Extensions
+      NetAlertX
+      Scrutiny
+      ntfy
+    LXC 102: Apps Light
       Vaultwarden
-      Immich
-      Nextcloud
+      Syncthing
+      Paperless
+      FreshRSS
+      Forgejo
       RustDesk
     Security Layer
       CrowdSec
       Wazuh optional
     Virtual Machines
       Proxmox Backup Server
+      Immich
+      Nextcloud AIO
       Home Assistant
+      Jellyfin
     HA Reserve
       Secondary AdGuard
       Keepalived VIP
@@ -102,7 +104,9 @@ Validation checklist:
 - `docker exec headscale headscale nodes list-routes` shows `192.168.1.0/24` and `0.0.0.0/0` approved where intended.
 - A phone on 4G can ping `192.168.1.50`.
 - Selecting the Proxmox exit node shows the home Italian public IP.
-- DNS continues to resolve through AdGuard Home.
+- `nslookup dash.internal 192.168.1.50` works from the phone on 4G.
+- After selecting the Proxmox exit node, `nslookup example.com 192.168.1.50` still works.
+- AdGuard query log shows the remote client's DNS queries before and after exit-node selection.
 
 ### Phase 2: Identity and Access Control
 
@@ -126,6 +130,7 @@ Planned services:
 - **Uptime Kuma** for uptime checks and alerts.
 - **Beszel** for host/container metrics.
 - **Dozzle** for live Docker logs.
+- **Optional operations extensions** after the core is green: NetAlertX, Scrutiny, ntfy.
 
 Runbook: [doc_08_observability_dashboard.md](../03_platform_services/doc_08_observability_dashboard.md)
 

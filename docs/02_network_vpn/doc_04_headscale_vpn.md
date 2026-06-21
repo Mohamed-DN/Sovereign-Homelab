@@ -79,6 +79,14 @@ Expected behavior:
 - Ads and trackers are filtered even when the device is outside the house.
 - Internal names and DNS rewrites remain consistent with the home LAN.
 
+DNS and exit-node invariant:
+
+- Normal phones and laptops should accept Headscale/Tailscale DNS settings.
+- LXC 100, the Proxmox host, and other infrastructure routers should use `--accept-dns=false` so they do not replace their own resolver with the DNS service they are publishing.
+- Remote clients reach AdGuard through the approved `192.168.1.0/24` subnet route served by LXC 100.
+- Selecting an exit node changes the client's default internet route, but DNS queries must still go to AdGuard at `192.168.1.50`.
+- If DNS filtering stops after selecting an exit node, fix the subnet route or client DNS settings first; do not add private app names under DuckDNS.
+
 ---
 
 ## Phase C: Add PCs and Macs
@@ -247,6 +255,16 @@ docker exec headscale headscale nodes list-routes
 
 Expected result: `192.168.1.0/24` appears under `Approved` and `Serving`.
 
+Validate DNS through the subnet route from a remote client:
+
+```bash
+ping 192.168.1.50
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Expected result: public DNS queries are filtered by AdGuard, `.internal` names resolve to the NPM IP, and AdGuard query log shows the remote client.
+
 For full-tunnel internet traffic, continue with [Runbook 05: Proxmox Host as Tailscale Exit Node](doc_05_proxmox_exit_node.md).
 
 ---
@@ -315,6 +333,17 @@ tailscale set --accept-dns=false
 ```
 
 Clients should use AdGuard through Headscale MagicDNS, but LXC 100 and the Proxmox host should keep stable local resolvers.
+
+### DNS filtering stops when an exit node is selected
+
+An exit node should not replace AdGuard as DNS. From the affected client, test:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+If both commands fail, verify that the `192.168.1.0/24` route is approved and serving. If only the automatic resolver fails, verify that the client accepts pushed DNS and that Headscale still advertises AdGuard as the global nameserver.
 
 ### Exit node is not visible on the phone
 

@@ -195,22 +195,32 @@ Disconnect the phone from home Wi-Fi and use cellular data.
 In the Tailscale/NovaAccess client:
 
 1. Connect to the Headscale tailnet.
-2. Select `proxmox-p710` as the exit node.
-3. Enable local LAN access if the client offers that option.
+2. Before selecting an exit node, confirm DNS and LAN reachability.
+3. Select `proxmox-p710` as the exit node.
+4. Enable local LAN access if the client offers that option.
 
 Run these checks:
 
 ```bash
 ping 192.168.1.50
 nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
 ```
 
-Then open an IP-check website. The public IP should be your home Italian residential IP.
+After selecting the exit node, run the same DNS checks again:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Then open an IP-check website. The public IP should be your home Italian residential IP. In AdGuard, open the query log and confirm the remote client's DNS queries still appear there.
 
 Expected result:
 
 - `192.168.1.50` responds through the mesh.
-- DNS still goes through AdGuard Home.
+- DNS still goes through AdGuard Home before and after selecting the exit node.
+- `.internal` aliases still resolve to NPM through AdGuard rewrites.
 - Full-tunnel traffic exits from the Proxmox host.
 
 ---
@@ -247,6 +257,27 @@ tailscale status
 ```
 
 If forwarding is `0`, reapply `/etc/sysctl.d/99-tailscale.conf`.
+
+### Exit Node Works but DNS Filtering Stops
+
+The exit node handles the default internet route. It should not be used as the DNS authority for the lab.
+
+Check the required path:
+
+```bash
+docker exec headscale headscale nodes list-routes
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Expected:
+
+- `192.168.1.0/24` is approved and serving through LXC 100.
+- `0.0.0.0/0` is approved and serving through the Proxmox host.
+- The phone or laptop accepts pushed DNS from Headscale.
+- AdGuard query log shows the remote client's queries.
+
+If DNS only breaks after selecting the exit node, fix client DNS acceptance or the subnet route first. Do not create private DuckDNS hostnames for internal apps.
 
 ### DNS Becomes Unstable on the Server
 

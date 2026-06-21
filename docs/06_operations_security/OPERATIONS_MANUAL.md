@@ -41,6 +41,12 @@ Expected time: 5-10 minutes.
    - no admin UI is exposed by mistake;
    - no container is in a restart loop;
    - no CrowdSec alert is ignored if CrowdSec is enabled.
+5. Check the VPN control loop:
+   - Headscale public monitor is green;
+   - AdGuard DNS monitor is green;
+   - LXC 100 still serves `192.168.1.0/24`;
+   - Proxmox still serves `0.0.0.0/0`;
+   - no unknown VPN node is online.
 
 Quick commands:
 
@@ -50,6 +56,36 @@ docker logs --tail=50 headscale
 docker logs --tail=50 npm
 docker logs --tail=50 uptime-kuma
 ```
+
+## VPN Operations Checklist
+
+This is the high-priority control loop for remote access. Run it after every Headscale, AdGuard, NPM, route, or policy change.
+
+```bash
+docker exec headscale headscale configtest
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes list-routes
+docker exec headscale headscale preauthkeys list -u 1
+docker exec headscale headscale apikeys list
+```
+
+Required state:
+
+- `vpn.yourdomain.duckdns.org` reaches Headscale through NPM.
+- `192.168.1.0/24` is approved and serving through LXC 100.
+- `0.0.0.0/0` is approved and serving through the Proxmox host.
+- personal clients accept VPN DNS;
+- LXC 100 and Proxmox use `--accept-dns=false`;
+- AdGuard query log shows remote DNS queries.
+
+Manual mobile test:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Then select the Proxmox exit node and repeat the same checks. Public IP should change to the home exit IP, but DNS must still go through AdGuard.
 
 ## Weekly Routine
 

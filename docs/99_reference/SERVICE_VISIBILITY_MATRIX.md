@@ -25,6 +25,7 @@ Target placeholders:
 | `VM150_IP` | Jellyfin VM |
 | `RUSTDESK_HOST_IP` | Host or LXC running the RustDesk relay |
 | `VM160_IP` | Optional Wazuh VM |
+| `LXC103_IP` | Optional operations extensions LXC |
 
 ## Public Edge
 
@@ -73,6 +74,16 @@ Target placeholders:
 | SearXNG | `search.internal` | `http://LXC102_IP:8084` | yes | yes | HTTPS monitor | VPN/Auth | config |
 | Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTPS monitor + TCP `2222` | VPN/Auth | repositories + DB |
 | Open WebUI | `ai.internal` | `http://AI_HOST_IP:3004` | yes | yes | HTTPS monitor | VPN only | WebUI data |
+
+## Operations Extensions
+
+These are optional panels for running the lab at a higher operational level. They are not day-one requirements, but once deployed they follow the same visibility rule as every other web UI.
+
+| Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
+|---|---|---|---|---|---|---|---|
+| NetAlertX | `netalert.internal` | `http://LXC103_IP:20211` | yes | yes | HTTPS monitor | VPN/Auth | `/data/config` + `/data/db` |
+| Scrutiny | `disks.internal` | `http://LXC103_IP:8080` | yes | yes | HTTPS monitor | VPN/admin | config + InfluxDB data |
+| ntfy | `alerts.internal` | `http://LXC103_IP:80` | yes | yes | HTTPS monitor | VPN/Auth | server config + cache/attachments if enabled |
 
 ## Documented Exceptions
 

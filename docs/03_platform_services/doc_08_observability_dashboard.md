@@ -94,6 +94,7 @@ Required groups:
 | Admin | Proxmox and PBS |
 | Identity | Authentik |
 | Monitoring | Uptime Kuma, Beszel, Dozzle |
+| Operations Extensions | NetAlertX, Scrutiny, ntfy |
 | Critical Data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | Apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
 | Advanced Future | Open WebUI and future higher-risk tools |
@@ -123,6 +124,9 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `ui-uptime-kuma` | HTTP(s) | `https://status.internal` | 60s | HTTP response |
 | `ui-beszel` | HTTP(s) | `https://monitor.internal` | 60s | HTTP response |
 | `ui-dozzle` | HTTP(s) | `https://logs.internal` | 60s | HTTP response |
+| `ops-netalertx` | HTTP(s) | `https://netalert.internal` | 60s | HTTP response after deployment |
+| `ops-scrutiny` | HTTP(s) | `https://disks.internal` | 60s | HTTP response after deployment |
+| `ops-ntfy` | HTTP(s) | `https://alerts.internal` | 60s | HTTP response after deployment |
 | `app-vaultwarden` | HTTP(s) | `https://pwd.internal` | 60s | HTTP response |
 | `app-immich` | HTTP(s) | `https://foto.internal` | 60s | HTTP response |
 | `app-nextcloud` | HTTP(s) | `https://files.internal` | 60s | HTTP response |
@@ -154,7 +158,7 @@ Minimum alerts:
 | Severity | Services | Alert channel |
 |---|---|---|
 | P0 | DNS, Headscale, PBS, Vaultwarden, Immich | phone push or Telegram |
-| P1 | NPM, Authentik, Nextcloud, Paperless | phone push, Telegram, or email |
+| P1 | NPM, Authentik, Nextcloud, Paperless | ntfy, phone push, Telegram, or email |
 | P2 | media, RSS, search, AI, dashboards | email or dashboard only |
 
 Alert rules:
@@ -163,6 +167,7 @@ Alert rules:
 - Headscale down means new VPN sessions may fail.
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
+- ntfy is optional, but if deployed it becomes the preferred self-hosted alert receiver.
 
 ## Phase F: Beszel Usage
 
@@ -204,7 +209,24 @@ Dozzle gives the same visibility through:
 https://logs.internal
 ```
 
-## Phase H: Backup and Restore
+## Phase H: Optional Operations Extensions
+
+Deploy these only after the core dashboards are green:
+
+| Service | Alias | Why it exists | Monitor | Backup |
+|---|---|---|---|---|
+| NetAlertX | `netalert.internal` | LAN asset inventory, new-device visibility, IP drift awareness | `ops-netalertx` | config + database |
+| Scrutiny | `disks.internal` | SMART health and disk failure trend visibility | `ops-scrutiny` | config + InfluxDB data |
+| ntfy | `alerts.internal` | local notification target for Uptime Kuma, PBS, CrowdSec, and scripts | `ops-ntfy` | config + cache/attachments if enabled |
+
+Operational rules:
+
+- Keep all three behind VPN/Auth.
+- Do not expose notification topics publicly unless a separate exposure decision is documented.
+- Scrutiny needs explicit disk device access; document every mapped disk before deployment.
+- NetAlertX scans can be noisy. Start with the main LAN only, then add VLANs or site-to-site networks later.
+
+## Phase I: Backup and Restore
 
 Back up:
 
@@ -265,6 +287,9 @@ Check in this order:
 - Uptime Kuma install docs: <https://github.com/louislam/uptime-kuma/wiki/%F0%9F%94%A7-How-to-Install>
 - Beszel docs: <https://beszel.dev/guide/getting-started>
 - Dozzle docs: <https://dozzle.dev/>
+- NetAlertX: <https://github.com/netalertx/NetAlertX>
+- Scrutiny: <https://github.com/AnalogJ/scrutiny>
+- ntfy install docs: <https://docs.ntfy.sh/install/>
 
 ---
 

@@ -247,9 +247,12 @@ Tests:
 ```bash
 ping 192.168.1.50
 nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
 ```
 
 Open an IP check website. It must show the public IP of the home connection.
+
+Repeat the DNS tests after the exit node is enabled. DNS must still go to AdGuard `192.168.1.50`, and AdGuard query log must show the remote client. If selecting an exit node stops filtering, the policy or client DNS settings are wrong even if internet access works.
 
 From a non-admin device:
 
@@ -265,7 +268,78 @@ From an admin device:
 
 ---
 
-## Phase H: High Availability Route
+## Phase H: VPN Operations Control Loop
+
+Run this loop before and after every VPN, DNS, proxy, or policy change.
+
+### Health Checks
+
+From LXC 100:
+
+```bash
+docker exec headscale headscale configtest
+docker exec headscale headscale nodes list
+docker exec headscale headscale nodes list-routes
+docker logs --tail=100 headscale
+```
+
+Expected:
+
+- LXC 100 is online and serves `192.168.1.0/24`.
+- Proxmox P710 is online and serves `0.0.0.0/0`.
+- Unknown nodes are not online.
+- No unexpected subnet or exit route is approved.
+
+### Dashboard Checks
+
+Uptime Kuma should include:
+
+| Monitor | Type | Target | Purpose |
+|---|---|---|---|
+| `vpn-headscale-public` | HTTPS | `https://vpn.yourdomain.duckdns.org` | public control-plane reachability |
+| `ui-headscale` | HTTPS | `https://headscale.internal/web` | admin UI reachability |
+| `dns-adguard` | DNS | server `192.168.1.50`, query `example.com` | DNS service health |
+| `ui-homepage` | HTTPS | `https://dash.internal` | `.internal` rewrite plus NPM path |
+
+Manual exit-node checks still matter because Uptime Kuma cannot prove mobile-client routing:
+
+```bash
+nslookup example.com 192.168.1.50
+nslookup dash.internal 192.168.1.50
+```
+
+Then select the Proxmox exit node from a phone on 4G/5G, repeat the same DNS checks, and confirm the public IP changes while AdGuard query log still receives the DNS queries.
+
+### Key Rotation
+
+Use short-lived pre-auth keys for onboarding:
+
+```bash
+docker exec headscale headscale preauthkeys create -u 1 --expiration 2h
+docker exec headscale headscale preauthkeys list -u 1
+```
+
+Use API keys only for Headscale-UI or automation that actually needs them:
+
+```bash
+docker exec headscale headscale apikeys create --expiration 30d
+docker exec headscale headscale apikeys list
+```
+
+Rotate any key that was pasted into an unmanaged device, chat, note, or screenshot. Delete old devices instead of keeping them as inactive inventory.
+
+### Rollback Trigger
+
+Rollback immediately if:
+
+- `headscale configtest` fails;
+- remote clients can connect but cannot resolve through `192.168.1.50`;
+- `192.168.1.0/24` disappears from `Serving`;
+- the Proxmox exit node is selected but DNS no longer appears in AdGuard query log.
+
+---
+
+## Phase I: High Availability Route
 
 Headscale supports multiple routers advertising the same route.
 
@@ -278,7 +352,7 @@ Do not enable HA routing until monitoring is in place, because two misconfigured
 
 ---
 
-## Phase I: OIDC with Authentik
+## Phase J: OIDC with Authentik
 
 OIDC is an advanced phase. Stabilize the local VPN first.
 
@@ -317,7 +391,7 @@ docker logs --tail=100 headscale
 
 ---
 
-## Phase J: Rollback
+## Phase K: Rollback
 
 If the policy breaks access:
 
@@ -339,7 +413,7 @@ If you need to temporarily disable policy:
 
 ---
 
-## Phase K: Monthly Audit
+## Phase L: Monthly Audit
 
 ```bash
 docker exec headscale headscale users list
