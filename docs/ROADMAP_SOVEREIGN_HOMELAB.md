@@ -24,10 +24,10 @@ The final result must provide:
 | Headscale | In use | VPN control plane |
 | Subnet router | Documented | LXC 100 advertises `192.168.1.0/24` |
 | Exit node | Documented | Proxmox host advertises `0.0.0.0/0` |
-| Identity | To add | Authentik |
-| Observability | To add | Homepage, Uptime Kuma, Beszel, Dozzle |
-| Backup DR | To add | PBS, restore test, optional restic |
-| Core apps | To add | Vaultwarden, Immich, Nextcloud/Syncthing |
+| Identity | Planned | Authentik |
+| Observability | Planned | Homepage, Uptime Kuma, Beszel, Dozzle |
+| Backup DR | Planned | PBS, restore test, optional restic |
+| Core apps | Planned | Vaultwarden, Immich, Nextcloud/Syncthing |
 | Operations manual | Documented | Routines, inventory, deployment workflow |
 
 ## Phase 1: Network and VPN

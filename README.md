@@ -73,7 +73,7 @@ graph TD
     Proxy -->|dash.internal| H["Homepage"]
 ```
 
-## Documentation and Guided Tutorials
+## Documentation and Runbooks
 
 - **[Start Here](START_HERE.md)**: Recommended operational path, from base infrastructure to applications.
 - **[Roadmap Sovereign Homelab](docs/ROADMAP_SOVEREIGN_HOMELAB.md)**: Phases, prerequisites, checklists, and definition of done.
