@@ -78,6 +78,8 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | Repos + SSH, backup-sensitive |
 | Open WebUI | `ai.internal` | 3004 | VPN only | Local AI or private providers |
 | Ollama API | none | 11434 | LAN/VPN only | Do not publish |
+| RustDesk ID/NAT | `rustdesk.internal` | 21115/tcp, 21116/tcp+udp | LAN/VPN or explicitly approved clients | Remote desktop ID registration and NAT checks |
+| RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | Relay and optional web client support |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
 ## Recommended DNS Rewrites
@@ -108,6 +110,7 @@ In AdGuard:
 | `search.internal` | NPM IP when SearXNG is ready |
 | `git.internal` | NPM IP when Forgejo is ready |
 | `ai.internal` | NPM IP when Open WebUI is ready |
+| `rustdesk.internal` | RustDesk host IP, not NPM |
 
 If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, update this matrix before changing AdGuard.
 
@@ -115,6 +118,6 @@ If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, up
 
 - Required public exposure: `vpn.yourdomain.duckdns.org`.
 - Private service namespace: `.internal`.
-- Never public: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI.
+- Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay.
 
 Public exceptions require a separate written decision, a rollback plan, TLS, MFA where possible, and monitoring before exposure.

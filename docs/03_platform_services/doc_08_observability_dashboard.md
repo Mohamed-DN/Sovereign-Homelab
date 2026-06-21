@@ -137,8 +137,15 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `app-open-webui` | HTTP(s) | `https://ai.internal` | 60s | HTTP response |
 | `tcp-syncthing-sync` | TCP Port | `LXC102_IP:22000` | 60s | open TCP port |
 | `tcp-forgejo-ssh` | TCP Port | `LXC102_IP:2222` | 60s | open TCP port |
+| `tcp-rustdesk-hbbs-nat` | TCP Port | `rustdesk.internal:21115` | 60s | open TCP port |
+| `tcp-rustdesk-hbbs-main` | TCP Port | `rustdesk.internal:21116` | 60s | open TCP port |
+| `tcp-rustdesk-hbbr-relay` | TCP Port | `rustdesk.internal:21117` | 60s | open TCP port |
+| `tcp-rustdesk-web-hbbs` | TCP Port | `rustdesk.internal:21118` | 60s | open TCP port if web client support is enabled |
+| `tcp-rustdesk-web-hbbr` | TCP Port | `rustdesk.internal:21119` | 60s | open TCP port if web client support is enabled |
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
+
+RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
 ## Phase E: Alerting
 

@@ -3,36 +3,22 @@ name: rustdesk
 services:
   hbbs:
     container_name: rustdesk-hbbs
-    ports:
-      - "${HBBS_PORT}:21115"
-      - "${HBBS_PORT_NAT}:21116" # For NAT type test
-      - "${HBBS_PORT_NAT}:21116/udp" # For ID registration and heartbeat service
-      - "${HBBS_PORT_TCP}:21118"
-    image: rustdesk/rustdesk-server:latest
-    command: hbbs -r rustdesk.internal:${HBBR_PORT}
+    image: rustdesk/rustdesk-server:${RUSTDESK_VERSION}
+    command: hbbs -r ${RUSTDESK_RELAY_HOST}:21117
+    environment:
+      - ALWAYS_USE_RELAY=${ALWAYS_USE_RELAY}
     volumes:
-      - rustdesk_data:/root
-    networks:
-      - rustdesk-net
+      - ${RUSTDESK_DATA_DIR}:/root
+    network_mode: "host"
     depends_on:
       - hbbr
     restart: unless-stopped
 
   hbbr:
     container_name: rustdesk-hbbr
-    ports:
-      - "${HBBR_PORT}:21117"
-      - "${HBBR_PORT_UDP}:21119"
-    image: rustdesk/rustdesk-server:latest
+    image: rustdesk/rustdesk-server:${RUSTDESK_VERSION}
     command: hbbr
     volumes:
-      - rustdesk_data:/root
-    networks:
-      - rustdesk-net
+      - ${RUSTDESK_DATA_DIR}:/root
+    network_mode: "host"
     restart: unless-stopped
-
-volumes:
-  rustdesk_data:
-
-networks:
-  rustdesk-net:

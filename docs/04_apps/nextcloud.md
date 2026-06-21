@@ -27,11 +27,11 @@ Access `https://[VM120_IP]:8080` (bypass the SSL warning) to reach the AIO Setup
 
 ## 4. Nginx Proxy Manager (NPM) Setup
 Before completing the AIO setup, configure the reverse proxy:
-Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `files.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.70` (VM 120 IP) / `11000`
-- **Websockets Support**: ✅ Enabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Scheme / Forward IP / Port**: `http` / `VM120_IP` / `11000`
+- **Websockets Support**: enabled
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 *Note: Port 11000 is the Apache container port spawned by AIO, NOT 8080!*
 

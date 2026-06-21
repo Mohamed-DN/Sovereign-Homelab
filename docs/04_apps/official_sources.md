@@ -13,6 +13,7 @@
 - SearXNG Docker install: <https://docs.searxng.org/admin/installation-docker.html>
 - Forgejo Docker install: <https://forgejo.org/docs/latest/admin/installation/docker/>
 - Open WebUI quick start: <https://docs.openwebui.com/getting-started/quick-start/>
+- RustDesk OSS server Docker: <https://rustdesk.com/docs/en/self-host/rustdesk-server-oss/docker/>
 
 ---
 

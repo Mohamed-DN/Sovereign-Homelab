@@ -26,11 +26,11 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for HTTPS:
+Log into NPM at `https://npm.internal` and create a Proxy Host for HTTPS:
 - **Domain Names**: `git.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.52` (LXC 102 IP) / `3003`
-- **Websockets Support**: ✅ Enabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `3003`
+- **Websockets Support**: enabled
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 *(Note: SSH traffic on port 2222 goes directly to the LXC IP and does not pass through NPM).*
 
@@ -38,7 +38,7 @@ Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for HTTPS:
 - **Homepage.dev**: Add to `services.yaml` pointing to `https://git.internal`.
 - **Uptime Kuma**: 
   - Add an `HTTP(s)` monitor targeting `https://git.internal`.
-  - Add a `TCP` monitor targeting `192.168.1.52:2222` to ensure SSH clones are working.
+  - Add a `TCP` monitor targeting `LXC102_IP:2222` to ensure SSH clones are working.
 
 ## 6. Backup & Restore
 - **Backup**: Include `forgejo_db` and `forgejo_data` volumes in PBS backups. Save `.env`.

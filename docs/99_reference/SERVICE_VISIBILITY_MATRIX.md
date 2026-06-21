@@ -23,6 +23,8 @@ Target placeholders:
 | `VM120_IP` | Nextcloud AIO VM |
 | `VM130_IP` | Home Assistant OS VM |
 | `VM150_IP` | Jellyfin VM |
+| `RUSTDESK_HOST_IP` | Host or LXC running the RustDesk relay |
+| `VM160_IP` | Optional Wazuh VM |
 
 ## Public Edge
 
@@ -84,6 +86,7 @@ Target placeholders:
 | Syncthing discovery | `LXC102_IP:21027/udp` | local discovery, not proxied | no | no |
 | Forgejo SSH | `LXC102_IP:2222` | Git over SSH, not HTTP | UI card uses `git.internal` | TCP monitor |
 | Ollama API | `AI_HOST_IP:11434` | model API, should not be exposed through NPM | Open WebUI card uses `ai.internal` | optional TCP monitor |
+| RustDesk ID and relay | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | remote desktop protocol, not HTTP | no web UI in OSS server | TCP monitors for `21115`, `21116`, `21117`; UDP availability verified manually |
 | Wazuh Manager API | `VM160_IP:55000` | advanced admin API, not a clean web UI | no until Wazuh dashboard is installed | optional TCP monitor |
 
 ## Operational Acceptance

@@ -67,11 +67,11 @@ docker exec -it ollama ollama run llama3
 ```
 
 ## 6. Nginx Proxy Manager (NPM) Setup
-Log into NPM (`http://192.168.1.51:81`) and create a Proxy Host for the UI:
+Log into NPM at `https://npm.internal` and create a Proxy Host for the UI:
 - **Domain Names**: `ai.internal`
 - **Scheme / Forward IP / Port**: `http` / `[Target_IP]` / `3004`
-- **Websockets Support**: ✅ Enabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Websockets Support**: enabled
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
 *Note: Do not expose the Ollama API port (`11434`) through NPM or publicly.*
 

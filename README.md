@@ -1,121 +1,158 @@
-# Sovereign-Homelab
+# Sovereign Homelab
 
-Welcome to **Sovereign-Homelab**, the architecture and documentation for a self-hosted, independent, and secure home network infrastructure.
+Sovereign Homelab is an operational infrastructure manual and stack template repository for a VPN-first, self-hosted home platform. The goal is data sovereignty: DNS, remote access, passwords, photos, files, monitoring, and recovery stay under local control.
 
-The goal is data sovereignty: personal control over DNS, passwords, files, photos, remote access, and network traffic without depending on commercial cloud routing for the core home environment.
+The repository is written in English and is designed to be used like an infrastructure runbook, not as loose notes.
 
-## Core Philosophy
+## Architecture Rules
 
-This homelab is built around three pillars:
+- **Only one public default entrypoint:** `vpn.yourdomain.duckdns.org` for Headscale.
+- **Private service namespace:** every internal UI uses `.internal`.
+- **VPN-first access:** admin and personal services are reached through LAN/VPN and optionally Authentik.
+- **Nginx Proxy Manager is the active reverse proxy:** Traefik/Caddy remain future comparisons only.
+- **Every web UI must be visible and monitored:** `.internal` alias, NPM proxy host, Homepage card, Uptime Kuma monitor, backup rule, and restore path.
+- **Critical data requires restore testing:** Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, and Home Assistant are not production until restore is proven.
 
-1. **Total Local Control**: Core services run locally on Proxmox.
-2. **Private Mesh Access**: Remote access is handled through Headscale and Tailscale-compatible clients.
-3. **Seamless Internal Access**: `.internal` DNS names and HTTPS routing are handled through AdGuard Home and Nginx Proxy Manager.
+## Target Platform
 
-## DNS and Access Model
+| Layer | Target |
+|---|---|
+| Hypervisor | Proxmox VE on P710 |
+| Hardware baseline | 20 CPU threads, 64 GB RAM, 2 TB usable mirrored storage |
+| Core network | LXC 100 `core-network`, currently `192.168.1.50` |
+| Platform services | LXC 101 `platform-services` |
+| Lightweight apps | LXC 102 `apps-light` |
+| Critical app VMs | Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, Wazuh as dedicated VMs when appropriate |
 
-The lab follows a two-zone model:
-
-- **Public edge**: `vpn.yourdomain.duckdns.org` is the only required public hostname, used by remote clients to reach Headscale.
-- **Private services**: internal apps use `.internal` names such as `auth.internal`, `dash.internal`, `pwd.internal`, `foto.internal`, and `files.internal`.
-
-DuckDNS is the public door. `.internal` is the private service namespace.
-
-## Architecture Overview
-
-### 1. Gateway Layer
-
-- **AdGuard Home**: Network-wide DNS filtering, local DNS rewrites, and optional DHCP.
-- **Headscale**: Private control server for the mesh VPN.
-- **LXC 100 Subnet Router**: Advertises `192.168.1.0/24` so remote clients can reach LAN devices.
-- **Proxmox Host Exit Node**: Advertises `0.0.0.0/0` so selected clients can send all internet traffic through the home connection.
-
-### 2. Application Layer
-
-- **Nginx Proxy Manager (NPM)**: Reverse proxy and certificate management.
-- **Vaultwarden**: Self-hosted password management.
-- **Immich**: Photo and video backup.
-- **Nextcloud / Syncthing**: File synchronization.
-
-### 3. Monitoring and Management
-
-- **Homepage.dev**: Central dashboard.
-- **Uptime Kuma / Beszel**: Service uptime and container/host visibility.
-- **Proxmox Backup Server (PBS)**: Deduplicated backups for the infrastructure.
-
-## Network Flow and Topology
+## Network and Access Model
 
 ```mermaid
-graph TD
-    User["Your Devices"]
-    Router["TIM Router<br>192.168.1.1"]
-    Internet(("Internet"))
+flowchart TD
+    Remote["Remote clients"]
+    LAN["LAN clients"]
+    Duck["vpn.yourdomain.duckdns.org"]
+    AGH["AdGuard Home\nDNS + .internal rewrites"]
+    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
+    HS["Headscale\nMesh VPN control plane"]
+    Router["Tailscale subnet router\n192.168.1.0/24"]
+    Exit["Proxmox exit node\n0.0.0.0/0"]
+    Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
+    Apps["Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, etc."]
+    PBS["Proxmox Backup Server"]
 
-    Proxmox["Proxmox Host P710<br>Exit Node"]
-    DNS["AdGuard Home<br>LXC 100 - 192.168.1.50"]
-    Headscale["Headscale<br>LXC 100 - 192.168.1.50"]
-    Subnet["Tailscale Subnet Router<br>LXC 100 advertises 192.168.1.0/24"]
-    Proxy["Nginx Proxy Manager<br>Core proxy"]
-
-    User -->|Home Wi-Fi DNS| Router
-    Router -->|DNS forward| DNS
-    User -->|Remote mesh login| Headscale
-    User -->|LAN routes| Subnet
-    User -->|Optional full tunnel| Proxmox
-    Subnet -->|Reach home LAN| DNS
-    Proxmox -->|Exit traffic| Internet
-    DNS -->|Filtered DNS| Internet
-    User -->|HTTPS services| Proxy
-
-    Proxy -->|pwd.internal| V["Vaultwarden"]
-    Proxy -->|foto.internal| I["Immich"]
-    Proxy -->|files.internal| N["Nextcloud"]
-    Proxy -->|dash.internal| H["Homepage"]
+    Remote --> Duck --> NPM --> HS
+    Remote --> Router
+    Remote --> Exit
+    LAN --> AGH --> NPM
+    NPM --> Platform
+    NPM --> Apps
+    Platform --> PBS
+    Apps --> PBS
 ```
 
-## Documentation and Runbooks
+## Services and Aliases
 
-- **[Start Here](START_HERE.md)**: Recommended operational path, from base infrastructure to applications.
-- **[Roadmap Sovereign Homelab](docs/00_overview/ROADMAP_SOVEREIGN_HOMELAB.md)**: Phases, prerequisites, checklists, and definition of done.
-- **[Operations Manual](docs/06_operations_security/OPERATIONS_MANUAL.md)**: Daily, weekly, and monthly routines for keeping the lab healthy.
-- **[Inventory and IP Plan](docs/99_reference/INVENTORY_AND_IP_PLAN.md)**: Host, LXC, container, IP, hostname, backup, and criticality inventory.
-- **[Deployment Workflow](docs/06_operations_security/DEPLOYMENT_WORKFLOW.md)**: Standard procedure for adding a new service without losing control.
-- **[Open Source Stack Catalog](docs/99_reference/STACK_CATALOG_OPEN_SOURCE.md)**: Reasoned catalog of core and optional components.
-- **[Top Open Source Stack](docs/99_reference/TOP_OPEN_SOURCE_STACK.md)**: Top-tier catalog for foundation, operations, apps, AI, and security.
-- **[Pre-Deploy Checklist](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md)**: Checklist before installing or updating services.
-- **[Ports and DNS Matrix](docs/99_reference/PORTS_AND_DNS_MATRIX.md)**: Ports, hostnames, access model, and DNS rewrites.
-- **[Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md)**: Required alias, NPM proxy, Homepage card, Uptime Kuma monitor, access and backup rule for every service.
-- **[Validation Commands](docs/99_reference/VALIDATION_COMMANDS.md)**: Verification commands for Git, Compose, VPN, DNS, apps, and backup.
-- **[Troubleshooting Matrix](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md)**: Symptoms, checks, and quick fixes.
-- **[00. Master Setup & Docker Compose](docs/01_proxmox_foundation/doc_00_master_setup.md)**: Build the core Docker stack.
-- **[01. Proxmox, Docker & LXC Setup](docs/01_proxmox_foundation/doc_01_proxmox_docker_lxc.md)**: Prepare the virtualization environment.
-- **[P710 Hardware and Resource Plan](docs/01_proxmox_foundation/HARDWARE_AND_RESOURCE_PLAN.md)**: CPU/RAM/storage plan for the 20-core, 64 GB RAM, 2 TB mirrored host.
-- **[Create LXC Runbook](docs/01_proxmox_foundation/CREATE_LXC_RUNBOOK.md)** and **[Create VM Runbook](docs/01_proxmox_foundation/CREATE_VM_RUNBOOK.md)**: Build service containers and appliance VMs from scratch.
-- **[02. AdGuard Home Setup](docs/02_network_vpn/doc_02_adguard_home.md)**: Configure DNS filtering and rewrites.
-- **[03. Nginx Proxy Manager](docs/02_network_vpn/doc_03_nginx_proxy_manager.md)**: Configure HTTPS, reverse proxying, and Headscale routing.
-- **[04. Headscale VPN & Device Onboarding](docs/02_network_vpn/doc_04_headscale_vpn.md)**: Configure Headscale, MagicDNS, clients, and the LXC 100 subnet router.
-- **[05. Proxmox Host Exit Node](docs/02_network_vpn/doc_05_proxmox_exit_node.md)**: Install Tailscale on the physical Proxmox host and advertise it as the full-tunnel exit node.
-- **[06. Headscale Hardening](docs/02_network_vpn/doc_06_headscale_hardening.md)**: Grants, tags, route auto-approval, audit and OIDC preparation.
-- **[07. Identity SSO Authentik](docs/03_platform_services/doc_07_identity_sso_authentik.md)**: SSO, MFA, OIDC and proxy-provider protection.
-- **[Platform Services from Empty LXC](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md)**: LXC 101 build path for Authentik, Homepage, Uptime Kuma, Beszel, Dozzle and CrowdSec.
-- **[08. Observability Dashboard](docs/03_platform_services/doc_08_observability_dashboard.md)**: Homepage, Uptime Kuma, Beszel and Dozzle.
-- **[09. Backup and DR](docs/05_backup_dr/doc_09_backup_dr.md)**: PBS, restore tests, retention and restic offsite.
-- **[PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md)**: Datastore, backup jobs, verify, prune, garbage collection, restore drills and offsite policy.
-- **[10. Core Apps](docs/04_apps/doc_10_core_apps.md)**: Vaultwarden, Immich, Nextcloud AIO and Syncthing.
-- **[Application Service Runbooks](docs/04_apps/00_APP_SERVICES_INDEX.md)**: Per-service build, DNS, monitoring, backup, restore and rollback for core and top apps.
-- **[11. Security Operations](docs/06_operations_security/doc_11_security_operations.md)**: Update policy, secret rotation, exposure registry, CrowdSec and Wazuh.
-- **[Stack Templates](stacks/README.md)**: Docker Compose templates for identity, observability, apps and security.
-- **[Infrastructure Plan & Map](docs/00_overview/infrastructure_plan_and_map.md)**: Current physical/logical layout and roadmap.
-- **[Ideas for the Future](docs/00_overview/ideas_for_the_future.md)**: Advanced personal-network expansion ideas.
+The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
 
----
+| Category | Services |
+|---|---|
+| Core network | AdGuard, Headscale, Headscale-UI, NPM |
+| Admin | Proxmox, PBS |
+| Platform | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
+| Critical data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
+| High-value apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI |
+| Protocol/API exceptions | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, Wazuh API, CrowdSec LAPI |
 
-*Built for Data Sovereignty.*
+## Repository Layout
+
+| Path | Purpose |
+|---|---|
+| [START_HERE.md](START_HERE.md) | Human reading order |
+| [OPERATIONAL_GUIDE.md](OPERATIONAL_GUIDE.md) | Consolidated procedures, iteration log, connection architecture, recovery plan |
+| [docs/00_overview](docs/00_overview) | Roadmap, topology, future ideas |
+| [docs/01_proxmox_foundation](docs/01_proxmox_foundation) | Proxmox, sizing, storage, LXC/VM creation |
+| [docs/02_network_vpn](docs/02_network_vpn) | AdGuard, NPM, Headscale, exit node, VPN hardening |
+| [docs/03_platform_services](docs/03_platform_services) | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
+| [docs/04_apps](docs/04_apps) | Per-app runbooks and app index |
+| [docs/05_backup_dr](docs/05_backup_dr) | PBS, restore drills, restic/offsite |
+| [docs/06_operations_security](docs/06_operations_security) | Operations manual, deployment workflow, security operations |
+| [docs/99_reference](docs/99_reference) | Matrices, validation commands, inventory, stack catalogs |
+| [stacks](stacks) | Independent Docker Compose micro-stacks |
+
+## Deployment Workflow
+
+1. Read [START_HERE.md](START_HERE.md).
+2. Confirm the hardware and guest plan in [HARDWARE_AND_RESOURCE_PLAN.md](docs/01_proxmox_foundation/HARDWARE_AND_RESOURCE_PLAN.md).
+3. Build DNS/VPN/proxy from [docs/02_network_vpn](docs/02_network_vpn).
+4. Build platform services from [PLATFORM_SERVICES_FROM_EMPTY_LXC.md](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md).
+5. Configure PBS and run a restore test using [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md).
+6. Deploy one app at a time from [docs/04_apps/00_APP_SERVICES_INDEX.md](docs/04_apps/00_APP_SERVICES_INDEX.md).
+7. Add alias, NPM proxy, Homepage card, Uptime Kuma monitor, backup, restore, and rollback for each service.
+
+## Stack Usage
+
+Each app is isolated under `stacks/<service>`:
+
+```bash
+cd stacks/<service>
+cp .env.example .env
+nano .env
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d
+docker compose --env-file .env ps
+```
+
+Or use the validated wrapper:
+
+```bash
+./deploy.sh vaultwarden --pull
+```
 
 ## Maintenance
 
-A maintenance script is provided to automate ZFS snapshots and Docker updates across all micro-stacks:
+Default maintenance is non-destructive:
 
 ```bash
-sudo ./maintenance.sh
+./maintenance.sh
 ```
+
+Apply updates only after backup coverage is verified:
+
+```bash
+ZFS_DATASET=<your_dataset> ./maintenance.sh --apply
+```
+
+The maintenance script never prunes Docker volumes and never deletes app data.
+
+## Validation
+
+Use [Validation Commands](docs/99_reference/VALIDATION_COMMANDS.md) after every phase.
+
+Minimum repository checks:
+
+```bash
+git status --short --branch
+git diff --check
+```
+
+Minimum service visibility rule:
+
+```text
+No alias + no NPM + no Homepage + no Uptime Kuma + no backup = not operational.
+```
+
+## Recovery Priority
+
+1. Proxmox baseline.
+2. PBS/offsite backup access.
+3. LXC 100 core network: AdGuard, Headscale, subnet route.
+4. NPM and `.internal` alias routing.
+5. Platform services: Authentik, Homepage, Uptime Kuma, Beszel, Dozzle.
+6. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
+7. High-value apps and advanced services.
+
+See [OPERATIONAL_GUIDE.md](OPERATIONAL_GUIDE.md) for the full recovery plan.
+
+## Official Reference Set
+
+The runbooks prefer official upstream documentation. Key sources include Immich, Nextcloud AIO, Paperless-ngx, Homepage, Beszel, Forgejo, RustDesk, Headscale, Tailscale, Proxmox/PBS, and Authentik.

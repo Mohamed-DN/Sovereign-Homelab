@@ -28,11 +28,11 @@ docker compose ps
 *Note: The Machine Learning container may take a few minutes to download models on first boot. Monitor with `docker logs -f immich_machine_learning`.*
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM (`http://192.168.1.51:81`) and create a new Proxy Host:
+Log into NPM at `https://npm.internal` and create a new Proxy Host:
 - **Domain Names**: `foto.internal`
-- **Scheme / Forward IP / Port**: `http` / `192.168.1.60` (VM 110 IP) / `2283`
-- **Websockets Support**: ✅ Enabled
-- **SSL**: Select your wildcard certificate and enable Force SSL.
+- **Scheme / Forward IP / Port**: `http` / `VM110_IP` / `2283`
+- **Websockets Support**: enabled
+- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 - **Advanced**: Ensure Client Max Body Size is set to `0` to allow large video uploads without dropping packets.
 
 ## 5. Dashboard & Monitoring

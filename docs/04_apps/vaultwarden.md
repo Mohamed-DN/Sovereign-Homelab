@@ -61,9 +61,9 @@ docker logs -f vaultwarden
 
 ## 4. Reverse Proxy & Monitoring (NPM & Uptime Kuma)
 ### 4.1 Nginx Proxy Manager (NPM)
-1. Add a Proxy Host in NPM targeting `192.168.1.52` (LXC IP) on port `8082`.
-2. **Websockets Support**: Must be enabled (✅) for live synchronization across apps.
-3. **SSL**: Apply a valid Wildcard SSL certificate and enable "Force SSL". Vaultwarden *requires* HTTPS to function properly, particularly for WebAuthn.
+1. Add a Proxy Host in NPM targeting `LXC102_IP` on port `8082`.
+2. **Websockets Support**: must be enabled for live synchronization across apps.
+3. **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured. Vaultwarden requires HTTPS for WebAuthn.
 
 ### 4.2 Monitoring
 - **Uptime Kuma**: Create an `HTTP(s)` monitor targeting `https://pwd.internal`. Wait for an HTTP 200 response.

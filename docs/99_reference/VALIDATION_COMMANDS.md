@@ -13,9 +13,9 @@ git diff --check
 
 ```bash
 rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
-rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|duckdns-token" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
-rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "\\.x\\b|\\.local\\b|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 ```
 
 Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
@@ -42,21 +42,34 @@ if (-not $s.TrimStart().StartsWith('- ')) { exit 1 }
 ## Docker Compose Templates
 
 ```bash
-docker compose --env-file stacks/identity/.env.example -f stacks/identity/docker-compose.yml config --quiet
-docker compose --env-file stacks/observability/.env.example -f stacks/observability/docker-compose.yml config --quiet
-docker compose --env-file stacks/apps/.env.example -f stacks/apps/docker-compose.yml config --quiet
-docker compose --env-file stacks/apps/.env.example --profile immich -f stacks/apps/docker-compose.yml config --quiet
-docker compose --env-file stacks/apps/.env.example --profile nextcloud -f stacks/apps/docker-compose.yml config --quiet
-docker compose --env-file stacks/security/.env.example -f stacks/security/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile paperless -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile freshrss -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile karakeep -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile searxng -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile forgejo -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile jellyfin -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile ai -f stacks/extended-services/docker-compose.yml config --quiet
-docker compose --env-file stacks/extended-services/.env.example --profile wazuh -f stacks/extended-services/docker-compose.yml config --quiet
+for stack in stacks/*; do
+  [ -f "$stack/docker-compose.yml" ] || continue
+  if [ -f "$stack/.env.example" ]; then
+    docker compose --env-file "$stack/.env.example" -f "$stack/docker-compose.yml" config --quiet
+  else
+    docker compose -f "$stack/docker-compose.yml" config --quiet
+  fi
+done
+```
+
+Windows PowerShell equivalent:
+
+```powershell
+$failed = @()
+Get-ChildItem stacks -Directory | ForEach-Object {
+  $compose = Join-Path $_.FullName 'docker-compose.yml'
+  $env = Join-Path $_.FullName '.env.example'
+  if (Test-Path $compose) {
+    if (Test-Path $env) {
+      docker compose --env-file $env -f $compose config --quiet
+    } else {
+      docker compose -f $compose config --quiet
+    }
+    if ($LASTEXITCODE -ne 0) { $failed += $_.Name }
+  }
+}
+if ($failed) { $failed; exit 1 }
+Write-Host 'All stack compose files validate.'
 ```
 
 ## Headscale
@@ -136,6 +149,30 @@ curl -I https://git.internal
 curl -I https://media.internal
 curl -I https://ha.internal
 curl -I https://ai.internal
+```
+
+## Protocol Checks
+
+These services are not HTTP web UIs and are not proxied by NPM.
+
+```bash
+nc -vz rustdesk.internal 21115
+nc -vz rustdesk.internal 21116
+nc -vz rustdesk.internal 21117
+nc -vz rustdesk.internal 21118
+nc -vz rustdesk.internal 21119
+nc -vz LXC102_IP 22000
+nc -vz LXC102_IP 2222
+```
+
+Windows PowerShell equivalent:
+
+```powershell
+Test-NetConnection rustdesk.internal -Port 21115
+Test-NetConnection rustdesk.internal -Port 21116
+Test-NetConnection rustdesk.internal -Port 21117
+Test-NetConnection rustdesk.internal -Port 21118
+Test-NetConnection rustdesk.internal -Port 21119
 ```
 
 ## Backup Checks

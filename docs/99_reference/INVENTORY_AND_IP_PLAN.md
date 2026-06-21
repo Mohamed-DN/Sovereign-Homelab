@@ -43,6 +43,7 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 | VM 130 home-assistant-os | TBD | Home automation | VPN/Auth | PBS + HA backup export | Medium |
 | VM 150 jellyfin | TBD | Media server | VPN/Auth | PBS + media metadata | Medium |
 | VM 160 wazuh | TBD | Optional SIEM | VPN/Auth admin | PBS + log retention | Medium |
+| RustDesk host | TBD | Optional remote desktop relay, `rustdesk.internal` | VPN/LAN by default | server data directory + stack files | Medium |
 
 Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The target topology separates core network and apps into LXC 100/101. Before migrating NPM, update this inventory and [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md).
 
@@ -77,6 +78,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | SearXNG | `search.internal` | P2 | VPN/Auth | config | config |
 | Forgejo/Gitea | `git.internal` | P2 | VPN/Auth | repos + DB | repos + DB |
 | Ollama/Open WebUI | `ai.internal` | P2 | VPN only | model cache + chat DB | app data, models optional |
+| RustDesk OSS Server | `rustdesk.internal` | P2 optional | VPN/LAN by default | server keys/config | data directory + stack files |
 
 ## Resource Sizing
 

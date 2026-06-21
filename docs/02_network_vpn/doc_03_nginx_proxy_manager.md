@@ -34,6 +34,7 @@ Target placeholders:
 | `VM120_IP` | Nextcloud AIO VM |
 | `VM130_IP` | Home Assistant OS VM |
 | `VM150_IP` | Jellyfin VM |
+| `RUSTDESK_HOST_IP` | Host or LXC running RustDesk OSS server |
 
 ## Phase A: Verify NPM Ports
 
@@ -182,7 +183,22 @@ https://headscale.internal/web
 
 Enable each proxy host only after the service is installed and validated. Reserved aliases can appear in documentation and Homepage, but NPM should not forward to an empty target.
 
-## Phase H: TLS for `.internal`
+## Phase H: Protocol Services Not Proxied by NPM
+
+Some services are not HTTP web UIs. Give them DNS names when useful, but do not create NPM proxy hosts for raw TCP/UDP protocols.
+
+| Service | Endpoint | NPM | Monitor |
+|---|---|---|---|
+| RustDesk OSS server | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | no | TCP monitors plus manual client test |
+| Syncthing sync | `LXC102_IP:22000/tcp+udp` | no | TCP monitor |
+| Syncthing discovery | `LXC102_IP:21027/udp` | no | optional manual LAN test |
+| Forgejo SSH | `LXC102_IP:2222/tcp` | no | TCP monitor |
+| Ollama API | `AI_HOST_IP:11434/tcp` | no public NPM proxy | optional TCP monitor |
+| CrowdSec LAPI | `LXC101_IP:8089/tcp` | no | optional TCP monitor |
+
+`rustdesk.internal` must resolve directly to `RUSTDESK_HOST_IP`, not to NPM, because RustDesk clients connect to protocol ports directly.
+
+## Phase I: TLS for `.internal`
 
 Private `.internal` names cannot use public Let's Encrypt certificates directly.
 
@@ -194,7 +210,7 @@ Accepted options:
 
 For the current lab, VPN-first HTTP upstreams behind NPM are acceptable while internal CA work is planned separately.
 
-## Phase I: Homepage and Uptime Kuma
+## Phase J: Homepage and Uptime Kuma
 
 After every proxy host is created:
 

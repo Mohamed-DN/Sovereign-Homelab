@@ -180,5 +180,5 @@ docker exec headscale headscale nodes list-routes
 
 ---
 
-**Previous:** [Application Service Runbooks](../04_apps/APP_SERVICE_RUNBOOKS.md)
+**Previous:** [Application Service Index](../04_apps/00_APP_SERVICES_INDEX.md)
 **Next:** [Roadmap](../00_overview/ROADMAP_SOVEREIGN_HOMELAB.md)
