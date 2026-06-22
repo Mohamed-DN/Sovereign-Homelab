@@ -133,6 +133,28 @@ tailscale ip
 docker exec headscale headscale nodes list
 ```
 
+Before treating the host as reliable, verify local control-plane resolution from the Proxmox host:
+
+```bash
+getent hosts vpn.yourdomain.duckdns.org
+curl -k -I https://vpn.yourdomain.duckdns.org
+```
+
+Expected on the home LAN:
+
+```text
+vpn.yourdomain.duckdns.org -> 192.168.1.50
+HTTP response through NPM to Headscale
+```
+
+If this resolves to an old public WAN IP, the Proxmox node may fail to reconnect when the router does not support NAT hairpin. Use AdGuard split DNS or a controlled `/etc/hosts` override on infrastructure nodes only:
+
+```text
+192.168.1.50 vpn.yourdomain.duckdns.org
+```
+
+Do not put this override on mobile clients. Remote clients on 4G/5G must resolve the real public DuckDNS address.
+
 ---
 
 ## Phase D: Advertise the Proxmox Host as Exit Node

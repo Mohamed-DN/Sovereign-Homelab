@@ -2,12 +2,16 @@
 
 ## 1. Overview & Sizing
 This stack deploys a local Large Language Model (LLM) engine (Ollama) paired with a ChatGPT-like interface (Open WebUI). Keep model APIs private.
-- **Target**: Dedicated AI Host or VM (Requires GPU passthrough for reasonable performance).
+- **Target**: LXC 102 for first CPU-only deployment, or a dedicated AI host/VM later if GPU passthrough is required.
 - **CPU / RAM**: 4+ vCPU / 16+ GB minimum. System RAM should be larger than the largest model you plan to run.
 - **GPU**: NVIDIA GPU strongly recommended (or AMD ROCm). The model size must fit within the available VRAM for maximum performance.
 - **Ports**: `11434` (Ollama API), `3004` (Open WebUI)
 
-## 2. VM Setup & GPU Preparation
+## 2. Host Setup and Optional GPU Preparation
+
+The repository Compose template is CPU-only by default. This keeps the first deployment portable and avoids failing on hosts without NVIDIA/AMD passthrough.
+
+If you later want GPU acceleration, add a local `docker-compose.override.yml` that maps the GPU runtime/devices after the driver stack is proven. Do not commit host-specific GPU overrides until they are generic and documented.
 
 ### Proxmox PCIe GPU Passthrough
 If running in a Proxmox VM, you must configure PCIe passthrough for the GPU:
@@ -53,7 +57,7 @@ Configure the environment variables in your `.env` file according to your needs:
 - `WEBUI_AUTH`: Set to `True` to enable user authentication, or `False` to disable login (not recommended if exposed over the network).
 
 ## 5. Deployment
-Ensure the `docker-compose.yml` includes the `deploy` block to reserve GPU resources for the Ollama container.
+The default `docker-compose.yml` does not reserve GPU resources. Add GPU reservations only in a local override after passthrough is validated.
 
 Validate and start the containers:
 ```bash
@@ -76,11 +80,11 @@ Log into NPM at `http://npm.internal` and create a Proxy Host for the UI:
 *Note: Do not expose the Ollama API port (`11434`) through NPM or publicly.*
 
 ## 7. Dashboard & Monitoring
-- **Homepage.dev**: Add to `services.yaml` pointing to `https://ai.internal`.
+- **Homepage.dev**: Add to `services.yaml` pointing to `http://ai.internal` during the VPN-only bootstrap phase.
 - **GPU Monitoring**: Use `nvidia-smi` on the host to track GPU VRAM usage and model loading. Run `watch -n 1 nvidia-smi` for real-time tracking.
 - **Uptime Kuma**:
   - Add an `HTTP(s)` monitor targeting `http://[IP]:11434/` for the Ollama engine.
-  - Add an `HTTP(s)` monitor targeting `https://ai.internal/health` for Open WebUI.
+  - Add an HTTP monitor targeting `http://ai.internal` for Open WebUI until an internal CA is deployed.
 
 ## 8. Backup & Restore (Disaster Recovery)
 
@@ -107,7 +111,7 @@ The `ollama_data` volume contains the downloaded model weights.
 - If the GPU is not utilized (inference is extremely slow and CPU usage is maxed out):
   - Check if `nvidia-smi` sees the GPU.
   - Check the container logs: `docker logs ollama` to ensure it detected the GPU.
-  - Verify the `deploy` block is correctly configured in `docker-compose.yml`.
+  - Verify the local override maps the GPU runtime/devices correctly.
 
 *Source: [Open WebUI Quick Start](https://docs.openwebui.com/getting-started/quick-start/)*
 

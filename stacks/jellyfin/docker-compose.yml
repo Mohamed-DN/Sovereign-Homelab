@@ -13,8 +13,6 @@ services:
     - ${JELLYFIN_CONFIG_PATH}:/config
     - ${JELLYFIN_CACHE_PATH}:/cache
     - ${JELLYFIN_MEDIA_PATH}:/media:ro
-    devices:
-    - /dev/dri:/dev/dri   # Required for Intel QuickSync / AMD VAAPI transcoding
     healthcheck:
       test:
       - CMD

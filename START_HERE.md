@@ -90,12 +90,13 @@ Large environments usually use a private subdomain of a registered corporate dom
 
 ### 6. Controlled Expansion
 
-Recommended order for new apps:
+Recommended order for expansion after the current live build:
 
-1. Paperless-ngx, Home Assistant OS, Jellyfin, FreshRSS, Karakeep.
-2. SearXNG, Forgejo/Gitea, Ollama/Open WebUI.
-3. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
-4. Operations extensions can be added before more apps if visibility is weak: NetAlertX, Scrutiny, then ntfy.
+1. Complete restore drills for LXC 102 and VM 110 before importing real passwords, photos, documents, or repositories.
+2. Fix the VM 120 Nextcloud AIO image tag gate, then validate `files.internal`, add VM120 to PBS, and run an AIO restore drill.
+3. Deploy Home Assistant OS only after storage pressure and backup coverage are reviewed.
+4. Add operations extensions if visibility is weak: NetAlertX, Scrutiny, then ntfy.
+5. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
 
 ## Naming Standard
 

@@ -134,16 +134,16 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `ops-ntfy` | HTTP | `http://alerts.internal` | 60s | HTTP response after deployment |
 | `app-vaultwarden` | HTTP | `http://pwd.internal` | 60s | HTTP response |
 | `app-immich` | HTTP | `http://foto.internal/api/server/ping` | 60s | JSON ping response |
-| `app-nextcloud` | HTTP | `http://files.internal` | 60s | HTTP response after deployment |
+| `app-nextcloud` | HTTP | `http://files.internal` | 60s | enable only after AIO Apache is healthy; `502` means bootstrap is still broken |
 | `app-syncthing-ui` | HTTP | `http://sync.internal` | 60s | HTTP response |
 | `app-paperless` | HTTP | `http://paper.internal` | 60s | HTTP response |
 | `app-home-assistant` | HTTP | `http://ha.internal` | 60s | HTTP response after deployment |
-| `app-jellyfin` | HTTP | `http://media.internal` | 60s | HTTP response after deployment |
+| `app-jellyfin` | HTTP | `http://media.internal` | 60s | live on LXC 102 |
 | `app-freshrss` | HTTP | `http://rss.internal` | 60s | HTTP response |
 | `app-karakeep` | HTTP | `http://bookmarks.internal` | 60s | HTTP response |
 | `app-searxng` | HTTP | `http://search.internal` | 60s | HTTP response |
 | `app-forgejo` | HTTP | `http://git.internal` | 60s | HTTP response |
-| `app-open-webui` | HTTP | `http://ai.internal` | 60s | HTTP response after deployment |
+| `app-open-webui` | HTTP | `http://ai.internal` | 60s | live on LXC 102 |
 | `tcp-syncthing-sync` | TCP Port | `LXC102_IP:22000` | 60s | open TCP port |
 | `tcp-forgejo-ssh` | TCP Port | `LXC102_IP:2222` | 60s | open TCP port |
 | `tcp-rustdesk-hbbs-nat` | TCP Port | `rustdesk.internal:21115` | 60s | open TCP port |

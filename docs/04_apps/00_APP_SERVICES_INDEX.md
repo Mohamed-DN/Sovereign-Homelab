@@ -16,10 +16,10 @@ This index is the entry point for the application layer. Deploy one app at a tim
 |---|---|
 | LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo |
 | VM 110 `immich` | Immich |
-| VM 120 `nextcloud-aio` | Nextcloud AIO |
+| VM 120 `nextcloud-aio` | Nextcloud AIO, gated until AIO child-image parity is fixed |
 | VM 130 `home-assistant-os` | Home Assistant OS |
-| VM 150 `jellyfin` | Jellyfin |
-| AI host | Ollama and Open WebUI |
+| LXC 102 `apps-light` or future VM 150 | Jellyfin |
+| LXC 102 `apps-light` or future AI host | Ollama and Open WebUI |
 | Dedicated or protocol host | RustDesk if remote desktop relay is required |
 
 ## Current Live App State
@@ -28,9 +28,10 @@ Last checked: 2026-06-22.
 
 | State | Services |
 |---|---|
-| Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server |
+| Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
 | Live on VM 110 `immich` | Immich |
-| Planned | Nextcloud AIO, Home Assistant OS, Jellyfin, Ollama/Open WebUI |
+| Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, `files.internal` exists, but AIO Apache is not healthy because the pinned child image tag must be corrected |
+| Planned | Home Assistant OS, optional dedicated Jellyfin VM, optional dedicated AI host |
 
 Live means the service has an alias or documented protocol endpoint, NPM rule where applicable, Homepage visibility, and Uptime Kuma monitoring. It does not mean production critical data is approved. Production approval still requires a restore drill with representative data.
 
