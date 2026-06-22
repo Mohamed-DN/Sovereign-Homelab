@@ -223,7 +223,7 @@ Live note: the first internal aliases were added as NPM static proxy config file
 |---|---|---|---|---|---|
 | Vaultwarden | `pwd.internal` | `http` | `LXC102_IP:8082` | yes | VPN-first |
 | Immich | `foto.internal` | `http` | `VM110_IP:2283` | yes | VPN-first |
-| Nextcloud | `files.internal` | `http` | `VM120_IP:11000` | yes | VPN-first |
+| Nextcloud | `files.internal` | `http` | `VM120_IP:11000` | yes | VPN-first; enable monitor only after AIO Apache is healthy |
 | Syncthing UI | `sync.internal` | `http` | `LXC102_IP:8384` | yes | VPN/admin |
 | Paperless-ngx | `paper.internal` | `http` | `LXC102_IP:8010` | yes | VPN/Auth |
 | FreshRSS | `rss.internal` | `http` | `LXC102_IP:8087` | no | VPN/Auth |
@@ -231,8 +231,8 @@ Live note: the first internal aliases were added as NPM static proxy config file
 | SearXNG | `search.internal` | `http` | `LXC102_IP:8084` | no | VPN/Auth |
 | Forgejo | `git.internal` | `http` | `LXC102_IP:3003` | yes | VPN/Auth |
 | Home Assistant | `ha.internal` | `http` | `VM130_IP:8123` | yes | VPN/Auth |
-| Jellyfin | `media.internal` | `http` | `VM150_IP:8096` | yes | VPN/Auth |
-| Open WebUI | `ai.internal` | `http` | `AI_HOST_IP:3004` | yes | VPN only |
+| Jellyfin | `media.internal` | `http` | `LXC102_IP:8096` | yes | VPN/Auth |
+| Open WebUI | `ai.internal` | `http` | `AI_HOST_IP:3004` | yes | VPN only; live `AI_HOST_IP` is `LXC102_IP` |
 
 Enable each proxy host only after the service is installed and validated. Reserved aliases can appear in documentation and Homepage, but NPM should not forward to an empty target.
 
@@ -247,7 +247,7 @@ Some services are not HTTP web UIs. Give them DNS names when useful, but do not 
 | Syncthing discovery | `LXC102_IP:21027/udp` | no | optional manual LAN test |
 | Forgejo SSH | `LXC102_IP:2222/tcp` | no | TCP monitor |
 | Ollama API | `AI_HOST_IP:11434/tcp` | no public NPM proxy | optional TCP monitor |
-| CrowdSec LAPI | `LXC101_IP:8089/tcp` | no | optional TCP monitor |
+| CrowdSec LAPI | `LXC100_IP:8089/tcp` | no | optional TCP monitor; live placement follows NPM logs |
 
 `rustdesk.internal` must resolve directly to `RUSTDESK_HOST_IP`, not to NPM, because RustDesk clients connect to protocol ports directly.
 

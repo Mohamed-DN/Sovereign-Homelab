@@ -159,7 +159,7 @@ docker compose --env-file .env up -d
 
 **Clear Explanation**
 
-LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, and CrowdSec. This layer makes the lab operable: identity, service launchpad, health checks, metrics, and logs.
+LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, and Dozzle. CrowdSec should run where it can read the live NPM logs; in the current build it runs on LXC 100 with NPM. This layer makes the lab operable: identity, service launchpad, health checks, metrics, logs, and security detection.
 
 **Success Verification**
 
@@ -173,7 +173,7 @@ curl -I http://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 27 green live monitors covering VPN, DNS, core aliases, app aliases, Immich, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 31 live monitors covering VPN, DNS, core aliases, app aliases, Immich, Jellyfin, Open WebUI, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
 
 Optional operations extensions belong after this layer, not before it:
 
@@ -209,12 +209,12 @@ Each application is isolated in its own `stacks/<service>` directory. This reduc
 
 ```bash
 docker compose --env-file stacks/vaultwarden/.env.example -f stacks/vaultwarden/docker-compose.yml config --quiet
-curl -I https://pwd.internal
-curl -I https://paper.internal
-curl -I https://git.internal
+curl -I http://pwd.internal
+curl -I http://paper.internal
+curl -I http://git.internal
 ```
 
-Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, and RustDesk OSS server; VM 110 serves Immich. Nextcloud, Home Assistant OS, Jellyfin, and Open WebUI remain planned.
+Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich. VM 120 exists for Nextcloud AIO but is gated until the AIO tag/channel is corrected and `files.internal` returns a real Nextcloud response. Home Assistant OS remains planned.
 
 ### Layer 7: Maintenance and Updates
 

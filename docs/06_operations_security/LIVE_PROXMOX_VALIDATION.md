@@ -42,10 +42,10 @@ Last checked: 2026-06-22.
 | Subnet router | `core-network` serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
 | Platform services | LXC 101 `platform-services` deployed on `192.168.1.51` |
-| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110` |
-| Internal aliases | core, platform, LXC102 apps, and Immich aliases respond through NPM |
-| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 27 live monitors green |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110`; LXC101 restore drill completed; CT102 and VM110 backups completed |
+| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` created on `192.168.1.120` but gated |
+| Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, and Nextcloud aliases exist in NPM |
+| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 31 live monitors after adding Jellyfin, Open WebUI, Ollama API, and CrowdSec LAPI |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110`; LXC101 restore drill completed; CT102 and VM110 backups completed; VM120 must be added after AIO is healthy |
 | Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
@@ -57,6 +57,8 @@ Live caveats:
 - `.internal` aliases currently use HTTP on the client side over LAN/VPN. Upstreams such as Proxmox and PBS still use HTTPS behind NPM. Add an internal CA before requiring HTTPS for all private aliases.
 - LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
 - VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
+- VM 120 Nextcloud AIO is provisioned with a 250 GB data disk, but the AIO app stack is not production-ready. The pinned AIO tag created dependencies but failed before `nextcloud-aio-apache` because the matching `nextcloud/aio-notify-push` child image was unavailable. Fix the AIO tag/channel before importing files.
+- During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
 
 ## Phase A: Access Gate
 
@@ -267,7 +269,7 @@ Compare the real Proxmox inventory with the target design:
 | Target | Expected role |
 |---|---|
 | LXC 100 `core-network` | AdGuard, Headscale, Headscale-UI, subnet router |
-| LXC 101 `platform-services` | NPM, Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
+| LXC 101 `platform-services` | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle |
 | LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo |
 | VM 110 `immich` | Immich and photo library |
 | VM 120 `nextcloud-aio` | Nextcloud AIO |
@@ -283,6 +285,12 @@ For each missing item, decide one of:
 - postpone and remove from active dashboards until deployed.
 
 Do not import critical personal data until the backup and restore gate passes.
+
+Current live deviations:
+
+- Jellyfin currently runs on LXC 102 at `192.168.1.52:8096` instead of VM 150. This is acceptable for the first media phase because GPU passthrough is not enabled and storage pressure is high.
+- Open WebUI and Ollama currently run on LXC 102 at `192.168.1.52:3004` and `192.168.1.52:11434`. GPU acceleration is intentionally disabled until passthrough is validated.
+- CrowdSec currently runs on LXC 100 because it needs direct access to the live NPM log directory. If NPM is later migrated to LXC 101, move CrowdSec or update the log mount accordingly.
 
 ## Phase H: Backup and Restore Gate
 
@@ -323,6 +331,8 @@ Current scheduled backup:
 | Job | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
 | `sovereign-core-nightly` | `100,101,102,110` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102 and VM110 still require restore drills before real data import |
+
+Add VM 120 only after Nextcloud AIO is healthy. Backing up a broken bootstrap state is useful as a temporary rollback point, but it must not be treated as a production Nextcloud backup.
 
 If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 

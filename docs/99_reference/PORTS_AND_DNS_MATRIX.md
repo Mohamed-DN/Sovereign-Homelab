@@ -90,6 +90,9 @@ Live bootstrap state as of 2026-06-22:
 | `search.internal` | `http://search.internal` | `http://192.168.1.52:8084` |
 | `git.internal` | `http://git.internal` | `http://192.168.1.52:3003` |
 | `foto.internal` | `http://foto.internal` | `http://192.168.1.110:2283` |
+| `media.internal` | `http://media.internal` | `http://192.168.1.52:8096` |
+| `ai.internal` | `http://ai.internal` | `http://192.168.1.52:3004` |
+| `files.internal` | `http://files.internal` | `http://192.168.1.120:11000`; gated until AIO Apache is healthy |
 
 This is acceptable during the VPN-only bootstrap phase. Move to trusted private HTTPS after deploying an internal CA.
 
@@ -107,6 +110,9 @@ This is acceptable during the VPN-only bootstrap phase. Move to trusted private 
 | Karakeep | `bookmarks.internal` | 3010 | VPN/Auth | DB + assets + search index |
 | SearXNG | `search.internal` | 8084 | VPN/Auth | config |
 | Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | repos + DB |
+| Jellyfin | `media.internal` | 8096 | VPN/Auth | config + media source |
+| Open WebUI | `ai.internal` | 3004 | VPN only | WebUI data |
+| Ollama API | none | 11434 | LAN/VPN only | model cache; do not publish through NPM |
 | RustDesk ID/NAT | `rustdesk.internal` | 21115/tcp, 21116/tcp+udp | LAN/VPN or explicitly approved clients | server keys/config |
 | RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | server keys/config |
 
@@ -116,12 +122,9 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 
 | Service | Hostname | Recommended port | Default access | Notes |
 |---|---:|---:|---|---|
-| Nextcloud AIO UI | none | 8086 | VPN admin | AIO backup |
-| Nextcloud Apache | `files.internal` | 11000 | VPN-first | AIO backup |
+| Nextcloud AIO UI | none | 8086 | VPN admin | live on VM120; app stack gated |
+| Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias exists; must return real Nextcloud before production |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | Better as a dedicated Proxmox VM |
-| Jellyfin | `media.internal` | 8096 | VPN/Auth | Requires storage plan |
-| Open WebUI | `ai.internal` | 3004 | VPN only | Local AI or private providers |
-| Ollama API | none | 11434 | LAN/VPN only | Do not publish |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
 ## Operations Extensions

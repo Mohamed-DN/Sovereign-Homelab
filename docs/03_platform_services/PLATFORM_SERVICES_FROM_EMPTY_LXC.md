@@ -22,7 +22,7 @@ Services:
 - Uptime Kuma.
 - Beszel.
 - Dozzle.
-- CrowdSec.
+- CrowdSec, only if this host can read the active NPM logs. In the current live build NPM runs on LXC 100, so CrowdSec also runs on LXC 100.
 
 ## Phase A: Prepare the LXC
 
@@ -123,6 +123,8 @@ Backup:
 - Homepage YAML config.
 
 ## Phase D: CrowdSec
+
+CrowdSec placement follows the logs, not the dashboard layer. If NPM runs on LXC 100, run CrowdSec on LXC 100 or mount the NPM log directory read-only from LXC 100. If NPM is later moved to LXC 101, CrowdSec can move with it.
 
 | Field | Value |
 |---|---|

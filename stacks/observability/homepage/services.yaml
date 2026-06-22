@@ -59,7 +59,7 @@
         description: Photo and video library, DB plus upload backup required
     - Nextcloud:
         href: http://files.internal
-        description: Personal cloud and file access
+        description: Personal cloud, gated until AIO Apache is healthy
     - Syncthing:
         href: http://sync.internal
         description: Peer-to-peer file sync UI
@@ -86,8 +86,6 @@
     - Forgejo:
         href: http://git.internal
         description: Git repositories and infrastructure code
-
-- Advanced Future:
     - Open WebUI:
         href: http://ai.internal
         description: Local AI interface backed by Ollama

@@ -10,6 +10,7 @@ services:
       APACHE_PORT: ${NEXTCLOUD_APACHE_PORT}
       APACHE_IP_BINDING: 0.0.0.0
       NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR}
+      SKIP_DOMAIN_VALIDATION: ${NEXTCLOUD_SKIP_DOMAIN_VALIDATION}
     ports:
     - "${NEXTCLOUD_AIO_PORT}:8080"
     volumes:
@@ -20,10 +21,12 @@ services:
       test:
       - CMD
       - curl
+      - -k
       - -f
-      - http://localhost:8080/
+      - https://localhost:8080/
       interval: 60s
       timeout: 10s
       retries: 3
 volumes:
   nextcloud_aio_mastercontainer:
+    name: nextcloud_aio_mastercontainer

@@ -28,10 +28,11 @@ Jellyfin is a Free Software Media System that puts you in control of managing an
    192.168.1.10:/mnt/tank/media /mnt/media nfs defaults,timeo=900,retrans=5,_netdev 0 0
    ```
    Run `sudo mkdir -p /mnt/media && sudo mount -a`.
-5. **GPU Passthrough (Hardware Transcoding)**:
+5. **Optional GPU Passthrough (Hardware Transcoding)**:
    - For Proxmox LXC: Map `/dev/dri` in the `.conf` file.
    - For Proxmox VM: Add a PCI Device in the VM Hardware settings (e.g., Intel IGD or Nvidia GPU).
    - Verify access: `ls -l /dev/dri`. You should see `renderD128`.
+   - The repository Compose template does not map `/dev/dri` by default. Add it with a local override only after passthrough is proven.
 
 ## 3. Environment Variables Deep-Dive
 Within the `/opt/sovereign-homelab/stacks/jellyfin` directory, create your `.env` file from `.env.example`.
@@ -48,7 +49,7 @@ Within the `/opt/sovereign-homelab/stacks/jellyfin` directory, create your `.env
 ## 4. Deployment Configuration
 
 ### `docker-compose.yml`
-Ensure your `docker-compose.yml` includes the following (note the `devices` mapping for transcoding):
+The default Compose template is CPU-only and works without a GPU. Add the `devices` mapping in a local override only when hardware transcoding is validated.
 
 ```yaml
 name: jellyfin
@@ -66,8 +67,6 @@ services:
       - ${JELLYFIN_CONFIG_PATH}:/config
       - ${JELLYFIN_CACHE_PATH}:/cache
       - ${JELLYFIN_MEDIA_PATH}:/media:ro
-    devices:
-      - /dev/dri:/dev/dri # Required for Intel QuickSync / AMD VAAPI transcoding
 ```
 
 ### Execution
@@ -98,7 +97,7 @@ docker compose logs -f
 Add Jellyfin to your `services.yaml` to show active streams and server status:
 ```yaml
 - Jellyfin:
-    href: https://media.internal
+    href: http://media.internal
     icon: jellyfin.png
     widget:
       type: jellyfin
@@ -108,7 +107,7 @@ Add Jellyfin to your `services.yaml` to show active streams and server status:
 
 ### Uptime Kuma
 - Add a new **HTTP(s)** monitor.
-- **URL**: `https://media.internal/health` (or the main URL).
+- **URL**: `http://media.internal/health` (or the main URL) until an internal CA is deployed.
 - **Accepted Status Codes**: 200-299.
 
 ## 7. Disaster Recovery & Backup Procedures

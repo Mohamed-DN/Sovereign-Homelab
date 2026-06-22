@@ -83,10 +83,28 @@ DNS and exit-node invariant:
 
 - Normal phones and laptops should accept Headscale/Tailscale DNS settings.
 - LXC 100, the Proxmox host, and other infrastructure routers should use `--accept-dns=false` so they do not replace their own resolver with the DNS service they are publishing.
+- LXC 100 and the Proxmox host must resolve the public Headscale control hostname to the internal NPM IP while they are on the home LAN. This avoids WAN hairpin failures and stale public-IP `/etc/hosts` entries.
 - Remote clients reach AdGuard through the approved `192.168.1.0/24` subnet route served by LXC 100.
 - Selecting an exit node changes the client's default internet route, but DNS queries must still go to AdGuard at `192.168.1.50`.
 - Treat DNS with an active exit node as a mandatory per-client test. Some clients can change resolver behavior when a full-tunnel route is selected, so the only accepted production result is proof in AdGuard query logs before and after exit-node selection.
 - If DNS filtering stops after selecting an exit node, fix the subnet route or client DNS settings first; do not add private app names under DuckDNS.
+
+Infrastructure local-control-plane check:
+
+```bash
+getent hosts vpn.yourdomain.duckdns.org
+curl -k -I https://vpn.yourdomain.duckdns.org
+```
+
+On Proxmox and LXC 100 while they are inside the home LAN, the hostname should resolve to the NPM/internal edge, normally `192.168.1.50`. If it resolves to an old public IP and the router does not support hairpin NAT, `tailscaled` can show `NoState`, the exit node can disappear, and the subnet router can stop serving even though Headscale itself is healthy.
+
+If AdGuard split DNS is not available during boot, add a controlled host override on infrastructure nodes only:
+
+```text
+192.168.1.50 vpn.yourdomain.duckdns.org
+```
+
+Keep this override out of personal clients. Phones and laptops outside the house must still resolve the public DuckDNS address.
 
 ---
 

@@ -19,6 +19,7 @@ Live targets touched or validated:
 | LXC 101 `platform-services` | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle |
 | LXC 102 `apps-light` | lightweight application stacks and RustDesk OSS server |
 | VM 110 `immich` | Immich and photo-library storage |
+| VM 120 `nextcloud-aio` | Nextcloud AIO bootstrap |
 | VM 140 `pbs` | Proxmox Backup Server |
 
 ## Connectivity Baseline
@@ -62,12 +63,17 @@ One bootstrap issue was found and corrected: `/etc` had mode `700`, which broke 
 | Forgejo | `git.internal` | `http://192.168.1.52:3003` | installed and reachable |
 | Forgejo SSH | none | `192.168.1.52:2222` | TCP monitor green |
 | RustDesk hbbs/hbbr | protocol exception | `192.168.1.52:21115-21119` | core TCP monitors green |
+| Jellyfin | `media.internal` | `http://192.168.1.52:8096` | healthy |
+| Open WebUI | `ai.internal` | `http://192.168.1.52:3004` | healthy |
+| Ollama API | protocol exception | `192.168.1.52:11434` | TCP/API monitor green |
 
 Corrections made to the reusable templates:
 
 - FreshRSS healthcheck uses PHP instead of `curl`, because the pinned image does not include `curl`.
 - Forgejo Compose includes install-lock and server-domain environment values so a deployed instance can be marked installed without relying on an incomplete first-run wizard state.
 - Syncthing volume ownership was corrected on the live host before enabling the UI account.
+- Jellyfin was deployed on LXC 102 instead of a dedicated VM because the current storage pool is under pressure. GPU transcoding is not enabled by default.
+- Ollama/Open WebUI was deployed on LXC 102 without GPU reservations. Add a local Compose override only after GPU passthrough and drivers are validated.
 
 ## VM 110 Immich
 
@@ -116,20 +122,23 @@ Internal NPM proxy hosts were added for the deployed application layer:
 | `search.internal` | `http://192.168.1.52:8084` | VPN/Auth |
 | `git.internal` | `http://192.168.1.52:3003` | VPN/Auth |
 | `foto.internal` | `http://192.168.1.110:2283` | VPN-first |
+| `media.internal` | `http://192.168.1.52:8096` | VPN/Auth |
+| `ai.internal` | `http://192.168.1.52:3004` | VPN only |
+| `files.internal` | `http://192.168.1.120:11000` | VPN-first |
 
 These aliases rely on the existing `*.internal -> NPM IP` AdGuard rewrite. No private application hostname is public under DuckDNS.
 
 ## Uptime Kuma
 
-Uptime Kuma now has 27 green live monitors:
+Uptime Kuma now has 31 live monitors after adding Jellyfin, Open WebUI, Ollama API, and CrowdSec LAPI checks:
 
 | Category | Monitors |
 |---|---|
 | VPN and DNS | public Headscale HTTPS, AdGuard DNS resolution, AdGuard TCP DNS, Headscale API TCP |
 | Core aliases | AdGuard UI, NPM UI, Headscale UI, Proxmox VE, PBS |
 | Platform | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle |
-| Apps | Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Immich |
-| Protocol checks | Forgejo SSH, Syncthing sync TCP, RustDesk hbbs/hbbr TCP checks |
+| Apps | Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Immich, Jellyfin, Open WebUI |
+| Protocol checks | Forgejo SSH, Syncthing sync TCP, RustDesk hbbs/hbbr TCP checks, Ollama API TCP, CrowdSec LAPI TCP |
 
 Beszel is monitored through the hub and its own internal system status. The live Beszel agent uses hub/WebSocket enrollment, so there is no separate inbound agent TCP monitor.
 
@@ -158,7 +167,7 @@ Because PBS still lives on the same physical P710, it is local recovery only. Ad
 
 ## VPN State
 
-Server-side VPN state remains aligned with the target model:
+Server-side VPN state was repaired and validated during this pass:
 
 | Check | Result |
 |---|---|
@@ -167,6 +176,13 @@ Server-side VPN state remains aligned with the target model:
 | Subnet route | LXC 100 serves `192.168.1.0/24` |
 | Exit node | Proxmox serves `0.0.0.0/0` and `::/0` |
 | DNS model | normal clients use AdGuard `192.168.1.50`; infrastructure nodes keep `--accept-dns=false` |
+
+Live fixes applied:
+
+- Headscale was found stopped after a graceful shutdown and was restarted.
+- Proxmox and LXC 100 were resolving the public VPN control hostname to an old public IP through `/etc/hosts`, which caused control-plane timeouts from inside the lab.
+- Both infrastructure nodes were corrected to resolve the VPN control hostname to `192.168.1.50` for local control-plane access through NPM.
+- After the fix, `proxmox-p710` returned online as the exit node and `core-network` returned online as the serving subnet router for `192.168.1.0/24`.
 
 The physical 4G phone validation remains the authoritative client-side acceptance test after any future VPN/NPM/router change:
 
@@ -180,6 +196,43 @@ confirm public IP changes
 confirm AdGuard logs still show the phone DNS queries
 ```
 
+## VM 120 Nextcloud AIO
+
+VM 120 was created for Nextcloud AIO:
+
+| Field | Value |
+|---|---|
+| Name | `nextcloud-aio` |
+| IP | `192.168.1.120` |
+| CPU | 4 vCPU |
+| RAM | 10 GB |
+| OS disk | 120 GB |
+| Data disk | 250 GB mounted under `/opt/sovereign/data` |
+| Runtime | Docker 29.6.0 and Docker Compose v5.1.4 |
+
+Corrections made:
+
+- The AIO mastercontainer volume must be named exactly `nextcloud_aio_mastercontainer`; the template was corrected with an explicit Docker volume name.
+- Because `files.internal` is a private VPN-only name, the AIO template now sets `SKIP_DOMAIN_VALIDATION=true`.
+- The AIO healthcheck now uses HTTPS on the mastercontainer UI.
+- VM 120 DNS was configured to use AdGuard `192.168.1.50` so `.internal` names resolve inside the VM.
+- NPM alias `files.internal` was added to forward to `http://192.168.1.120:11000`.
+
+Current gate:
+
+- AIO started its database, Redis, Talk, Collabora, Imaginary, and Nextcloud containers.
+- The pinned AIO tag `20250325_084656` failed to create `nextcloud-aio-apache` because the child image `nextcloud/aio-notify-push:20250325_084656` was not available.
+- `files.internal` therefore returns `502` until the AIO tag is corrected and Apache is created.
+- Do not import real files into Nextcloud until the AIO tag is fixed, the alias returns a real Nextcloud response, PBS includes VM 120, and a restore drill is completed.
+
+Next controlled maintenance step:
+
+1. Verify a coherent AIO channel/tag where `nextcloud/all-in-one`, `nextcloud/aio-apache`, `nextcloud/aio-nextcloud`, and `nextcloud/aio-notify-push` all exist.
+2. Update the real VM120 `.env` and this repository inventory.
+3. Recreate the AIO mastercontainer and restart the AIO app stack.
+4. Confirm `files.internal` returns `200` or `302` from Nextcloud, not `502`.
+5. Add VM120 to the PBS backup job only after the application stack is clean.
+
 ## Remaining Gates
 
 | Gate | Required before production use |
@@ -188,8 +241,10 @@ confirm AdGuard logs still show the phone DNS queries
 | Authentik policy | enable MFA, recovery, and app protection rules before relying on SSO |
 | LXC102 restore drill | restore the container to a temporary ID and verify app data paths |
 | VM110 restore drill | restore Immich to a temporary VM or isolated network and verify DB plus library consistency |
+| VM120 Nextcloud AIO | fix the AIO image tag mismatch, then validate `files.internal` and backup/restore |
 | Offsite backup | add restic or second PBS for host-loss protection |
-| Nextcloud, Home Assistant, Jellyfin, Open WebUI | still planned; deploy one at a time after restore gates |
+| Home Assistant OS | still planned; deploy only after storage pressure is reviewed |
+| Wazuh and ops extensions | still planned; deploy after core backup/restore is stable |
 
 ## Rollback Notes
 
