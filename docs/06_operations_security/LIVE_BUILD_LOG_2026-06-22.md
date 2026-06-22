@@ -20,7 +20,9 @@ Live targets touched or validated:
 | LXC 102 `apps-light` | lightweight application stacks and RustDesk OSS server |
 | VM 110 `immich` | Immich and photo-library storage |
 | VM 120 `nextcloud-aio` | Nextcloud AIO bootstrap |
+| VM 130 `home-assistant-os` | Home Assistant OS appliance |
 | VM 140 `pbs` | Proxmox Backup Server |
+| LXC 103 `ops-extensions` | NetAlertX, Scrutiny, ntfy |
 
 ## Connectivity Baseline
 
@@ -125,19 +127,24 @@ Internal NPM proxy hosts were added for the deployed application layer:
 | `media.internal` | `http://192.168.1.52:8096` | VPN/Auth |
 | `ai.internal` | `http://192.168.1.52:3004` | VPN only |
 | `files.internal` | client HTTPS on NPM, upstream `http://192.168.1.120:11000` | VPN-first |
+| `ha.internal` | `http://192.168.1.130:8123` | VPN/Auth |
+| `netalert.internal` | `http://192.168.1.53:20211` | VPN/Auth |
+| `disks.internal` | `http://192.168.1.53:8085` | VPN/admin |
+| `alerts.internal` | `http://192.168.1.53:8093` | VPN/Auth |
 
 These aliases rely on the existing `*.internal -> NPM IP` AdGuard rewrite. No private application hostname is public under DuckDNS.
 
 ## Uptime Kuma
 
-Uptime Kuma now has 31 live monitors after adding Jellyfin, Open WebUI, Ollama API, and CrowdSec LAPI checks:
+Uptime Kuma now has 35 live monitors after adding Jellyfin, Open WebUI, Ollama API, CrowdSec LAPI, Home Assistant, and operations-extension checks:
 
 | Category | Monitors |
 |---|---|
 | VPN and DNS | public Headscale HTTPS, AdGuard DNS resolution, AdGuard TCP DNS, Headscale API TCP |
 | Core aliases | AdGuard UI, NPM UI, Headscale UI, Proxmox VE, PBS |
 | Platform | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle |
-| Apps | Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Immich, Jellyfin, Open WebUI |
+| Apps | Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Immich, Nextcloud, Home Assistant, Jellyfin, Open WebUI |
+| Operations extensions | NetAlertX, Scrutiny, ntfy |
 | Protocol checks | Forgejo SSH, Syncthing sync TCP, RustDesk hbbs/hbbr TCP checks, Ollama API TCP, CrowdSec LAPI TCP |
 
 Beszel is monitored through the hub and its own internal system status. The live Beszel agent uses hub/WebSocket enrollment, so there is no separate inbound agent TCP monitor.
@@ -148,19 +155,25 @@ The scheduled Proxmox backup job was updated:
 
 | Job ID | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101,102,110,120` | `03:00` daily | `pbs-p710` | excludes PBS itself; offsite still required |
+| `sovereign-core-nightly` | `100,101,102,103,110,120,130` | `03:00` daily | `pbs-p710` | excludes PBS itself; offsite still required |
 
 Manual backups completed after deployment:
 
 | Guest | Result |
 |---|---|
 | LXC 102 `apps-light` | backup completed successfully |
+| LXC 103 `ops-extensions` | backup completed successfully after NetAlertX, Scrutiny, and ntfy deployment |
 | VM 110 `immich` | backup completed successfully after the data disk was corrected to 500 GB |
+| VM 120 `nextcloud-aio` | backup completed successfully after AIO was healthy |
+| VM 130 `home-assistant-os` | backup completed successfully after HAOS deployment and proxy validation |
 
 The earlier LXC 101 restore drill remains the only completed restore drill. Before importing real passwords, photos, documents, or repositories, repeat restore drills for:
 
 - LXC 102 `apps-light`;
+- LXC 103 `ops-extensions`;
 - VM 110 `immich`;
+- VM 120 `nextcloud-aio`;
+- VM 130 `home-assistant-os`;
 - app-aware restore for Vaultwarden, Immich, Paperless, and Forgejo sample data.
 
 Because PBS still lives on the same physical P710, it is local recovery only. Add offsite restic or a second PBS before calling the lab disaster-recovery complete.
@@ -180,6 +193,7 @@ Server-side VPN state was repaired and validated during this pass:
 Live fixes applied:
 
 - Headscale was found stopped after a graceful shutdown and was restarted.
+- AdGuard rewrites were tightened to `*.internal -> 192.168.1.50` and exact `vpn.yourdomain.duckdns.org -> 192.168.1.50`; the broad DuckDNS wildcard rewrite was removed so private app-style DuckDNS names do not resolve internally.
 - Proxmox and LXC 100 were resolving the public VPN control hostname to an old public IP through `/etc/hosts`, which caused control-plane timeouts from inside the lab.
 - Both infrastructure nodes were corrected to resolve the VPN control hostname to `192.168.1.50` for local control-plane access through NPM.
 - After the fix, `proxmox-p710` returned online as the exit node and `core-network` returned online as the serving subnet router for `192.168.1.0/24`.
@@ -236,6 +250,67 @@ Next controlled maintenance step:
 3. Install the internal CA trust anchor on personal clients before using Nextcloud heavily.
 4. Add offsite copy for AIO Borg backups or a restic copy of exported backups.
 
+## LXC 103 Operations Extensions
+
+LXC 103 was created for optional but useful operations panels:
+
+| Field | Value |
+|---|---|
+| Name | `ops-extensions` |
+| IP | `192.168.1.53` |
+| CPU | 2 vCPU |
+| RAM | 4 GB |
+| Disk | 40 GB |
+| Runtime | Docker and Docker Compose |
+
+Live services:
+
+| Service | Alias | Upstream | Status |
+|---|---|---|---|
+| NetAlertX | `netalert.internal` | `http://192.168.1.53:20211` | healthy; tune scan scope before noisy alerting |
+| Scrutiny | `disks.internal` | `http://192.168.1.53:8085` | UI reachable; SMART collector/device mapping still required |
+| ntfy | `alerts.internal` | `http://192.168.1.53:8093` | reachable; add topic/auth rules before sensitive alerts |
+
+NPM aliases `31.conf`, `32.conf`, and `33.conf` were added and `nginx -t` passed before reload. Uptime Kuma monitors `ops-netalertx`, `ops-scrutiny`, and `ops-ntfy` were added through the Kuma API and report UP. LXC 103 is included in `sovereign-core-nightly` and has a successful manual PBS backup.
+
+## VM 130 Home Assistant OS
+
+VM 130 was deployed using the official Home Assistant OS KVM/Proxmox qcow2 image flow:
+
+| Field | Value |
+|---|---|
+| Name | `home-assistant-os` |
+| IP | `192.168.1.130` |
+| CPU | 2 vCPU |
+| RAM | 4 GB |
+| OS disk | 64 GB |
+| HAOS version | 18.0 |
+| Supervisor | healthy and supported |
+
+Corrections made:
+
+- The imported HAOS disk was attached as the boot disk after an initial EFI/import-disk selection mistake was detected.
+- Static networking was configured inside HAOS: address `192.168.1.130/24`, gateway `192.168.1.1`, DNS `192.168.1.50`.
+- Home Assistant was configured to trust NPM proxy headers, resolving the `400 Bad Request` reverse-proxy failure.
+- NPM alias `ha.internal` forwards to `http://192.168.1.130:8123` with WebSocket support.
+- Uptime Kuma monitor `app-home-assistant` was added through the Kuma API and reports UP.
+- VM 130 is included in `sovereign-core-nightly` and has a successful manual PBS backup.
+
+Current gate: finish Home Assistant onboarding, create a native HA backup, and complete a PBS restore drill before relying on automations or integrations.
+
+## Proxmox Log and Maintenance Cleanup
+
+Proxmox journal warnings were reviewed during the same pass:
+
+| Finding | Action |
+|---|---|
+| `/etc/aliases.db` missing caused local postfix delivery warnings | ran `newaliases`, flushed the queue, and confirmed the mail queue was empty |
+| `sovereign-core-nightly` did not include new LXC/VM IDs | updated the job through the Proxmox API to include `100,101,102,103,110,120,130` |
+| HAOS resized disk produced GPT backup-header warnings during first boot | left as a watch item because HAOS booted, Supervisor is healthy, and changing the appliance disk partition table blindly is higher risk than the warning |
+| transient PBS route warning from earlier boot/audit window | storage `pbs-p710` was active during validation and initial backups completed |
+
+Do not treat a quiet log as the only success signal. The acceptance state is: services respond through `.internal`, Uptime Kuma monitors exist, PBS backups complete, and restore drills are scheduled.
+
 ## Follow-Up Access Recheck
 
 A later workstation-side access recheck found a layer-2 reachability problem from the Windows audit machine:
@@ -258,6 +333,8 @@ Interpretation:
 - Do not treat DNS failures on the workstation as an AdGuard configuration bug until `192.168.1.50` is reachable again.
 - Do not use LAN-to-public DuckDNS tests as the only public-edge validation because the router may not support NAT loopback. Repeat the 4G phone test after local reachability is restored.
 
+Subsequent live access was restored from the workstation. SSH to Proxmox worked, server-side VPN health was rechecked, and live changes were applied through the Proxmox host. Keep the layer-2 note above as a troubleshooting reference because the symptom can recur if Wi-Fi isolation, cabling, or routing changes.
+
 ## Remaining Gates
 
 | Gate | Required before production use |
@@ -268,8 +345,9 @@ Interpretation:
 | VM110 restore drill | restore Immich to a temporary VM or isolated network and verify DB plus library consistency |
 | VM120 Nextcloud AIO | complete AIO restore drill and trusted internal certificate rollout before real files |
 | Offsite backup | add restic or second PBS for host-loss protection |
-| Home Assistant OS | still planned; deploy only after storage pressure is reviewed |
-| Wazuh and ops extensions | still planned; deploy after core backup/restore is stable |
+| Home Assistant OS | live; complete HA native backup and PBS restore drill |
+| Ops extensions | live; finish Scrutiny disk collector/device mapping and ntfy auth/topic policy |
+| Wazuh | still planned; deploy only after core backup/restore is stable and RAM pressure is acceptable |
 
 ## Rollback Notes
 

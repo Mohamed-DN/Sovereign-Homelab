@@ -214,8 +214,8 @@ Live note: the first internal aliases were added as NPM static proxy config file
 | Beszel | `monitor.internal` | `http` | `LXC101_IP:8090` | yes | VPN/Auth |
 | Dozzle | `logs.internal` | `http` | `LXC101_IP:8088` | yes | VPN/admin |
 | NetAlertX | `netalert.internal` | `http` | `LXC103_IP:20211` | no | VPN/Auth |
-| Scrutiny | `disks.internal` | `http` | `LXC103_IP:8080` | no | VPN/admin |
-| ntfy | `alerts.internal` | `http` | `LXC103_IP:80` | yes | VPN/Auth |
+| Scrutiny | `disks.internal` | `http` | `LXC103_IP:8085` | no | VPN/admin |
+| ntfy | `alerts.internal` | `http` | `LXC103_IP:8093` | yes | VPN/Auth |
 
 ## Phase H: Internal App Proxy Hosts
 

@@ -22,6 +22,7 @@ The repository is written in English and is designed to be used like an infrastr
 | Core network | LXC 100 `core-network`, currently `192.168.1.50` |
 | Platform services | LXC 101 `platform-services`, live at `192.168.1.51` |
 | Lightweight apps | LXC 102 `apps-light` |
+| Operations extensions | LXC 103 `ops-extensions`, live at `192.168.1.53` |
 | Critical app VMs | Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, Wazuh as dedicated VMs when appropriate |
 
 ## Live Foundation Status
@@ -33,12 +34,14 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | VPN | public Headscale endpoint online; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101 |
+| Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
 | Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000` |
-| Monitoring | Uptime Kuma initialized with 31 live monitors covering VPN, DNS, core aliases, apps, Immich, Jellyfin, Open WebUI, and protocol checks |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,110,120`; LXC 101 restore drill completed; CT102, VM110, and VM120 backups completed |
-| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and restore drills for LXC 102, VM 110, and VM 120 before importing real critical data |
+| Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
+| Monitoring | Uptime Kuma initialized with 35 live monitors covering VPN, DNS, core aliases, apps, operations extensions, Home Assistant, and protocol checks |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101 restore drill completed; CT102, CT103, VM110, VM120, and VM130 backups completed |
+| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, Scrutiny disk collector wiring, and restore drills for LXC 102, VM 110, VM 120, VM 130, and LXC 103 before importing real critical data |
 
 ## Network and Access Model
 
@@ -183,8 +186,9 @@ No alias + no NPM + no Homepage + no Uptime Kuma + no backup = not operational.
 3. LXC 100 core network: AdGuard, Headscale, subnet route.
 4. NPM and `.internal` alias routing.
 5. Platform services: Authentik, Homepage, Uptime Kuma, Beszel, Dozzle.
-6. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
-7. High-value apps and advanced services.
+6. Operations extensions: NetAlertX, Scrutiny, ntfy.
+7. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
+8. High-value apps and advanced services.
 
 See [OPERATIONAL_GUIDE.md](OPERATIONAL_GUIDE.md) for the full recovery plan.
 

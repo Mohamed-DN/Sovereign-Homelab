@@ -21,12 +21,12 @@ Target placeholders:
 | `LXC102_IP` | apps-light LXC, currently `192.168.1.52` |
 | `VM110_IP` | Immich VM, currently `192.168.1.110` |
 | `VM120_IP` | Nextcloud AIO VM, currently `192.168.1.120` |
-| `VM130_IP` | Home Assistant OS VM |
+| `VM130_IP` | Home Assistant OS VM, currently `192.168.1.130` |
 | `VM150_IP` | future dedicated Jellyfin VM, not currently used |
 | `AI_HOST_IP` | AI host, currently `192.168.1.52` on LXC 102 |
 | `RUSTDESK_HOST_IP` | Host or LXC running the RustDesk relay |
 | `VM160_IP` | Optional Wazuh VM |
-| `LXC103_IP` | Optional operations extensions LXC |
+| `LXC103_IP` | operations extensions LXC, currently `192.168.1.53` |
 
 ## Public Edge
 
@@ -70,7 +70,7 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Home Assistant OS | `ha.internal` | `http://VM130_IP:8123` | yes | yes | HTTP alias monitor after deployment | VPN/Auth | HA backup export + PBS |
+| Home Assistant OS | `ha.internal` | `http://VM130_IP:8123` | yes | yes | HTTP alias monitor | VPN/Auth | HA backup export + PBS |
 | Jellyfin | `media.internal` | `http://LXC102_IP:8096` | yes | yes | HTTP alias monitor | VPN/Auth | config + metadata + media source plan |
 | FreshRSS | `rss.internal` | `http://LXC102_IP:8087` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | data volume or DB |
 | Karakeep | `bookmarks.internal` | `http://LXC102_IP:3010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | DB + assets + search index |
@@ -84,9 +84,9 @@ These are optional panels for running the lab at a higher operational level. The
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| NetAlertX | `netalert.internal` | `http://LXC103_IP:20211` | yes | yes | HTTPS monitor | VPN/Auth | `/data/config` + `/data/db` |
-| Scrutiny | `disks.internal` | `http://LXC103_IP:8080` | yes | yes | HTTPS monitor | VPN/admin | config + InfluxDB data |
-| ntfy | `alerts.internal` | `http://LXC103_IP:80` | yes | yes | HTTPS monitor | VPN/Auth | server config + cache/attachments if enabled |
+| NetAlertX | `netalert.internal` | `http://LXC103_IP:20211` | yes | yes | HTTP monitor | VPN/Auth | `/data` volume |
+| Scrutiny | `disks.internal` | `http://LXC103_IP:8085` | yes | yes | HTTP monitor; disk collector still needs explicit mapping | VPN/admin | config + InfluxDB data |
+| ntfy | `alerts.internal` | `http://LXC103_IP:8093` | yes | yes | HTTP monitor | VPN/Auth | server config + cache/attachments if enabled |
 
 ## Documented Exceptions
 

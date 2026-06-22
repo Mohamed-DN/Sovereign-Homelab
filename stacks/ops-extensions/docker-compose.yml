@@ -1,0 +1,67 @@
+services:
+  netalertx:
+    image: ${NETALERTX_IMAGE}
+    container_name: netalertx
+    restart: unless-stopped
+    network_mode: ${NETALERTX_NETWORK_MODE}
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+      - NET_BIND_SERVICE
+      - CHOWN
+      - SETUID
+      - SETGID
+    sysctls:
+      net.ipv4.conf.all.arp_ignore: 1
+      net.ipv4.conf.all.arp_announce: 2
+    environment:
+      TZ: ${TZ}
+      LISTEN_ADDR: ${NETALERTX_LISTEN_ADDR}
+      PORT: ${NETALERTX_PORT}
+      GRAPHQL_PORT: ${NETALERTX_GRAPHQL_PORT}
+    volumes:
+      - netalertx_data:/data
+      - /etc/localtime:/etc/localtime:ro
+    tmpfs:
+      - /tmp:uid=20211,gid=20211,mode=1700,rw,noexec,nosuid,nodev,async,noatime,nodiratime
+
+  ntfy:
+    image: ${NTFY_IMAGE}
+    container_name: ntfy
+    restart: unless-stopped
+    command: serve
+    environment:
+      TZ: ${TZ}
+      NTFY_BASE_URL: ${NTFY_BASE_URL}
+      NTFY_LISTEN_HTTP: :80
+      NTFY_BEHIND_PROXY: "true"
+      NTFY_CACHE_FILE: /var/cache/ntfy/cache.db
+      NTFY_ATTACHMENT_CACHE_DIR: /var/cache/ntfy/attachments
+      NTFY_ATTACHMENT_TOTAL_SIZE_LIMIT: 5G
+      NTFY_ATTACHMENT_FILE_SIZE_LIMIT: 50M
+    ports:
+      - "${NTFY_PORT}:80"
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_config:/etc/ntfy
+
+  scrutiny:
+    image: ${SCRUTINY_IMAGE}
+    container_name: scrutiny
+    restart: unless-stopped
+    ports:
+      - "${SCRUTINY_PORT}:8080"
+      - "${SCRUTINY_INFLUX_PORT}:8086"
+    volumes:
+      - scrutiny_config:/opt/scrutiny/config
+      - scrutiny_influxdb:/opt/scrutiny/influxdb
+
+volumes:
+  netalertx_data:
+  ntfy_cache:
+  ntfy_config:
+  scrutiny_config:
+  scrutiny_influxdb:

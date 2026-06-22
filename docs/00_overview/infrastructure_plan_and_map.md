@@ -48,11 +48,11 @@ mindmap
       Optional backup subnet route
     LXC 100: Core Network
       AdGuard Home
+      Nginx Proxy Manager
       Headscale
       Headscale-UI
       Tailscale Subnet Router
     LXC 101: Services and Apps
-      Nginx Proxy Manager
       Authentik
       Homepage.dev
       Uptime Kuma
@@ -177,12 +177,12 @@ Runbook: [doc_11_security_operations.md](../06_operations_security/doc_11_securi
 
 Goal: expand without weakening the foundation.
 
-Planned services:
+Live and planned services:
 
-- **Home Assistant** as a VM for full supervisor/add-on support.
+- **Home Assistant** is live as VM 130 for full supervisor/add-on support.
 - **Secondary AdGuard + Keepalived** for DNS high availability.
-- **RustDesk** for private remote support.
-- **Jellyfin / Paperless-ngx** only after backup and monitoring are stable.
+- **RustDesk** is live on LXC 102 for private remote support.
+- **Jellyfin / Paperless-ngx** are live on LXC 102; move Jellyfin to VM 150 only if GPU passthrough/transcoding becomes necessary.
 
 ---
 

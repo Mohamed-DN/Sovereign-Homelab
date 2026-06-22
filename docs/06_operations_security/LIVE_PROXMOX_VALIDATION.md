@@ -42,10 +42,11 @@ Last checked: 2026-06-22.
 | Subnet router | `core-network` serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
 | Platform services | LXC 101 `platform-services` deployed on `192.168.1.51` |
-| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120` and serving through `files.internal` |
-| Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, and Nextcloud aliases exist in NPM |
-| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 31 live monitors after adding Jellyfin, Open WebUI, Ollama API, and CrowdSec LAPI |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110,120`; LXC101 restore drill completed; CT102, VM110, and VM120 backups completed |
+| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120`; VM 130 `home-assistant-os` deployed on `192.168.1.130` |
+| Operations extensions | LXC 103 `ops-extensions` deployed on `192.168.1.53` with NetAlertX, Scrutiny, and ntfy |
+| Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, Nextcloud, Home Assistant, NetAlertX, Scrutiny, and ntfy aliases exist in NPM |
+| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 35 live monitors after adding Home Assistant and operations-extension checks |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101 restore drill completed; CT102, CT103, VM110, VM120, and VM130 backups completed |
 | Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
@@ -58,6 +59,8 @@ Live caveats:
 - LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
 - VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
 - VM 120 Nextcloud AIO is provisioned with a 250 GB data disk. AIO now runs on the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel, all AIO child containers are healthy, and `https://files.internal` returns a real Nextcloud login redirect. Do not import real files until the AIO restore drill and client certificate trust are handled.
+- VM 130 Home Assistant OS is deployed at `192.168.1.130`. `ha.internal` works through NPM after adding the Home Assistant reverse-proxy trust block for NPM.
+- LXC 103 operations extensions are deployed at `192.168.1.53`. NetAlertX, Scrutiny, and ntfy are reachable through NPM and have Kuma monitors. Scrutiny still needs a deliberate host disk collector/device mapping before it can be considered complete disk-health monitoring.
 - During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
 
 ## Phase A: Access Gate
@@ -271,6 +274,7 @@ Check Uptime Kuma:
 - `AdGuard DNS TCP`: TCP `192.168.1.50:53`;
 - `Nginx Proxy Manager UI`, `Headscale UI`, `Proxmox VE`, `Proxmox Backup Server`;
 - `Authentik`, `Homepage`, `Uptime Kuma`, `Beszel Hub`, `Dozzle`;
+- `NetAlertX`, `Scrutiny`, `ntfy`;
 - `PBS API TCP`, `Headscale API TCP`;
 - deployed app monitors for Vaultwarden, Syncthing UI, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, and Immich;
 - protocol monitors for Forgejo SSH, Syncthing sync TCP, and RustDesk TCP endpoints;
@@ -291,6 +295,7 @@ Compare the real Proxmox inventory with the target design:
 | LXC 100 `core-network` | AdGuard, Headscale, Headscale-UI, subnet router |
 | LXC 101 `platform-services` | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle |
 | LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo |
+| LXC 103 `ops-extensions` | NetAlertX, Scrutiny, ntfy |
 | VM 110 `immich` | Immich and photo library |
 | VM 120 `nextcloud-aio` | Nextcloud AIO |
 | VM 130 `home-assistant-os` | Home Assistant OS |
@@ -350,9 +355,9 @@ Current scheduled backup:
 
 | Job | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101,102,110,120` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102, VM110, and VM120 still require restore drills before real data import |
+| `sovereign-core-nightly` | `100,101,102,103,110,120,130` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102, CT103, VM110, VM120, and VM130 still require restore drills before real data import |
 
-VM 120 is now included after Nextcloud AIO became healthy. The backup is a recovery point, but it must not be treated as production Nextcloud readiness until a restore drill has been completed.
+VM 120, VM 130, and LXC 103 are now included after their services became reachable. The backups are recovery points, but they must not be treated as production readiness until restore drills have been completed.
 
 If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 

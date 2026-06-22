@@ -6,6 +6,7 @@ Home Assistant is the central brain of our home automation. Instead of a standar
 - **CPU / RAM**: 2 vCPU / 4 GB RAM
 - **Storage**: 64 GB OS Disk
 - **Architecture**: Virtual Appliance (HAOS)
+- **Live state**: deployed at `192.168.1.130`, reachable through `http://ha.internal`, included in PBS job `sovereign-core-nightly`.
 
 ## 2. VM Creation & HAOS Deployment
 Deploying HAOS requires importing a pre-built `.qcow2` image rather than running a traditional installer. Follow these steps via the Proxmox Shell and Web UI:
@@ -38,6 +39,16 @@ Deploying HAOS requires importing a pre-built `.qcow2` image rather than running
 
 ## 3. Initial Configuration
 1. **Network Configuration**: Assign a static IP or DHCP reservation (e.g., `192.168.1.130`) to VM 130 on your router.
+   Live CLI example from the HAOS console:
+   ```bash
+   ha network update enp6s18 \
+     --ipv4-method static \
+     --ipv4-address 192.168.1.130/24 \
+     --ipv4-gateway 192.168.1.1 \
+     --ipv4-nameserver 192.168.1.50 \
+     --ipv6-method auto
+   ha network info
+   ```
 2. **Onboarding**: Navigate to `http://<VM130_IP>:8123` in your browser. Wait for the initial setup to complete (this can take up to 20 minutes as it pulls updates).
 3. **Account Setup**: Create the primary administrator account.
 4. **Location & Units**: Set up your home location (for sunrise/sunset automations) and preferred unit system.
@@ -71,8 +82,10 @@ Home Assistant aggressively rejects incoming proxy connections by default. You m
    http:
      use_x_forwarded_for: true
      trusted_proxies:
-       - NPM_IP
+       - 192.168.1.50
+       - 172.16.0.0/12
    ```
+   The Docker bridge range is included because NPM can present as a bridge-network source address depending on how the proxy container forwards the request.
 2. **Restart HA**: Go to **Developer Tools -> YAML -> Restart** to apply the changes.
 3. **Configure NPM**:
    Log into NPM and create a Proxy Host:
@@ -81,7 +94,7 @@ Home Assistant aggressively rejects incoming proxy connections by default. You m
    - **Forward IP**: `<VM130_IP>`
    - **Forward Port**: `8123`
    - **Websockets Support**: enabled; Home Assistant needs it for the live UI.
-   - **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
+   - **SSL**: none during the VPN-only bootstrap; switch to private HTTPS after the internal CA is deployed and trusted.
 
 ## 6. USB Passthrough (Zigbee/Z-Wave)
 For local smart home control, USB coordinators must be passed from the Proxmox host directly to VM 130.
@@ -102,12 +115,12 @@ Integrate Home Assistant into your homelab monitoring stack.
   - Home Automation:
       - Home Assistant:
           icon: home-assistant
-          href: https://ha.internal
+          href: http://ha.internal
           description: Smart Home Hub
-          ping: https://ha.internal
+          ping: http://ha.internal
   ```
 - **Uptime Kuma**:
-  Add an `HTTP(s)` monitor targeting `https://ha.internal`. Check for a 200 OK status. Ensure the monitor runs from the internal network.
+  Add an HTTP monitor targeting `http://ha.internal`. Accept `2xx/3xx` responses. Ensure the monitor runs from the internal network.
 
 ## 8. Disaster Recovery & Backups
 Since Home Assistant contains complex automations and historical data, dual-layered backups are mandatory.
@@ -135,12 +148,12 @@ If an HAOS update or add-on breaks the instance:
 1. Try a native Home Assistant backup restore first from **Settings -> System -> Backups**.
 2. If the VM is unstable or will not boot, restore VM 130 from PBS to a temporary VM ID.
 3. Keep the broken VM powered off until the restored VM is verified.
-4. Re-test `https://ha.internal`, automations, integrations, and USB coordinator access.
+4. Re-test `http://ha.internal`, automations, integrations, and USB coordinator access.
 5. Document the failed version before attempting another update.
 
 ## 10. Troubleshooting
 - **NPM 400 Bad Request Error**:
-  If you access `https://ha.internal` and receive a `400 Bad Request`, it means your `trusted_proxies` configuration is missing or incorrect. Verify the IP in `configuration.yaml` matches NPM's IP and restart HA.
+  If you access `http://ha.internal` and receive a `400 Bad Request`, it means your `trusted_proxies` configuration is missing or incorrect. Verify the IP in `configuration.yaml` includes NPM's IP and restart HA.
 - **Boot Issues / Safe Mode**:
   If a bad configuration prevents HA from booting, it will attempt to start in "Safe Mode". Use the Proxmox Console to access the HA CLI.
   ```bash
