@@ -49,7 +49,29 @@ Back up LXC 103 with PBS. Also keep app-aware notes:
 
 ## Scrutiny Disk Access
 
-The template starts the Scrutiny web UI and database. It does not automatically grant raw SMART access to host disks. For production disk-health monitoring, document each disk mapping or run a collector on the Proxmox host with explicit read-only device access. Do not pass raw disks into a container casually.
+The template starts the Scrutiny web UI and database. It does not automatically grant raw SMART access to host disks.
+
+For production disk-health monitoring, run the collector where the disks are physically visible, normally the Proxmox host. The Scrutiny upstream Docker guidance requires:
+
+- `/run/udev:/run/udev:ro` so the collector can read device metadata;
+- `SYS_RAWIO` so `smartctl` can query SMART data;
+- explicit `--device=/dev/...` mappings for every disk returned by `smartctl --scan`;
+- `SYS_ADMIN` as well when NVMe devices require it.
+
+Do not pass raw disks into a container casually. First record the output of:
+
+```bash
+smartctl --scan
+ls -l /dev/disk/by-id/
+```
+
+Then create a small host-side collector or a documented Compose override that maps only those devices. The acceptance test is:
+
+```bash
+docker exec scrutiny /opt/scrutiny/bin/scrutiny-collector-metrics run
+```
+
+The dashboard is not production disk monitoring until real drives appear in `disks.internal`.
 
 ## Sources
 

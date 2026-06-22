@@ -20,7 +20,7 @@ Last checked: 2026-06-22.
 | `observability` | `amir20/dozzle` | `DOZZLE_TAG` | `v10.6.6` | Docker Hub tag check | Low-risk log viewer; still validate login/proxy. |
 | `ops-extensions` | `ghcr.io/netalertx/netalertx` | `NETALERTX_IMAGE` | `latest` | Official NetAlertX Docker Compose baseline | Explicit exception. NetAlertX upstream examples use the rolling image channel; keep LXC103 covered by PBS before updates. |
 | `ops-extensions` | `binwiederhier/ntfy` | `NTFY_IMAGE` | `v2.24.0` | ntfy install docs and Docker tag check | Back up config/cache if attachments or auth are enabled. |
-| `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `latest` | Scrutiny omnibus deployment model | Explicit exception. Treat Scrutiny as an operations panel; document the collector/device mapping before relying on SMART data. |
+| `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `v0.9.2-omnibus` | Scrutiny README and GHCR package tags | Omnibus image. Treat Scrutiny as an operations panel; document the collector/device mapping before relying on SMART data. |
 | `security` | `crowdsecurity/crowdsec` | `CROWDSEC_TAG` | `v1.7.8` | Docker Hub tag check and CrowdSec release tag | Detection only unless a bouncer/remediation component is installed. |
 | `vaultwarden` | `vaultwarden/server` | `VAULTWARDEN_TAG` | `1.36.0` | Docker Hub tag check and Vaultwarden release tag | Critical data. Export and back up volume before update. |
 | `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Server and machine-learning must match. Restore drill required before importing full library. |
@@ -59,7 +59,7 @@ This repo uses pinned default tags so the running state can be audited and repro
 
 Nextcloud AIO is special because the mastercontainer creates multiple child containers. The official AIO Compose file uses `ghcr.io/nextcloud-releases/all-in-one:latest` for the mastercontainer release channel. This repository follows that upstream model for AIO.
 
-NetAlertX and Scrutiny are also documented exceptions in the ops-extension stack because their upstream deployment models use rolling container images. They are operational visibility panels, not critical data stores, but they still require PBS coverage and a rollback plan before updates.
+NetAlertX is also a documented exception in the ops-extension stack because its upstream deployment model uses a rolling container image. It is an operational visibility panel, not a critical data store, but it still requires PBS coverage and a rollback plan before updates.
 
 Operational rules for these exceptions:
 
@@ -67,7 +67,7 @@ Operational rules for these exceptions:
 2. Update one rolling-channel service at a time.
 3. Confirm the `.internal` alias, Homepage card, and Uptime Kuma monitor after the update.
 4. For AIO, let the mastercontainer update its own child containers through the official flow.
-5. For NetAlertX and Scrutiny, confirm the UI loads and data volume still exists after update.
+5. For NetAlertX, confirm the UI loads and data volume still exists after update.
 6. Run a restore drill before treating any critical-data service as production.
 
 ## Update Procedure
@@ -93,4 +93,4 @@ Operational rules for these exceptions:
 
 ## Rolling Tag Policy
 
-Do not use `latest`, `main`, or `release` as normal defaults. If an upstream project only publishes a rolling installation path or an official release-channel mastercontainer, document the exception here before using it. Current documented exceptions: Nextcloud AIO mastercontainer, NetAlertX, and Scrutiny.
+Do not use `latest`, `main`, or `release` as normal defaults. If an upstream project only publishes a rolling installation path or an official release-channel mastercontainer, document the exception here before using it. Current documented exceptions: Nextcloud AIO mastercontainer and NetAlertX.
