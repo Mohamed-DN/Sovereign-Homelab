@@ -14,6 +14,7 @@
 | Exit node does not appear | `headscale nodes list-routes` | approve `0.0.0.0/0`, verify `--advertise-exit-node` |
 | Exit node works but ads are not filtered | AdGuard query log and `nslookup example.com 192.168.1.50` | fix client DNS acceptance or the subnet route; do not create private DuckDNS app names |
 | DNS is unstable on servers | `tailscale debug prefs` | run `tailscale set --accept-dns=false` on infrastructure nodes |
+| Workstation Tailscale is registered to a LAN-only control URL | `tailscale debug prefs` shows `ControlURL` as `http://192.168.1.50:8080` | re-enroll the workstation against `https://vpn.yourdomain.duckdns.org`; do not use the LXC IP as the control URL for laptops or phones |
 | Tailscale does not start | `ls -l /dev/net/tun` | load the `tun` module, enable TUN for LXC |
 | Policy breaks access | `headscale configtest` | roll back the policy or comment out `policy.path` |
 
@@ -28,6 +29,9 @@
 | WebSocket app does not work | NPM Details tab | enable Websockets Support |
 | HTTPS loop | NPM advanced/proxy settings | check scheme, Force SSL, and upstream behavior |
 | Host replies to ping but SSH or web ports fail | `Test-NetConnection HOST -Port PORT` | check host firewall, Proxmox firewall, LXC firewall, service bind address, and whether the workstation is on the expected LAN/VPN segment |
+| Only the router answers; Proxmox, AdGuard, and all VMs are ARP incomplete | `arp -a`, `ping 192.168.1.50`, `ping 192.168.1.150`, subnet TCP scan | use Proxmox console or router lease table; check P710 power, NIC link, switch/AP client isolation, wrong SSID/guest network, VLAN mismatch, and static IP conflict before touching Headscale |
+| Windows has internet by IP but DNS is broken | `ipconfig /all` shows DNS `192.168.1.50`, while `nslookup example.com 8.8.8.8` works | restore AdGuard reachability first; as a temporary workstation-only recovery step, set a public DNS resolver, then revert to AdGuard after the lab is reachable |
+| DuckDNS hostname times out from inside LAN | `nslookup vpn.yourdomain.duckdns.org 8.8.8.8` and `curl --resolve ...` | test from real 4G before changing NPM; many routers do not support NAT loopback, so LAN-to-public-IP failure is not enough evidence |
 
 ## Authentik
 
