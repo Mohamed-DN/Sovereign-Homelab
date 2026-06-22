@@ -92,9 +92,9 @@ Live bootstrap state as of 2026-06-22:
 | `foto.internal` | `http://foto.internal` | `http://192.168.1.110:2283` |
 | `media.internal` | `http://media.internal` | `http://192.168.1.52:8096` |
 | `ai.internal` | `http://ai.internal` | `http://192.168.1.52:3004` |
-| `files.internal` | `http://files.internal` | `http://192.168.1.120:11000`; gated until AIO Apache is healthy |
+| `files.internal` | `https://files.internal` | client-side HTTPS on NPM, upstream `http://192.168.1.120:11000`; live Nextcloud AIO |
 
-This is acceptable during the VPN-only bootstrap phase. Move to trusted private HTTPS after deploying an internal CA.
+Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Nextcloud is the exception: `files.internal` uses client-side HTTPS now because AIO expects secure browser access. Move all private aliases to trusted private HTTPS after deploying an internal CA.
 
 ## Live Apps
 
@@ -123,7 +123,7 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | Service | Hostname | Recommended port | Default access | Notes |
 |---|---:|---:|---|---|
 | Nextcloud AIO UI | none | 8086 | VPN admin | live on VM120; app stack gated |
-| Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias exists; must return real Nextcloud before production |
+| Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; restore drill required before production files |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | Better as a dedicated Proxmox VM |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 

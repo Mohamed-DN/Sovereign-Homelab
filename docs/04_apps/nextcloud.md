@@ -16,9 +16,9 @@ Target:
 | OS disk | 120 GB |
 | Data disk | dedicated data mount, live baseline 250 GB under `/opt/sovereign/data` |
 | Alias | `files.internal` |
-| NPM upstream | `http://VM120_IP:11000` |
+| NPM upstream | client HTTPS on `files.internal`, upstream `http://VM120_IP:11000` |
 
-Nextcloud is a critical-data service. Do not import real files until AIO is healthy, PBS covers VM 120, and an AIO restore drill has been completed.
+Nextcloud is a critical-data service. Do not import real files until AIO is healthy, PBS covers VM 120, browser clients trust the internal certificate path you choose, and an AIO restore drill has been completed.
 
 ## 2. Directory & Secrets Setup
 Log into VM 120 and navigate to the dedicated stack directory:
@@ -30,6 +30,7 @@ nano .env
 Minimum values:
 
 ```env
+NEXTCLOUD_AIO_IMAGE=ghcr.io/nextcloud-releases/all-in-one:latest
 NEXTCLOUD_AIO_PORT=8086
 NEXTCLOUD_APACHE_PORT=11000
 NEXTCLOUD_DATADIR=/opt/sovereign/data/nextcloud
@@ -38,16 +39,7 @@ NEXTCLOUD_SKIP_DOMAIN_VALIDATION=true
 
 `NEXTCLOUD_SKIP_DOMAIN_VALIDATION=true` is intentional in this lab because `files.internal` is a VPN-only private DNS name. Do not use this setting to expose a public Nextcloud without proper public DNS and TLS validation.
 
-Before deployment, verify the AIO tag:
-
-```bash
-docker manifest inspect nextcloud/all-in-one:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-apache:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-nextcloud:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-notify-push:${NEXTCLOUD_AIO_TAG}
-```
-
-If any child image is missing, do not deploy that tag. AIO must use a coherent channel where the mastercontainer and child containers exist together.
+Nextcloud AIO is an explicit exception to the repository's normal pinned-tag policy. The official upstream Compose file uses `ghcr.io/nextcloud-releases/all-in-one:latest` for the mastercontainer release channel. The mastercontainer then creates and updates the child containers. Do not replace this with the old `nextcloud/all-in-one:<dated-tag>` pattern unless you have verified the full AIO child-container set and documented the rollback.
 
 ## 3. Deployment (Mastercontainer)
 Nextcloud AIO uses a Mastercontainer to spawn the other containers automatically.
@@ -66,7 +58,21 @@ Log into NPM at `http://npm.internal` and create a Proxy Host:
 - **Domain Names**: `files.internal`
 - **Scheme / Forward IP / Port**: `http` / `VM120_IP` / `11000`
 - **Websockets Support**: enabled
-- **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
+- **SSL**: required. Use an internal certificate for `files.internal`, enable client-side HTTPS, and redirect HTTP to HTTPS.
+
+The live build uses a manual NPM Nginx file for `files.internal` because the service needs client-side HTTPS while the lab is still moving toward a full internal CA. The file is:
+
+```text
+/opt/core-network/npm/data/nginx/proxy_host/30.conf
+```
+
+The certificate is stored outside Git under:
+
+```text
+/opt/core-network/npm/data/custom_ssl/internal-wildcard/
+```
+
+This makes the alias functional immediately, but browsers will warn until the internal CA or certificate is trusted on your devices. The production-grade target is still a real internal CA, preferably Smallstep `step-ca`, with the root installed on your personal devices.
 
 *Note: Port 11000 is the Apache container port spawned by AIO, NOT 8080!*
 
@@ -77,19 +83,21 @@ Inside VM 120, DNS must resolve `.internal` names through AdGuard:
 ```bash
 getent hosts files.internal
 curl -I http://files.internal
+curl -k -I https://files.internal
 ```
 
 Expected:
 
 ```text
 files.internal -> 192.168.1.50
-HTTP response from NPM, then Nextcloud after AIO is healthy
+HTTP 301 to HTTPS from NPM
+HTTPS 302 or 200 from real Nextcloud, not a 502 bootstrap failure
 ```
 
 ## 5. Dashboard and Monitoring
 
-- Homepage: card points to `http://files.internal` until an internal CA exists.
-- Uptime Kuma: monitor `app-nextcloud` points to `http://files.internal`.
+- Homepage: card should point to `https://files.internal`.
+- Uptime Kuma: monitor `app-nextcloud` should point to `https://files.internal` and accept the internal certificate until a trusted internal CA is deployed.
 - Do not mark the monitor green if it is only showing an AIO bootstrap/domaincheck response. The accepted state is a real Nextcloud response, normally `200` or redirect to login.
 
 Useful checks:
@@ -98,13 +106,14 @@ Useful checks:
 docker ps --filter name=nextcloud-aio
 curl -I http://127.0.0.1:11000
 curl -I http://files.internal
+curl -k -I https://files.internal
 ```
 
 ## 6. Backup & Restore
 Backup layers:
 
 1. Use the built-in AIO Borg backup from the AIO interface.
-2. Include VM 120 in PBS only after AIO is clean and healthy.
+2. Include VM 120 in PBS after AIO is clean and healthy. Live state: VM120 is included in `sovereign-core-nightly`.
 3. Add offsite copy for the Borg repository or use restic for the exported backup.
 
 Restore drill:
@@ -119,17 +128,22 @@ Restore drill:
 | Symptom | Likely cause | Fix |
 |---|---|---|
 | AIO accepts the mastercontainer but `files.internal` returns `502` | Apache child container is not running | inspect `docker logs nextcloud-aio-mastercontainer` and child image availability |
-| `nextcloud-aio-apache` is missing | AIO child image tag mismatch or failed start | verify `nextcloud/aio-apache:${NEXTCLOUD_AIO_TAG}` and `nextcloud/aio-notify-push:${NEXTCLOUD_AIO_TAG}` |
+| `nextcloud-aio-apache` is missing | AIO child container failed to start or the mastercontainer channel is inconsistent | inspect `docker logs nextcloud-aio-mastercontainer` and recreate the child containers from the AIO UI |
 | Domain validation fails | `.internal` is private or VM cannot resolve AdGuard | keep `NEXTCLOUD_SKIP_DOMAIN_VALIDATION=true` and make VM DNS use `192.168.1.50` |
 | AIO UI is unreachable | wrong published port | use `https://VM120_IP:8086`, not the Apache port |
+| `http://files.internal` works but browser jumps to broken HTTPS | NPM has no TLS listener for `files.internal` | add an internal cert and a 443 server/proxy for `files.internal`; do not downgrade Nextcloud to plain HTTP |
 | Uploads fail or stop early | proxy buffering/timeouts/body size | set NPM `client_max_body_size 0`, long read/send timeouts, and WebSocket support |
 | Memory crashes occur during sync | VM under-sized | raise VM RAM to 12 GB and review AIO optional services |
 
 Live 2026-06-22 note:
 
-- VM 120 exists and `files.internal` exists.
-- The pinned tag `20250325_084656` failed because `nextcloud/aio-notify-push:20250325_084656` was unavailable while AIO attempted to create Apache dependencies.
-- Treat Nextcloud as gated until a coherent AIO channel/tag is selected and `files.internal` returns a real Nextcloud response.
+- VM 120 exists at `192.168.1.120`.
+- AIO was switched to the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel.
+- All AIO child containers were healthy after recreation.
+- `http://files.internal` returns an NPM 301 to HTTPS.
+- `https://files.internal` returns a real Nextcloud login redirect.
+- VM120 is included in PBS and has a successful manual backup.
+- Treat Nextcloud as gated for real files until the AIO restore drill is completed and client trust for the internal certificate path is handled.
 
 Sources:
 

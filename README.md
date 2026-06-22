@@ -35,10 +35,10 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101 |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
 | Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk |
-| Nextcloud | VM 120 `nextcloud-aio` exists at `192.168.1.120`, but AIO is gated until the image tag mismatch is fixed and `files.internal` returns real Nextcloud |
+| Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000` |
 | Monitoring | Uptime Kuma initialized with 31 live monitors covering VPN, DNS, core aliases, apps, Immich, Jellyfin, Open WebUI, and protocol checks |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,110`; LXC 101 restore drill completed; CT102 and VM110 backups completed; VM120 is not production until AIO is healthy |
-| Open gates | Internal CA, offsite backup, Authentik MFA/app protection policy, Nextcloud AIO tag fix, and restore drills for LXC 102, VM 110, and VM 120 before importing real critical data |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,110,120`; LXC 101 restore drill completed; CT102, VM110, and VM120 backups completed |
+| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and restore drills for LXC 102, VM 110, and VM 120 before importing real critical data |
 
 ## Network and Access Model
 

@@ -42,10 +42,10 @@ Last checked: 2026-06-22.
 | Subnet router | `core-network` serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` serves `0.0.0.0/0` and `::/0` |
 | Platform services | LXC 101 `platform-services` deployed on `192.168.1.51` |
-| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` created on `192.168.1.120` but gated |
+| App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120` and serving through `files.internal` |
 | Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, and Nextcloud aliases exist in NPM |
 | Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 31 live monitors after adding Jellyfin, Open WebUI, Ollama API, and CrowdSec LAPI |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110`; LXC101 restore drill completed; CT102 and VM110 backups completed; VM120 must be added after AIO is healthy |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,110,120`; LXC101 restore drill completed; CT102, VM110, and VM120 backups completed |
 | Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
@@ -54,10 +54,10 @@ Live caveats:
 
 - Authentik is deployed and reachable, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate.
 - Beszel Hub and a platform-services agent are enrolled. Beszel agent health is checked in Beszel because the live agent uses hub/WebSocket enrollment instead of a separate inbound TCP monitor.
-- `.internal` aliases currently use HTTP on the client side over LAN/VPN. Upstreams such as Proxmox and PBS still use HTTPS behind NPM. Add an internal CA before requiring HTTPS for all private aliases.
+- Most `.internal` aliases currently use HTTP on the client side over LAN/VPN. `files.internal` already uses client-side HTTPS with an internal certificate because Nextcloud AIO expects secure browser access. Add a trusted internal CA before requiring HTTPS for all private aliases.
 - LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
 - VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
-- VM 120 Nextcloud AIO is provisioned with a 250 GB data disk, but the AIO app stack is not production-ready. The pinned AIO tag created dependencies but failed before `nextcloud-aio-apache` because the matching `nextcloud/aio-notify-push` child image was unavailable. Fix the AIO tag/channel before importing files.
+- VM 120 Nextcloud AIO is provisioned with a 250 GB data disk. AIO now runs on the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel, all AIO child containers are healthy, and `https://files.internal` returns a real Nextcloud login redirect. Do not import real files until the AIO restore drill and client certificate trust are handled.
 - During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
 
 ## Phase A: Access Gate
@@ -350,9 +350,9 @@ Current scheduled backup:
 
 | Job | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101,102,110` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102 and VM110 still require restore drills before real data import |
+| `sovereign-core-nightly` | `100,101,102,110,120` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102, VM110, and VM120 still require restore drills before real data import |
 
-Add VM 120 only after Nextcloud AIO is healthy. Backing up a broken bootstrap state is useful as a temporary rollback point, but it must not be treated as a production Nextcloud backup.
+VM 120 is now included after Nextcloud AIO became healthy. The backup is a recovery point, but it must not be treated as production Nextcloud readiness until a restore drill has been completed.
 
 If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 

@@ -44,7 +44,7 @@ Target placeholders:
 | NPM UI | `npm.internal` | `http://LXC100_IP:81` or `http://LXC101_IP:81` | yes | yes | HTTP monitor | VPN/admin | `/data` + `/letsencrypt` |
 | Headscale-UI | `headscale.internal/web` | `http://LXC100_IP:8081` custom location | yes | yes | HTTP monitor until internal CA | VPN/admin | config if present |
 
-Live note: until an internal CA is deployed, the current NPM aliases are HTTP on the client side over LAN/VPN and may proxy to HTTPS upstreams such as Proxmox and PBS. In that bootstrap state, Uptime Kuma should monitor `http://*.internal` aliases and separately monitor TCP/API ports where useful.
+Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and may proxy to HTTPS upstreams such as Proxmox and PBS. `files.internal` is the exception and is already HTTPS on the client side because Nextcloud AIO expects secure browser access. Until a trusted internal CA is deployed, Uptime Kuma can monitor HTTPS aliases with certificate validation disabled where appropriate.
 
 ## Platform Services
 
@@ -62,7 +62,7 @@ Live note: until an internal CA is deployed, the current NPM aliases are HTTP on
 |---|---|---|---|---|---|---|---|
 | Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export |
 | Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup |
-| Nextcloud | `files.internal` | `http://VM120_IP:11000` | yes | yes | monitor only after AIO returns Nextcloud, not bootstrap `502` | VPN-first | AIO backup + PBS after AIO is healthy |
+| Nextcloud | `files.internal` | client `https://files.internal`, upstream `http://VM120_IP:11000` | yes | yes | HTTPS monitor with internal-cert handling; accepted state is real Nextcloud login redirect | VPN-first | AIO backup + PBS; restore drill required before real files |
 | Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTP alias monitor until internal CA | VPN/admin | config + synchronized source data |
 | Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export |
 
