@@ -173,6 +173,32 @@ Compare router WAN IP with the public IP shown by an external IP-check site.
 
 If they do not match, direct 4G access to the home router is likely blocked. Use the documented VPS + WireGuard relay fallback.
 
+## Workstation Access Gate
+
+Run these from the workstation before live Proxmox work. They prove that the problem is not just a closed SSH port.
+
+```powershell
+ipconfig /all
+route print -4
+arp -a
+ping 192.168.1.1
+ping 192.168.1.50
+ping 192.168.1.150
+Test-NetConnection 192.168.1.150 -Port 22
+Test-NetConnection 192.168.1.150 -Port 8006
+Test-NetConnection 192.168.1.50 -Port 22
+Test-NetConnection 192.168.1.50 -Port 443
+nslookup example.com 8.8.8.8
+nslookup vpn.yourdomain.duckdns.org 8.8.8.8
+```
+
+Expected:
+
+- `192.168.1.1` answers.
+- `192.168.1.50` and `192.168.1.150` appear with real MAC addresses in ARP.
+- DNS through `8.8.8.8` works even if AdGuard is temporarily down.
+- If only the router answers and the lab IPs are ARP `Incomplete`, use the Proxmox console or router lease table before changing Headscale, NPM, or Tailscale policy.
+
 ## Tailscale Client on LXC 100
 
 ```bash

@@ -233,6 +233,28 @@ Next controlled maintenance step:
 4. Confirm `files.internal` returns `200` or `302` from Nextcloud, not `502`.
 5. Add VM120 to the PBS backup job only after the application stack is clean.
 
+## Follow-Up Access Recheck
+
+A later workstation-side access recheck found a layer-2 reachability problem from the Windows audit machine:
+
+| Check | Result |
+|---|---|
+| Workstation network | Wi-Fi SSID `Home`, IP `192.168.1.100/24`, gateway `192.168.1.1` |
+| Router | `192.168.1.1` reachable; ZTE router login page responds |
+| Proxmox host | `192.168.1.150` not reachable; ARP stays incomplete |
+| Core LXC | `192.168.1.50` not reachable; ARP stays incomplete |
+| Subnet scan | only router ports answered from the workstation |
+| Workstation DNS | configured to use AdGuard `192.168.1.50`, so normal domain lookups fail while AdGuard is unreachable |
+| Public DuckDNS lookup via external resolver | public VPN hostname resolves, but LAN-to-public HTTPS tests time out from the workstation |
+| Workstation Tailscale client | found previously configured with a LAN-only control URL, which is not acceptable for travel/4G-first reconnection |
+
+Interpretation:
+
+- This is not enough evidence to change Headscale, NPM, or the route policy. The workstation cannot see the lab hosts at ARP level.
+- Use Proxmox console access or the router lease table to confirm P710 power, NIC link, bridge state, static IPs, and whether the Wi-Fi network is isolating clients.
+- Do not treat DNS failures on the workstation as an AdGuard configuration bug until `192.168.1.50` is reachable again.
+- Do not use LAN-to-public DuckDNS tests as the only public-edge validation because the router may not support NAT loopback. Repeat the 4G phone test after local reachability is restored.
+
 ## Remaining Gates
 
 | Gate | Required before production use |

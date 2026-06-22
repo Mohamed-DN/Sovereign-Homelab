@@ -396,6 +396,30 @@ tailscale set --accept-dns=false
 
 Clients should use AdGuard through Headscale MagicDNS, but LXC 100 and the Proxmox host should keep stable local resolvers.
 
+### A laptop was enrolled with the LAN-only Headscale URL
+
+This is a production risk for travel and 4G-first access. A laptop or phone that learned `http://192.168.1.50:8080` can work at home and then fail away from the LAN because it tries to reach the private LXC address before the VPN is connected.
+
+Check the client:
+
+```bash
+tailscale debug prefs
+```
+
+Expected client control URL:
+
+```text
+https://vpn.yourdomain.duckdns.org
+```
+
+If the client shows a LAN-only control URL, re-enroll it with the public HTTPS URL:
+
+```bash
+tailscale up --login-server https://vpn.yourdomain.duckdns.org --force-reauth
+```
+
+Use a fresh pre-auth key if the client cannot complete manual registration. Do not use the LXC IP as the control URL for mobile devices, laptops, or any device that must reconnect before it has LAN reachability.
+
 ### DNS filtering stops when an exit node is selected
 
 An exit node should not replace AdGuard as DNS. From the affected client, test:

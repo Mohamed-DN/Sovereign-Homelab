@@ -65,6 +65,9 @@ Live caveats:
 From the workstation running the audit:
 
 ```powershell
+ipconfig /all
+route print -4
+arp -a
 Test-NetConnection -ComputerName 192.168.1.150 -Port 22 -InformationLevel Detailed
 Test-NetConnection -ComputerName 192.168.1.150 -Port 8006 -InformationLevel Detailed
 Test-NetConnection -ComputerName 192.168.1.50 -Port 22 -InformationLevel Detailed
@@ -78,6 +81,23 @@ Accepted states:
 - Proxmox does not respond to ping or console; stop and fix LAN reachability first.
 
 If ICMP works but TCP ports fail, check host firewall, Proxmox firewall, LXC firewall, service bind addresses, and whether the audit workstation is on the expected LAN/VPN segment.
+
+If the router is reachable but Proxmox, LXC 100, and the service VMs are not even present in ARP, treat it as a physical or layer-2 access outage, not a Headscale issue. Run:
+
+```powershell
+ping 192.168.1.1
+ping 192.168.1.50
+ping 192.168.1.150
+nslookup example.com 8.8.8.8
+nslookup vpn.yourdomain.duckdns.org 8.8.8.8
+```
+
+Interpretation:
+
+- If `192.168.1.1` answers but `.50` and `.150` stay `Incomplete` in ARP, use the router lease table or the Proxmox console before changing Docker, NPM, Headscale, or DNS.
+- Check P710 power state, NIC link LEDs, switch ports, Wi-Fi guest/client isolation, VLAN or SSID mismatch, and static IP conflicts.
+- If Windows DNS points to `192.168.1.50` while AdGuard is unreachable, domain lookups will fail even when raw internet IP connectivity still works. Use public DNS only as a temporary workstation recovery step, then revert to AdGuard.
+- A `curl` timeout to the public VPN hostname from inside the same LAN can be a NAT-loopback limitation. The authoritative public-edge test is still a phone on cellular data reaching `https://vpn.yourdomain.duckdns.org`.
 
 ## Phase B: Read-Only Proxmox Discovery
 
