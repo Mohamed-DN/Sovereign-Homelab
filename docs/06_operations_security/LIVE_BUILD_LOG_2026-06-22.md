@@ -124,7 +124,7 @@ Internal NPM proxy hosts were added for the deployed application layer:
 | `foto.internal` | `http://192.168.1.110:2283` | VPN-first |
 | `media.internal` | `http://192.168.1.52:8096` | VPN/Auth |
 | `ai.internal` | `http://192.168.1.52:3004` | VPN only |
-| `files.internal` | `http://192.168.1.120:11000` | VPN-first |
+| `files.internal` | client HTTPS on NPM, upstream `http://192.168.1.120:11000` | VPN-first |
 
 These aliases rely on the existing `*.internal -> NPM IP` AdGuard rewrite. No private application hostname is public under DuckDNS.
 
@@ -148,7 +148,7 @@ The scheduled Proxmox backup job was updated:
 
 | Job ID | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101,102,110` | `03:00` daily | `pbs-p710` | excludes PBS itself; offsite still required |
+| `sovereign-core-nightly` | `100,101,102,110,120` | `03:00` daily | `pbs-p710` | excludes PBS itself; offsite still required |
 
 Manual backups completed after deployment:
 
@@ -213,25 +213,28 @@ VM 120 was created for Nextcloud AIO:
 Corrections made:
 
 - The AIO mastercontainer volume must be named exactly `nextcloud_aio_mastercontainer`; the template was corrected with an explicit Docker volume name.
-- Because `files.internal` is a private VPN-only name, the AIO template now sets `SKIP_DOMAIN_VALIDATION=true`.
-- The AIO healthcheck now uses HTTPS on the mastercontainer UI.
-- VM 120 DNS was configured to use AdGuard `192.168.1.50` so `.internal` names resolve inside the VM.
-- NPM alias `files.internal` was added to forward to `http://192.168.1.120:11000`.
+- Because `files.internal` is a private VPN-only name, the AIO template sets `SKIP_DOMAIN_VALIDATION=true`.
+- The AIO healthcheck uses HTTPS on the mastercontainer UI.
+- VM 120 DNS uses AdGuard `192.168.1.50` so `.internal` names resolve inside the VM.
+- NPM alias `files.internal` forwards client HTTPS to upstream `http://192.168.1.120:11000`.
 
 Current gate:
 
-- AIO started its database, Redis, Talk, Collabora, Imaginary, and Nextcloud containers.
-- The pinned AIO tag `20250325_084656` failed to create `nextcloud-aio-apache` because the child image `nextcloud/aio-notify-push:20250325_084656` was not available.
-- `files.internal` therefore returns `502` until the AIO tag is corrected and Apache is created.
-- Do not import real files into Nextcloud until the AIO tag is fixed, the alias returns a real Nextcloud response, PBS includes VM 120, and a restore drill is completed.
+- A Proxmox snapshot `pre-aio-channel-fix-20260622` was taken before changing the AIO channel.
+- The mastercontainer was switched to the official `ghcr.io/nextcloud-releases/all-in-one:latest` release channel.
+- Stale failed AIO child containers were removed while preserving the mastercontainer volume and data paths.
+- AIO recreated the child containers, including Apache and notify-push, and all AIO containers became healthy.
+- `http://files.internal` returns an NPM 301 to HTTPS.
+- `https://files.internal` returns a real Nextcloud login redirect.
+- VM120 was added to `sovereign-core-nightly` and a manual PBS backup completed successfully.
+- Do not import real files into Nextcloud until an AIO restore drill is completed and client trust for the internal certificate path is handled.
 
 Next controlled maintenance step:
 
-1. Verify a coherent AIO channel/tag where `nextcloud/all-in-one`, `nextcloud/aio-apache`, `nextcloud/aio-nextcloud`, and `nextcloud/aio-notify-push` all exist.
-2. Update the real VM120 `.env` and this repository inventory.
-3. Recreate the AIO mastercontainer and restart the AIO app stack.
-4. Confirm `files.internal` returns `200` or `302` from Nextcloud, not `502`.
-5. Add VM120 to the PBS backup job only after the application stack is clean.
+1. Complete an AIO restore drill to a clean test VM or isolated test alias.
+2. Replace the temporary/internal self-signed certificate path with a trusted internal CA such as Smallstep `step-ca`.
+3. Install the internal CA trust anchor on personal clients before using Nextcloud heavily.
+4. Add offsite copy for AIO Borg backups or a restic copy of exported backups.
 
 ## Follow-Up Access Recheck
 
@@ -263,14 +266,14 @@ Interpretation:
 | Authentik policy | enable MFA, recovery, and app protection rules before relying on SSO |
 | LXC102 restore drill | restore the container to a temporary ID and verify app data paths |
 | VM110 restore drill | restore Immich to a temporary VM or isolated network and verify DB plus library consistency |
-| VM120 Nextcloud AIO | fix the AIO image tag mismatch, then validate `files.internal` and backup/restore |
+| VM120 Nextcloud AIO | complete AIO restore drill and trusted internal certificate rollout before real files |
 | Offsite backup | add restic or second PBS for host-loss protection |
 | Home Assistant OS | still planned; deploy only after storage pressure is reviewed |
 | Wazuh and ops extensions | still planned; deploy after core backup/restore is stable |
 
 ## Rollback Notes
 
-- LXC 102 and VM 110 have PBS backups available after the live deployment pass.
+- LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.
 - NPM aliases can be disabled or removed individually if an app causes proxy errors.
 - The corrected Immich 500 GB data disk is the live baseline; do not restore references to the removed 800 GB disk.
 - If an app update fails, roll back the image tag first only when the database schema has not migrated. If the database migrated, restore the app volume/database from PBS or app-aware backup.

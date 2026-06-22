@@ -2,7 +2,7 @@ name: nextcloud
 
 services:
   nextcloud-aio-mastercontainer:
-    image: nextcloud/all-in-one:${NEXTCLOUD_AIO_TAG}
+    image: ${NEXTCLOUD_AIO_IMAGE}
     container_name: nextcloud-aio-mastercontainer
     restart: unless-stopped
     init: true

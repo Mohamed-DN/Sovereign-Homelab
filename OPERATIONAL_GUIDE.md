@@ -83,7 +83,7 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,110` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102 and VM110 backups exist, but their restore drills are still required before importing real passwords, photos, documents, or repositories. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,110,120` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102, VM110, and VM120 backups exist, but their restore drills are still required before importing real passwords, photos, documents, or repositories. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
 
 ### Layer 3: Core Network
 
@@ -214,7 +214,7 @@ curl -I http://paper.internal
 curl -I http://git.internal
 ```
 
-Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich. VM 120 exists for Nextcloud AIO but is gated until the AIO tag/channel is corrected and `files.internal` returns a real Nextcloud response. Home Assistant OS remains planned.
+Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich. VM 120 serves healthy Nextcloud AIO through `files.internal` with client-side HTTPS and an upstream AIO Apache port on `11000`. Home Assistant OS remains planned.
 
 ### Layer 7: Maintenance and Updates
 

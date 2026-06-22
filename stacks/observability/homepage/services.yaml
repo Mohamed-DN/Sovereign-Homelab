@@ -58,8 +58,8 @@
         href: http://foto.internal
         description: Photo and video library, DB plus upload backup required
     - Nextcloud:
-        href: http://files.internal
-        description: Personal cloud, gated until AIO Apache is healthy
+        href: https://files.internal
+        description: Personal cloud, AIO healthy; restore drill required before real files
     - Syncthing:
         href: http://sync.internal
         description: Peer-to-peer file sync UI

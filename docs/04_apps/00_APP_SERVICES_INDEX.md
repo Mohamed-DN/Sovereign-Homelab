@@ -16,7 +16,7 @@ This index is the entry point for the application layer. Deploy one app at a tim
 |---|---|
 | LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo |
 | VM 110 `immich` | Immich |
-| VM 120 `nextcloud-aio` | Nextcloud AIO, gated until AIO child-image parity is fixed |
+| VM 120 `nextcloud-aio` | Nextcloud AIO, healthy on `files.internal`; gated for real files until restore drill and internal certificate trust |
 | VM 130 `home-assistant-os` | Home Assistant OS |
 | LXC 102 `apps-light` or future VM 150 | Jellyfin |
 | LXC 102 `apps-light` or future AI host | Ollama and Open WebUI |

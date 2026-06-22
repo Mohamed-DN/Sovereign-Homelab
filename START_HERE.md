@@ -93,7 +93,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 Recommended order for expansion after the current live build:
 
 1. Complete restore drills for LXC 102 and VM 110 before importing real passwords, photos, documents, or repositories.
-2. Fix the VM 120 Nextcloud AIO image tag gate, then validate `files.internal`, add VM120 to PBS, and run an AIO restore drill.
+2. Complete the VM 120 Nextcloud restore drill before importing real files. AIO is healthy, `files.internal` is HTTPS on the client side, and VM120 is included in PBS.
 3. Deploy Home Assistant OS only after storage pressure and backup coverage are reviewed.
 4. Add operations extensions if visibility is weak: NetAlertX, Scrutiny, then ntfy.
 5. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.

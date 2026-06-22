@@ -26,7 +26,7 @@ Live state as of 2026-06-22:
 | Datastore path | `/mnt/datastore/p710-local` |
 | PVE storage ID | `pbs-p710` |
 | Integration auth | dedicated PBS user/token stored only on the server |
-| Scheduled job | `sovereign-core-nightly`, guests `100,101,102,110`, daily `03:00` |
+| Scheduled job | `sovereign-core-nightly`, guests `100,101,102,110,120`, daily `03:00` |
 | Completed backups | LXC 101, LXC 102, VM 110 |
 | Restore drill | LXC 101 restored to temporary CT `901`, mounted, verified, destroyed |
 | Pending restore drills | LXC 102 `apps-light`, VM 110 `immich`, and app-aware critical data restores |

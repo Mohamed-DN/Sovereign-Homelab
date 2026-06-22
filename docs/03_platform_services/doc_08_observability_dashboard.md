@@ -134,7 +134,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `ops-ntfy` | HTTP | `http://alerts.internal` | 60s | HTTP response after deployment |
 | `app-vaultwarden` | HTTP | `http://pwd.internal` | 60s | HTTP response |
 | `app-immich` | HTTP | `http://foto.internal/api/server/ping` | 60s | JSON ping response |
-| `app-nextcloud` | HTTP | `http://files.internal` | 60s | enable only after AIO Apache is healthy; `502` means bootstrap is still broken |
+| `app-nextcloud` | HTTP(s) | `https://files.internal` | 60s | enable after AIO Apache is healthy; allow internal certificate until the private CA is trusted |
 | `app-syncthing-ui` | HTTP | `http://sync.internal` | 60s | HTTP response |
 | `app-paperless` | HTTP | `http://paper.internal` | 60s | HTTP response |
 | `app-home-assistant` | HTTP | `http://ha.internal` | 60s | HTTP response after deployment |

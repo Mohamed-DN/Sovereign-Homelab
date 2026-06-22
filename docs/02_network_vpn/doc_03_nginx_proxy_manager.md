@@ -223,7 +223,7 @@ Live note: the first internal aliases were added as NPM static proxy config file
 |---|---|---|---|---|---|
 | Vaultwarden | `pwd.internal` | `http` | `LXC102_IP:8082` | yes | VPN-first |
 | Immich | `foto.internal` | `http` | `VM110_IP:2283` | yes | VPN-first |
-| Nextcloud | `files.internal` | `http` | `VM120_IP:11000` | yes | VPN-first; enable monitor only after AIO Apache is healthy |
+| Nextcloud | `files.internal` | client `https`, upstream `http` | `VM120_IP:11000` | yes | VPN-first; AIO healthy; restore drill required before real files |
 | Syncthing UI | `sync.internal` | `http` | `LXC102_IP:8384` | yes | VPN/admin |
 | Paperless-ngx | `paper.internal` | `http` | `LXC102_IP:8010` | yes | VPN/Auth |
 | FreshRSS | `rss.internal` | `http` | `LXC102_IP:8087` | no | VPN/Auth |
@@ -306,6 +306,17 @@ Common causes:
 ### Login or WebSocket Breaks
 
 Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, ntfy, Vaultwarden, Immich, Nextcloud, Syncthing UI, Forgejo, Home Assistant, Jellyfin, and Open WebUI.
+
+### Nextcloud HTTPS Exception
+
+Most `.internal` aliases can remain HTTP during the VPN-only bootstrap phase. Nextcloud is different: AIO expects secure browser access and redirects to HTTPS. The live lab therefore has a dedicated `files.internal` Nginx proxy file with a private certificate:
+
+```text
+/opt/core-network/npm/data/nginx/proxy_host/30.conf
+/opt/core-network/npm/data/custom_ssl/internal-wildcard/
+```
+
+This is functional for LAN/VPN clients, but browsers will warn until the internal certificate authority or certificate is trusted on the device. The long-term target is a managed internal CA such as Smallstep `step-ca`.
 
 ## Sources
 

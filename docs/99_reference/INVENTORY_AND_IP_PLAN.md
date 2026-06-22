@@ -40,7 +40,7 @@ Last checked: 2026-06-22.
 | LXC 101 | running as `platform-services`, `192.168.1.51` |
 | LXC 102 | running as `apps-light`, `192.168.1.52`, 4 vCPU, 12 GB RAM, 200 GB disk |
 | VM 110 | running as `immich`, `192.168.1.110`, 6 vCPU, 16 GB RAM, 120 GB OS disk, 500 GB data disk mounted at `/mnt/immich-library` |
-| VM 120 | running as `nextcloud-aio`, `192.168.1.120`, 4 vCPU, 10 GB RAM, 120 GB OS disk, 250 GB data disk; AIO currently gated by image-tag mismatch |
+| VM 120 | running as `nextcloud-aio`, `192.168.1.120`, 4 vCPU, 10 GB RAM, 120 GB OS disk, 250 GB data disk; AIO healthy and gated only by restore drill/internal certificate trust before real files |
 | VM 140 | running as `pbs`, `192.168.1.20`, PBS 4.2.2 |
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
 | Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle running on LXC 101 |
@@ -49,7 +49,7 @@ Last checked: 2026-06-22.
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,110`, LXC101 restore drill completed, CT102 and VM110 backups completed; VM120 must be added after AIO is healthy |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,110,120`, LXC101 restore drill completed, CT102, VM110, and VM120 backups completed; restore drills still required for CT102, VM110, and VM120 |
 
 ## Hosts and LXC
 
@@ -96,7 +96,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Vaultwarden | `pwd.internal` | P0 live on LXC102 | VPN-first | Passwords, attachments | volume + export |
 | Immich | `foto.internal` | P0 live on VM110 | VPN-first | Photos/videos + DB | uploads + consistent DB |
 | Syncthing | `sync.internal` | P1 live on LXC102 | VPN/Auth UI | Config + sync folders | config + source folders |
-| Nextcloud AIO | `files.internal` | P1 gated on VM120 | VPN-first | Files + DB | AIO backup + PBS after AIO is healthy |
+| Nextcloud AIO | `files.internal` | P1 live on VM120 | VPN-first | Files + DB | AIO backup + PBS; restore drill required before real files |
 | Paperless-ngx | `paper.internal` | P1 live on LXC102 | VPN/Auth | OCR documents + DB | media + consume + DB |
 | Home Assistant OS | `ha.internal` | P1 next | VPN/Auth | Home automations | VM snapshot + HA backup |
 | Jellyfin | `media.internal` | P1 live on LXC102 | VPN/Auth | Metadata + libraries | config + media source |

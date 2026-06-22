@@ -22,7 +22,7 @@ Last checked: 2026-06-22.
 | `vaultwarden` | `vaultwarden/server` | `VAULTWARDEN_TAG` | `1.36.0` | Docker Hub tag check and Vaultwarden release tag | Critical data. Export and back up volume before update. |
 | `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Server and machine-learning must match. Restore drill required before importing full library. |
 | `immich` | `ghcr.io/immich-app/immich-machine-learning` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Same tag as server. |
-| `nextcloud` | `nextcloud/all-in-one` | `NEXTCLOUD_AIO_TAG` | `20250325_084656` | Live tag failed child-image parity check | Gated. This tag created the mastercontainer but failed when AIO needed `nextcloud/aio-notify-push:20250325_084656`. Verify all AIO child images before production. |
+| `nextcloud` | `ghcr.io/nextcloud-releases/all-in-one` | `NEXTCLOUD_AIO_IMAGE` | `latest` | Official Nextcloud AIO Compose uses the release mastercontainer channel | Explicit exception. The AIO mastercontainer manages its own child container channel; keep VM120 covered by PBS and run an AIO restore drill before real files. |
 | `syncthing` | `syncthing/syncthing` | `SYNCTHING_TAG` | `2.1.1` | Docker Hub tag check and Syncthing release tag | Back up config identity keys before update. |
 | `paperless` | `ghcr.io/paperless-ngx/paperless-ngx` | `PAPERLESS_TAG` | `2.20.15` | Paperless-ngx setup docs and release tag | Back up DB, media, and export directory. |
 | `freshrss` | `freshrss/freshrss` | `FRESHRSS_TAG` | `1.29.1` | Docker Hub tag check | SQLite/data volume restore matters more than OPML. |
@@ -50,22 +50,20 @@ These images are used in the early `/opt/core-network` bootstrap example before 
 
 `latest`, `main`, and `release` are convenient, but they are moving targets. A restore performed next month can pull a different image than the one that was running when the backup was taken. That makes incident analysis, rollback, and disaster recovery harder.
 
-This repo uses pinned default tags so the running state can be audited and reproduced. Updates still happen, but they are deliberate: read the upstream release notes, take or confirm a backup, bump the tag, validate the stack, and keep a rollback path. A rolling tag is allowed only when upstream does not publish a usable stable tag, and that exception must be documented in this file before it is used.
+This repo uses pinned default tags so the running state can be audited and reproduced. Updates still happen, but they are deliberate: read the upstream release notes, take or confirm a backup, bump the tag, validate the stack, and keep a rollback path. A rolling tag is allowed only when upstream does not publish a usable stable tag or when the upstream application is explicitly designed around a release-channel mastercontainer. Every exception must be documented in this file before it is used.
 
-## Nextcloud AIO Tag Gate
+## Nextcloud AIO Channel Exception
 
-Nextcloud AIO is special because the mastercontainer creates multiple child containers. A dated mastercontainer tag is not enough; the matching child image tags must also exist.
+Nextcloud AIO is special because the mastercontainer creates multiple child containers. The official AIO Compose file uses `ghcr.io/nextcloud-releases/all-in-one:latest` for the mastercontainer release channel. This repository follows that upstream model for AIO only.
 
-Before deploying or updating AIO, verify at least:
+Operational rules for this exception:
 
-```bash
-docker manifest inspect nextcloud/all-in-one:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-apache:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-nextcloud:${NEXTCLOUD_AIO_TAG}
-docker manifest inspect nextcloud/aio-notify-push:${NEXTCLOUD_AIO_TAG}
-```
-
-If any check fails, do not import files and do not add VM 120 to the production backup set as a healthy application backup. Select a coherent upstream AIO channel/tag first, then update this inventory.
+1. Back up VM120 before updating the AIO mastercontainer.
+2. Let AIO update its own child containers through the mastercontainer flow.
+3. Confirm `nextcloud-aio-apache`, `nextcloud-aio-nextcloud`, `nextcloud-aio-database`, `nextcloud-aio-redis`, and optional child containers are healthy.
+4. Confirm `https://files.internal` returns a real Nextcloud login response.
+5. Keep an AIO Borg backup plus PBS VM backup before importing real files.
+6. Run a restore drill before treating Nextcloud as production.
 
 ## Update Procedure
 
@@ -90,4 +88,4 @@ If any check fails, do not import files and do not add VM 120 to the production 
 
 ## Rolling Tag Policy
 
-Do not use `latest`, `main`, or `release` as normal defaults. If an upstream project only publishes a rolling installation path, document the exception here before using it. As of the last check, all repository stack defaults have explicit pinned tags.
+Do not use `latest`, `main`, or `release` as normal defaults. If an upstream project only publishes a rolling installation path or an official release-channel mastercontainer, document the exception here before using it. Current documented exception: Nextcloud AIO mastercontainer.
