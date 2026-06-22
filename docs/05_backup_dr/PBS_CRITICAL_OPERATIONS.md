@@ -146,6 +146,43 @@ Quarterly minimum:
 4. Verify login, files, service health, and logs.
 5. Record restore time and result.
 
+### Safe LXC Restore Drill Without IP Conflict
+
+Use this pattern for LXC 102 or LXC 103 when you want to verify the backup contents without starting a clone that has the same static IP as production:
+
+```bash
+TMPID=903
+SOURCE_VMID=103
+
+if pct status "$TMPID" >/dev/null 2>&1 || qm status "$TMPID" >/dev/null 2>&1; then
+  echo "temporary ID $TMPID already exists"
+  exit 1
+fi
+
+BACKUP=$(pvesm list pbs-p710 --vmid "$SOURCE_VMID" \
+  | awk "/backup\\/ct\\/${SOURCE_VMID}\\// {print \\$1}" \
+  | sort \
+  | tail -n 1)
+
+pct restore "$TMPID" "$BACKUP" --storage local-zfs --unique 1
+pct mount "$TMPID"
+
+ROOT=/var/lib/lxc/$TMPID/rootfs
+find "$ROOT/opt" -maxdepth 4 -type f \( -name 'docker-compose.yml' -o -name '.env' \) | sort
+find "$ROOT/var/lib/docker/volumes" -maxdepth 2 -mindepth 1 -type d | sort | head -80
+
+pct unmount "$TMPID"
+pct destroy "$TMPID" --purge 1
+```
+
+Accepted result:
+
+- the backup restores into the temporary ID;
+- the stack path exists;
+- Docker volumes are present;
+- the temporary CT is unmounted and destroyed;
+- production CT remains untouched.
+
 Record:
 
 ```text

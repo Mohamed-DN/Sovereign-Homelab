@@ -17,12 +17,12 @@ rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
 rg --pcre2 -n "\\.x\\b|\\.local\\b|\\.home\\b(?!-assistant)|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|netalert\\.yourdomain\\.duckdns\\.org|disks\\.yourdomain\\.duckdns\\.org|alerts\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "STACK_CATALOG_OPEN_SOURCE|PROJECT\\.md|compatibility stubs|APP_SERVICE_RUNBOOKS|stacks/apps|extended-services|IN_PROGRESS|\\.agents" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
-rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md' | rg -v "ghcr\\.io/nextcloud-releases/all-in-one:latest|ghcr\\.io/netalertx/netalertx:latest|ghcr\\.io/analogj/scrutiny:latest"
+rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md' | rg -v "ghcr\\.io/nextcloud-releases/all-in-one:latest|ghcr\\.io/netalertx/netalertx:latest"
 ```
 
 Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
 
-The stale-doc check should return no output. The rolling-tag check should return no output after filtering the documented Nextcloud AIO, NetAlertX, and Scrutiny exceptions. If another project requires a rolling channel, document the exception in [Pinned Image Versions](PINNED_IMAGE_VERSIONS.md) before committing it.
+The stale-doc check should return no output. The rolling-tag check should return no output after filtering the documented Nextcloud AIO and NetAlertX exceptions. If another project requires a rolling channel, document the exception in [Pinned Image Versions](PINNED_IMAGE_VERSIONS.md) before committing it.
 
 ## Markdown Local Links
 

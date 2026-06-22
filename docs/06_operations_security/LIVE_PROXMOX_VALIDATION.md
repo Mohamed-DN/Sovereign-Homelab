@@ -34,7 +34,7 @@ Last checked: 2026-06-22.
 
 | Check | Status |
 |---|---|
-| Proxmox host access | SSH reachable on `192.168.1.150` |
+| Proxmox host access | SSH was reachable during live build-out; later workstation check could ping but not open TCP `22`, so restore admin TCP access before the next live mutation |
 | Core LXC | LXC 100 `core-network` running on `192.168.1.50` |
 | Headscale config | `configtest` passes after adding the minimal policy file |
 | Public VPN proxy | NPM forwards public VPN hostname to `http://192.168.1.50:8080` with WebSocket support |
@@ -62,6 +62,7 @@ Live caveats:
 - VM 130 Home Assistant OS is deployed at `192.168.1.130`. `ha.internal` works through NPM after adding the Home Assistant reverse-proxy trust block for NPM.
 - LXC 103 operations extensions are deployed at `192.168.1.53`. NetAlertX, Scrutiny, and ntfy are reachable through NPM and have Kuma monitors. Scrutiny still needs a deliberate host disk collector/device mapping before it can be considered complete disk-health monitoring.
 - During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
+- Later on 2026-06-22, the Windows audit workstation could ARP and ping `192.168.1.50`, `192.168.1.53`, and `192.168.1.150`, but TCP ports and AdGuard DNS timed out from that workstation. Treat this as an access-gate condition before doing more live work from Windows: restore one admin path first, then continue restore drills. Do not infer from this symptom alone that NPM, AdGuard, or Proxmox are misconfigured.
 
 ## Phase A: Access Gate
 
