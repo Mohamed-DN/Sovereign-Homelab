@@ -83,7 +83,7 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,110,120` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102, VM110, and VM120 backups exist, but their restore drills are still required before importing real passwords, photos, documents, or repositories. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102, CT103, VM110, VM120, and VM130 backups exist, but their restore drills are still required before importing real passwords, photos, documents, repositories, automations, or alert history. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
 
 ### Layer 3: Core Network
 
@@ -173,15 +173,15 @@ curl -I http://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 31 live monitors covering VPN, DNS, core aliases, app aliases, Immich, Jellyfin, Open WebUI, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 35 live monitors covering VPN, DNS, core aliases, app aliases, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
 
 Optional operations extensions belong after this layer, not before it:
 
 | Extension | Alias | Purpose | Deploy gate |
 |---|---|---|---|
-| NetAlertX | `netalert.internal` | device inventory and LAN change visibility | core DNS/VPN/NPM/Kuma green |
-| Scrutiny | `disks.internal` | SMART disk health visibility | mapped disks documented |
-| ntfy | `alerts.internal` | self-hosted alert delivery | Kuma alert rules defined |
+| NetAlertX | `netalert.internal` | device inventory and LAN change visibility | live on LXC 103; tune scan scope before alerting |
+| Scrutiny | `disks.internal` | SMART disk health visibility | live web UI; host disk collector still needs explicit device mapping |
+| ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
 
 ### Layer 6: Application Micro-Stacks
 
@@ -214,7 +214,7 @@ curl -I http://paper.internal
 curl -I http://git.internal
 ```
 
-Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich. VM 120 serves healthy Nextcloud AIO through `files.internal` with client-side HTTPS and an upstream AIO Apache port on `11000`. Home Assistant OS remains planned.
+Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich; VM 120 serves healthy Nextcloud AIO through `files.internal` with client-side HTTPS and an upstream AIO Apache port on `11000`; VM 130 serves Home Assistant OS through `ha.internal`.
 
 ### Layer 7: Maintenance and Updates
 
@@ -296,9 +296,10 @@ The operational invariant is simple: Headscale is public only for device login a
 3. LXC 100 core-network: AdGuard, Headscale, subnet router.
 4. NPM and `.internal` alias routing.
 5. LXC 101 platform-services: Authentik, Homepage, Uptime Kuma, Beszel, Dozzle.
-6. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
-7. High-value apps: Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI.
-8. Advanced/security services: CrowdSec, Wazuh, RustDesk.
+6. LXC 103 ops-extensions: NetAlertX, Scrutiny, ntfy.
+7. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
+8. High-value apps: Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI.
+9. Advanced/security services: CrowdSec, Wazuh, RustDesk.
 
 ### Authoritative References
 

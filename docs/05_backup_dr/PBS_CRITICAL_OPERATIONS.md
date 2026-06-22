@@ -26,10 +26,10 @@ Live state as of 2026-06-22:
 | Datastore path | `/mnt/datastore/p710-local` |
 | PVE storage ID | `pbs-p710` |
 | Integration auth | dedicated PBS user/token stored only on the server |
-| Scheduled job | `sovereign-core-nightly`, guests `100,101,102,110,120`, daily `03:00` |
-| Completed backups | LXC 101, LXC 102, VM 110 |
+| Scheduled job | `sovereign-core-nightly`, guests `100,101,102,103,110,120,130`, daily `03:00` |
+| Completed backups | LXC 101, LXC 102, LXC 103, VM 110, VM 120, VM 130 |
 | Restore drill | LXC 101 restored to temporary CT `901`, mounted, verified, destroyed |
-| Pending restore drills | LXC 102 `apps-light`, VM 110 `immich`, and app-aware critical data restores |
+| Pending restore drills | LXC 102 `apps-light`, LXC 103 `ops-extensions`, VM 110 `immich`, VM 120 `nextcloud-aio`, VM 130 `home-assistant-os`, and app-aware critical data restores |
 
 ## Phase A: Install PBS
 
@@ -107,7 +107,7 @@ Create jobs:
 
 | Job | Guests | Schedule | Mode |
 |---|---|---|---|
-| Core | LXC 100, LXC 101, LXC 102 | daily night | snapshot |
+| Core | LXC 100, LXC 101, LXC 102, LXC 103 | daily night | snapshot |
 | Critical apps | VM 110, VM 120, VM 130 | daily night | snapshot |
 | PBS excluded | VM 140 | separate export/offsite plan | manual |
 | Media | VM 150 | weekly or daily metadata | depends on data size |

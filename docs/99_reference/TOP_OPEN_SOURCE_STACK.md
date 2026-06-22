@@ -39,7 +39,7 @@ This is the canonical open-source stack catalog for this repository. It is not a
 | OCR documents | Paperless-ngx | after backup is stable |
 | Media | Jellyfin | best after a storage plan |
 
-Practical order after the core: Paperless-ngx, Home Assistant OS, Jellyfin, FreshRSS, and Karakeep. These provide real value without immediately requiring SIEM, Kubernetes, or heavy media automation.
+The current live build already includes Paperless-ngx, Home Assistant OS, Jellyfin, FreshRSS, and Karakeep. The next priority is not adding more apps; it is restore drills, offsite backup, internal CA trust, and controlled hardening.
 
 ## Tier 3: Knowledge, Dev, AI
 
@@ -85,17 +85,17 @@ A service enters the core only if:
 
 | Priority | Services | Reason |
 |---|---|---|
-| P1 next | Paperless-ngx | High value for OCR and personal records; requires DB + media backup. |
-| P1 next | Home Assistant OS | High value if smart home devices exist; keep it in a dedicated VM. |
-| P1 next | Jellyfin | Useful for personal media after the storage plan is clear. |
-| P1 next | FreshRSS | Lightweight replacement for cloud feed readers. |
-| P1 next | Karakeep | Personal bookmark and link archive after identity/backup are stable. |
-| P2 later | SearXNG | Private metasearch, not critical for the core. |
-| P2 later | Forgejo | Private Git for configs, scripts, and documentation. |
-| P2 later | Ollama + Open WebUI | Only with adequate hardware and a clear data policy. |
-| Ops extension | NetAlertX | Add when you need a clean inventory of devices and IP drift. |
-| Ops extension | Scrutiny | Add when disk SMART visibility matters more than another app. |
-| Ops extension | ntfy | Add when Uptime Kuma/PBS/CrowdSec alerts need a self-hosted notification target. |
+| Live, harden next | Paperless-ngx | Run app-aware export and restore drill before real documents. |
+| Live, harden next | Home Assistant OS | Complete native HA backup and PBS restore drill before relying on automations. |
+| Live, harden next | Jellyfin | Keep on LXC 102 until GPU passthrough/transcoding justifies VM 150. |
+| Live, harden next | FreshRSS | Export OPML and include data volume in restore drill. |
+| Live, harden next | Karakeep | Validate DB/assets/search-index backup. |
+| Live, harden next | SearXNG | Keep VPN/Auth only; low data risk. |
+| Live, harden next | Forgejo | Validate repository and DB restore before storing important repos. |
+| Live, harden next | Ollama + Open WebUI | Keep VPN only; watch model disk usage. |
+| Live ops extension | NetAlertX | Tune scan scope and alerts to avoid noise. |
+| Live ops extension | Scrutiny | Add host disk collector/device mapping before relying on SMART history. |
+| Live ops extension | ntfy | Add authentication/topic policy before sensitive alerts. |
 | P3 only if needed | Full Wazuh | Powerful but heavy; needs a log strategy first. |
 | P3 only if needed | Full media automation | Adds many moving parts; stabilize Jellyfin first. |
 

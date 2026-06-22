@@ -18,6 +18,7 @@ Rules:
 |---|---|
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
+| `ops-extensions/` | NetAlertX, Scrutiny, ntfy |
 | `security/` | CrowdSec templates |
 | `vaultwarden/` | Password manager |
 | `syncthing/` | File sync |

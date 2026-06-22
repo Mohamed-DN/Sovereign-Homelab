@@ -82,7 +82,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 1. [OPERATIONS_MANUAL.md](docs/06_operations_security/OPERATIONS_MANUAL.md): daily, weekly, and monthly routines.
 2. [LIVE_PROXMOX_VALIDATION.md](docs/06_operations_security/LIVE_PROXMOX_VALIDATION.md): live server audit, 4G VPN acceptance, dashboards, and backup gate.
 3. [LIVE_BUILD_LOG_2026-06-21.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md): factual record of the first live platform/PBS/Kuma build.
-4. [LIVE_BUILD_LOG_2026-06-22.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md): live apps-light, Immich, NPM aliases, Kuma monitors, and PBS backup update.
+4. [LIVE_BUILD_LOG_2026-06-22.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md): live apps-light, Immich, Nextcloud, Home Assistant, operations extensions, NPM aliases, Kuma monitors, and PBS backup updates.
 5. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
 6. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
 7. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
@@ -94,8 +94,8 @@ Recommended order for expansion after the current live build:
 
 1. Complete restore drills for LXC 102 and VM 110 before importing real passwords, photos, documents, or repositories.
 2. Complete the VM 120 Nextcloud restore drill before importing real files. AIO is healthy, `files.internal` is HTTPS on the client side, and VM120 is included in PBS.
-3. Deploy Home Assistant OS only after storage pressure and backup coverage are reviewed.
-4. Add operations extensions if visibility is weak: NetAlertX, Scrutiny, then ntfy.
+3. Complete the VM 130 Home Assistant restore drill before relying on automations.
+4. Finish operations-extension hardening: Scrutiny host disk collector, ntfy authentication/topics, and NetAlertX scan scope.
 5. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
 
 ## Naming Standard

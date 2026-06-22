@@ -26,8 +26,8 @@ The goal is not to consume all resources. The goal is to keep enough free CPU, R
 | 100 | LXC | `core-network` | AdGuard, Headscale, subnet router | 2 vCPU | 2 GB | 24 GB | `/opt/core-network` |
 | 101 | LXC | `platform-services` | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle | 4 vCPU | 8 GB | 100 GB | `/opt/sovereign-homelab` |
 | 102 | LXC | `apps-light` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo | 4 vCPU | 12 GB | 200 GB | app-specific bind mounts |
-| 103 | LXC | `ops-extensions` | Optional NetAlertX, Scrutiny, ntfy | 2 vCPU | 4 GB | 80 GB | `/opt/ops-extensions` |
-| 110 | VM | `immich` | Photos and videos | 6 vCPU | 16 GB | 120 GB | 800 GB-1 TB photo mount to start |
+| 103 | LXC | `ops-extensions` | NetAlertX, Scrutiny, ntfy | 2 vCPU | 4 GB | 40 GB live / 80 GB preferred if scan history grows | `/opt/ops-extensions` |
+| 110 | VM | `immich` | Photos and videos | 6 vCPU | 16 GB | 120 GB | 500 GB live; expand toward 800 GB-1 TB when storage pressure is solved |
 | 120 | VM | `nextcloud-aio` | Full cloud suite | 4 vCPU | 8-12 GB | 120 GB | separate data mount if serious |
 | 130 | VM | `home-assistant-os` | Home automation appliance | 2 vCPU | 4 GB | 64 GB | HA backups/export |
 | 140 | VM | `pbs` | Proxmox Backup Server | 4 vCPU | 8 GB | 64 GB | dedicated datastore |

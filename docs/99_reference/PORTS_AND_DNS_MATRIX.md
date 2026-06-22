@@ -92,6 +92,10 @@ Live bootstrap state as of 2026-06-22:
 | `foto.internal` | `http://foto.internal` | `http://192.168.1.110:2283` |
 | `media.internal` | `http://media.internal` | `http://192.168.1.52:8096` |
 | `ai.internal` | `http://ai.internal` | `http://192.168.1.52:3004` |
+| `ha.internal` | `http://ha.internal` | `http://192.168.1.130:8123` |
+| `netalert.internal` | `http://netalert.internal` | `http://192.168.1.53:20211` |
+| `disks.internal` | `http://disks.internal` | `http://192.168.1.53:8085` |
+| `alerts.internal` | `http://alerts.internal` | `http://192.168.1.53:8093` |
 | `files.internal` | `https://files.internal` | client-side HTTPS on NPM, upstream `http://192.168.1.120:11000`; live Nextcloud AIO |
 
 Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Nextcloud is the exception: `files.internal` uses client-side HTTPS now because AIO expects secure browser access. Move all private aliases to trusted private HTTPS after deploying an internal CA.
@@ -124,7 +128,7 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 |---|---:|---:|---|---|
 | Nextcloud AIO UI | none | 8086 | VPN admin | live on VM120; app stack gated |
 | Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; restore drill required before production files |
-| Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | Better as a dedicated Proxmox VM |
+| Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | live as dedicated Proxmox VM 130 |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 
 ## Operations Extensions
@@ -134,8 +138,8 @@ These panels improve visibility but are not mandatory day-one services. Deploy t
 | Service | Hostname | Recommended target | Recommended port | Default access | Notes |
 |---|---|---|---:|---|---|
 | NetAlertX | `netalert.internal` | LXC 103 `ops-extensions` | 20211 | VPN/Auth | LAN device inventory, asset discovery, change awareness |
-| Scrutiny | `disks.internal` | LXC 103 `ops-extensions` or Proxmox host-aware container | 8080 | VPN/admin | SMART disk health; needs explicit device access |
-| ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 80 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
+| Scrutiny | `disks.internal` | LXC 103 `ops-extensions` or Proxmox host-aware collector | 8085 | VPN/admin | SMART disk health; needs explicit device access or host collector |
+| ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 8093 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
 
 ## Recommended DNS Rewrites
 
