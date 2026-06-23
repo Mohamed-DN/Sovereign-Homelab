@@ -31,7 +31,7 @@ Last checked: 2026-06-22.
 | Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
 | Live on VM 110 `immich` | Immich |
 | Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, AIO containers are healthy, `https://files.internal` returns the real login redirect, but restore drill and internal certificate trust are still required before real files |
-| Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, restore drill still required |
+| Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, native HA backup exists, and full boot/service restore drill passed |
 | Planned | optional dedicated Jellyfin VM, optional dedicated AI host |
 
 Live means the service has an alias or documented protocol endpoint, NPM rule where applicable, Homepage visibility, and Uptime Kuma monitoring. It does not mean production critical data is approved. Production approval still requires a restore drill with representative data.

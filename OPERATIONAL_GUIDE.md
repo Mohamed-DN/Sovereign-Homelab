@@ -83,7 +83,7 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101, LXC 102, and LXC 103 have been restored to temporary CTs for successful drills. VM110, VM120, and VM130 backups passed PBS file-level restore validation, but full boot/service restore drills are still required before importing real passwords, photos, documents, repositories, automations, or alert history. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery. `ssd_pool` was above 90% used during the 2026-06-23 audit, so do not expand photo, media, or file datasets before adding capacity or pruning/migrating data.
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101, LXC 102, LXC 103, and VM130 have completed restore drills. VM110 and VM120 backups passed PBS file-level restore validation, but full boot/service restore drills are still required before importing real passwords, photos, documents, repositories, or files. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery. `ssd_pool` was above 90% used during the 2026-06-23 audit, so do not expand photo, media, or file datasets before adding capacity or pruning/migrating data.
 
 ### Layer 3: Core Network
 

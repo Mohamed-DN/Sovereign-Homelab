@@ -345,6 +345,8 @@ Evidence collected:
 - VM 110 Immich passed PBS file-level restore validation from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z`; the backup exposes the OS disk, Immich `upload` tree, generated media directories, backups directory, and PostgreSQL data.
 - VM 120 Nextcloud AIO passed PBS file-level restore validation from `pbs-p710:backup/vm/120/2026-06-23T01:34:56Z`; the backup exposes the OS stack path and Nextcloud data directory.
 - VM 130 Home Assistant OS passed PBS file-level restore validation from `pbs-p710:backup/vm/130/2026-06-23T01:38:27Z`; the backup exposes the HAOS data partition and `supervisor/homeassistant` directory.
+- VM 130 Home Assistant OS completed a full boot/service restore drill: the same backup was restored to temporary VM `930` on `local-zfs`, its NIC was isolated with `link_down=1`, HA Core/Supervisor/host health were verified through the QEMU guest agent, and VM `930` was destroyed.
+- Production VM 130 created a native full HA backup named `sovereign-preproduction-2026-06-23` with slug `2b41594a`; the HA database was included.
 - Proxmox and LXC host/search-domain settings were aligned to `.internal`; AdGuard now answers as `core-network.internal`.
 - Proxmox host DNS now uses AdGuard `192.168.1.50`, so `.internal` aliases resolve from the host as well as clients.
 - Uptime Kuma reported 35/35 monitors UP with fresh heartbeats.
@@ -366,7 +368,7 @@ Storage caveat:
 | VM110 restore drill | file-level validation complete; full Immich boot/service restore still required before importing the full library |
 | VM120 Nextcloud AIO | file-level validation complete; complete AIO boot/service restore and trusted internal certificate rollout before real files |
 | Offsite backup | add restic or second PBS for host-loss protection |
-| Home Assistant OS | live; PBS file-level validation complete; complete HA native backup and full boot/service restore drill |
+| Home Assistant OS | live; HA native backup and full PBS boot/service restore drill complete |
 | Ops extensions | live; Scrutiny host collector active; finish ntfy auth/topic policy before using alerts for sensitive events |
 | Wazuh | still planned; deploy only after core backup/restore is stable and RAM pressure is acceptable |
 
