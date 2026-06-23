@@ -25,7 +25,7 @@ Last checked: 2026-06-22.
 | `vaultwarden` | `vaultwarden/server` | `VAULTWARDEN_TAG` | `1.36.0` | Docker Hub tag check and Vaultwarden release tag | Critical data. Export and back up volume before update. |
 | `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Server and machine-learning must match. Restore drill required before importing full library. |
 | `immich` | `ghcr.io/immich-app/immich-machine-learning` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Same tag as server. |
-| `nextcloud` | `ghcr.io/nextcloud-releases/all-in-one` | `NEXTCLOUD_AIO_IMAGE` | `latest` | Official Nextcloud AIO Compose uses the release mastercontainer channel | Explicit exception. The AIO mastercontainer manages its own child container channel; keep VM120 covered by PBS and run an AIO restore drill before real files. |
+| `nextcloud` | `ghcr.io/nextcloud-releases/all-in-one` | `NEXTCLOUD_AIO_IMAGE` | `latest` | Official Nextcloud AIO Compose uses the release mastercontainer channel | Explicit exception. The AIO mastercontainer manages its own child container channel; VM120 is covered by PBS and has a successful AIO restore drill. |
 | `syncthing` | `syncthing/syncthing` | `SYNCTHING_TAG` | `2.1.1` | Docker Hub tag check and Syncthing release tag | Back up config identity keys before update. |
 | `paperless` | `ghcr.io/paperless-ngx/paperless-ngx` | `PAPERLESS_TAG` | `2.20.15` | Paperless-ngx setup docs and release tag | Back up DB, media, and export directory. |
 | `freshrss` | `freshrss/freshrss` | `FRESHRSS_TAG` | `1.29.1` | Docker Hub tag check | SQLite/data volume restore matters more than OPML. |

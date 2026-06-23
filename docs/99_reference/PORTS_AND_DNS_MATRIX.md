@@ -126,8 +126,8 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 
 | Service | Hostname | Recommended port | Default access | Notes |
 |---|---:|---:|---|---|
-| Nextcloud AIO UI | none | 8086 | VPN admin | live on VM120; app stack gated |
-| Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; restore drill required before production files |
+| Nextcloud AIO UI | none | 8086 | VPN admin | live on VM120; admin/setup UI only |
+| Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; boot/service restore drill passed; finish offsite and internal certificate trust before irreplaceable files |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | live as dedicated Proxmox VM 130 |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
 

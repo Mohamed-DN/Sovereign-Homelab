@@ -41,7 +41,7 @@ Last checked: 2026-06-23.
 | LXC 102 | running as `apps-light`, `192.168.1.52`, 4 vCPU, 12 GB RAM, 200 GB disk |
 | LXC 103 | running as `ops-extensions`, `192.168.1.53`, 2 vCPU, 4 GB RAM, 40 GB disk |
 | VM 110 | running as `immich`, `192.168.1.110`, 6 vCPU, 16 GB RAM, 120 GB OS disk, 500 GB data disk mounted at `/mnt/immich-library` |
-| VM 120 | running as `nextcloud-aio`, `192.168.1.120`, 4 vCPU, 10 GB RAM, 120 GB OS disk, 250 GB data disk; AIO healthy and gated only by restore drill/internal certificate trust before real files |
+| VM 120 | running as `nextcloud-aio`, `192.168.1.120`, 4 vCPU, 10 GB RAM, 120 GB OS disk, 250 GB data disk; AIO healthy and full restore drill passed; internal certificate trust and offsite backup still gate irreplaceable files |
 | VM 130 | running as `home-assistant-os`, `192.168.1.130`, 2 vCPU, 4 GB RAM, 64 GB OS disk |
 | VM 140 | running as `pbs`, `192.168.1.20`, PBS 4.2.2 |
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
@@ -52,7 +52,7 @@ Last checked: 2026-06-23.
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM130 restore drills completed, VM110/VM120 file-level restore validation completed; full VM boot/service restore drills still required for VM110 and VM120 |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM120/VM130 restore drills completed, VM110 file-level restore validation completed; full VM boot/service restore still required for VM110 |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; do not expand photo, media, or file datasets before adding capacity, pruning data, or moving cold data off the pool |
 
 ## Hosts and LXC
@@ -66,7 +66,7 @@ Last checked: 2026-06-23.
 | LXC 101 platform-services | `192.168.1.51` | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle | LAN/VPN | PBS + stack volumes | High |
 | LXC 102 apps-light | `192.168.1.52` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server | LAN/VPN | PBS + app-aware exports | High |
 | VM 110 immich | `192.168.1.110` | Photos and videos, `foto.internal` | VPN/Auth | PBS file-level validated; DB/upload offsite still required | Critical |
-| VM 120 nextcloud-aio | `192.168.1.120` | Full cloud suite, `files.internal` | VPN/Auth | PBS file-level validated; AIO backup and boot restore still required | High |
+| VM 120 nextcloud-aio | `192.168.1.120` | Full cloud suite, `files.internal` | VPN/Auth | PBS boot restore validated; offsite and internal certificate trust still required | High |
 | VM 130 home-assistant-os | `192.168.1.130` | Home automation, `ha.internal` | VPN/Auth | PBS boot restore validated; native HA backup created; offsite export still required | Medium |
 | VM 150 jellyfin | TBD | Future dedicated media server if GPU/transcoding needs justify it | VPN/Auth | PBS + media metadata | Medium |
 | VM 160 wazuh | TBD | Optional SIEM | VPN/Auth admin | PBS + log retention | Medium |
@@ -100,7 +100,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Vaultwarden | `pwd.internal` | P0 live on LXC102 | VPN-first | Passwords, attachments | volume + export |
 | Immich | `foto.internal` | P0 live on VM110 | VPN-first | Photos/videos + DB | PBS file-level validated; upload + consistent DB + offsite still required |
 | Syncthing | `sync.internal` | P1 live on LXC102 | VPN/Auth UI | Config + sync folders | config + source folders |
-| Nextcloud AIO | `files.internal` | P1 live on VM120 | VPN-first | Files + DB | PBS file-level validated; AIO backup/full restore required before real files |
+| Nextcloud AIO | `files.internal` | P1 live on VM120 | VPN-first | Files + DB | PBS boot restore validated; offsite and internal certificate trust still required |
 | Paperless-ngx | `paper.internal` | P1 live on LXC102 | VPN/Auth | OCR documents + DB | media + consume + DB |
 | Home Assistant OS | `ha.internal` | P1 live on VM130 | VPN/Auth | Home automations | PBS boot restore validated; native HA backup created; offsite export still required |
 | Jellyfin | `media.internal` | P1 live on LXC102 | VPN/Auth | Metadata + libraries | config + media source |

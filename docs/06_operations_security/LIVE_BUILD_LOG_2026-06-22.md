@@ -241,14 +241,13 @@ Current gate:
 - `http://files.internal` returns an NPM 301 to HTTPS.
 - `https://files.internal` returns a real Nextcloud login redirect.
 - VM120 was added to `sovereign-core-nightly` and a manual PBS backup completed successfully.
-- Do not import real files into Nextcloud until an AIO restore drill is completed and client trust for the internal certificate path is handled.
+- Do not import irreplaceable files into Nextcloud until client trust for the internal certificate path and offsite backup are handled. The AIO boot/service restore drill is complete.
 
 Next controlled maintenance step:
 
-1. Complete an AIO restore drill to a clean test VM or isolated test alias.
-2. Replace the temporary/internal self-signed certificate path with a trusted internal CA such as Smallstep `step-ca`.
-3. Install the internal CA trust anchor on personal clients before using Nextcloud heavily.
-4. Add offsite copy for AIO Borg backups or a restic copy of exported backups.
+1. Replace the temporary/internal self-signed certificate path with a trusted internal CA such as Smallstep `step-ca`.
+2. Install the internal CA trust anchor on personal clients before using Nextcloud heavily.
+3. Add offsite copy for AIO Borg backups or a restic copy of exported backups.
 
 ## LXC 103 Operations Extensions
 
@@ -344,6 +343,7 @@ Evidence collected:
 - LXC 102 restore drill completed from `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` to temporary CT `902`; the root filesystem was mounted, service stack files and Docker volumes were verified, and CT `902` was destroyed.
 - VM 110 Immich passed PBS file-level restore validation from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z`; the backup exposes the OS disk, Immich `upload` tree, generated media directories, backups directory, and PostgreSQL data.
 - VM 120 Nextcloud AIO passed PBS file-level restore validation from `pbs-p710:backup/vm/120/2026-06-23T01:34:56Z`; the backup exposes the OS stack path and Nextcloud data directory.
+- VM 120 Nextcloud AIO completed a full boot/service restore drill: the same backup was restored to temporary VM `920` on `local-zfs`, first booted with NIC isolated, then booted with temporary IP `192.168.1.240` for registry/DNS reachability. All AIO containers became healthy, `occ status` was clean, Apache returned the Nextcloud login redirect, and VM `920` was destroyed.
 - VM 130 Home Assistant OS passed PBS file-level restore validation from `pbs-p710:backup/vm/130/2026-06-23T01:38:27Z`; the backup exposes the HAOS data partition and `supervisor/homeassistant` directory.
 - VM 130 Home Assistant OS completed a full boot/service restore drill: the same backup was restored to temporary VM `930` on `local-zfs`, its NIC was isolated with `link_down=1`, HA Core/Supervisor/host health were verified through the QEMU guest agent, and VM `930` was destroyed.
 - Production VM 130 created a native full HA backup named `sovereign-preproduction-2026-06-23` with slug `2b41594a`; the HA database was included.
@@ -366,7 +366,7 @@ Storage caveat:
 | Authentik policy | enable MFA, recovery, and app protection rules before relying on SSO |
 | LXC102 restore drill | complete; temporary CT `902` restore validated stack files and Docker volumes |
 | VM110 restore drill | file-level validation complete; full Immich boot/service restore still required before importing the full library |
-| VM120 Nextcloud AIO | file-level validation complete; complete AIO boot/service restore and trusted internal certificate rollout before real files |
+| VM120 Nextcloud AIO | boot/service restore complete; complete trusted internal certificate rollout and offsite backup before irreplaceable files |
 | Offsite backup | add restic or second PBS for host-loss protection |
 | Home Assistant OS | live; HA native backup and full PBS boot/service restore drill complete |
 | Ops extensions | live; Scrutiny host collector active; finish ntfy auth/topic policy before using alerts for sensitive events |
