@@ -142,6 +142,7 @@ These panels improve visibility but are not mandatory day-one services. Deploy t
 | NetAlertX | `netalert.internal` | LXC 103 `ops-extensions` | 20211 | VPN/Auth | LAN device inventory, asset discovery, change awareness |
 | Scrutiny | `disks.internal` | LXC 103 `ops-extensions` + Proxmox host collector | 8085 | VPN/admin | SMART disk health; host collector posts to Scrutiny API |
 | ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 8093 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
+| Alert relay | none by default | LXC 101 or LXC 103 | 8099 | localhost/internal only | Optional Kuma webhook-to-email relay; no NPM proxy and no public DNS |
 
 ## Recommended DNS Rewrites
 
@@ -184,5 +185,6 @@ If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, up
 - Required public exposure: `vpn.yourdomain.duckdns.org`.
 - Private service namespace: `.internal`.
 - Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay, NetAlertX, Scrutiny, ntfy.
+- The alert relay is localhost/internal only. Do not expose it through NPM.
 
 Public exceptions require a separate written decision, a rollback plan, TLS, MFA where possible, and monitoring before exposure.

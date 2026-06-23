@@ -35,16 +35,67 @@ It does not print secrets.
 
 ```bash
 rg -n "headscale routes (enable|list)|routes enable|routes list" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
-rg -n "gho_|BEGIN PRIVATE KEY|password123|PASTE_REAL|AKIA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
+rg -n "gho_|BEGIN[ ]PRIVATE[ ]KEY|password123|PASTE_REAL|A[K]IA" docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "CHANGE_ME|PASTE_|yourdomain" docs stacks
+rg -n "HOMELAB_CREDENTIALS.md|alert-relay.env|smtp-password" docs scripts README.md START_HERE.md OPERATIONAL_GUIDE.md
 rg --pcre2 -n "\\.x\\b|\\.local\\b|\\.home\\b(?!-assistant)|home\\.arpa|it-home|it_home|home\\.net|auth\\.yourdomain\\.duckdns\\.org|dash\\.yourdomain\\.duckdns\\.org|status\\.yourdomain\\.duckdns\\.org|monitor\\.yourdomain\\.duckdns\\.org|logs\\.yourdomain\\.duckdns\\.org|netalert\\.yourdomain\\.duckdns\\.org|disks\\.yourdomain\\.duckdns\\.org|alerts\\.yourdomain\\.duckdns\\.org|pwd\\.yourdomain\\.duckdns\\.org|foto\\.yourdomain\\.duckdns\\.org|files\\.yourdomain\\.duckdns\\.org|sync\\.yourdomain\\.duckdns\\.org|paper\\.yourdomain\\.duckdns\\.org|rss\\.yourdomain\\.duckdns\\.org|bookmarks\\.yourdomain\\.duckdns\\.org|media\\.yourdomain\\.duckdns\\.org|git\\.yourdomain\\.duckdns\\.org|ai\\.yourdomain\\.duckdns\\.org" README.md START_HERE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "STACK_CATALOG_OPEN_SOURCE|PROJECT\\.md|compatibility stubs|APP_SERVICE_RUNBOOKS|stacks/apps|extended-services|IN_PROGRESS|\\.agents" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks --glob '!docs/99_reference/VALIDATION_COMMANDS.md'
 rg -n "(:latest\\b|=latest\\b|=main\\b|=release\\b)" stacks docs README.md START_HERE.md OPERATIONAL_GUIDE.md --glob '!docs/99_reference/VALIDATION_COMMANDS.md' --glob '!docs/99_reference/PINNED_IMAGE_VERSIONS.md' | rg -v "ghcr\\.io/nextcloud-releases/all-in-one:latest|ghcr\\.io/netalertx/netalertx:latest"
 ```
 
-Placeholders such as `CHANGE_ME`, `PASTE_`, and `yourdomain` are acceptable in templates and runbooks. They are not acceptable in real `.env` files, logs, or production commits.
+Placeholders such as `CHANGE_ME`, `PASTE_`, `yourdomain`, `HOMELAB_CREDENTIALS.md`, `alert-relay.env`, and `smtp-password` are acceptable only as public documentation references. They are not acceptable as real secret values in tracked files.
 
 The stale-doc check should return no output. The rolling-tag check should return no output after filtering the documented Nextcloud AIO and NetAlertX exceptions. If another project requires a rolling channel, document the exception in [Pinned Image Versions](PINNED_IMAGE_VERSIONS.md) before committing it.
+
+## Local Credentials Safety
+
+The real credentials file must exist only on the server, not in the repository:
+
+```bash
+git status --short --ignored | rg -i "HOMELAB_CREDENTIALS|sovereign-secrets|alert-relay.env|smtp-password"
+```
+
+Expected repository result: no tracked real credential file. The public template is allowed:
+
+```bash
+test -f docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
+```
+
+On the Proxmox host:
+
+```bash
+stat -c '%a %U:%G %n' /root/sovereign-secrets /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+Expected:
+
+```text
+700 root:root /root/sovereign-secrets
+600 root:root /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+## Alert Relay Template
+
+The alert relay is optional until SMTP credentials are available locally, but the script must remain syntactically valid:
+
+```bash
+python -m py_compile scripts/sovereign-alert-relay.py
+```
+
+When configured live, validate:
+
+```bash
+systemctl status sovereign-alert-relay --no-pager
+curl -I http://127.0.0.1:8099/health
+```
+
+Manual acceptance:
+
+1. safe test monitor stays DOWN for at least 60 seconds;
+2. one `ALERT` email is received;
+3. one `REMINDER` email is received after 5 minutes;
+4. no more DOWN spam arrives;
+5. one `RESOLVED` email is received after recovery.
 
 ## Markdown Local Links
 

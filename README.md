@@ -27,7 +27,7 @@ The repository is written in English and is designed to be used like an infrastr
 
 ## Live Foundation Status
 
-Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md).
+Last live build log: [2026-06-23](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md).
 
 | Area | Current state |
 |---|---|
@@ -42,9 +42,11 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Monitoring | Uptime Kuma initialized with 37 live monitors; all were UP during the 2026-06-23 audit across VPN, DNS, critical alias fingerprints, apps including Nextcloud, operations extensions, Home Assistant, internal CA, and protocol checks |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
 | Internal TLS | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; client root trust rollout is the next gate before moving private aliases to HTTPS |
+| Local credentials | root-only `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` created on the Proxmox host; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
+| Alerting | Uptime Kuma and ntfy are live; anti-spam email relay script/template is documented, but SMTP credentials and end-to-end email test remain gated |
 | Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
-| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, and production-data restore rehearsals before importing large critical datasets |
+| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, alert SMTP secret/test, ntfy auth/topic policy, and production-data restore rehearsals before importing large critical datasets |
 
 ## Network and Access Model
 
@@ -126,6 +128,15 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | [docs/99_reference](docs/99_reference) | Matrices, validation commands, inventory, pinned image versions, and stack catalog |
 | [stacks](stacks) | Independent Docker Compose micro-stacks |
 | [scripts](scripts) | Operational helper scripts, including the DuckDNS public A record updater |
+
+High-signal reference files:
+
+| File | Purpose |
+|---|---|
+| [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md) | compact live table for service, alias, NPM, Homepage, Kuma, backup, restore, and gate status |
+| [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) | safe public template for the root-only local credentials file |
+| [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md) | researched future ideas, benefits, risks, and priorities; no live changes |
+| [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md) | latest live audit, local credentials status, alert gate, and research summary |
 
 ## Deployment Workflow
 

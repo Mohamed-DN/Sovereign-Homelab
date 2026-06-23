@@ -1,0 +1,18 @@
+[Unit]
+Description=Sovereign Homelab alert email relay
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+EnvironmentFile=/root/sovereign-secrets/alert-relay.env
+ExecStart=/usr/bin/python3 /opt/sovereign-alert-relay/sovereign-alert-relay.py
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

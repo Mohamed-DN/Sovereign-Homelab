@@ -114,65 +114,70 @@ Validation checklist:
 - After selecting the Proxmox exit node, `nslookup example.com 192.168.1.50` still works.
 - AdGuard query log shows the remote client's DNS queries before and after exit-node selection.
 
-### Phase 2: Identity and Access Control
+### Phase 2: Identity and Access Control - Live / Hardening Pending
 
 Goal: add SSO/MFA and protect internal dashboards without making everything public.
 
-Planned services:
+Live and planned services:
 
-- **Authentik** as identity provider.
-- **Proxy provider / forward auth** for internal UIs.
-- **OIDC for Headscale** as an advanced step after the VPN base is stable.
+- **Authentik** is live on LXC 101 at `auth.internal/if/user/`.
+- **Proxy provider / forward auth** for internal UIs remains a controlled hardening step.
+- **OIDC for Headscale** remains an advanced step after MFA/recovery and rollback are tested.
 
 Runbook: [doc_07_identity_sso_authentik.md](../03_platform_services/doc_07_identity_sso_authentik.md)
 
-### Phase 3: Observability and Dashboard
+### Phase 3: Observability and Dashboard - Live
 
 Goal: know when DNS, VPN, proxy, identity or apps are failing.
 
-Planned services:
+Live services:
 
 - **Homepage.dev** for navigation.
 - **Uptime Kuma** for uptime checks and alerts.
 - **Beszel** for host/container metrics.
 - **Dozzle** for live Docker logs.
-- **Optional operations extensions** after the core is green: NetAlertX, Scrutiny, ntfy.
+- **Operations extensions** are live on LXC 103: NetAlertX, Scrutiny, ntfy.
+- **Alert email** remains gated until local SMTP secrets and the anti-spam relay test are complete.
 
 Runbook: [doc_08_observability_dashboard.md](../03_platform_services/doc_08_observability_dashboard.md)
 
-### Phase 4: Backup and Disaster Recovery
+### Phase 4: Backup and Disaster Recovery - Live Local Recovery / Offsite Pending
 
 Goal: restore the lab, not only collect backups.
 
-Planned services:
+Live services:
 
-- **Proxmox Backup Server** for VM/LXC backups.
-- **restic** for optional encrypted offsite backups.
-- Scheduled restore tests.
+- **Proxmox Backup Server** is live on VM 140 with datastore `p710-local`.
+- Scheduled backup job `sovereign-core-nightly` covers guests `100,101,102,103,110,120,130`.
+- Restore drills exist for LXC101, LXC102, LXC103, VM110, VM120, and VM130.
+- **restic**, rotated disk, or second PBS is still required for offsite disaster recovery.
 
 Runbook: [doc_09_backup_dr.md](../05_backup_dr/doc_09_backup_dr.md)
 
-### Phase 5: Traffic Forwarding and Core Services
+### Phase 5: Traffic Forwarding and Core Services - Live / Data Gates Pending
 
 Goal: host personal services behind clean internal names and valid HTTPS.
 
-Planned services:
+Live services:
 
 - **Vaultwarden** for passwords.
 - **Immich** for photo and video backup.
 - **Nextcloud / Syncthing** for file synchronization.
+- **Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Jellyfin, RustDesk, Ollama, and Open WebUI** are live on LXC 102.
 - **Nginx Proxy Manager** as the HTTPS entry point for internal services.
+
+Gate: do not import irreplaceable passwords, photos, documents, files, or repositories until offsite backup and representative restore rehearsals are complete.
 
 Runbook: [doc_10_core_apps.md](../04_apps/doc_10_core_apps.md)
 
-### Phase 6: Security Operations
+### Phase 6: Security Operations - Live Core / Advanced Optional
 
 Goal: keep the platform maintainable and auditable.
 
-Planned services:
+Live and planned services:
 
-- **CrowdSec** if services are exposed publicly.
-- **Wazuh** as advanced SIEM/XDR if resources allow.
+- **CrowdSec** is live in detection mode with NPM logs.
+- **Wazuh** remains optional advanced SIEM/XDR if resources allow.
 - Update, secret rotation and incident-response runbooks.
 
 Runbook: [doc_11_security_operations.md](../06_operations_security/doc_11_security_operations.md)

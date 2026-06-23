@@ -105,6 +105,7 @@ These are optional panels for running the lab at a higher operational level. The
 | Smallstep CA API | `LXC101_IP:9002` or `ca.internal:9002` | certificate issuance API, not a normal user dashboard | no by default | HTTPS health monitor after deployment |
 | RustDesk ID and relay | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | remote desktop protocol, not HTTP | no web UI in OSS server | TCP monitors for `21115`, `21116`, `21117`; UDP availability verified manually |
 | Wazuh Manager API | `VM160_IP:55000` | advanced admin API, not a clean web UI | no until Wazuh dashboard is installed | optional TCP monitor |
+| Alert email relay | `127.0.0.1:8099` or internal relay URL | webhook/API endpoint for Kuma notifications, not a user dashboard | no | local health check after SMTP configuration |
 
 ## Operational Acceptance
 

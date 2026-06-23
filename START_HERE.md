@@ -29,8 +29,9 @@ Use this file as the human reading order. The runbooks are the installation path
 4. Open the matrix: [PORTS_AND_DNS_MATRIX.md](docs/99_reference/PORTS_AND_DNS_MATRIX.md).
 5. Open the service visibility matrix: [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
 6. Open the inventory: [INVENTORY_AND_IP_PLAN.md](docs/99_reference/INVENTORY_AND_IP_PLAN.md).
-7. Choose the DuckDNS domain for public VPN entry only.
-8. Use `.internal` for internal/VPN-only services.
+7. Open the live coverage table: [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md).
+8. Choose the DuckDNS domain for public VPN entry only.
+9. Use `.internal` for internal/VPN-only services.
 
 ### Enterprise DNS Decision
 
@@ -84,10 +85,14 @@ Large environments usually use a private subdomain of a registered corporate dom
 2. [LIVE_PROXMOX_VALIDATION.md](docs/06_operations_security/LIVE_PROXMOX_VALIDATION.md): live server audit, 4G VPN acceptance, dashboards, and backup gate.
 3. [LIVE_BUILD_LOG_2026-06-21.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md): factual record of the first live platform/PBS/Kuma build.
 4. [LIVE_BUILD_LOG_2026-06-22.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md): live apps-light, Immich, Nextcloud, Home Assistant, operations extensions, NPM aliases, Kuma monitors, and PBS backup updates.
-5. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
-6. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
-7. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
-8. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
+5. [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md): latest live audit, local credentials file, alert relay gate, and future research output.
+6. [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md): compact service-by-service operational coverage table.
+7. [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md): safe template for the root-only private credentials file.
+8. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
+9. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
+10. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
+11. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
+12. [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md): researched future ideas; do not treat them as implemented tasks.
 
 ### 6. Controlled Expansion
 
@@ -98,7 +103,8 @@ Recommended order for expansion after the current live build:
 3. Treat VM 120 Nextcloud AIO as restore-drill complete at the boot/service level; finish internal certificate trust and offsite backup before importing irreplaceable files.
 4. Treat VM 130 Home Assistant as restore-drill complete at the boot/service level; keep exporting native HA backups before major changes.
 5. Finish operations-extension hardening: ntfy authentication/topics and NetAlertX scan scope. Scrutiny already uses a Proxmox host-side collector for SMART data.
-6. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
+6. Finish alert email by adding SMTP secrets only on the server and testing the anti-spam relay.
+7. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
 
 ## Naming Standard
 

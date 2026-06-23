@@ -10,10 +10,22 @@ stacks/**/redis/
 stacks/**/uploads/
 stacks/**/secrets/
 
+# Local secrets and credentials
+HOMELAB_CREDENTIALS.md
+credentials.md
+secrets.md
+sovereign-secrets/
+*credentials*
+*.secret
+*.secrets
+!docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
+
 # Local logs and temporary files
 *.log
 *.tmp
 *.bak
+__pycache__/
+*.pyc
 .agents/
 **/.agents/
 

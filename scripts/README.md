@@ -48,3 +48,33 @@ Purpose:
 Install on LXC 100 after the NPM DuckDNS certificate exists. The service reads the token from the NPM Certbot DuckDNS credential file and strips optional surrounding quotes before calling DuckDNS.
 
 See [Runbook 03: Nginx Proxy Manager](../docs/02_network_vpn/doc_03_nginx_proxy_manager.md) for the full installation and validation flow.
+
+## Alert Email Relay
+
+Files:
+
+- `sovereign-alert-relay.py`
+- `systemd/sovereign-alert-relay.service`
+
+Purpose:
+
+- receive Uptime Kuma webhook events;
+- delay the first DOWN email until the incident remains active for 60 seconds;
+- send one reminder after 5 minutes;
+- stop DOWN spam for the same incident;
+- send one RESOLVED email after recovery;
+- keep SMTP credentials outside Git.
+
+Secret model:
+
+- environment file: `/root/sovereign-secrets/alert-relay.env`;
+- relay token file: `/root/sovereign-secrets/alert-relay-token`;
+- SMTP password file: `/root/sovereign-secrets/smtp-password`.
+
+Validate syntax from the repository:
+
+```bash
+python -m py_compile scripts/sovereign-alert-relay.py
+```
+
+See [Operations Manual](../docs/06_operations_security/OPERATIONS_MANUAL.md) for setup and test steps.

@@ -54,6 +54,8 @@ Last checked: 2026-06-23.
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
 | Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM110/VM120/VM130 restore drills completed; LXC102 and VM110 app-aware baseline drills completed; offsite still required |
+| Local credentials | `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` exists on the Proxmox host with root-only permissions; public repo has only a placeholder template |
+| Alerting | Uptime Kuma and ntfy are live; email relay script/template exists; SMTP credentials and end-to-end email alert/recovery test remain local gates |
 | Storage model | `ssd_pool` uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. The capacity gate remains active in the live audit script |
 
 ## Hosts and LXC

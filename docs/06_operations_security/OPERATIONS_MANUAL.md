@@ -10,6 +10,8 @@ The manual uses these supporting documents:
 
 - [Inventory and IP Plan](../99_reference/INVENTORY_AND_IP_PLAN.md)
 - [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md)
+- [Live Service Coverage](../99_reference/LIVE_SERVICE_COVERAGE.md)
+- [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md)
 - [Validation Commands](../99_reference/VALIDATION_COMMANDS.md)
 - [Live Proxmox Validation](LIVE_PROXMOX_VALIDATION.md)
 - [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
@@ -22,6 +24,44 @@ The manual uses these supporting documents:
 - **One change at a time**: change one service, validate it, then move to the next.
 - **Source of truth**: every new port, DNS rewrite, volume, and backup must be recorded in the inventory.
 - **No secrets in Git**: `.env`, DuckDNS tokens, passwords, API keys, and backup keys stay out of the repository.
+
+## Local Credentials Procedure
+
+The live server has one root-only local credentials file:
+
+```text
+/root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+Required permissions:
+
+```bash
+stat -c '%a %U:%G %n' /root/sovereign-secrets /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+Expected:
+
+```text
+700 root:root /root/sovereign-secrets
+600 root:root /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+Rules:
+
+- Store real passwords, SMTP app passwords, DuckDNS tokens, API keys, and recovery notes only in this local file or in a private password manager.
+- Never copy the file into the repository.
+- Never paste it into issues, chat, screenshots, or runbooks.
+- Keep the public template at [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) placeholder-only.
+- If you rotate a secret, update the local file and record only the rotation date in public docs.
+
+Quick safety check from the repository:
+
+```bash
+git status --short --ignored | grep -i 'HOMELAB_CREDENTIALS' && echo "unexpected credentials visibility"
+rg -n "SMTP[_]PASSWORD|DUCKDNS[_]TOKEN|BEGIN[ ]PRIVATE[ ]KEY|A[K]IA" README.md START_HERE.md OPERATIONAL_GUIDE.md docs stacks scripts
+```
+
+The second command should return no real secrets. Placeholder names are allowed.
 
 ## Daily Routine
 
@@ -49,6 +89,11 @@ Expected time: 5-10 minutes.
    - LXC 100 still serves `192.168.1.0/24`;
    - Proxmox still serves `0.0.0.0/0`;
    - no unknown VPN node is online.
+6. Check alerting:
+   - Uptime Kuma is green;
+   - ntfy is reachable if used;
+   - the alert relay is running only after SMTP credentials are configured locally;
+   - no monitor is still muted after maintenance.
 
 Quick commands:
 
@@ -96,6 +141,107 @@ CGNAT check:
 
 - If router WAN IP matches the public IP, normal DuckDNS plus port-forward is valid.
 - If router WAN IP is private or different from the public IP, direct 4G inbound access will not work; use a small VPS plus WireGuard relay as the sovereign fallback.
+
+## Alert Email Procedure
+
+Uptime Kuma is the monitor source. The optional local relay in `scripts/sovereign-alert-relay.py` exists because the required behavior is stricter than a simple repeated notification:
+
+1. wait at least 1 minute before the first DOWN email;
+2. send one reminder after 5 minutes if the incident is still active;
+3. do not keep sending emails for the same incident;
+4. send one RESOLVED email when recovery is observed;
+5. allow a new cycle only after recovery.
+
+The relay must not be enabled until SMTP secrets are stored locally.
+
+### Server Setup
+
+On the server that will run the relay, usually LXC 101 or LXC 103:
+
+```bash
+install -d -m 700 /root/sovereign-secrets
+install -d -m 755 /opt/sovereign-alert-relay
+cp scripts/sovereign-alert-relay.py /opt/sovereign-alert-relay/sovereign-alert-relay.py
+cp scripts/systemd/sovereign-alert-relay.service /etc/systemd/system/sovereign-alert-relay.service
+chmod 755 /opt/sovereign-alert-relay/sovereign-alert-relay.py
+```
+
+Create the local secret env file. Do not commit it:
+
+```bash
+cat >/root/sovereign-secrets/alert-relay.env <<'EOF'
+ALERT_RELAY_BIND=127.0.0.1
+ALERT_RELAY_PORT=8099
+ALERT_FIRST_DELAY_SECONDS=60
+ALERT_REMINDER_DELAY_SECONDS=300
+ALERT_STATE_PATH=/var/lib/sovereign-alert-relay/state.json
+ALERT_RELAY_TOKEN_FILE=/root/sovereign-secrets/alert-relay-token
+ALERT_SMTP_HOST=<SMTP_HOST>
+ALERT_SMTP_PORT=<SMTP_PORT>
+ALERT_SMTP_USERNAME=<SMTP_USERNAME>
+ALERT_SMTP_PASSWORD_FILE=/root/sovereign-secrets/smtp-password
+ALERT_SMTP_FROM=<SMTP_FROM>
+ALERT_EMAIL_TO=<ALERT_EMAIL_TO>
+ALERT_SMTP_STARTTLS=true
+EOF
+chmod 600 /root/sovereign-secrets/alert-relay.env
+```
+
+Create the token and SMTP password files locally:
+
+```bash
+openssl rand -base64 32 >/root/sovereign-secrets/alert-relay-token
+printf '%s\n' '<SMTP_PASSWORD>' >/root/sovereign-secrets/smtp-password
+chmod 600 /root/sovereign-secrets/alert-relay-token /root/sovereign-secrets/smtp-password
+```
+
+Enable:
+
+```bash
+systemctl daemon-reload
+systemctl enable --now sovereign-alert-relay.service
+curl -I http://127.0.0.1:8099/health
+```
+
+### Uptime Kuma Webhook
+
+Create one Uptime Kuma notification of type webhook:
+
+| Field | Value |
+|---|---|
+| URL | `http://127.0.0.1:8099/webhook` if relay runs with Kuma, otherwise the relay's internal URL |
+| Method | `POST` |
+| Content type | `application/json` |
+| Authorization | `Bearer <ALERT_RELAY_TOKEN>` |
+| Apply to | P0/P1 monitors only |
+
+P0/P1 monitor set:
+
+| Priority | Monitors |
+|---|---|
+| P0 | Headscale public VPN, AdGuard DNS, NPM UI, PBS, Vaultwarden, Immich, Nextcloud, ZFS/storage checks, failed systemd checks when added |
+| P1 | Authentik, Homepage, Uptime Kuma, Paperless, Home Assistant, Forgejo, Scrutiny, ntfy, DuckDNS updater, `.internal` DNS checks |
+
+### Alert Test
+
+Use a safe temporary monitor or a short maintenance window. Do not intentionally break production DNS/VPN to test email.
+
+1. Create a temporary monitor that points to an unused local port.
+2. Attach the alert relay notification.
+3. Wait at least 60 seconds and confirm one `ALERT` email.
+4. Wait until 5 minutes from first DOWN and confirm one `REMINDER` email.
+5. Leave it DOWN for another 5 minutes and confirm no extra DOWN spam.
+6. Change the monitor target to a healthy URL, for example `http://dash.internal`.
+7. Confirm one `RESOLVED` email.
+8. Delete the temporary monitor.
+
+Maintenance mute rule:
+
+- Pause notifications before planned outages.
+- Add a short note in Uptime Kuma or the live log.
+- Resume notifications immediately after validation.
+
+Current gate: SMTP credentials and the final end-to-end alert/recovery test must be completed locally before the alert channel is considered production.
 
 ## Weekly Routine
 
