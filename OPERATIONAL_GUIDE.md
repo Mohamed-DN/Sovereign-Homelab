@@ -199,7 +199,7 @@ curl -I http://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle. Uptime Kuma has 36 live monitors covering VPN, DNS, core aliases, app aliases including Nextcloud, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, and Smallstep CA. Uptime Kuma has 37 live monitors covering VPN, DNS, critical alias fingerprints, app aliases including Nextcloud, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, the internal CA, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
 
 Optional operations extensions belong after this layer, not before it:
 

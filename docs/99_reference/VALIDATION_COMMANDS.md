@@ -24,9 +24,10 @@ Use `-SkipCompose` only when Docker is unavailable on the workstation:
 powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -SkipCompose
 ```
 
-This checks the public VPN health endpoint, DuckDNS public DNS, AdGuard split
-DNS, every Homepage card, Proxmox failed units, storage, Headscale routes,
-Uptime Kuma monitor state, live Docker inventory, and local Compose templates.
+This checks the public VPN health endpoint, DuckDNS public DNS through multiple
+resolvers, AdGuard split DNS, critical alias fingerprints, every Homepage card,
+Proxmox failed units, storage, Headscale routes, Uptime Kuma monitor state, live
+Docker inventory, and local Compose templates.
 It does not print secrets.
 
 ## Documentation Safety
@@ -176,7 +177,7 @@ Run from a non-home network before trusting mobile VPN onboarding:
 curl -I https://vpn.yourdomain.duckdns.org
 ```
 
-Verify the public DNS answer with DNS-over-HTTPS, not only `nslookup`, because LAN DNS interception can hide a broken public DuckDNS record:
+Verify the public DNS answer with more than one external resolver. A single DNS-over-HTTPS provider can have a transient authoritative lookup failure, and LAN DNS interception can hide a broken public DuckDNS record:
 
 ```bash
 curl -s -H "accept: application/dns-json" \
