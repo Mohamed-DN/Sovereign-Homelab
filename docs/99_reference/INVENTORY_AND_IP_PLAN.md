@@ -31,7 +31,7 @@ The port/DNS matrix remains in [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md). 
 
 ## Live Audit Snapshot
 
-Last checked: 2026-06-22.
+Last checked: 2026-06-23.
 
 | Area | Observed state |
 |---|---|
@@ -52,7 +52,8 @@ Last checked: 2026-06-22.
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101 restore drill completed, CT102, CT103, VM110, VM120, and VM130 backups completed; restore drills still required for CT102, CT103, VM110, VM120, and VM130 |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101 and LXC103 restore drills completed, CT102, VM110, VM120, and VM130 backups completed; restore drills still required for CT102, VM110, VM120, and VM130 |
+| Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; do not expand photo, media, or file datasets before adding capacity, pruning data, or moving cold data off the pool |
 
 ## Hosts and LXC
 
@@ -89,7 +90,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `dozzle` | LXC 101 | 8088 | `logs.internal` | VPN/Auth admin | no critical data | Live logs |
 | `crowdsec` | LXC 100 | 8089 | none | LAN/local only | config + DB | Detection; live placement follows NPM logs |
 | `netalertx` | LXC 103 | 20211 | `netalert.internal` | VPN/Auth | config + DB | Optional network asset visibility |
-| `scrutiny` | LXC 103 | 8085 | `disks.internal` | VPN/admin | config + InfluxDB data | SMART UI live; collector/device mapping still required |
+| `scrutiny` | LXC 103 | 8085 | `disks.internal` | VPN/admin | config + InfluxDB data | SMART UI live; Proxmox host-side collector active |
 | `ntfy` | LXC 103 | 8093 | `alerts.internal` | VPN/Auth | config + cache/attachments if enabled | Self-hosted notifications |
 
 ## Production or Candidate Apps

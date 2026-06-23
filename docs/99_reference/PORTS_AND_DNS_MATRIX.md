@@ -138,7 +138,7 @@ These panels improve visibility but are not mandatory day-one services. Deploy t
 | Service | Hostname | Recommended target | Recommended port | Default access | Notes |
 |---|---|---|---:|---|---|
 | NetAlertX | `netalert.internal` | LXC 103 `ops-extensions` | 20211 | VPN/Auth | LAN device inventory, asset discovery, change awareness |
-| Scrutiny | `disks.internal` | LXC 103 `ops-extensions` or Proxmox host-aware collector | 8085 | VPN/admin | SMART disk health; needs explicit device access or host collector |
+| Scrutiny | `disks.internal` | LXC 103 `ops-extensions` + Proxmox host collector | 8085 | VPN/admin | SMART disk health; host collector posts to Scrutiny API |
 | ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 8093 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
 
 ## Recommended DNS Rewrites

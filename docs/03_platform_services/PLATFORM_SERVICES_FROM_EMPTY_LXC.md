@@ -74,7 +74,7 @@ NPM:
 
 Monitor:
 
-- Uptime Kuma HTTP monitor: `http://auth.internal/if/flow/initial-setup/` during bootstrap
+- Uptime Kuma HTTP monitor: `http://auth.internal/if/flow/initial-setup/` during first bootstrap, then `http://auth.internal/if/user/`
 - Alert if HTTP status is not reachable.
 
 After Authentik initial setup and internal CA deployment, update the monitor to the final HTTPS URL.

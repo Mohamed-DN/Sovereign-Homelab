@@ -54,6 +54,10 @@
 | Uptime Kuma false negative | monitor target | use the correct internal endpoint |
 | NetAlertX is noisy | scan scope and notification settings | start with main LAN only, then add VLANs/sites intentionally |
 | Scrutiny shows no disks | container device mappings and capabilities | map the disk devices explicitly and allow required SMART access |
+| Scrutiny UI is up but SMART summary is empty | collector location | run the collector on the Proxmox host where the disks are visible and post to `http://LXC103_IP:8085`; do not weaken host disk permissions for an unprivileged LXC |
+| `auth.internal` root returns 500 or redirects to `/setup` after bootstrap | Authentik UI path | use `http://auth.internal/if/user/` for Homepage and Kuma; the setup flow is only for initial bootstrap |
+| Proxmox log repeats `e1000e ... Detected Hardware Unit Hang` | Intel NIC offload instability | disable and persist `tso`, `gso`, and `gro` offloads on the physical NIC; verify fresh logs stay clean |
+| `zfs-import@POOL.service` fails for a pool that no longer exists | stale ZFS import unit | confirm `zpool status` and `zpool import`, then disable/reset the stale `zfs-import@POOL.service` |
 | ntfy receives no alerts | Kuma notification URL and ntfy logs | verify topic URL, auth mode, and NPM proxy path |
 
 ## Apps

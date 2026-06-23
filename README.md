@@ -18,7 +18,7 @@ The repository is written in English and is designed to be used like an infrastr
 | Layer | Target |
 |---|---|
 | Hypervisor | Proxmox VE on P710 |
-| Hardware baseline | 20 CPU threads, 64 GB RAM, 2 TB usable mirrored storage |
+| Hardware baseline | 20 physical CPU cores / 40 logical threads, 64 GB RAM, 2 TB usable mirrored storage |
 | Core network | LXC 100 `core-network`, currently `192.168.1.50` |
 | Platform services | LXC 101 `platform-services`, live at `192.168.1.51` |
 | Lightweight apps | LXC 102 `apps-light` |
@@ -34,14 +34,16 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | VPN | public Headscale endpoint online; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101 |
-| Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors |
+| Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
 | Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000` |
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
 | Monitoring | Uptime Kuma initialized with 35 live monitors covering VPN, DNS, core aliases, apps, operations extensions, Home Assistant, and protocol checks |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101 restore drill completed; CT102, CT103, VM110, VM120, and VM130 backups completed |
-| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, Scrutiny disk collector wiring, and restore drills for LXC 102, VM 110, VM 120, VM 130, and LXC 103 before importing real critical data |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101 and LXC 103 restore drills completed; manual post-hardening backups completed for LXC 100, LXC 101, and LXC 103 |
+| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` disabled after confirming no such pool exists |
+| Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; pause large photo, media, and file growth until capacity/offsite decisions are made |
+| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and restore drills for LXC 102, VM 110, VM 120, and VM 130 before importing real critical data |
 
 ## Network and Access Model
 
@@ -57,7 +59,9 @@ flowchart TD
     AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
+    Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]
     Apps["Internal apps\n*.internal"]
+    Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]
     PBS["Proxmox Backup Server"]
     Internet(("Internet"))
 
@@ -70,8 +74,11 @@ flowchart TD
     AGH -->|filtered upstream DNS| Internet
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
+    NPM --> Ops
     NPM --> Apps
+    Smart -->|disk metrics API| Ops
     Platform --> PBS
+    Ops --> PBS
     Apps --> PBS
 ```
 

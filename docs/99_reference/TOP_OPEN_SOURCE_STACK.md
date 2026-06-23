@@ -94,7 +94,7 @@ A service enters the core only if:
 | Live, harden next | Forgejo | Validate repository and DB restore before storing important repos. |
 | Live, harden next | Ollama + Open WebUI | Keep VPN only; watch model disk usage. |
 | Live ops extension | NetAlertX | Tune scan scope and alerts to avoid noise. |
-| Live ops extension | Scrutiny | Add host disk collector/device mapping before relying on SMART history. |
+| Live ops extension | Scrutiny | Host-side collector publishes SMART history to the LXC 103 Scrutiny API. |
 | Live ops extension | ntfy | Add authentication/topic policy before sensitive alerts. |
 | P3 only if needed | Full Wazuh | Powerful but heavy; needs a log strategy first. |
 | P3 only if needed | Full media automation | Adds many moving parts; stabilize Jellyfin first. |

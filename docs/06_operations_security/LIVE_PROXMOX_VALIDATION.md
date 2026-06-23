@@ -30,11 +30,11 @@ Use the real DuckDNS hostname during live validation, but keep repository exampl
 
 ## Current Live Status
 
-Last checked: 2026-06-22.
+Last checked: 2026-06-23.
 
 | Check | Status |
 |---|---|
-| Proxmox host access | SSH was reachable during live build-out; later workstation check could ping but not open TCP `22`, so restore admin TCP access before the next live mutation |
+| Proxmox host access | SSH reachable from the audit workstation through a temporary key; remove the temporary key after the live work is complete |
 | Core LXC | LXC 100 `core-network` running on `192.168.1.50` |
 | Headscale config | `configtest` passes after adding the minimal policy file |
 | Public VPN proxy | NPM forwards public VPN hostname to `http://192.168.1.50:8080` with WebSocket support |
@@ -45,24 +45,32 @@ Last checked: 2026-06-22.
 | App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120`; VM 130 `home-assistant-os` deployed on `192.168.1.130` |
 | Operations extensions | LXC 103 `ops-extensions` deployed on `192.168.1.53` with NetAlertX, Scrutiny, and ntfy |
 | Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, Nextcloud, Home Assistant, NetAlertX, Scrutiny, and ntfy aliases exist in NPM |
-| Uptime Kuma | SQLite initialized, admin bootstrap stored on server only, 35 live monitors after adding Home Assistant and operations-extension checks |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101 restore drill completed; CT102, CT103, VM110, VM120, and VM130 backups completed |
-| Live image tags | core live Compose still uses `latest`; pin during the next controlled maintenance window |
+| Uptime Kuma | 35 live monitors, all UP during the 2026-06-23 audit |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101 and LXC103 restore drills completed; manual post-hardening backups completed for LXC100, LXC101, and LXC103 |
+| Live image tags | core live Compose pinned to Headscale `v0.28.0`, Headscale-UI `2026.03.17`, AdGuard Home `v0.107.77`, and NPM `2.15.1`; Scrutiny pinned to `v0.9.2-omnibus` |
+| Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; pause large photo, media, and file growth until capacity/offsite decisions are made |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
 
 Live caveats:
 
-- Authentik is deployed and reachable, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate.
+- Authentik is deployed and reachable at `http://auth.internal/if/user/`, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate. The bare root path can redirect to a non-applicable setup flow after bootstrap; use `/if/user/` for dashboards and monitors.
 - Beszel Hub and a platform-services agent are enrolled. Beszel agent health is checked in Beszel because the live agent uses hub/WebSocket enrollment instead of a separate inbound TCP monitor.
 - Most `.internal` aliases currently use HTTP on the client side over LAN/VPN. `files.internal` already uses client-side HTTPS with an internal certificate because Nextcloud AIO expects secure browser access. Add a trusted internal CA before requiring HTTPS for all private aliases.
 - LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
 - VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
 - VM 120 Nextcloud AIO is provisioned with a 250 GB data disk. AIO now runs on the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel, all AIO child containers are healthy, and `https://files.internal` returns a real Nextcloud login redirect. Do not import real files until the AIO restore drill and client certificate trust are handled.
 - VM 130 Home Assistant OS is deployed at `192.168.1.130`. `ha.internal` works through NPM after adding the Home Assistant reverse-proxy trust block for NPM.
-- LXC 103 operations extensions are deployed at `192.168.1.53`. NetAlertX, Scrutiny, and ntfy are reachable through NPM and have Kuma monitors. Scrutiny still needs a deliberate host disk collector/device mapping before it can be considered complete disk-health monitoring.
+- LXC 103 operations extensions are deployed at `192.168.1.53`. NetAlertX, Scrutiny, and ntfy are reachable through NPM and have Kuma monitors. Scrutiny web/API stays in LXC 103, while the SMART collector runs on the Proxmox host through `/usr/local/bin/scrutiny-collector-metrics` and daily `scrutiny-collector.timer`.
+- `ssd_pool` is storage-constrained. Treat this as an operational gate: finish restore drills and capacity/offsite planning before loading full Immich, Nextcloud, or Jellyfin datasets.
 - During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
-- Later on 2026-06-22, the Windows audit workstation could ARP and ping `192.168.1.50`, `192.168.1.53`, and `192.168.1.150`, but TCP ports and AdGuard DNS timed out from that workstation. Treat this as an access-gate condition before doing more live work from Windows: restore one admin path first, then continue restore drills. Do not infer from this symptom alone that NPM, AdGuard, or Proxmox are misconfigured.
+- During the 2026-06-23 audit, the Windows sandbox could ping but not open TCP. Running commands outside the sandbox restored TCP to GitHub, Proxmox, LXC 100, and AdGuard DNS. Treat this as a Codex sandbox access-gate symptom, not a homelab service failure, unless it reproduces outside the sandbox too.
+
+Host fixes applied during the 2026-06-23 audit:
+
+- Proxmox logs showed repeated `e1000e nic0 Detected Hardware Unit Hang` before reboot. `tcp-segmentation-offload`, `generic-segmentation-offload`, and `generic-receive-offload` were disabled on `nic0` and persisted with `nic0-offload-hardening.service`.
+- Proxmox logs showed stale `zfs-import@TESD.service` failures. `zpool status` showed only `rpool` and `ssd_pool`, and `zpool import` showed no importable `TESD` pool, so `zfs-import@TESD.service` was disabled and reset.
+- Fresh warning logs after those fixes no longer showed the NIC hang or `TESD` import failure. OverlayFS warnings from Docker-on-ZFS/LXC remain informational unless paired with service failures.
 
 ## Phase A: Access Gate
 
@@ -351,6 +359,7 @@ Current restore drill evidence:
 | Date | Source backup | Target | Result |
 |---|---|---|---|
 | 2026-06-21 | `pbs-p710:backup/ct/101/2026-06-21T18:18:54Z` | temporary CT `901` | restored, mounted, stack files verified, test CT destroyed |
+| 2026-06-22 | `pbs-p710:backup/ct/103/2026-06-22T09:54:58Z` | temporary CT `903` | restored, mounted, ops-extension stack files verified, test CT destroyed |
 
 Current scheduled backup:
 
@@ -358,7 +367,15 @@ Current scheduled backup:
 |---|---|---|---|---|
 | `sovereign-core-nightly` | `100,101,102,103,110,120,130` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102, CT103, VM110, VM120, and VM130 still require restore drills before real data import |
 
-VM 120, VM 130, and LXC 103 are now included after their services became reachable. The backups are recovery points, but they must not be treated as production readiness until restore drills have been completed.
+VM 120, VM 130, and LXC 103 are now included after their services became reachable. LXC 103 has a restore drill. VM 110, VM 120, and VM 130 backups are recovery points, but they must not be treated as production readiness until service-specific restore drills have been completed.
+
+Manual post-hardening backups on 2026-06-22:
+
+| Guest | Backup |
+|---|---|
+| LXC 100 `core-network` | `pbs-p710:backup/ct/100/2026-06-22T18:10:26Z` |
+| LXC 101 `platform-services` | `pbs-p710:backup/ct/101/2026-06-22T18:10:52Z` |
+| LXC 103 `ops-extensions` | `pbs-p710:backup/ct/103/2026-06-22T18:11:50Z` |
 
 If PBS is missing or the restore drill is stale, create/fix PBS before treating Immich, Vaultwarden, Nextcloud, or Paperless as production.
 

@@ -16,6 +16,7 @@ Rules:
 
 | Stack | Purpose |
 |---|---|
+| `core-network/` | AdGuard, NPM, Headscale, Headscale-UI |
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
 | `ops-extensions/` | NetAlertX, Scrutiny, ntfy |
