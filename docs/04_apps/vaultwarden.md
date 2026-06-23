@@ -21,9 +21,10 @@ Vaultwarden relies heavily on environment variables for configuration. Create an
 ### 3.1 VM / LXC Preparation
 1. Create LXC 102 (`apps-light`) using a Debian/Ubuntu template.
 2. Install Docker and Docker Compose.
-3. Generate the `ADMIN_TOKEN` hash (this requires Docker to be installed first):
+3. Generate the `ADMIN_TOKEN` hash (this requires Docker to be installed first). Use the pinned tag from `stacks/vaultwarden/.env.example`:
 ```bash
-docker run --rm -it vaultwarden/server:1.30.5 /vaultwarden hash
+VAULTWARDEN_TAG=$(grep '^VAULTWARDEN_TAG=' .env.example | cut -d= -f2)
+docker run --rm -it "vaultwarden/server:${VAULTWARDEN_TAG}" /vaultwarden hash
 ```
 Copy the generated Argon2 hash to use in your `.env` file later.
 4. Create the deployment directory:
@@ -35,11 +36,9 @@ cd /opt/sovereign-homelab/stacks/vaultwarden
 ### 3.2 Docker Compose Configuration
 Create `docker-compose.yml`:
 ```yaml
-version: '3.8'
-
 services:
   vaultwarden:
-    image: vaultwarden/server:1.30.5
+    image: vaultwarden/server:${VAULTWARDEN_TAG}
     container_name: vaultwarden
     restart: always
     env_file:
@@ -95,13 +94,15 @@ The `./vw-data` folder should then be backed up by Proxmox Backup Server (PBS).
 ### 5.4 Rollback Procedure
 If an update to Vaultwarden causes issues or database corruption, use the following steps to perform a deterministic rollback:
 1. Stop the running container: `docker compose down`
-2. Revert the container image version in your `docker-compose.yml` to the previously known-good version (e.g., change `image: vaultwarden/server:1.31.0` back to `image: vaultwarden/server:1.30.5`).
+2. Revert `VAULTWARDEN_TAG` in `.env` to the previously known-good pinned version.
 3. Restore the database from the backup made prior to the update:
    - Rename the corrupted or newer `db.sqlite3` file: `mv ./vw-data/db.sqlite3 ./vw-data/db.sqlite3.corrupt`
    - Delete temporary SQLite files to avoid corruption: `rm -f ./vw-data/db.sqlite3-wal ./vw-data/db.sqlite3-shm`
    - Copy the backup over: `cp ./vw-data/db.sqlite3.bak ./vw-data/db.sqlite3`
 4. Start the container with the older image: `docker compose up -d`
 5. Verify that the previous version is running and data is accessible.
+
+Live baseline evidence: on 2026-06-23, LXC102 wrote `/root/sovereign-app-restore-drills/20260623T153506Z`, copied the Vaultwarden SQLite database, and `sqlite3 PRAGMA integrity_check` returned `ok`. Before storing irreplaceable passwords, repeat the drill after creating real test items, confirm login from a client, test an attachment, and keep an encrypted export outside the host.
 
 ## 6. Troubleshooting
 - **Cannot log in / U2F fails**: Confirm you are accessing via HTTPS. Bitwarden clients strict-block HTTP for WebAuthn.

@@ -61,11 +61,11 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export |
-| Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup; PBS boot/service restore passed; offsite still required |
+| Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export; SQLite integrity baseline passed; offsite still required |
+| Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup; PBS boot/service and app-aware baseline passed; offsite still required |
 | Nextcloud | `files.internal` | client `https://files.internal`, upstream `http://VM120_IP:11000` | yes | yes | HTTPS monitor with internal-cert handling; accepted state is real Nextcloud login redirect | VPN-first | PBS boot/service restore passed; finish offsite and internal certificate trust before irreplaceable files |
 | Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTP alias monitor until internal CA | VPN/admin | config + synchronized source data |
-| Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export |
+| Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export; temporary DB restore baseline passed |
 
 ## High-Value Apps
 
@@ -76,7 +76,7 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 | FreshRSS | `rss.internal` | `http://LXC102_IP:8087` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | data volume or DB |
 | Karakeep | `bookmarks.internal` | `http://LXC102_IP:3010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | DB + assets + search index |
 | SearXNG | `search.internal` | `http://LXC102_IP:8084` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | config |
-| Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTP alias monitor + TCP `2222` | VPN/Auth | repositories + DB |
+| Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTP alias monitor + TCP `2222` | VPN/Auth | repositories + DB; temporary DB restore baseline passed |
 | Open WebUI | `ai.internal` | `http://AI_HOST_IP:3004` | yes | yes | HTTP alias monitor | VPN only | WebUI data |
 
 ## Operations Extensions

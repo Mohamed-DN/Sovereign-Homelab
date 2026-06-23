@@ -36,15 +36,15 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; Homepage uses tabs, icons, and safe visual `siteMonitor` checks |
 | Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
-| Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk; PBS boot/service restore drill passed |
+| Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk; PBS boot/service restore drill passed; baseline app-aware DB restore and library manifest drill passed |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
 | Monitoring | Uptime Kuma initialized with 37 live monitors; all were UP during the 2026-06-23 audit across VPN, DNS, critical alias fingerprints, apps including Nextcloud, operations extensions, Home Assistant, internal CA, and protocol checks |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
 | Internal TLS | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; client root trust rollout is the next gate before moving private aliases to HTTPS |
 | Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
-| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, and app-aware sample-data restore drills before importing large critical datasets |
+| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, and production-data restore rehearsals before importing large critical datasets |
 
 ## Network and Access Model
 

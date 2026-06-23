@@ -108,7 +108,7 @@ Validation:
 - `foto.internal` proxy returned the same API ping through NPM;
 - Uptime Kuma Immich monitor is green.
 
-Immich is deployed and the VM110 PBS boot/service restore drill is complete. It is still not production for a full irreplaceable photo library until offsite backup and a representative app-aware sample-data restore are completed.
+Immich is deployed and the VM110 PBS boot/service restore drill is complete. A later app-aware baseline also restored the database into a temporary DB and inventoried the live library. It is still not production for a full irreplaceable photo library until offsite backup and a representative production-data restore rehearsal are completed.
 
 ## NPM Aliases Added
 
@@ -167,7 +167,7 @@ Manual backups completed after deployment:
 | VM 120 `nextcloud-aio` | backup completed successfully after AIO was healthy |
 | VM 130 `home-assistant-os` | backup completed successfully after HAOS deployment and proxy validation |
 
-LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 now have PBS restore drill evidence. Before importing real passwords, photos, documents, or repositories, still complete app-aware sample-data restore drills for Vaultwarden, Immich, Paperless, and Forgejo, and add offsite backup.
+LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 now have PBS restore drill evidence. LXC102 and VM110 also have app-aware baseline evidence. Before importing real passwords, photos, documents, or repositories, repeat the relevant restore drill with representative real data and add offsite backup.
 
 Because PBS still lives on the same physical P710, it is local recovery only. Add offsite restic or a second PBS before calling the lab disaster-recovery complete.
 
@@ -538,6 +538,41 @@ Fingerprint evidence:
 - `files.internal` returned Nextcloud content.
 
 The live audit script now includes these critical alias fingerprint checks. Homepage descriptions for the critical admin cards were also updated to show the backing host/IP and port, so the dashboard makes the target machine explicit.
+
+## 2026-06-23 App-Aware Critical Data Drill
+
+The restore work was extended beyond VM/LXC boot checks. The goal was to prove that the application data can be exported, restored into temporary databases where applicable, and inventoried without touching production containers.
+
+LXC 102 app-aware drill output:
+
+- output directory: `/root/sovereign-app-restore-drills/20260623T153506Z`;
+- Vaultwarden SQLite database was copied and `PRAGMA integrity_check` returned `ok`;
+- Paperless PostgreSQL dump restored into a temporary database and reported 72 public tables before the temporary database was dropped;
+- Forgejo PostgreSQL dump restored into a temporary database and reported 121 public tables before the temporary database was dropped;
+- critical volume manifests and `/root/sovereign-app-restore-drills/20260623T153506Z/SHA256SUMS` were created.
+
+LXC 102 volume manifest counts:
+
+| Volume | File count |
+|---|---:|
+| `vaultwarden_vaultwarden_data` | 4 |
+| `paperless_paperless_data` | 9 |
+| `paperless_paperless_media` | 1 |
+| `forgejo_forgejo_data` | 21 |
+| `freshrss_freshrss_data` | 28 |
+| `karakeep_karakeep_data` | 0 |
+| `syncthing_syncthing_config` | 10 |
+
+VM 110 Immich app-aware drill output:
+
+- output directory: `/root/sovereign-app-restore-drills/20260623T153701Z`;
+- live containers were `immich-server` `ghcr.io/immich-app/immich-server:v2.7.5`, `immich-database` `ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0`, `immich-machine-learning` `ghcr.io/immich-app/immich-machine-learning:v2.7.5`, and `immich-redis` `valkey/valkey:8-alpine`;
+- Immich PostgreSQL dump restored into a temporary database and reported 61 public tables before the temporary database was dropped;
+- `/mnt/immich-library` manifest contains 32852 files;
+- `/opt/sovereign-homelab` manifest contains 3 files;
+- `/root/sovereign-app-restore-drills/20260623T153701Z/SHA256SUMS` was created.
+
+This proves the baseline app-aware mechanics for the currently deployed data. It does not replace offsite backup, client-root trust rollout, or representative restore rehearsals using real test passwords, documents, repositories, and a larger photo sample.
 
 ## Rollback Notes
 

@@ -106,16 +106,16 @@ Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. N
 
 | Service | Hostname | Template port | Access | Backup |
 |---|---:|---:|---|---|
-| Vaultwarden | `pwd.internal` | 8082 | VPN-first | volume + export |
-| Immich | `foto.internal` | 2283 | VPN-first | uploads + DB |
+| Vaultwarden | `pwd.internal` | 8082 | VPN-first | volume + export; SQLite baseline passed |
+| Immich | `foto.internal` | 2283 | VPN-first | uploads + DB; app-aware baseline passed |
 | Syncthing UI | `sync.internal` | 8384 | VPN/Auth admin | config + folders |
 | Syncthing sync | none | 22000/tcp+udp | LAN/VPN/device | data folders |
 | Syncthing discovery | none | 21027/udp | LAN | local discovery |
-| Paperless-ngx | `paper.internal` | 8010 | VPN/Auth | media + consume + DB |
+| Paperless-ngx | `paper.internal` | 8010 | VPN/Auth | media + consume + DB; temp DB restore baseline passed |
 | FreshRSS | `rss.internal` | 8087 | VPN/Auth | data volume or DB |
 | Karakeep | `bookmarks.internal` | 3010 | VPN/Auth | DB + assets + search index |
 | SearXNG | `search.internal` | 8084 | VPN/Auth | config |
-| Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | repos + DB |
+| Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | repos + DB; temp DB restore baseline passed |
 | Jellyfin | `media.internal` | 8096 | VPN/Auth | config + media source |
 | Open WebUI | `ai.internal` | 3004 | VPN only | WebUI data |
 | Ollama API | none | 11434 | LAN/VPN only | model cache; do not publish through NPM |

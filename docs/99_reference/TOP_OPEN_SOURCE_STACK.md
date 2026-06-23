@@ -85,13 +85,13 @@ A service enters the core only if:
 
 | Priority | Services | Reason |
 |---|---|---|
-| Live, harden next | Paperless-ngx | Run app-aware export and restore drill before real documents. |
-| Live, harden next | Home Assistant OS | Complete native HA backup and PBS restore drill before relying on automations. |
+| Live, harden next | Paperless-ngx | Baseline DB restore passed; repeat with representative documents, native export/import, and offsite copy before real archives. |
+| Live, harden next | Home Assistant OS | Native HA backup and PBS restore drill passed; keep exporting native backups before major changes. |
 | Live, harden next | Jellyfin | Keep on LXC 102 until GPU passthrough/transcoding justifies VM 150. |
 | Live, harden next | FreshRSS | Export OPML and include data volume in restore drill. |
 | Live, harden next | Karakeep | Validate DB/assets/search-index backup. |
 | Live, harden next | SearXNG | Keep VPN/Auth only; low data risk. |
-| Live, harden next | Forgejo | Validate repository and DB restore before storing important repos. |
+| Live, harden next | Forgejo | Baseline DB restore passed; repeat with a real test repository, clone/push over HTTPS and SSH, and offsite copy before important repos. |
 | Live, harden next | Ollama + Open WebUI | Keep VPN only; watch model disk usage. |
 | Live ops extension | NetAlertX | Tune scan scope and alerts to avoid noise. |
 | Live ops extension | Scrutiny | Host-side collector publishes SMART history to the LXC 103 Scrutiny API. |
