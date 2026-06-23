@@ -65,7 +65,14 @@ $required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal
 $missing = $required | Where-Object { $s -notmatch [regex]::Escape($_) }
 if ($missing) { $missing; exit 1 }
 if (-not $s.TrimStart().StartsWith('- ')) { exit 1 }
-'Homepage services.yaml contains required aliases'
+$groups = @('Network','Admin','Identity','Monitoring','Operations Extensions','Critical Data','Apps','Advanced Future')
+$missingGroups = $groups | Where-Object { $s -notmatch "(?m)^- $([regex]::Escape($_)):" }
+if ($missingGroups) { $missingGroups; exit 1 }
+$iconCount = ([regex]::Matches($s, '^\s+icon:\s+', 'Multiline')).Count
+if ($iconCount -lt 20) { "Expected icons on service cards"; exit 1 }
+$monitorCount = ([regex]::Matches($s, '^\s+siteMonitor:\s+', 'Multiline')).Count
+if ($monitorCount -lt 20) { "Expected siteMonitor entries for safe HTTP checks"; exit 1 }
+'Homepage services.yaml contains required aliases, groups, icons, and safe visual monitors'
 ```
 
 ## Docker Compose Templates

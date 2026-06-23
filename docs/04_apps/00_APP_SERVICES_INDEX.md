@@ -15,7 +15,7 @@ This index is the entry point for the application layer. Deploy one app at a tim
 | Target | Services |
 |---|---|
 | LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo |
-| VM 110 `immich` | Immich |
+| VM 110 `immich` | Immich, healthy on `foto.internal`; PBS boot/service restore drill passed; gated for large photo import until offsite backup and app-aware sample restore |
 | VM 120 `nextcloud-aio` | Nextcloud AIO, healthy on `files.internal`; restore drill passed; gated for irreplaceable files until internal certificate trust and offsite backup |
 | VM 130 `home-assistant-os` | Home Assistant OS |
 | LXC 102 `apps-light` or future VM 150 | Jellyfin |
@@ -29,7 +29,7 @@ Last checked: 2026-06-22.
 | State | Services |
 |---|---|
 | Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
-| Live on VM 110 `immich` | Immich |
+| Gated on VM 110 `immich` | Immich: VM exists, containers are healthy, `foto.internal` returns the API ping, and PBS boot/service restore passed; offsite backup and app-aware sample restore are still required before importing the full library |
 | Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, AIO containers are healthy, `https://files.internal` returns the real login redirect, and restore drill passed; internal certificate trust and offsite backup are still required before irreplaceable files |
 | Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, native HA backup exists, and full boot/service restore drill passed |
 | Planned | optional dedicated Jellyfin VM, optional dedicated AI host |

@@ -1,7 +1,27 @@
-- Documentation:
+- Sovereign Homelab:
     - Repository:
         - abbr: GH
           href: https://github.com/Mohamed-DN/Sovereign-Homelab
-    - Awesome Selfhosted:
-        - abbr: AS
-          href: https://awesome-selfhosted.net/
+    - Start Here:
+        - abbr: ST
+          href: https://github.com/Mohamed-DN/Sovereign-Homelab/blob/main/START_HERE.md
+    - Service Matrix:
+        - abbr: MX
+          href: https://github.com/Mohamed-DN/Sovereign-Homelab/blob/main/docs/99_reference/SERVICE_VISIBILITY_MATRIX.md
+    - Validation Commands:
+        - abbr: VC
+          href: https://github.com/Mohamed-DN/Sovereign-Homelab/blob/main/docs/99_reference/VALIDATION_COMMANDS.md
+
+- Upstream Docs:
+    - Homepage:
+        - abbr: HP
+          href: https://gethomepage.dev/
+    - Headscale:
+        - abbr: HS
+          href: https://headscale.net/
+    - Tailscale:
+        - abbr: TS
+          href: https://tailscale.com/kb/
+    - Proxmox Backup Server:
+        - abbr: PBS
+          href: https://pbs.proxmox.com/docs/

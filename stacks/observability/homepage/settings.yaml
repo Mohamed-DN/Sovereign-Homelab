@@ -1,13 +1,52 @@
 title: Sovereign Homelab
+description: VPN-first private operations dashboard
 theme: dark
 color: slate
+headerStyle: boxedWidgets
+iconStyle: theme
+statusStyle: dot
+fullWidth: true
+useEqualHeights: true
+target: _self
+
 layout:
   Network:
+    tab: Core
+    icon: adguard-home.png
+    style: row
+    columns: 4
+  Admin:
+    tab: Core
+    icon: proxmox.png
+    style: row
+    columns: 2
+  Identity:
+    tab: Core
+    icon: authentik.png
+    style: row
+    columns: 2
+  Monitoring:
+    tab: Operations
+    icon: uptime-kuma.png
+    style: row
+    columns: 4
+  Operations Extensions:
+    tab: Operations
+    icon: scrutiny.png
     style: row
     columns: 3
-  Operations:
+  Critical Data:
+    tab: Data
+    icon: vaultwarden.png
     style: row
-    columns: 4
+    columns: 5
   Apps:
+    tab: Apps
+    icon: home-assistant.png
     style: row
-    columns: 4
+    columns: 6
+  Advanced Future:
+    tab: Apps
+    icon: open-webui.png
+    style: row
+    columns: 3

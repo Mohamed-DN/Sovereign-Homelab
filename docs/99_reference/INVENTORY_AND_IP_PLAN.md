@@ -52,7 +52,7 @@ Last checked: 2026-06-23.
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM120/VM130 restore drills completed, VM110 file-level restore validation completed; full VM boot/service restore still required for VM110 |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM110/VM120/VM130 restore drills completed; offsite still required |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; do not expand photo, media, or file datasets before adding capacity, pruning data, or moving cold data off the pool |
 
 ## Hosts and LXC
@@ -65,7 +65,7 @@ Last checked: 2026-06-23.
 | LXC 100 core-network | `192.168.1.50` | DNS, Headscale, subnet router | LAN/VPN | PBS + `/opt/core-network` | Critical |
 | LXC 101 platform-services | `192.168.1.51` | Authentik, Homepage, Uptime Kuma, Beszel Hub, Dozzle | LAN/VPN | PBS + stack volumes | High |
 | LXC 102 apps-light | `192.168.1.52` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server | LAN/VPN | PBS + app-aware exports | High |
-| VM 110 immich | `192.168.1.110` | Photos and videos, `foto.internal` | VPN/Auth | PBS file-level validated; DB/upload offsite still required | Critical |
+| VM 110 immich | `192.168.1.110` | Photos and videos, `foto.internal` | VPN/Auth | PBS boot restore validated; DB/upload app-aware sample restore and offsite still required | Critical |
 | VM 120 nextcloud-aio | `192.168.1.120` | Full cloud suite, `files.internal` | VPN/Auth | PBS boot restore validated; offsite and internal certificate trust still required | High |
 | VM 130 home-assistant-os | `192.168.1.130` | Home automation, `ha.internal` | VPN/Auth | PBS boot restore validated; native HA backup created; offsite export still required | Medium |
 | VM 150 jellyfin | TBD | Future dedicated media server if GPU/transcoding needs justify it | VPN/Auth | PBS + media metadata | Medium |
@@ -98,7 +98,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Service | Hostname | Priority | Default access | Critical data | Minimum backup |
 |---|---|---:|---|---|---|
 | Vaultwarden | `pwd.internal` | P0 live on LXC102 | VPN-first | Passwords, attachments | volume + export |
-| Immich | `foto.internal` | P0 live on VM110 | VPN-first | Photos/videos + DB | PBS file-level validated; upload + consistent DB + offsite still required |
+| Immich | `foto.internal` | P0 live on VM110 | VPN-first | Photos/videos + DB | PBS boot restore validated; upload + consistent DB + app-aware/offsite still required |
 | Syncthing | `sync.internal` | P1 live on LXC102 | VPN/Auth UI | Config + sync folders | config + source folders |
 | Nextcloud AIO | `files.internal` | P1 live on VM120 | VPN-first | Files + DB | PBS boot restore validated; offsite and internal certificate trust still required |
 | Paperless-ngx | `paper.internal` | P1 live on LXC102 | VPN/Auth | OCR documents + DB | media + consume + DB |
