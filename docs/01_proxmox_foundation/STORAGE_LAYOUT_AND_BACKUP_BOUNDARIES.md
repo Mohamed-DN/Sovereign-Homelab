@@ -2,6 +2,31 @@
 
 The P710 has 2 TB usable mirrored storage. The mirror protects against one disk failure. It does not protect against deletion, ransomware, bad updates, theft, fire, or silent application corruption.
 
+## Live ZFS Allocation Policy
+
+The live `ssd_pool` Proxmox storage uses sparse ZFS allocation:
+
+```text
+zfspool: ssd_pool
+    pool ssd_pool
+    content images,rootdir
+    mountpoint /ssd_pool
+    sparse 1
+```
+
+Why:
+
+- thick zvol reservations made the pool report about 93% used even though logical data was about 275 GB;
+- emergency restores and temporary test VMs need operational headroom;
+- sparse allocation makes reported pool usage track written data more closely.
+
+Rules:
+
+- keep the live audit capacity gate enabled;
+- do not let `ssd_pool` exceed 80% without a capacity plan;
+- treat 90% as a stop-work condition for new app data;
+- add offsite backup before importing a full Immich library, serious Nextcloud data, or large media libraries.
+
 ## Storage Allocation
 
 | Area | Starting allocation | Notes |
