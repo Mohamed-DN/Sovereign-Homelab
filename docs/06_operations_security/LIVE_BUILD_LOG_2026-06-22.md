@@ -400,6 +400,41 @@ Dashboard correctness fix:
 
 - the Homepage card previously named `Headscale API` pointed to the control-plane root. It now points directly to `/health` and is named `Headscale Public Health`, while administration stays on `headscale.internal/web`.
 
+## 2026-06-23 Final Dashboard and 4G Enrollment Recheck
+
+The follow-up recheck focused on the two user-facing issues: wrong dashboard destinations and the phone-on-4G VPN path.
+
+Live findings:
+
+- Proxmox had no failed systemd units.
+- LXC 100, 101, 102, and 103 were running.
+- VM 110 Immich, VM 120 Nextcloud AIO, VM 130 Home Assistant OS, and VM 140 PBS were running.
+- Headscale `configtest` passed.
+- LXC 100 served the approved `192.168.1.0/24` subnet route.
+- Proxmox served the approved `0.0.0.0/0` and `::/0` exit-node routes.
+- Public DNS-over-HTTPS returned the home public IP for `vpn.casca-certosa.duckdns.org`.
+- Internal AdGuard split DNS returned `192.168.1.50` for `vpn.casca-certosa.duckdns.org`.
+- `https://vpn.casca-certosa.duckdns.org/health` returned HTTP `200`.
+- Every Homepage card returned HTTP `2xx` or an expected login redirect.
+- The Homepage API and static page fallback now both show `Headscale Public Health` pointing at `/health`.
+- Homepage visual CSS was tightened for stronger card separation, focus states, and an operations-style layout; the live `custom.css` endpoint serves the updated rules.
+
+Phone enrollment action:
+
+- A short-lived reusable Headscale pre-auth key for user `casa` was generated and stored only on LXC 100 at `/root/sovereign-secrets/phone-4g-preauthkey-20260623.txt`.
+- The key value was not printed into this log, the repository, or command output.
+- The physical phone still needs to be enrolled or reconnected from cellular data. The expected client path is `phone on 4G -> vpn.casca-certosa.duckdns.org -> router/NAT TCP 443 -> NPM -> Headscale`.
+
+Manual phone acceptance checklist:
+
+1. Turn off Wi-Fi.
+2. Add the Headscale server URL `https://vpn.casca-certosa.duckdns.org` in the Tailscale client.
+3. Use the server-side pre-auth key if the client asks for an auth key.
+4. Confirm the phone appears in `headscale nodes list`.
+5. Confirm the phone can ping `192.168.1.50`.
+6. Confirm `dash.internal` resolves through AdGuard.
+7. Select the Proxmox exit node and confirm the public IP changes while DNS queries still appear in AdGuard logs.
+
 ## Rollback Notes
 
 - LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.
