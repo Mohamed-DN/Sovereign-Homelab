@@ -1,0 +1,19 @@
+body {
+  letter-spacing: 0;
+}
+
+.service-card,
+.bookmark-card {
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22);
+}
+
+.service-card:hover,
+.bookmark-card:hover {
+  border-color: rgba(56, 189, 248, 0.38);
+}
+
+.service-title,
+.bookmark-title {
+  font-weight: 650;
+}

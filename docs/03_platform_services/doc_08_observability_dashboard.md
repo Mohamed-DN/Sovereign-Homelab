@@ -88,6 +88,14 @@ Homepage is the human launchpad. The actual dashboard file is:
 stacks/observability/homepage/services.yaml
 ```
 
+The dashboard is organized by operating mode, not by technology. A human should be able to open `dash.internal` and immediately answer:
+
+- how to enter the lab;
+- where the control panels are;
+- whether critical data services are reachable;
+- which tools are optional extensions;
+- which services are future/high-risk additions.
+
 Required groups:
 
 | Group | Purpose |
@@ -106,7 +114,21 @@ Rules:
 - Use `.internal` links for private services.
 - Use `vpn.yourdomain.duckdns.org` only for the public Headscale API.
 - Do not commit API keys or widget secrets.
+- Add an icon to every card. Use Homepage's built-in Dashboard Icons where possible, for example `vaultwarden.png`, `immich.png`, and `uptime-kuma.png`.
+- Add `siteMonitor` to cards where an unauthenticated HTTP check is reliable.
+- Do not add `siteMonitor` to a service if it will create a false red state because of a private certificate or interactive login flow. Uptime Kuma remains the authoritative monitor.
 - Planned services may appear so the target architecture is visible, but the service must not be marked production until NPM, Kuma, and backup are complete.
+
+The repo template keeps the public VPN hostname as `vpn.yourdomain.duckdns.org`. On the live server, replace only the Headscale API card with the real public endpoint, for example `https://vpn.example.duckdns.org`. Do not replace private `.internal` app names with DuckDNS names.
+
+Recommended files:
+
+| File | Purpose |
+|---|---|
+| `settings.yaml` | tabs, layout, equal card height, icon style, and status style |
+| `services.yaml` | service cards, aliases, icons, and optional `siteMonitor` |
+| `bookmarks.yaml` | repo and upstream documentation shortcuts |
+| `custom.css` | small visual polish only; do not rely on CSS for operational state |
 
 ## Phase D: Uptime Kuma Monitor Catalog
 

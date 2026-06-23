@@ -108,7 +108,7 @@ Validation:
 - `foto.internal` proxy returned the same API ping through NPM;
 - Uptime Kuma Immich monitor is green.
 
-Immich is deployed, but it is not production for irreplaceable photos until the VM110 restore drill and app-aware restore procedure are completed.
+Immich is deployed and the VM110 PBS boot/service restore drill is complete. It is still not production for a full irreplaceable photo library until offsite backup and a representative app-aware sample-data restore are completed.
 
 ## NPM Aliases Added
 
@@ -167,14 +167,7 @@ Manual backups completed after deployment:
 | VM 120 `nextcloud-aio` | backup completed successfully after AIO was healthy |
 | VM 130 `home-assistant-os` | backup completed successfully after HAOS deployment and proxy validation |
 
-The earlier LXC 101 restore drill remains the only completed restore drill. Before importing real passwords, photos, documents, or repositories, repeat restore drills for:
-
-- LXC 102 `apps-light`;
-- LXC 103 `ops-extensions`;
-- VM 110 `immich`;
-- VM 120 `nextcloud-aio`;
-- VM 130 `home-assistant-os`;
-- app-aware restore for Vaultwarden, Immich, Paperless, and Forgejo sample data.
+LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 now have PBS restore drill evidence. Before importing real passwords, photos, documents, or repositories, still complete app-aware sample-data restore drills for Vaultwarden, Immich, Paperless, and Forgejo, and add offsite backup.
 
 Because PBS still lives on the same physical P710, it is local recovery only. Add offsite restic or a second PBS before calling the lab disaster-recovery complete.
 
@@ -342,6 +335,7 @@ Evidence collected:
 
 - LXC 102 restore drill completed from `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` to temporary CT `902`; the root filesystem was mounted, service stack files and Docker volumes were verified, and CT `902` was destroyed.
 - VM 110 Immich passed PBS file-level restore validation from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z`; the backup exposes the OS disk, Immich `upload` tree, generated media directories, backups directory, and PostgreSQL data.
+- VM 110 Immich completed a full boot/service restore drill from the same backup. The restore was performed to temporary VM `910` on `local-zfs`, booted with temporary IP `192.168.1.241`, and verified `/mnt/immich-library`, healthy `immich-server`, `immich-database`, `immich-machine-learning`, and `immich-redis` containers, plus API `{"res":"pong"}`. Temporary VM `910` was destroyed afterward.
 - VM 120 Nextcloud AIO passed PBS file-level restore validation from `pbs-p710:backup/vm/120/2026-06-23T01:34:56Z`; the backup exposes the OS stack path and Nextcloud data directory.
 - VM 120 Nextcloud AIO completed a full boot/service restore drill: the same backup was restored to temporary VM `920` on `local-zfs`, first booted with NIC isolated, then booted with temporary IP `192.168.1.240` for registry/DNS reachability. All AIO containers became healthy, `occ status` was clean, Apache returned the Nextcloud login redirect, and VM `920` was destroyed.
 - VM 130 Home Assistant OS passed PBS file-level restore validation from `pbs-p710:backup/vm/130/2026-06-23T01:38:27Z`; the backup exposes the HAOS data partition and `supervisor/homeassistant` directory.
@@ -350,7 +344,7 @@ Evidence collected:
 - Proxmox and LXC host/search-domain settings were aligned to `.internal`; AdGuard now answers as `core-network.internal`.
 - Proxmox host DNS now uses AdGuard `192.168.1.50`, so `.internal` aliases resolve from the host as well as clients.
 - Uptime Kuma reported 35/35 monitors UP with fresh heartbeats.
-- All dashboard/app aliases returned expected HTTP status codes: 200 for direct pages/APIs and 302/307 for login redirects.
+- Homepage was updated to a tabbed dashboard with icons and safe visual `siteMonitor` checks. All dashboard/app aliases returned expected HTTP status codes: 200 for direct pages/APIs and 302/307 for login redirects.
 - Proxmox had no failed systemd units; ZFS pools were ONLINE with no known data errors.
 - Recent Proxmox error logs showed only an authentication failure from `192.168.1.100`; treat repeats as an account/session audit item.
 
@@ -365,7 +359,7 @@ Storage caveat:
 | Internal CA | move private aliases from bootstrap HTTP to trusted private HTTPS where needed |
 | Authentik policy | enable MFA, recovery, and app protection rules before relying on SSO |
 | LXC102 restore drill | complete; temporary CT `902` restore validated stack files and Docker volumes |
-| VM110 restore drill | file-level validation complete; full Immich boot/service restore still required before importing the full library |
+| VM110 restore drill | complete; temporary VM `910` restore validated boot, data mount, Immich containers, and API response |
 | VM120 Nextcloud AIO | boot/service restore complete; complete trusted internal certificate rollout and offsite backup before irreplaceable files |
 | Offsite backup | add restic or second PBS for host-loss protection |
 | Home Assistant OS | live; HA native backup and full PBS boot/service restore drill complete |
