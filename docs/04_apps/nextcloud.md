@@ -18,7 +18,7 @@ Target:
 | Alias | `files.internal` |
 | NPM upstream | client HTTPS on `files.internal`, upstream `http://VM120_IP:11000` |
 
-Nextcloud is a critical-data service. Do not import real files until AIO is healthy, PBS covers VM 120, browser clients trust the internal certificate path you choose, and an AIO restore drill has been completed.
+Nextcloud is a critical-data service. The live VM 120 AIO stack is healthy and has a successful PBS boot/service restore drill. Do not import irreplaceable files until browser clients trust the internal certificate path you choose and an offsite backup path exists.
 
 ## 2. Directory & Secrets Setup
 Log into VM 120 and navigate to the dedicated stack directory:
@@ -143,7 +143,7 @@ Live 2026-06-22 note:
 - `http://files.internal` returns an NPM 301 to HTTPS.
 - `https://files.internal` returns a real Nextcloud login redirect.
 - VM120 is included in PBS and has a successful manual backup.
-- Treat Nextcloud as gated for real files until the AIO restore drill is completed and client trust for the internal certificate path is handled.
+- The AIO boot/service restore drill has passed. Treat Nextcloud as gated for irreplaceable files until client trust for the internal certificate path and offsite backup are handled.
 
 Sources:
 

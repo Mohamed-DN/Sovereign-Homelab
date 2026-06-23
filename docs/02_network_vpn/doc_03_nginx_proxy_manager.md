@@ -223,7 +223,7 @@ Live note: the first internal aliases were added as NPM static proxy config file
 |---|---|---|---|---|---|
 | Vaultwarden | `pwd.internal` | `http` | `LXC102_IP:8082` | yes | VPN-first |
 | Immich | `foto.internal` | `http` | `VM110_IP:2283` | yes | VPN-first |
-| Nextcloud | `files.internal` | client `https`, upstream `http` | `VM120_IP:11000` | yes | VPN-first; AIO healthy; restore drill required before real files |
+| Nextcloud | `files.internal` | client `https`, upstream `http` | `VM120_IP:11000` | yes | VPN-first; AIO healthy; restore drill passed; finish offsite/internal certificate trust before irreplaceable files |
 | Syncthing UI | `sync.internal` | `http` | `LXC102_IP:8384` | yes | VPN/admin |
 | Paperless-ngx | `paper.internal` | `http` | `LXC102_IP:8010` | yes | VPN/Auth |
 | FreshRSS | `rss.internal` | `http` | `LXC102_IP:8087` | no | VPN/Auth |

@@ -62,7 +62,7 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 |---|---|---|---|---|---|---|---|
 | Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export |
 | Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup |
-| Nextcloud | `files.internal` | client `https://files.internal`, upstream `http://VM120_IP:11000` | yes | yes | HTTPS monitor with internal-cert handling; accepted state is real Nextcloud login redirect | VPN-first | AIO backup + PBS; restore drill required before real files |
+| Nextcloud | `files.internal` | client `https://files.internal`, upstream `http://VM120_IP:11000` | yes | yes | HTTPS monitor with internal-cert handling; accepted state is real Nextcloud login redirect | VPN-first | PBS boot/service restore passed; finish offsite and internal certificate trust before irreplaceable files |
 | Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTP alias monitor until internal CA | VPN/admin | config + synchronized source data |
 | Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export |
 
