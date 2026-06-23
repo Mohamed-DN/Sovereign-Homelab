@@ -1,17 +1,20 @@
 body {
   letter-spacing: 0;
+  color-scheme: dark;
   background:
-    linear-gradient(180deg, rgba(18, 24, 33, 0.98), rgba(20, 20, 22, 1) 44%, rgba(12, 13, 15, 1));
+    linear-gradient(180deg, rgba(15, 23, 32, 0.98), rgba(21, 22, 25, 1) 42%, rgba(10, 12, 14, 1));
 }
 
 main {
   max-width: 1800px;
   margin: 0 auto;
+  padding-inline: 16px;
 }
 
 .services-group,
 .bookmark-group {
   scroll-margin-top: 24px;
+  margin-bottom: 22px;
 }
 
 .services-group > h2,
@@ -19,6 +22,10 @@ main {
   border-bottom: 1px solid rgba(148, 163, 184, 0.24);
   color: rgba(226, 232, 240, 0.94);
   padding-bottom: 8px;
+  font-size: 0.96rem;
+  font-weight: 750;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .service-card,
@@ -26,8 +33,8 @@ main {
   border: 1px solid rgba(148, 163, 184, 0.24);
   border-left: 4px solid rgba(52, 211, 153, 0.6);
   border-radius: 8px;
-  background: rgba(17, 24, 39, 0.72);
-  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.24);
+  background: linear-gradient(180deg, rgba(22, 29, 38, 0.88), rgba(17, 21, 27, 0.9));
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.26);
   transition:
     background 140ms ease,
     border-color 140ms ease,
@@ -37,30 +44,74 @@ main {
 
 .service-card:hover,
 .bookmark-card:hover {
-  background: rgba(24, 32, 44, 0.86);
-  border-color: rgba(129, 140, 248, 0.56);
+  background: linear-gradient(180deg, rgba(31, 40, 52, 0.94), rgba(21, 26, 34, 0.94));
+  border-color: rgba(94, 234, 212, 0.52);
   box-shadow: 0 16px 36px rgba(0, 0, 0, 0.32);
   transform: translateY(-1px);
+}
+
+.service-card:nth-of-type(4n + 1),
+.bookmark-card:nth-of-type(4n + 1) {
+  border-left-color: rgba(52, 211, 153, 0.72);
+}
+
+.service-card:nth-of-type(4n + 2),
+.bookmark-card:nth-of-type(4n + 2) {
+  border-left-color: rgba(96, 165, 250, 0.72);
+}
+
+.service-card:nth-of-type(4n + 3),
+.bookmark-card:nth-of-type(4n + 3) {
+  border-left-color: rgba(251, 191, 36, 0.72);
+}
+
+.service-card:nth-of-type(4n + 4),
+.bookmark-card:nth-of-type(4n + 4) {
+  border-left-color: rgba(248, 113, 113, 0.68);
 }
 
 .service-title,
 .bookmark-title {
   font-weight: 700;
+  color: rgba(248, 250, 252, 0.96);
 }
 
 .service-description,
 .bookmark-description {
   line-height: 1.35;
-  color: rgba(203, 213, 225, 0.82);
+  color: rgba(203, 213, 225, 0.84);
 }
 
 .service-tag,
 .bookmark-tag {
   border-radius: 6px;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.56);
+}
+
+.service-card img,
+.bookmark-card img {
+  filter: drop-shadow(0 6px 10px rgba(0, 0, 0, 0.28));
 }
 
 a:focus-visible,
 button:focus-visible {
   outline: 2px solid rgba(45, 212, 191, 0.9);
   outline-offset: 3px;
+}
+
+@media (max-width: 720px) {
+  main {
+    padding-inline: 10px;
+  }
+
+  .services-group > h2,
+  .bookmark-group > h2 {
+    font-size: 0.86rem;
+  }
+
+  .service-card,
+  .bookmark-card {
+    border-left-width: 3px;
+  }
 }
