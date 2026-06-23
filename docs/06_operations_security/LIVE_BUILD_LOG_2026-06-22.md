@@ -136,7 +136,7 @@ These aliases rely on the existing `*.internal -> NPM IP` AdGuard rewrite. No pr
 
 ## Uptime Kuma
 
-Uptime Kuma now has 35 live monitors after adding Jellyfin, Open WebUI, Ollama API, CrowdSec LAPI, Home Assistant, and operations-extension checks:
+Uptime Kuma now has 36 live monitors after adding Jellyfin, Open WebUI, Ollama API, CrowdSec LAPI, Home Assistant, Nextcloud, and operations-extension checks:
 
 | Category | Monitors |
 |---|---|
@@ -343,7 +343,7 @@ Evidence collected:
 - Production VM 130 created a native full HA backup named `sovereign-preproduction-2026-06-23` with slug `2b41594a`; the HA database was included.
 - Proxmox and LXC host/search-domain settings were aligned to `.internal`; AdGuard now answers as `core-network.internal`.
 - Proxmox host DNS now uses AdGuard `192.168.1.50`, so `.internal` aliases resolve from the host as well as clients.
-- Uptime Kuma reported 35/35 monitors UP with fresh heartbeats.
+- Uptime Kuma reported 36/36 monitors UP with fresh heartbeats.
 - Homepage was updated to a tabbed dashboard with icons and safe visual `siteMonitor` checks. All dashboard/app aliases returned expected HTTP status codes: 200 for direct pages/APIs and 302/307 for login redirects.
 - Proxmox had no failed systemd units; ZFS pools were ONLINE with no known data errors.
 - Recent Proxmox error logs showed only an authentication failure from `192.168.1.100`; treat repeats as an account/session audit item.
@@ -365,6 +365,18 @@ Storage caveat:
 | Home Assistant OS | live; HA native backup and full PBS boot/service restore drill complete |
 | Ops extensions | live; Scrutiny host collector active; finish ntfy auth/topic policy before using alerts for sensitive events |
 | Wazuh | still planned; deploy only after core backup/restore is stable and RAM pressure is acceptable |
+
+## 2026-06-23 Follow-Up Monitor and Log Audit
+
+After the dashboard refresh and Immich restore drill, the live monitoring database was checked directly on LXC 101.
+
+Findings and actions:
+
+- Homepage had 26 service cards across 8 groups, and every card returned either HTTP `200` or an expected login/redirect status.
+- A transient `files.internal` check returned `502` once during audit, but repeated checks returned `302`, NPM still proxied `files.internal` to `http://192.168.1.120:11000`, and VM120 AIO containers were healthy.
+- Uptime Kuma had no active Nextcloud monitor entry even though the docs required one. A new `Nextcloud` HTTPS monitor was added for `https://files.internal`, with internal certificate validation ignored until the private CA is deployed. Kuma now has 36 active monitors and the Nextcloud heartbeat is UP.
+- Proxmox log review showed no failed systemd units and both ZFS pools were healthy.
+- Recent error-level Proxmox logs were tied to completed restore/audit activity: VM920 guest-agent timeouts during the Nextcloud drill, the first VM910 restore attempt ending with `broken pipe`, and pveproxy worker inotify warnings. No persistent service failure was present after recheck.
 
 ## Rollback Notes
 

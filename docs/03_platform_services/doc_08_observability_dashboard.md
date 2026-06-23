@@ -176,7 +176,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-23: 35 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, and CrowdSec LAPI. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-06-23: 36 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, and CrowdSec LAPI. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 

@@ -45,7 +45,7 @@ Last checked: 2026-06-23.
 | App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120`; VM 130 `home-assistant-os` deployed on `192.168.1.130` |
 | Operations extensions | LXC 103 `ops-extensions` deployed on `192.168.1.53` with NetAlertX, Scrutiny, and ntfy |
 | Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, Nextcloud, Home Assistant, NetAlertX, Scrutiny, and ntfy aliases exist in NPM |
-| Uptime Kuma | 35 live monitors, all UP during the 2026-06-23 audit with fresh heartbeats |
+| Uptime Kuma | 36 live monitors, all UP during the 2026-06-23 audit with fresh heartbeats |
 | PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101, LXC102, LXC103, VM110, VM120, and VM130 restore drills completed |
 | Live image tags | core live Compose pinned to Headscale `v0.28.0`, Headscale-UI `2026.03.17`, AdGuard Home `v0.107.77`, and NPM `2.15.1`; Scrutiny pinned to `v0.9.2-omnibus` |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; pause large photo, media, and file growth until capacity/offsite decisions are made |
