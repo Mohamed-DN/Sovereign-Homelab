@@ -1,19 +1,44 @@
 body {
   letter-spacing: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(17, 24, 39, 1) 42%, rgba(10, 10, 12, 1));
+}
+
+main {
+  max-width: 1800px;
+  margin: 0 auto;
 }
 
 .service-card,
 .bookmark-card {
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 10px 30px rgba(2, 6, 23, 0.22);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  border-left: 4px solid rgba(45, 212, 191, 0.55);
+  box-shadow: 0 14px 36px rgba(0, 0, 0, 0.26);
+  transition:
+    border-color 140ms ease,
+    box-shadow 140ms ease,
+    transform 140ms ease;
 }
 
 .service-card:hover,
 .bookmark-card:hover {
-  border-color: rgba(56, 189, 248, 0.38);
+  border-color: rgba(94, 234, 212, 0.54);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  transform: translateY(-1px);
 }
 
 .service-title,
 .bookmark-title {
-  font-weight: 650;
+  font-weight: 700;
+}
+
+.service-description,
+.bookmark-description {
+  line-height: 1.35;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid rgba(45, 212, 191, 0.9);
+  outline-offset: 3px;
 }
