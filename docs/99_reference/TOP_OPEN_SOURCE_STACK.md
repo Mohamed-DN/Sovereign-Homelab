@@ -2,6 +2,8 @@
 
 This is the canonical open-source stack catalog for this repository. It is not a list of things to install all at once. A service enters the build path only when it has a clear role, a private access model, a monitor, and a restore path.
 
+For longer-term expansion ideas, risks, and sequencing, use [Future Improvements Research](../00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md). That document is research only and does not imply a service should be installed now.
+
 ## Tier 0: Required Foundation
 
 | Area | Choice | Alternative | Decision |

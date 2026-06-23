@@ -176,7 +176,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-23: 36 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, and CrowdSec LAPI. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-06-23: 37 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, CrowdSec LAPI, and the internal CA health endpoint. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
@@ -186,9 +186,9 @@ Minimum alerts:
 
 | Severity | Services | Alert channel |
 |---|---|---|
-| P0 | DNS, Headscale, PBS, Vaultwarden, Immich | phone push or Telegram |
-| P1 | NPM, Authentik, Nextcloud, Paperless | ntfy, phone push, Telegram, or email |
-| P2 | media, RSS, search, AI, dashboards | email or dashboard only |
+| P0 | DNS, Headscale, NPM, PBS, Vaultwarden, Immich, Nextcloud, storage/ZFS checks | Uptime Kuma -> local alert relay -> email, plus ntfy after topics are protected |
+| P1 | Authentik, Homepage, Uptime Kuma, Paperless, Home Assistant, Forgejo, Scrutiny, ntfy, DuckDNS updater, `.internal` DNS checks | Uptime Kuma -> local alert relay or ntfy |
+| P2 | media, RSS, search, AI, dashboards | dashboard only or low-priority notification |
 
 Alert rules:
 
@@ -196,7 +196,20 @@ Alert rules:
 - Headscale down means new VPN sessions may fail.
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
-- ntfy is optional, but if deployed it becomes the preferred self-hosted alert receiver.
+- ntfy is deployed, but protect topics and authentication before sending sensitive alert payloads.
+- The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py`; enable it only after SMTP credentials exist in `/root/sovereign-secrets/alert-relay.env`.
+
+Required email behavior:
+
+| Event | Expected behavior |
+|---|---|
+| Single transient failure | no email if it recovers before 60 seconds |
+| Persistent DOWN for 60 seconds | send one `ALERT` email |
+| Still DOWN after 5 minutes | send one `REMINDER` email |
+| Still DOWN after reminder | send no more DOWN spam for that incident |
+| Recovery | send one `RESOLVED` email |
+
+Current gate: SMTP credentials and the end-to-end email/recovery test are not stored in the public repo and must be completed locally. Until that test is done, Uptime Kuma is the authoritative health dashboard, but email alerting is not production-complete.
 
 ## Phase F: Beszel Usage
 

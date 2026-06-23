@@ -8,6 +8,7 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 2:** Removed generated agent scratch material, identified unsafe maintenance behavior, and corrected the workflow so updates require validation before mutation.
 - **Round 3:** Reconciled service runbooks with official upstream guidance for Immich, Nextcloud AIO, Paperless-ngx, Homepage, RustDesk, Forgejo, and the other defined stacks.
 - **Round 4:** Re-audited service visibility, recovery paths, DNS/proxy flow, and data protection rules so every service is either reachable through the documented path or listed as an exception.
+- **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
 
@@ -209,6 +210,10 @@ Optional operations extensions belong after this layer, not before it:
 | Scrutiny | `disks.internal` | SMART disk health visibility | live web/API on LXC 103; Proxmox host collector publishes disk metrics daily |
 | ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
 
+Alert email gate: the repository includes `scripts/sovereign-alert-relay.py` and `scripts/systemd/sovereign-alert-relay.service` for the required anti-spam alert behavior. Do not enable it until SMTP credentials exist only in `/root/sovereign-secrets/alert-relay.env`. After configuration, test one safe monitor DOWN, first email after one minute, one reminder after five minutes, no further spam, and one recovery email.
+
+Local credentials gate: the private credentials file exists only on the Proxmox host at `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` with root-only permissions. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md).
+
 ### Layer 6: Application Micro-Stacks
 
 **Action/Command**
@@ -339,3 +344,7 @@ Live 4G note: the public DuckDNS A record must resolve to the home public IP fro
 - Paperless-ngx setup: <https://docs.paperless-ngx.com/setup/>
 - Homepage Docker: <https://gethomepage.dev/installation/docker/>
 - RustDesk self-host Docker: <https://rustdesk.com/docs/en/self-host/rustdesk-server-oss/docker/>
+
+Current compact live-state reference: [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md).
+
+Future ideas and source links: [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md).

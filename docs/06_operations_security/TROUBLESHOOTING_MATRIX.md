@@ -60,6 +60,9 @@
 | `zfs-import@POOL.service` fails for a pool that no longer exists | stale ZFS import unit | confirm `zpool status` and `zpool import`, then disable/reset the stale `zfs-import@POOL.service` |
 | Proxmox journal shows `overlayfs ... falling back to xino=off` | `systemctl --failed`, `zpool status -x`, container health | acceptable Docker-in-LXC-on-ZFS warning if services are healthy; do not rebuild Docker storage only to silence it |
 | ntfy receives no alerts | Kuma notification URL and ntfy logs | verify topic URL, auth mode, and NPM proxy path |
+| Email alerts never arrive | `systemctl status sovereign-alert-relay`, relay logs, SMTP settings | verify `/root/sovereign-secrets/alert-relay.env`, SMTP app password file, recipient, relay token, and Kuma webhook authorization |
+| Email alerts spam repeatedly | alert relay state file and Kuma resend settings | use the local relay for anti-spam behavior; avoid attaching a raw SMTP notification directly to noisy monitors |
+| Recovery email is missing | relay state file and Kuma UP webhook delivery | confirm Kuma sends recovery webhooks and that the incident had already sent a DOWN email |
 
 ## Apps
 
@@ -88,3 +91,4 @@
 | Admin UI is exposed | NPM access list / DNS | move it behind VPN/Auth |
 | Secret was committed | `git log`, GitHub | rotate the secret immediately; removal alone is not enough |
 | Docker socket is too exposed | Compose mounts | limit it to admin tools; consider a socket proxy |
+| Local credentials file appears in Git | `git status --short --ignored`, `.gitignore` | stop, remove it from the repo path, keep it only under `/root/sovereign-secrets`, verify mode `600`, and rotate any exposed secret |
