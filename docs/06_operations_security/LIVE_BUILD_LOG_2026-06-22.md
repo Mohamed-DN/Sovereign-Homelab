@@ -473,6 +473,35 @@ Corrective action:
 
 This is not a substitute for offsite backup. It fixes operational headroom and emergency-restore capacity, while shifting the pool to thin allocation. Keep Uptime Kuma, Proxmox storage checks, and `scripts/sovereign-live-audit.ps1` active before importing large photo, file, or media datasets.
 
+## 2026-06-23 Proxmox Log Cleanup and Internal CA Prep
+
+The host journal was reviewed again after the storage fix.
+
+Live host actions:
+
+- installed `firmware-nvidia-gsp` so the NVIDIA T600 firmware requested during boot is present;
+- installed `wireless-regdb` so the kernel regulatory database warning has a package-backed source;
+- disabled `nfs-blkmap.service` because there are no NFS mounts and the service only produced an unused block-layout warning;
+- masked stale `zfs-import@TESD.service` after confirming `zpool import` had no pool named `TESD` available and the live pools were `rpool` and `ssd_pool`;
+- confirmed the last 10 minutes of warning-level logs only showed the intentional `blkmapd` stop event;
+- confirmed LXC 100, 101, 102, and 103 all have explicit `arch: amd64` in their Proxmox configs.
+- later warnings of the form `overlayfs ... falling back to xino=off` were left as an accepted Docker-in-LXC-on-ZFS warning. There were no failed systemd units or unhealthy ZFS pools. Eliminating that warning would require moving Docker layer storage to a different backing filesystem and is not worth disrupting healthy services.
+
+Production hardening:
+
+- added the `stacks/internal-ca` template for Smallstep `step-ca`;
+- deployed `step-ca` on LXC 101 at `https://ca.internal:9002`;
+- generated the CA password on the server and stored it only in the root-owned secret area and live `.env`;
+- added an exact AdGuard rewrite `ca.internal -> 192.168.1.51`;
+- verified `https://ca.internal:9002/health` returns `{"status":"ok"}`;
+- added the Homepage `Internal CA Health` card and the Uptime Kuma `Internal CA health` monitor;
+- reran the live audit: 27 Homepage cards, 37 active Kuma monitors, and all Compose templates passed;
+- added Runbook 12 for operating the private CA and migrating `.internal` aliases one at a time;
+- updated the ports, inventory, visibility, pinned-version, overview, and operating-guide references;
+- improved Homepage custom CSS for clearer groups, cards, hover states, and focus states.
+
+The CA is not a reason to expose private services publicly. It is the next controlled step for trusted HTTPS on `.internal` after clients trust the root certificate. Existing aliases should be migrated one at a time with Uptime Kuma and rollback updates for each service.
+
 ## Rollback Notes
 
 - LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.

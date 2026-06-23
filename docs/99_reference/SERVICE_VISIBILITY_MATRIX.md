@@ -55,6 +55,7 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 | Uptime Kuma | `status.internal` | `http://LXC101_IP:3001` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Kuma data volume |
 | Beszel | `monitor.internal` | `http://LXC101_IP:8090` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Beszel data volume |
 | Dozzle | `logs.internal` | `http://LXC101_IP:8088` | yes | yes | HTTP monitor until internal CA | VPN/admin | no critical data |
+| Smallstep CA | `ca.internal:9002` | `https://LXC101_IP:9002` | direct protocol exception | health card | HTTPS health monitor, ignore TLS until root is trusted | VPN/admin | CA volume + root fingerprint + secret backup |
 
 ## Critical Data Apps
 
@@ -101,6 +102,7 @@ These are optional panels for running the lab at a higher operational level. The
 | Syncthing discovery | `LXC102_IP:21027/udp` | local discovery, not proxied | no | no |
 | Forgejo SSH | `LXC102_IP:2222` | Git over SSH, not HTTP | UI card uses `git.internal` | TCP monitor |
 | Ollama API | `AI_HOST_IP:11434` | model API, should not be exposed through NPM | Open WebUI card uses `ai.internal` | optional TCP monitor |
+| Smallstep CA API | `LXC101_IP:9002` or `ca.internal:9002` | certificate issuance API, not a normal user dashboard | no by default | HTTPS health monitor after deployment |
 | RustDesk ID and relay | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | remote desktop protocol, not HTTP | no web UI in OSS server | TCP monitors for `21115`, `21116`, `21117`; UDP availability verified manually |
 | Wazuh Manager API | `VM160_IP:55000` | advanced admin API, not a clean web UI | no until Wazuh dashboard is installed | optional TCP monitor |
 

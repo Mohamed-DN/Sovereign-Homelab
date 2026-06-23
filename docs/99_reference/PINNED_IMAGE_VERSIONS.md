@@ -4,7 +4,7 @@ This file is the version inventory for Docker Compose templates in `stacks/`. De
 
 Review this file before every planned update. Update one stack at a time, validate Compose, take or confirm backups, deploy, check Homepage and Uptime Kuma, and document any rollback.
 
-Last checked: 2026-06-22.
+Last checked: 2026-06-23.
 
 ## Stack Image Inventory
 
@@ -18,6 +18,7 @@ Last checked: 2026-06-22.
 | `observability` | `henrygd/beszel` | `BESZEL_TAG` | `0.18.7` | Beszel release tag and manifest check | Hub and agent should stay on the same version. |
 | `observability` | `henrygd/beszel-agent` | `BESZEL_AGENT_TAG` | `0.18.7` | Beszel release tag and manifest check | Upgrade agents after the hub is healthy. |
 | `observability` | `amir20/dozzle` | `DOZZLE_TAG` | `v10.6.6` | Docker Hub tag check | Low-risk log viewer; still validate login/proxy. |
+| `internal-ca` | `smallstep/step-ca` | `STEP_CA_TAG` | `0.30.2` | Smallstep release and Docker tag | Private CA for `.internal` TLS. Do not rotate or replace the CA without a client trust migration plan. |
 | `ops-extensions` | `ghcr.io/netalertx/netalertx` | `NETALERTX_IMAGE` | `latest` | Official NetAlertX Docker Compose baseline | Explicit exception. NetAlertX upstream examples use the rolling image channel; keep LXC103 covered by PBS before updates. |
 | `ops-extensions` | `binwiederhier/ntfy` | `NTFY_IMAGE` | `v2.24.0` | ntfy install docs and Docker tag check | Back up config/cache if attachments or auth are enabled. |
 | `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `v0.9.2-omnibus` | Scrutiny README and GHCR package tags | Omnibus web/API image. Live SMART collection runs from the Proxmox host with the official `scrutiny-collector-metrics-linux-amd64` binary. |

@@ -58,6 +58,7 @@
 | `auth.internal` root returns 500 or redirects to `/setup` after bootstrap | Authentik UI path | use `http://auth.internal/if/user/` for Homepage and Kuma; the setup flow is only for initial bootstrap |
 | Proxmox log repeats `e1000e ... Detected Hardware Unit Hang` | Intel NIC offload instability | disable and persist `tso`, `gso`, and `gro` offloads on the physical NIC; verify fresh logs stay clean |
 | `zfs-import@POOL.service` fails for a pool that no longer exists | stale ZFS import unit | confirm `zpool status` and `zpool import`, then disable/reset the stale `zfs-import@POOL.service` |
+| Proxmox journal shows `overlayfs ... falling back to xino=off` | `systemctl --failed`, `zpool status -x`, container health | acceptable Docker-in-LXC-on-ZFS warning if services are healthy; do not rebuild Docker storage only to silence it |
 | ntfy receives no alerts | Kuma notification URL and ntfy logs | verify topic URL, auth mode, and NPM proxy path |
 
 ## Apps

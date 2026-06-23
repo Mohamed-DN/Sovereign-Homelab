@@ -22,6 +22,7 @@ flowchart TD
     AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Platform services\nAuthentik, Homepage, Kuma, Beszel, Dozzle"]
+    CA["Internal CA\nSmallstep step-ca\nca.internal"]
     Apps["Internal apps\n*.internal"]
     Internet(("Internet"))
 
@@ -34,6 +35,8 @@ flowchart TD
     AGH -->|filtered upstream DNS| Internet
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
+    LAN -->|trust bootstrap| CA
+    Remote -->|trust bootstrap after VPN| CA
     NPM --> Apps
 ```
 
@@ -58,6 +61,7 @@ mindmap
       Uptime Kuma
       Beszel
       Dozzle
+      Smallstep CA
     LXC 103: Operations Extensions
       NetAlertX
       Scrutiny

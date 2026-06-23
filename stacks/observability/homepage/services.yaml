@@ -38,6 +38,11 @@
         href: http://auth.internal/if/user/
         siteMonitor: http://auth.internal/if/user/
         description: SSO, MFA, proxy providers, and OIDC
+    - Internal CA Health:
+        icon: sh-small-step.png
+        href: https://ca.internal:9002/health
+        siteMonitor: https://ca.internal:9002/health
+        description: Smallstep CA for trusted private .internal certificates
 
 - Monitoring:
     - Homepage:

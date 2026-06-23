@@ -1,0 +1,28 @@
+name: internal-ca
+
+services:
+  step-ca:
+    image: smallstep/step-ca:${STEP_CA_TAG}
+    container_name: step-ca
+    restart: unless-stopped
+    ports:
+    - "${STEP_CA_PORT}:9000"
+    environment:
+      TZ: "${TZ}"
+      DOCKER_STEPCA_INIT_NAME: "${STEP_CA_NAME}"
+      DOCKER_STEPCA_INIT_DNS_NAMES: "${STEP_CA_DNS_NAMES}"
+      DOCKER_STEPCA_INIT_PROVISIONER_NAME: "${STEP_CA_PROVISIONER}"
+      DOCKER_STEPCA_INIT_PASSWORD: "${STEP_CA_PASSWORD}"
+    volumes:
+    - step_ca_data:/home/step
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - step ca health --ca-url https://localhost:9000 --root /home/step/certs/root_ca.crt
+      interval: 60s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+volumes:
+  step_ca_data:
