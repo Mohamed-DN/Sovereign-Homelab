@@ -268,7 +268,7 @@ Live services:
 | Service | Alias | Upstream | Status |
 |---|---|---|---|
 | NetAlertX | `netalert.internal` | `http://192.168.1.53:20211` | healthy; tune scan scope before noisy alerting |
-| Scrutiny | `disks.internal` | `http://192.168.1.53:8085` | UI reachable; SMART collector/device mapping still required |
+| Scrutiny | `disks.internal` | `http://192.168.1.53:8085` | UI reachable; SMART data collected by Proxmox host-side collector |
 | ntfy | `alerts.internal` | `http://192.168.1.53:8093` | reachable; add topic/auth rules before sensitive alerts |
 
 NPM aliases `31.conf`, `32.conf`, and `33.conf` were added and `nginx -t` passed before reload. Uptime Kuma monitors `ops-netalertx`, `ops-scrutiny`, and `ops-ntfy` were added through the Kuma API and report UP. LXC 103 is included in `sovereign-core-nightly` and has a successful manual PBS backup.
@@ -346,7 +346,7 @@ Subsequent live access was restored from the workstation. SSH to Proxmox worked,
 | VM120 Nextcloud AIO | complete AIO restore drill and trusted internal certificate rollout before real files |
 | Offsite backup | add restic or second PBS for host-loss protection |
 | Home Assistant OS | live; complete HA native backup and PBS restore drill |
-| Ops extensions | live; finish Scrutiny disk collector/device mapping and ntfy auth/topic policy |
+| Ops extensions | live; Scrutiny host collector active; finish ntfy auth/topic policy before using alerts for sensitive events |
 | Wazuh | still planned; deploy only after core backup/restore is stable and RAM pressure is acceptable |
 
 ## Rollback Notes

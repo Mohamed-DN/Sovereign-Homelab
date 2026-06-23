@@ -232,7 +232,7 @@ Operational rules:
 
 - Keep all three behind VPN/Auth.
 - Do not expose notification topics publicly unless a separate exposure decision is documented.
-- Scrutiny needs explicit disk device access; document every mapped disk before deployment.
+- Scrutiny needs a collector where the disks are physically visible. The live P710 build keeps the web/API in LXC 103 and runs the official collector on the Proxmox host.
 - NetAlertX scans can be noisy. Start with the main LAN only, then add VLANs or site-to-site networks later.
 
 ## Phase I: Backup and Restore

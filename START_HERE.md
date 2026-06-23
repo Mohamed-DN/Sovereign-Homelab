@@ -95,7 +95,7 @@ Recommended order for expansion after the current live build:
 1. Complete restore drills for LXC 102 and VM 110 before importing real passwords, photos, documents, or repositories.
 2. Complete the VM 120 Nextcloud restore drill before importing real files. AIO is healthy, `files.internal` is HTTPS on the client side, and VM120 is included in PBS.
 3. Complete the VM 130 Home Assistant restore drill before relying on automations.
-4. Finish operations-extension hardening: Scrutiny host disk collector, ntfy authentication/topics, and NetAlertX scan scope.
+4. Finish operations-extension hardening: ntfy authentication/topics and NetAlertX scan scope. Scrutiny already uses a Proxmox host-side collector for SMART data.
 5. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
 
 ## Naming Standard

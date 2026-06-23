@@ -88,7 +88,7 @@ First setup URL:
 http://auth.internal/if/flow/initial-setup/
 ```
 
-Live note: the current LXC 101 deployment has healthy Authentik containers and exposes `auth.internal`, but the initial setup flow still needs to be completed manually. Do not mark Authentik as the active SSO/MFA gate until the admin account, recovery method, and MFA policy are configured.
+Live note: the current LXC 101 deployment has healthy Authentik containers and exposes `auth.internal`. Use `http://auth.internal/if/user/` for the operational UI and monitors. Do not mark Authentik as the active SSO/MFA gate until the recovery method, MFA policy, and protected application providers are deliberately configured.
 
 Then create the proxy host in NPM:
 
@@ -191,7 +191,7 @@ Protect:
 
 Before using Authentik in production, add:
 
-- Uptime Kuma monitor for `http://auth.internal/if/flow/initial-setup/` during bootstrap, then the final Authentik URL after setup;
+- Uptime Kuma monitor for `http://auth.internal/if/flow/initial-setup/` during first bootstrap, then `http://auth.internal/if/user/` after setup;
 - PBS backup of the container/host;
 - optional restic backup for application volumes.
 

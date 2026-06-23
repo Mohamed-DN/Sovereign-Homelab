@@ -46,7 +46,7 @@ less docs/01_proxmox_foundation/CREATE_VM_RUNBOOK.md
 
 **Clear Explanation**
 
-The target host is the P710 with 20 CPU threads, 64 GB RAM, and 2 TB usable mirrored storage. LXC is preferred for lightweight Docker services. VMs are used for appliance-style or critical workloads such as Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, and Wazuh.
+The target host is the P710 with 20 physical CPU cores / 40 logical threads, 64 GB RAM, and 2 TB usable mirrored storage. LXC is preferred for lightweight Docker services. VMs are used for appliance-style or critical workloads such as Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, and Wazuh.
 
 **Success Verification**
 
@@ -83,7 +83,7 @@ pvesm status
 
 Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
 
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101 has been restored to a temporary CT for a successful drill. CT102, CT103, VM110, VM120, and VM130 backups exist, but their restore drills are still required before importing real passwords, photos, documents, repositories, automations, or alert history. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery.
+Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101 plus LXC 103 have both been restored to temporary CTs for successful drills. CT102, VM110, VM120, and VM130 backups exist, but their restore drills are still required before importing real passwords, photos, documents, repositories, automations, or alert history. This is local recovery because PBS is still on the same P710; add offsite backup before relying on it for disaster recovery. `ssd_pool` was above 90% used during the 2026-06-23 audit, so do not expand photo, media, or file datasets before adding capacity or pruning/migrating data.
 
 ### Layer 3: Core Network
 
@@ -132,7 +132,7 @@ Run the public Headscale check from cellular data or another non-home network. A
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I http://auth.internal
+curl -I http://auth.internal/if/user/
 curl -I http://status.internal
 curl -I http://dash.internal
 ```
@@ -164,7 +164,7 @@ LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, and 
 **Success Verification**
 
 ```bash
-curl -I http://auth.internal
+curl -I http://auth.internal/if/user/
 curl -I http://dash.internal
 curl -I http://status.internal
 curl -I http://monitor.internal
@@ -180,7 +180,7 @@ Optional operations extensions belong after this layer, not before it:
 | Extension | Alias | Purpose | Deploy gate |
 |---|---|---|---|
 | NetAlertX | `netalert.internal` | device inventory and LAN change visibility | live on LXC 103; tune scan scope before alerting |
-| Scrutiny | `disks.internal` | SMART disk health visibility | live web UI; host disk collector still needs explicit device mapping |
+| Scrutiny | `disks.internal` | SMART disk health visibility | live web/API on LXC 103; Proxmox host collector publishes disk metrics daily |
 | ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
 
 ### Layer 6: Application Micro-Stacks

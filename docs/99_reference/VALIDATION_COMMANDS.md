@@ -258,7 +258,7 @@ Then confirm:
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I http://auth.internal
+curl -I http://auth.internal/if/user/
 curl -I http://dash.internal
 curl -I http://status.internal
 curl -I http://monitor.internal

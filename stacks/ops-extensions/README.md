@@ -49,29 +49,68 @@ Back up LXC 103 with PBS. Also keep app-aware notes:
 
 ## Scrutiny Disk Access
 
-The template starts the Scrutiny web UI and database. It does not automatically grant raw SMART access to host disks.
+The template starts the Scrutiny web UI and database on LXC 103. Production SMART collection should run where the disks are physically visible: the Proxmox host.
 
-For production disk-health monitoring, run the collector where the disks are physically visible, normally the Proxmox host. The Scrutiny upstream Docker guidance requires:
+Avoid passing raw host disks into an unprivileged LXC. In the live P710 build, disk passthrough exposed the device nodes but `smartctl` still failed with permission errors. The working production pattern is:
 
-- `/run/udev:/run/udev:ro` so the collector can read device metadata;
-- `SYS_RAWIO` so `smartctl` can query SMART data;
-- explicit `--device=/dev/...` mappings for every disk returned by `smartctl --scan`;
-- `SYS_ADMIN` as well when NVMe devices require it.
+- keep Scrutiny web/API on `disks.internal` in LXC 103;
+- install the official `scrutiny-collector-metrics-linux-amd64` binary on Proxmox;
+- configure `/etc/scrutiny/collector.yaml` with the real disks and `api.endpoint: http://LXC103_IP:8085`;
+- run a daily `scrutiny-collector.timer` on Proxmox.
 
-Do not pass raw disks into a container casually. First record the output of:
+First record the disk inventory:
 
 ```bash
 smartctl --scan
 ls -l /dev/disk/by-id/
 ```
 
-Then create a small host-side collector or a documented Compose override that maps only those devices. The acceptance test is:
+Example Proxmox collector config:
 
-```bash
-docker exec scrutiny /opt/scrutiny/bin/scrutiny-collector-metrics run
+```yaml
+version: 1
+host:
+  id: proxmox-p710
+
+devices:
+  - device: /dev/sda
+    type: sat
+  - device: /dev/sdb
+    type: sat
+  - device: /dev/nvme0
+    type: nvme
+
+api:
+  endpoint: http://LXC103_IP:8085
+
+commands:
+  metrics_info_args: '--info --json -T permissive'
+  metrics_smart_args: '--xall --json -T permissive'
 ```
 
-The dashboard is not production disk monitoring until real drives appear in `disks.internal`.
+Systemd timer:
+
+```ini
+[Unit]
+Description=Run Scrutiny SMART collector daily
+
+[Timer]
+OnCalendar=*-*-* 02:15:00
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target
+```
+
+Acceptance test:
+
+```bash
+/usr/local/bin/scrutiny-collector-metrics run --config /etc/scrutiny/collector.yaml
+curl -fsS http://disks.internal/api/summary
+```
+
+The dashboard is production disk monitoring only when the API summary shows real devices and fresh collector timestamps.
 
 ## Sources
 

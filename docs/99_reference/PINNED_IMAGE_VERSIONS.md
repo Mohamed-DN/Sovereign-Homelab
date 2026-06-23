@@ -20,7 +20,7 @@ Last checked: 2026-06-22.
 | `observability` | `amir20/dozzle` | `DOZZLE_TAG` | `v10.6.6` | Docker Hub tag check | Low-risk log viewer; still validate login/proxy. |
 | `ops-extensions` | `ghcr.io/netalertx/netalertx` | `NETALERTX_IMAGE` | `latest` | Official NetAlertX Docker Compose baseline | Explicit exception. NetAlertX upstream examples use the rolling image channel; keep LXC103 covered by PBS before updates. |
 | `ops-extensions` | `binwiederhier/ntfy` | `NTFY_IMAGE` | `v2.24.0` | ntfy install docs and Docker tag check | Back up config/cache if attachments or auth are enabled. |
-| `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `v0.9.2-omnibus` | Scrutiny README and GHCR package tags | Omnibus image. Treat Scrutiny as an operations panel; document the collector/device mapping before relying on SMART data. |
+| `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `v0.9.2-omnibus` | Scrutiny README and GHCR package tags | Omnibus web/API image. Live SMART collection runs from the Proxmox host with the official `scrutiny-collector-metrics-linux-amd64` binary. |
 | `security` | `crowdsecurity/crowdsec` | `CROWDSEC_TAG` | `v1.7.8` | Docker Hub tag check and CrowdSec release tag | Detection only unless a bouncer/remediation component is installed. |
 | `vaultwarden` | `vaultwarden/server` | `VAULTWARDEN_TAG` | `1.36.0` | Docker Hub tag check and Vaultwarden release tag | Critical data. Export and back up volume before update. |
 | `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Server and machine-learning must match. Restore drill required before importing full library. |

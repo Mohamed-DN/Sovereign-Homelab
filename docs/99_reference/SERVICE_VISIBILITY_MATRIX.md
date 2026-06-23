@@ -85,7 +85,7 @@ These are optional panels for running the lab at a higher operational level. The
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
 | NetAlertX | `netalert.internal` | `http://LXC103_IP:20211` | yes | yes | HTTP monitor | VPN/Auth | `/data` volume |
-| Scrutiny | `disks.internal` | `http://LXC103_IP:8085` | yes | yes | HTTP monitor; disk collector still needs explicit mapping | VPN/admin | config + InfluxDB data |
+| Scrutiny | `disks.internal` | `http://LXC103_IP:8085` | yes | yes | HTTP monitor; Proxmox host collector publishes SMART data | VPN/admin | config + InfluxDB data + host collector config |
 | ntfy | `alerts.internal` | `http://LXC103_IP:8093` | yes | yes | HTTP monitor | VPN/Auth | server config + cache/attachments if enabled |
 
 ## Documented Exceptions

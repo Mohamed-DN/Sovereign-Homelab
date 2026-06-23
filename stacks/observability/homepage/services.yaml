@@ -22,7 +22,7 @@
 
 - Identity:
     - Authentik:
-        href: http://auth.internal
+        href: http://auth.internal/if/user/
         description: SSO, MFA, proxy providers, and OIDC
 
 - Monitoring:
