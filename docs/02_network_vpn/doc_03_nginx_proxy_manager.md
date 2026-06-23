@@ -86,6 +86,48 @@ curl -I https://vpn.yourdomain.duckdns.org
 
 Expected: an HTTP response through NPM/Headscale. It does not need to look like a normal website, but the TLS handshake and HTTPS connection must work from outside the LAN.
 
+### DuckDNS Public A Record Updater
+
+The public DuckDNS record must point to the home public IP, not to `192.168.1.50`. `192.168.1.50` is correct only inside AdGuard split DNS for LAN/VPN clients.
+
+Validation with DNS-over-HTTPS:
+
+```bash
+curl -s -H "accept: application/dns-json" \
+  "https://cloudflare-dns.com/dns-query?name=vpn.yourdomain.duckdns.org&type=A"
+```
+
+Expected public answer:
+
+```text
+vpn.yourdomain.duckdns.org -> HOME_PUBLIC_IP
+```
+
+Expected AdGuard split answer:
+
+```bash
+nslookup vpn.yourdomain.duckdns.org 192.168.1.50
+```
+
+```text
+vpn.yourdomain.duckdns.org -> 192.168.1.50
+```
+
+Install the updater on LXC 100 after the NPM DuckDNS certificate exists:
+
+```bash
+install -m 0750 scripts/sovereign-duckdns-update.sh /usr/local/sbin/sovereign-duckdns-update
+install -m 0644 scripts/systemd/sovereign-duckdns-update.service /etc/systemd/system/sovereign-duckdns-update.service
+install -m 0644 scripts/systemd/sovereign-duckdns-update.timer /etc/systemd/system/sovereign-duckdns-update.timer
+sed -i 's/DUCKDNS_DOMAIN=yourdomain/DUCKDNS_DOMAIN=your-duckdns-subdomain/' /etc/systemd/system/sovereign-duckdns-update.service
+systemctl daemon-reload
+systemctl enable --now sovereign-duckdns-update.timer
+systemctl start sovereign-duckdns-update.service
+journalctl -u sovereign-duckdns-update.service -n 20 --no-pager
+```
+
+The script reads the token from the NPM Certbot DuckDNS credential file, strips optional surrounding quotes, updates only the DuckDNS A record, and never prints the token.
+
 ### CGNAT Decision
 
 Compare the router WAN IP with the public IP reported by an external IP-check site.

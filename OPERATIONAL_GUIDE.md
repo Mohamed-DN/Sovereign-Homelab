@@ -277,6 +277,8 @@ flowchart TD
 
 The operational invariant is simple: Headscale is public only for device login and coordination, AdGuard is authoritative for LAN/VPN DNS, NPM receives only resolved HTTP/S aliases, and an exit node is only the default route to the internet. A phone on 4G must be able to reach `vpn.yourdomain.duckdns.org` through the home router/NAT and NPM before the lab is considered remotely usable. A client may use the Proxmox exit node, but `nslookup example.com 192.168.1.50` and `nslookup dash.internal 192.168.1.50` must still work and appear in the AdGuard query log.
 
+Live 4G note: the public DuckDNS A record must resolve to the home public IP from external DNS-over-HTTPS resolvers, while AdGuard split DNS must resolve the same name to `192.168.1.50` for LAN/VPN clients. LXC 100 runs `sovereign-duckdns-update.timer` every 5 minutes to keep the public record current without exposing the token.
+
 ### Recovery Model
 
 | Failure | Recovery path | Verification |

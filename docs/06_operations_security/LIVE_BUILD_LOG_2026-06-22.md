@@ -378,6 +378,28 @@ Findings and actions:
 - Proxmox log review showed no failed systemd units and both ZFS pools were healthy.
 - Recent error-level Proxmox logs were tied to completed restore/audit activity: VM920 guest-agent timeouts during the Nextcloud drill, the first VM910 restore attempt ending with `broken pipe`, and pveproxy worker inotify warnings. No persistent service failure was present after recheck.
 
+## 2026-06-23 4G VPN Public DNS Fix
+
+The reported 4G onboarding failure was traced to the public DuckDNS A record:
+
+- public DNS-over-HTTPS should return the home public IP for `vpn.casca-certosa.duckdns.org`;
+- AdGuard split DNS should return `192.168.1.50` only for LAN/VPN clients;
+- the public record was effectively stale/wrong for 4G because the DuckDNS update was sending the token with surrounding quotes and DuckDNS returned `KO`.
+
+Live fix:
+
+- the DuckDNS token from the NPM Certbot credential file was parsed with surrounding quotes stripped;
+- `casca-certosa.duckdns.org` was updated to the current public IP;
+- Cloudflare and Google DNS-over-HTTPS returned the public IP after the fix;
+- `vpn.casca-certosa.duckdns.org` remained split-resolved to `192.168.1.50` inside AdGuard;
+- a systemd timer `sovereign-duckdns-update.timer` was installed on LXC 100 and runs every 5 minutes;
+- the updater logs only `duckdns_update_ok domain=... ip=...` and never prints the token;
+- the public Headscale proxy still returns HTTP `200` on `/health`.
+
+Dashboard correctness fix:
+
+- the Homepage card previously named `Headscale API` pointed to the control-plane root. It now points directly to `/health` and is named `Headscale Public Health`, while administration stays on `headscale.internal/web`.
+
 ## Rollback Notes
 
 - LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.

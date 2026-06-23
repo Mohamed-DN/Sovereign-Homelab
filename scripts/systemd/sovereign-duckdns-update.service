@@ -1,0 +1,10 @@
+[Unit]
+Description=Sovereign Homelab DuckDNS public A record updater
+Wants=network-online.target
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+Environment=DUCKDNS_DOMAIN=yourdomain
+Environment=DUCKDNS_CREDENTIALS_FILE=/opt/core-network/npm/letsencrypt/credentials/credentials-1
+ExecStart=/usr/local/sbin/sovereign-duckdns-update

@@ -4,9 +4,9 @@
         href: http://adguard.internal
         siteMonitor: http://adguard.internal
         description: DNS filtering, DHCP, and .internal rewrites
-    - Headscale API:
+    - Headscale Public Health:
         icon: headscale.png
-        href: https://vpn.yourdomain.duckdns.org
+        href: https://vpn.yourdomain.duckdns.org/health
         siteMonitor: https://vpn.yourdomain.duckdns.org/health
         description: Public VPN control plane for 4G and travel clients
     - Headscale UI:
