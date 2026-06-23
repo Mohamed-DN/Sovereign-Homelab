@@ -170,6 +170,30 @@ function Test-ResolvedHttpStatus {
     }
 }
 
+function Test-NpmProxyTarget {
+    param(
+        [string]$HostName,
+        [string]$ExpectedProxyPass
+    )
+
+    $safeHost = $HostName -replace "'", "'\''"
+    $matches = Invoke-Ssh "pct exec 100 -- grep -R --exclude-dir=backups 'server_name $safeHost;' /opt/core-network/npm/data/nginx/proxy_host"
+    $first = @($matches | Where-Object { $_ -match ':' } | Select-Object -First 1)
+    if (-not $first) {
+        Add-Failure "NPM generated config for $HostName was not found"
+        return
+    }
+
+    $configPath = ($first -split ':', 2)[0]
+    $content = Invoke-Ssh "pct exec 100 -- cat $configPath"
+    $joined = ($content -join "`n")
+    if ($joined -match [regex]::Escape($ExpectedProxyPass)) {
+        Add-Pass "NPM maps $HostName to $ExpectedProxyPass"
+    } else {
+        Add-Failure "NPM config for $HostName does not contain $ExpectedProxyPass"
+    }
+}
+
 Push-Location $RepoRoot
 try {
     Write-Section 'Repository'
@@ -189,6 +213,50 @@ try {
         Add-Pass "$PublicVpnHost resolves publicly to $($publicAnswers -join ', ')"
     } else {
         Add-Failure "$PublicVpnHost public DNS does not return a public A record"
+    }
+
+    Write-Section 'NPM Proxy Target Map'
+    $vpnConfig = Invoke-Ssh 'pct exec 100 -- cat /opt/core-network/npm/data/nginx/proxy_host/1.conf'
+    $vpnText = ($vpnConfig -join "`n")
+    if ($vpnText -match [regex]::Escape('server_name vpn.casca-certosa.duckdns.org;') -and
+        $vpnText -match 'set\s+\$server\s+"192\.168\.1\.50";' -and
+        $vpnText -match 'set\s+\$port\s+8080;' -and
+        $vpnText -match [regex]::Escape('proxy_pass       http://192.168.1.50:8081;')) {
+        Add-Pass 'public VPN maps root to Headscale API 192.168.1.50:8080 and /web to Headscale-UI 192.168.1.50:8081'
+    } else {
+        Add-Failure 'public VPN NPM config does not match required Headscale API plus Headscale-UI /web model'
+    }
+
+    $expectedProxyTargets = @(
+        @{ Host = 'adguard.internal'; Pass = 'proxy_pass http://192.168.1.50:3000;' },
+        @{ Host = 'npm.internal'; Pass = 'proxy_pass http://192.168.1.50:81;' },
+        @{ Host = 'headscale.internal'; Pass = 'proxy_pass http://192.168.1.50:8081;' },
+        @{ Host = 'proxmox.internal'; Pass = 'proxy_pass https://192.168.1.150:8006;' },
+        @{ Host = 'pbs.internal'; Pass = 'proxy_pass https://192.168.1.20:8007;' },
+        @{ Host = 'auth.internal'; Pass = 'proxy_pass http://192.168.1.51:9000;' },
+        @{ Host = 'dash.internal'; Pass = 'proxy_pass http://192.168.1.51:3002;' },
+        @{ Host = 'status.internal'; Pass = 'proxy_pass http://192.168.1.51:3001;' },
+        @{ Host = 'monitor.internal'; Pass = 'proxy_pass http://192.168.1.51:8090;' },
+        @{ Host = 'logs.internal'; Pass = 'proxy_pass http://192.168.1.51:8088;' },
+        @{ Host = 'pwd.internal'; Pass = 'proxy_pass http://192.168.1.52:8082;' },
+        @{ Host = 'sync.internal'; Pass = 'proxy_pass http://192.168.1.52:8384;' },
+        @{ Host = 'paper.internal'; Pass = 'proxy_pass http://192.168.1.52:8010;' },
+        @{ Host = 'rss.internal'; Pass = 'proxy_pass http://192.168.1.52:8087;' },
+        @{ Host = 'bookmarks.internal'; Pass = 'proxy_pass http://192.168.1.52:3010;' },
+        @{ Host = 'search.internal'; Pass = 'proxy_pass http://192.168.1.52:8084;' },
+        @{ Host = 'git.internal'; Pass = 'proxy_pass http://192.168.1.52:3003;' },
+        @{ Host = 'foto.internal'; Pass = 'proxy_pass http://192.168.1.110:2283;' },
+        @{ Host = 'media.internal'; Pass = 'proxy_pass http://192.168.1.52:8096;' },
+        @{ Host = 'ai.internal'; Pass = 'proxy_pass http://192.168.1.52:3004;' },
+        @{ Host = 'files.internal'; Pass = 'proxy_pass http://192.168.1.120:11000;' },
+        @{ Host = 'netalert.internal'; Pass = 'proxy_pass http://192.168.1.53:20211;' },
+        @{ Host = 'disks.internal'; Pass = 'proxy_pass http://192.168.1.53:8085;' },
+        @{ Host = 'alerts.internal'; Pass = 'proxy_pass http://192.168.1.53:8093;' },
+        @{ Host = 'ha.internal'; Pass = 'proxy_pass http://192.168.1.130:8123;' }
+    )
+
+    foreach ($target in $expectedProxyTargets) {
+        Test-NpmProxyTarget -HostName $target.Host -ExpectedProxyPass $target.Pass
     }
 
     Write-Section 'Split DNS'

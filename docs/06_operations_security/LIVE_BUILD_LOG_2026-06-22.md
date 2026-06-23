@@ -574,6 +574,25 @@ VM 110 Immich app-aware drill output:
 
 This proves the baseline app-aware mechanics for the currently deployed data. It does not replace offsite backup, client-root trust rollout, or representative restore rehearsals using real test passwords, documents, repositories, and a larger photo sample.
 
+## 2026-06-23 NPM Target Audit and Dashboard Refresh
+
+The dashboard link concern was checked directly against generated NPM/Nginx configuration, not only by HTTP status.
+
+Verified NPM target model:
+
+- `vpn.casca-certosa.duckdns.org` serves the Headscale control-plane root through `192.168.1.50:8080` and the Headscale-UI `/web` path through `192.168.1.50:8081`;
+- `proxmox.internal` maps to `https://192.168.1.150:8006`;
+- `pbs.internal` maps to `https://192.168.1.20:8007`;
+- `adguard.internal` maps to `http://192.168.1.50:3000`;
+- `npm.internal` maps to `http://192.168.1.50:81`;
+- platform aliases map to LXC 101 `192.168.1.51`;
+- app aliases map to LXC 102 `192.168.1.52`, except `foto.internal` to VM 110, `files.internal` to VM 120, and `ha.internal` to VM 130;
+- operations-extension aliases map to LXC 103 `192.168.1.53`.
+
+The audit script now has an `NPM Proxy Target Map` section. It fails if a documented `.internal` hostname points to the wrong backend. The public VPN check also verifies the split model: root to Headscale API and `/web` to Headscale-UI.
+
+The Homepage dashboard CSS was refreshed and applied live on LXC 101. The design keeps the same operational layout but improves scanability with stronger section headers, clearer service cards, varied left-edge status accents, better focus states, and mobile spacing.
+
 ## Rollback Notes
 
 - LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.

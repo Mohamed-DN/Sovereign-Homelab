@@ -25,9 +25,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -Ski
 ```
 
 This checks the public VPN health endpoint, DuckDNS public DNS through multiple
-resolvers, AdGuard split DNS, critical alias fingerprints, every Homepage card,
-Proxmox failed units, storage, Headscale routes, Uptime Kuma monitor state, live
-Docker inventory, and local Compose templates.
+resolvers, NPM generated proxy target mappings, AdGuard split DNS, critical
+alias fingerprints, every Homepage card, Proxmox failed units, storage,
+Headscale routes, Uptime Kuma monitor state, live Docker inventory, and local
+Compose templates.
 It does not print secrets.
 
 ## Documentation Safety

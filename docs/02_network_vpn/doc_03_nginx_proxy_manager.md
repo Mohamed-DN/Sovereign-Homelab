@@ -244,7 +244,24 @@ Use:
 http://headscale.internal/web
 ```
 
-Live note: the first internal aliases were added as NPM static proxy config files on LXC 100 so they could be validated before the NPM API/UI workflow was automated. The public Headscale proxy remains NPM-managed and must stay public with no access list. For long-term operations, recreate internal aliases through the NPM UI/API during a maintenance window, then remove the static files after testing.
+Live note: the public Headscale proxy and the first core/platform aliases are NPM-managed records in the NPM database. Later app and operations aliases are static Nginx proxy files under `/opt/core-network/npm/data/nginx/proxy_host/` on LXC 100. They are still real Nginx routes and are loaded by the NPM container, but they may not all appear as editable rows in the NPM web UI. The live audit checks the generated Nginx config directly, so an alias is accepted only when the hostname maps to the expected upstream IP and port. For long-term UI-only operations, recreate static aliases through the NPM UI/API during a maintenance window, verify with `scripts/sovereign-live-audit.ps1`, then remove the static file after testing.
+
+Current verified live target model:
+
+| Hostname | Verified upstream |
+|---|---|
+| `vpn.casca-certosa.duckdns.org` | root path to Headscale API `http://192.168.1.50:8080`; `/web` to Headscale-UI `http://192.168.1.50:8081` |
+| `proxmox.internal` | `https://192.168.1.150:8006` |
+| `pbs.internal` | `https://192.168.1.20:8007` |
+| `adguard.internal` | `http://192.168.1.50:3000` |
+| `npm.internal` | `http://192.168.1.50:81` |
+| `headscale.internal` | `http://192.168.1.50:8081` |
+| `dash.internal` | `http://192.168.1.51:3002` |
+| `status.internal` | `http://192.168.1.51:3001` |
+| `monitor.internal` | `http://192.168.1.51:8090` |
+| `logs.internal` | `http://192.168.1.51:8088` |
+| `foto.internal` | `http://192.168.1.110:2283` |
+| `files.internal` | `http://192.168.1.120:11000` behind client-side HTTPS |
 
 ## Phase G: Internal Platform Proxy Hosts
 
