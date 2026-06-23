@@ -5,6 +5,7 @@ param(
     [string]$SshKey = 'C:\tmp\codex_ssh\sovereign_proxmox_ed25519',
     [string]$PublicVpnHost = 'vpn.casca-certosa.duckdns.org',
     [string]$AdGuardDns = '192.168.1.50',
+    [string]$NpmIp = '192.168.1.50',
     [string]$InternalCaHost = 'ca.internal',
     [string]$InternalCaIp = '192.168.1.51',
     [string]$DashboardUrl = 'http://dash.internal',
@@ -92,6 +93,83 @@ function Invoke-Nslookup {
     return (cmd.exe /c "nslookup $safeName $safeServer 2>&1" | Out-String)
 }
 
+function Get-PublicARecords {
+    param([string]$Name)
+
+    $records = New-Object System.Collections.Generic.List[string]
+
+    foreach ($resolver in @('1.1.1.1', '8.8.8.8', '9.9.9.9')) {
+        try {
+            $output = Invoke-Nslookup -Name $Name -Server $resolver
+            foreach ($match in [regex]::Matches($output, 'Address(?:es)?:\s*([0-9]+\.[0-9]+\.[0-9]+\.[0-9]+)')) {
+                $ip = $match.Groups[1].Value
+                if ($ip -ne $resolver -and -not $records.Contains($ip)) {
+                    $records.Add($ip) | Out-Null
+                }
+            }
+        } catch {
+            Add-Warn "public DNS lookup through $resolver failed: $($_.Exception.Message)"
+        }
+    }
+
+    return @($records)
+}
+
+function Test-ResolvedHttpContent {
+    param(
+        [string]$Name,
+        [string]$Url,
+        [string]$ExpectedRegex,
+        [string]$ExpectedStatusRegex = '^(2|3)',
+        [string]$ResolveIp = $NpmIp
+    )
+
+    $uri = [Uri]$Url
+    $port = if ($uri.IsDefaultPort) {
+        if ($uri.Scheme -eq 'https') { 443 } else { 80 }
+    } else {
+        $uri.Port
+    }
+
+    $temp = New-TemporaryFile
+    try {
+        $code = (& curl.exe -k -L -s -o $temp.FullName -w '%{http_code}' --max-time 20 `
+            --resolve "$($uri.Host):${port}:$ResolveIp" $Url).Trim()
+        $body = Get-Content -Raw -LiteralPath $temp.FullName -ErrorAction SilentlyContinue
+        if ($code -match $ExpectedStatusRegex -and $body -match $ExpectedRegex) {
+            Add-Pass "$Name fingerprint matched at $Url"
+        } else {
+            Add-Failure "$Name fingerprint mismatch at $Url; status=$code"
+        }
+    } finally {
+        Remove-Item -LiteralPath $temp.FullName -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Test-ResolvedHttpStatus {
+    param(
+        [string]$Name,
+        [string]$Url,
+        [string]$ExpectedStatusRegex,
+        [string]$ResolveIp = $NpmIp
+    )
+
+    $uri = [Uri]$Url
+    $port = if ($uri.IsDefaultPort) {
+        if ($uri.Scheme -eq 'https') { 443 } else { 80 }
+    } else {
+        $uri.Port
+    }
+
+    $code = (& curl.exe -k -s -o NUL -w '%{http_code}' --max-time 20 `
+        --resolve "$($uri.Host):${port}:$ResolveIp" $Url).Trim()
+    if ($code -match $ExpectedStatusRegex) {
+        Add-Pass "$Name returned expected HTTP $code at $Url"
+    } else {
+        Add-Failure "$Name returned HTTP $code at $Url"
+    }
+}
+
 Push-Location $RepoRoot
 try {
     Write-Section 'Repository'
@@ -106,10 +184,7 @@ try {
     Write-Section 'Public VPN Edge'
     Test-HttpStatus "https://$PublicVpnHost/health" 'Headscale public health'
 
-    $cf = Invoke-RestMethod -Headers @{ accept = 'application/dns-json' } `
-        -Uri "https://cloudflare-dns.com/dns-query?name=$PublicVpnHost&type=A" `
-        -TimeoutSec 20
-    $publicAnswers = @($cf.Answer | Where-Object { $_.type -eq 1 } | ForEach-Object { $_.data })
+    $publicAnswers = Get-PublicARecords -Name $PublicVpnHost
     if ($publicAnswers.Count -gt 0 -and $publicAnswers[0] -notmatch '^(10\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|192\.168\.)') {
         Add-Pass "$PublicVpnHost resolves publicly to $($publicAnswers -join ', ')"
     } else {
@@ -143,6 +218,19 @@ try {
 
     Write-Section 'Internal CA'
     Test-HttpStatus "https://${InternalCaHost}:9002/health" 'Smallstep internal CA health'
+
+    Write-Section 'Critical Alias Fingerprints'
+    Test-ResolvedHttpContent 'Proxmox VE alias' 'http://proxmox.internal' 'Proxmox Virtual Environment'
+    Test-ResolvedHttpContent 'Proxmox Backup Server alias' 'http://pbs.internal' 'Proxmox Backup Server'
+    Test-ResolvedHttpStatus 'AdGuard API alias' 'http://adguard.internal/control/status' '^401$'
+    Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'http://npm.internal' 'Nginx Proxy Manager'
+    Test-ResolvedHttpContent 'Authentik alias' 'http://auth.internal/if/user/' 'authentik'
+    Test-ResolvedHttpContent 'Homepage alias' 'http://dash.internal' 'Sovereign Homelab'
+    Test-ResolvedHttpContent 'Uptime Kuma alias' 'http://status.internal' 'Uptime Kuma'
+    Test-ResolvedHttpContent 'Beszel alias' 'http://monitor.internal' 'Beszel'
+    Test-ResolvedHttpContent 'Dozzle alias' 'http://logs.internal' 'Dozzle'
+    Test-ResolvedHttpContent 'Immich alias' 'http://foto.internal' '(?i)immich'
+    Test-ResolvedHttpContent 'Nextcloud alias' 'https://files.internal' 'Nextcloud'
 
     Write-Section 'Dashboard Links'
     $services = Invoke-RestMethod -Uri "$DashboardUrl/api/services" -TimeoutSec 20

@@ -136,7 +136,7 @@ These aliases rely on the existing `*.internal -> NPM IP` AdGuard rewrite. No pr
 
 ## Uptime Kuma
 
-Uptime Kuma now has 36 live monitors after adding Jellyfin, Open WebUI, Ollama API, CrowdSec LAPI, Home Assistant, Nextcloud, and operations-extension checks:
+Uptime Kuma initially reached 36 live monitors after adding Jellyfin, Open WebUI, Ollama API, CrowdSec LAPI, Home Assistant, Nextcloud, and operations-extension checks. It later reached 37 live monitors after adding the Smallstep internal CA health check:
 
 | Category | Monitors |
 |---|---|
@@ -343,7 +343,7 @@ Evidence collected:
 - Production VM 130 created a native full HA backup named `sovereign-preproduction-2026-06-23` with slug `2b41594a`; the HA database was included.
 - Proxmox and LXC host/search-domain settings were aligned to `.internal`; AdGuard now answers as `core-network.internal`.
 - Proxmox host DNS now uses AdGuard `192.168.1.50`, so `.internal` aliases resolve from the host as well as clients.
-- Uptime Kuma reported 36/36 monitors UP with fresh heartbeats.
+- Uptime Kuma reported all monitors UP with fresh heartbeats.
 - Homepage was updated to a tabbed dashboard with icons and safe visual `siteMonitor` checks. All dashboard/app aliases returned expected HTTP status codes: 200 for direct pages/APIs and 302/307 for login redirects.
 - Proxmox had no failed systemd units; ZFS pools were ONLINE with no known data errors.
 - Recent Proxmox error logs showed only an authentication failure from `192.168.1.100`; treat repeats as an account/session audit item.
@@ -501,6 +501,43 @@ Production hardening:
 - improved Homepage custom CSS for clearer groups, cards, hover states, and focus states.
 
 The CA is not a reason to expose private services publicly. It is the next controlled step for trusted HTTPS on `.internal` after clients trust the root certificate. Existing aliases should be migrated one at a time with Uptime Kuma and rollback updates for each service.
+
+## 2026-06-23 Critical Alias Fingerprint Audit
+
+A later dashboard concern was that some `.internal` links appeared reachable but might not be proxying to the real target machine. The check was strengthened from "HTTP returned something" to "the alias returns the expected service fingerprint."
+
+Live NPM mapping was read from `/opt/core-network/npm/data/nginx/proxy_host`:
+
+| Alias | Verified upstream |
+|---|---|
+| `proxmox.internal` | `https://192.168.1.150:8006` |
+| `pbs.internal` | `https://192.168.1.20:8007` |
+| `adguard.internal` | `http://192.168.1.50:3000` |
+| `npm.internal` | `http://192.168.1.50:81` |
+| `headscale.internal` | `http://192.168.1.50:8081` |
+| `auth.internal` | `http://192.168.1.51:9000` |
+| `dash.internal` | `http://192.168.1.51:3002` |
+| `status.internal` | `http://192.168.1.51:3001` |
+| `monitor.internal` | `http://192.168.1.51:8090` |
+| `logs.internal` | `http://192.168.1.51:8088` |
+| `foto.internal` | `http://192.168.1.110:2283` |
+| `files.internal` | `http://192.168.1.120:11000` behind client-side HTTPS |
+
+Fingerprint evidence:
+
+- `proxmox.internal` returned page title `pve - Proxmox Virtual Environment`;
+- `pbs.internal` returned page title `pbs - Proxmox Backup Server`;
+- `adguard.internal/control/status` returned `401`, matching the direct AdGuard API behavior before login;
+- `npm.internal` returned `Nginx Proxy Manager`;
+- `auth.internal/if/user/` returned `authentik`;
+- `dash.internal` returned `Sovereign Homelab`;
+- `status.internal` returned `Uptime Kuma`;
+- `monitor.internal` returned `Beszel`;
+- `logs.internal` returned `Dozzle`;
+- `foto.internal` returned Immich content;
+- `files.internal` returned Nextcloud content.
+
+The live audit script now includes these critical alias fingerprint checks. Homepage descriptions for the critical admin cards were also updated to show the backing host/IP and port, so the dashboard makes the target machine explicit.
 
 ## Rollback Notes
 
