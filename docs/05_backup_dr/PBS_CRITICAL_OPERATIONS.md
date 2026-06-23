@@ -28,9 +28,9 @@ Live state as of 2026-06-23:
 | Integration auth | dedicated PBS user/token stored only on the server |
 | Scheduled job | `sovereign-core-nightly`, guests `100,101,102,103,110,120,130`, daily `03:00` |
 | Completed backups | LXC 101, LXC 102, LXC 103, VM 110, VM 120, VM 130 |
-| Restore drills | LXC 101 restored to temporary CT `901`, LXC 102 restored to temporary CT `902`, LXC 103 restored to temporary CT `903`; each was mounted, verified, and destroyed |
-| File-level VM validation | VM 110 `immich`, VM 120 `nextcloud-aio`, and VM 130 `home-assistant-os` were inspected with `proxmox-file-restore` and expected app/data paths were visible |
-| Pending restore drills | full boot/service restore for VM 110, VM 120, VM 130, and app-aware critical data restores |
+| Restore drills | LXC 101 restored to temporary CT `901`, LXC 102 restored to temporary CT `902`, LXC 103 restored to temporary CT `903`, and VM 130 restored to isolated temporary VM `930`; all temporary restore targets were verified and destroyed |
+| File-level VM validation | VM 110 `immich` and VM 120 `nextcloud-aio` were inspected with `proxmox-file-restore` and expected app/data paths were visible |
+| Pending restore drills | full boot/service restore for VM 110, VM 120, and app-aware critical data restores |
 
 ## Phase A: Install PBS
 
@@ -216,6 +216,8 @@ Additional live backup evidence:
 | 2026-06-23 | VM 110 `immich` | file-level restore validation completed | OS disk, Immich upload tree, backups directory, generated media directories, and PostgreSQL data visible |
 | 2026-06-23 | VM 120 `nextcloud-aio` | file-level restore validation completed | OS stack path and Nextcloud data directory visible |
 | 2026-06-23 | VM 130 `home-assistant-os` | file-level restore validation completed | HAOS data partition and supervisor/Home Assistant directories visible |
+| 2026-06-23 | VM 130 `home-assistant-os` | full boot/service restore drill completed | temporary VM `930` restored on `local-zfs`, NIC isolated with `link_down=1`, HA Core and Supervisor verified healthy through the guest agent, then VM `930` destroyed |
+| 2026-06-23 | VM 130 `home-assistant-os` | native HA backup created | `sovereign-preproduction-2026-06-23`, slug `2b41594a`, full backup including database |
 
 Do not treat VM backups as fully production-ready for irreplaceable personal data until a boot/service restore drill proves that the guest and application data are usable. File-level validation proves the backup contains the expected paths, but it is not the same as a successful full application restore.
 

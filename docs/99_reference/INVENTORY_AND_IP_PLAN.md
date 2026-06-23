@@ -52,7 +52,7 @@ Last checked: 2026-06-23.
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
-| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103 restore drills completed, VM110/VM120/VM130 file-level restore validation completed; full VM boot/service restore drills still required for VM110, VM120, and VM130 |
+| Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM130 restore drills completed, VM110/VM120 file-level restore validation completed; full VM boot/service restore drills still required for VM110 and VM120 |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; do not expand photo, media, or file datasets before adding capacity, pruning data, or moving cold data off the pool |
 
 ## Hosts and LXC
@@ -67,7 +67,7 @@ Last checked: 2026-06-23.
 | LXC 102 apps-light | `192.168.1.52` | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server | LAN/VPN | PBS + app-aware exports | High |
 | VM 110 immich | `192.168.1.110` | Photos and videos, `foto.internal` | VPN/Auth | PBS file-level validated; DB/upload offsite still required | Critical |
 | VM 120 nextcloud-aio | `192.168.1.120` | Full cloud suite, `files.internal` | VPN/Auth | PBS file-level validated; AIO backup and boot restore still required | High |
-| VM 130 home-assistant-os | `192.168.1.130` | Home automation, `ha.internal` | VPN/Auth | PBS file-level validated; HA native backup export still required | Medium |
+| VM 130 home-assistant-os | `192.168.1.130` | Home automation, `ha.internal` | VPN/Auth | PBS boot restore validated; native HA backup created; offsite export still required | Medium |
 | VM 150 jellyfin | TBD | Future dedicated media server if GPU/transcoding needs justify it | VPN/Auth | PBS + media metadata | Medium |
 | VM 160 wazuh | TBD | Optional SIEM | VPN/Auth admin | PBS + log retention | Medium |
 | RustDesk host | TBD | Optional remote desktop relay, `rustdesk.internal` | VPN/LAN by default | server data directory + stack files | Medium |
@@ -102,7 +102,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Syncthing | `sync.internal` | P1 live on LXC102 | VPN/Auth UI | Config + sync folders | config + source folders |
 | Nextcloud AIO | `files.internal` | P1 live on VM120 | VPN-first | Files + DB | PBS file-level validated; AIO backup/full restore required before real files |
 | Paperless-ngx | `paper.internal` | P1 live on LXC102 | VPN/Auth | OCR documents + DB | media + consume + DB |
-| Home Assistant OS | `ha.internal` | P1 live on VM130 | VPN/Auth | Home automations | PBS file-level validated; HA native backup export and boot restore still required |
+| Home Assistant OS | `ha.internal` | P1 live on VM130 | VPN/Auth | Home automations | PBS boot restore validated; native HA backup created; offsite export still required |
 | Jellyfin | `media.internal` | P1 live on LXC102 | VPN/Auth | Metadata + libraries | config + media source |
 | FreshRSS | `rss.internal` | P1 live on LXC102 | VPN/Auth | Feeds, accounts, DB | data volume or DB |
 | Karakeep | `bookmarks.internal` | P1 live on LXC102 | VPN/Auth | Bookmarks, assets, DB | data + DB |
