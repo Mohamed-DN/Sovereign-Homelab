@@ -47,6 +47,8 @@ Log into NPM at `http://npm.internal` and create a Proxy Host for HTTPS:
   2. Log in and verify repositories.
   3. Clone a repository over both HTTPS and SSH, and push a test commit successfully.
 
+Live baseline evidence: on 2026-06-23, LXC102 wrote `/root/sovereign-app-restore-drills/20260623T153506Z`, dumped the Forgejo PostgreSQL database, restored it into a temporary database, counted 121 public tables, dropped the temporary database, and captured a manifest for `forgejo_forgejo_data` with 21 files. Before storing important repositories, repeat the drill with a real test repository and verify clone, commit, push, issue/wiki data if used, and SSH access on `LXC102_IP:2222`.
+
 ## 7. Rollback and Troubleshooting
 - If repository metadata and DB are out of sync, restore DB and repos from the exact same timestamp.
 - If SSH fails, verify port `2222` and the `SSH_DOMAIN` in configuration.

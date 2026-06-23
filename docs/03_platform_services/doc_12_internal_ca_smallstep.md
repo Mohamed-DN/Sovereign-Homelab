@@ -55,7 +55,7 @@ Use a long random value for `STEP_CA_PASSWORD`. Store it in the host secret vaul
 
 ```bash
 install -d -m 700 /root/sovereign-secrets
-printf '%s\n' 'PASTE_REAL_CA_PASSWORD_HERE' > /root/sovereign-secrets/step-ca-password
+printf '%s\n' 'CHANGE_ME_LONG_RANDOM_CA_PASSWORD' > /root/sovereign-secrets/step-ca-password
 chmod 600 /root/sovereign-secrets/step-ca-password
 ```
 

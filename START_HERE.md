@@ -93,8 +93,8 @@ Large environments usually use a private subdomain of a registered corporate dom
 
 Recommended order for expansion after the current live build:
 
-1. Treat LXC 102 as restore-drill complete at the container/filesystem level; finish app-aware exports before storing irreplaceable passwords, documents, or repositories.
-2. Complete offsite backup and an app-aware Immich sample-data restore before importing the full photo library.
+1. Treat LXC 102 as restore-drill complete at the container/filesystem level and baseline app-aware verified for Vaultwarden, Paperless, and Forgejo. Before storing irreplaceable data, repeat the app-aware restore with real representative data and confirm offsite backup.
+2. Treat VM 110 Immich as boot/service restore complete and baseline app-aware verified for database restore plus library manifests. Complete offsite backup before importing the full photo library.
 3. Treat VM 120 Nextcloud AIO as restore-drill complete at the boot/service level; finish internal certificate trust and offsite backup before importing irreplaceable files.
 4. Treat VM 130 Home Assistant as restore-drill complete at the boot/service level; keep exporting native HA backups before major changes.
 5. Finish operations-extension hardening: ntfy authentication/topics and NetAlertX scan scope. Scrutiny already uses a Proxmox host-side collector for SMART data.

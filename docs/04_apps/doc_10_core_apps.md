@@ -98,7 +98,8 @@ Vaultwarden:
 Immich:
 
 - back up both database and upload library;
-- run a restore drill with a small library before importing all photos;
+- the 2026-06-23 baseline app-aware drill restored the database into a temporary DB and inventoried the live library;
+- repeat with representative real photo/video data and offsite backup before importing the full library;
 - read release notes before upgrades.
 
 Paperless-ngx:

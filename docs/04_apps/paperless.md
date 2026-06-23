@@ -120,6 +120,8 @@ A multi-layered backup strategy is required since losing tax or legal documents 
    ```
 4. Verify OCR search works and all previous PDFs are viewable in the fresh instance.
 
+Live baseline evidence: on 2026-06-23, LXC102 wrote `/root/sovereign-app-restore-drills/20260623T153506Z`, dumped the Paperless PostgreSQL database, restored it into a temporary database, counted 72 public tables, dropped the temporary database, and captured manifests for the Paperless data and media volumes. Before storing legal or tax documents, repeat the drill with representative documents, verify OCR search and PDF download in a fresh instance, and copy the exported archive offsite.
+
 ## 8. Troubleshooting & Maintenance
 
 If the system experiences indexing issues or missing search results, regenerate the search index:

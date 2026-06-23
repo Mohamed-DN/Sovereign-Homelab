@@ -47,7 +47,7 @@ Log into NPM at `http://npm.internal` and create a new Proxy Host:
   3. Verify thumbnails load correctly and the timeline matches the backup date.
   4. For a full boot/service drill, restore VM110 to a temporary VM ID and temporary IP, confirm `/mnt/immich-library`, wait for `immich-server`, `immich-database`, `immich-machine-learning`, and `immich-redis` to become healthy, and verify `GET /api/server/ping` returns `{"res":"pong"}`.
 
-Live note: on 2026-06-23, VM110 was restored from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z` to temporary VM `910`, booted on `192.168.1.241`, validated with the checks above, and destroyed. Offsite backup and a representative app-aware sample-data restore are still required before importing a full irreplaceable photo library.
+Live note: on 2026-06-23, VM110 was restored from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z` to temporary VM `910`, booted on `192.168.1.241`, validated with the checks above, and destroyed. A follow-up app-aware baseline drill wrote `/root/sovereign-app-restore-drills/20260623T153701Z`, restored the Immich PostgreSQL dump into a temporary database with 61 public tables, created a manifest for `/mnt/immich-library` with 32852 files, created a manifest for `/opt/sovereign-homelab` with 3 files, and wrote `SHA256SUMS`. Offsite backup is still required before importing a full irreplaceable photo library.
 
 ## 7. Rollback and Troubleshooting
 - If machine learning fails, check AVX support on your Proxmox host CPU and verify the `immich_machine_learning` container logs.
