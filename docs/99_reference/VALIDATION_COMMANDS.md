@@ -156,17 +156,38 @@ Run from a non-home network before trusting mobile VPN onboarding:
 curl -I https://vpn.yourdomain.duckdns.org
 ```
 
+Verify the public DNS answer with DNS-over-HTTPS, not only `nslookup`, because LAN DNS interception can hide a broken public DuckDNS record:
+
+```bash
+curl -s -H "accept: application/dns-json" \
+  "https://cloudflare-dns.com/dns-query?name=vpn.yourdomain.duckdns.org&type=A"
+curl -s "https://dns.google/resolve?name=vpn.yourdomain.duckdns.org&type=A"
+```
+
+Expected public result: `vpn.yourdomain.duckdns.org` resolves to the current home public IP.
+
+Expected split DNS result from AdGuard:
+
+```bash
+nslookup vpn.yourdomain.duckdns.org 192.168.1.50
+```
+
+Expected internal result: `vpn.yourdomain.duckdns.org` resolves to `192.168.1.50`.
+
 Check on the home side:
 
 ```bash
 docker logs --tail=100 npm
 docker logs --tail=100 headscale
 docker exec headscale headscale nodes list
+systemctl status sovereign-duckdns-update.timer --no-pager
+journalctl -u sovereign-duckdns-update.service -n 20 --no-pager
 ```
 
 Expected:
 
 - DuckDNS points to the current home public IP.
+- The DuckDNS updater timer is active and the last update logged `duckdns_update_ok`.
 - Router TCP `443` forwards to NPM.
 - NPM forwards `vpn.yourdomain.duckdns.org` to `http://LXC100_IP:8080`.
 - The public Headscale proxy host has WebSocket support enabled.

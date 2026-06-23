@@ -31,7 +31,7 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 
 | Area | Current state |
 |---|---|
-| VPN | public Headscale endpoint online; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
+| VPN | public Headscale endpoint online; DuckDNS public A record updater active on LXC 100; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; Homepage uses tabs, icons, and safe visual `siteMonitor` checks |
 | Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
@@ -120,6 +120,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | [docs/06_operations_security](docs/06_operations_security) | Operations manual, deployment workflow, security operations |
 | [docs/99_reference](docs/99_reference) | Matrices, validation commands, inventory, pinned image versions, and stack catalog |
 | [stacks](stacks) | Independent Docker Compose micro-stacks |
+| [scripts](scripts) | Operational helper scripts, including the DuckDNS public A record updater |
 
 ## Deployment Workflow
 
