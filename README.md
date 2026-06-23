@@ -41,9 +41,10 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
 | Monitoring | Uptime Kuma initialized with 36 live monitors; all were UP during the 2026-06-23 audit across VPN, DNS, core aliases, apps including Nextcloud, operations extensions, Home Assistant, and protocol checks |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed |
-| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` disabled after confirming no such pool exists; Proxmox and service LXCs aligned to the `.internal` search domain |
+| Internal TLS | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; client root trust rollout is the next gate before moving private aliases to HTTPS |
+| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
-| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and app-aware sample-data restore drills before importing large critical datasets |
+| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, and app-aware sample-data restore drills before importing large critical datasets |
 
 ## Network and Access Model
 
@@ -60,6 +61,7 @@ flowchart TD
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
     Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]
+    CA["Internal CA\nSmallstep step-ca\nca.internal"]
     Apps["Internal apps\n*.internal"]
     Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]
     PBS["Proxmox Backup Server"]
@@ -75,6 +77,8 @@ flowchart TD
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
     NPM --> Ops
+    LAN -->|trust bootstrap| CA
+    Remote -->|trust bootstrap after VPN| CA
     NPM --> Apps
     Smart -->|disk metrics API| Ops
     Platform --> PBS
@@ -100,6 +104,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | Core network | AdGuard, Headscale, Headscale-UI, NPM |
 | Admin | Proxmox, PBS |
 | Platform | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
+| Internal TLS | Smallstep `step-ca` for private `.internal` certificates |
 | Operations extensions | NetAlertX, Scrutiny, ntfy |
 | Critical data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | High-value apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI |

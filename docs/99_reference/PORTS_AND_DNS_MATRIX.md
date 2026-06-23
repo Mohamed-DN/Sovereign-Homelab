@@ -66,6 +66,7 @@ Design references:
 | Uptime Kuma | `status.internal` | 3001 | VPN/Auth | Monitoring |
 | Beszel | `monitor.internal` | 8090 | VPN/Auth | Metrics |
 | Dozzle | `logs.internal` | 8088 | VPN/Auth admin | Docker logs |
+| Smallstep CA | `ca.internal` | 9002 | VPN/admin | Private CA for trusted `.internal` TLS |
 | CrowdSec LAPI | none | 8089 | localhost/LAN only | Detection API |
 
 Live bootstrap state as of 2026-06-22:
@@ -97,6 +98,7 @@ Live bootstrap state as of 2026-06-22:
 | `disks.internal` | `http://disks.internal` | `http://192.168.1.53:8085` |
 | `alerts.internal` | `http://alerts.internal` | `http://192.168.1.53:8093` |
 | `files.internal` | `https://files.internal` | client-side HTTPS on NPM, upstream `http://192.168.1.120:11000`; live Nextcloud AIO |
+| `ca.internal` | `https://ca.internal:9002` | optional direct/API access to Smallstep on LXC 101 after deployment |
 
 Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Nextcloud is the exception: `files.internal` uses client-side HTTPS now because AIO expects secure browser access. Move all private aliases to trusted private HTTPS after deploying an internal CA.
 
@@ -173,6 +175,7 @@ In AdGuard:
 | `netalert.internal` | NPM IP when NetAlertX is ready |
 | `disks.internal` | NPM IP when Scrutiny is ready |
 | `alerts.internal` | NPM IP when ntfy is ready |
+| `ca.internal` | NPM IP if proxied, otherwise LXC 101 IP for direct CA API access |
 
 If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, update this matrix before changing AdGuard.
 

@@ -139,6 +139,32 @@ curl -I http://dash.internal
 
 Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. During bootstrap, internal aliases are HTTP over LAN/VPN. Move them to private HTTPS after an internal CA is deployed.
 
+### Layer 4.5: Internal CA for Private HTTPS
+
+**Action/Command**
+
+```bash
+less docs/03_platform_services/doc_12_internal_ca_smallstep.md
+cd /opt/sovereign-homelab/stacks/internal-ca
+cp .env.example .env
+chmod 600 .env
+nano .env
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d
+```
+
+**Clear Explanation**
+
+Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. It should be deployed after PBS and the dashboards are stable, because losing or replacing a private CA after clients trust it creates operational cleanup work. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS.
+
+**Success Verification**
+
+```bash
+curl -k https://ca.internal:9002/health
+```
+
+Expected: the CA health endpoint returns `ok`, the CA volume is backed up, and at least one trusted client can open a migrated test alias over HTTPS without a browser warning.
+
 ### Layer 5: Platform Services
 
 **Action/Command**
@@ -255,6 +281,7 @@ flowchart TD
     AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Platform Services\nLXC101"]
+    CA["Internal CA\nca.internal"]
     Apps["Internal apps\n*.internal"]
     PBS["Proxmox Backup Server\nVM140"]
     Offsite["restic/offsite copy"]
@@ -269,6 +296,8 @@ flowchart TD
     AGH -->|filtered upstream DNS| Internet
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
+    LAN -->|trust bootstrap| CA
+    Remote -->|trust bootstrap after VPN| CA
     NPM --> Apps
     Platform --> PBS
     Apps --> PBS

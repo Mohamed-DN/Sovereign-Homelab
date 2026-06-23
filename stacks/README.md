@@ -19,6 +19,7 @@ Rules:
 | `core-network/` | AdGuard, NPM, Headscale, Headscale-UI |
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
+| `internal-ca/` | Smallstep `step-ca` for trusted private `.internal` TLS |
 | `ops-extensions/` | NetAlertX, Scrutiny, ntfy |
 | `security/` | CrowdSec templates |
 | `vaultwarden/` | Password manager |

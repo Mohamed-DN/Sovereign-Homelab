@@ -5,6 +5,8 @@ param(
     [string]$SshKey = 'C:\tmp\codex_ssh\sovereign_proxmox_ed25519',
     [string]$PublicVpnHost = 'vpn.casca-certosa.duckdns.org',
     [string]$AdGuardDns = '192.168.1.50',
+    [string]$InternalCaHost = 'ca.internal',
+    [string]$InternalCaIp = '192.168.1.51',
     [string]$DashboardUrl = 'http://dash.internal',
     [switch]$SkipCompose
 )
@@ -130,6 +132,17 @@ try {
     } else {
         Add-Failure 'dash.internal does not resolve through AdGuard'
     }
+
+    $caDns = Invoke-Nslookup -Name $InternalCaHost -Server $AdGuardDns
+    Write-Host $caDns.Trim()
+    if ($caDns -match [regex]::Escape($InternalCaIp)) {
+        Add-Pass "$InternalCaHost resolves directly to $InternalCaIp through AdGuard"
+    } else {
+        Add-Failure "$InternalCaHost does not resolve to $InternalCaIp through AdGuard"
+    }
+
+    Write-Section 'Internal CA'
+    Test-HttpStatus "https://${InternalCaHost}:9002/health" 'Smallstep internal CA health'
 
     Write-Section 'Dashboard Links'
     $services = Invoke-RestMethod -Uri "$DashboardUrl/api/services" -TimeoutSec 20
