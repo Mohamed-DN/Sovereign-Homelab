@@ -45,10 +45,11 @@ Last checked: 2026-06-23.
 | App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120`; VM 130 `home-assistant-os` deployed on `192.168.1.130` |
 | Operations extensions | LXC 103 `ops-extensions` deployed on `192.168.1.53` with NetAlertX, Scrutiny, and ntfy |
 | Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, Nextcloud, Home Assistant, NetAlertX, Scrutiny, and ntfy aliases exist in NPM |
-| Uptime Kuma | 35 live monitors, all UP during the 2026-06-23 audit |
-| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101 and LXC103 restore drills completed; manual post-hardening backups completed for LXC100, LXC101, and LXC103 |
+| Uptime Kuma | 35 live monitors, all UP during the 2026-06-23 audit with fresh heartbeats |
+| PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101, LXC102, and LXC103 restore drills completed; VM110, VM120, and VM130 passed PBS file-level restore validation |
 | Live image tags | core live Compose pinned to Headscale `v0.28.0`, Headscale-UI `2026.03.17`, AdGuard Home `v0.107.77`, and NPM `2.15.1`; Scrutiny pinned to `v0.9.2-omnibus` |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; pause large photo, media, and file growth until capacity/offsite decisions are made |
+| Runtime DNS domain | Proxmox, LXC100, LXC101, LXC102, and LXC103 now use `search internal`; AdGuard answers as `core-network.internal` |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
 
@@ -57,10 +58,10 @@ Live caveats:
 - Authentik is deployed and reachable at `http://auth.internal/if/user/`, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate. The bare root path can redirect to a non-applicable setup flow after bootstrap; use `/if/user/` for dashboards and monitors.
 - Beszel Hub and a platform-services agent are enrolled. Beszel agent health is checked in Beszel because the live agent uses hub/WebSocket enrollment instead of a separate inbound TCP monitor.
 - Most `.internal` aliases currently use HTTP on the client side over LAN/VPN. `files.internal` already uses client-side HTTPS with an internal certificate because Nextcloud AIO expects secure browser access. Add a trusted internal CA before requiring HTTPS for all private aliases.
-- LXC 102 was recreated intentionally as `apps-light`. Do not import real data until its restore drill and app-aware restore paths are complete.
-- VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. Do not import the full photo library until the Immich restore drill is complete.
-- VM 120 Nextcloud AIO is provisioned with a 250 GB data disk. AIO now runs on the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel, all AIO child containers are healthy, and `https://files.internal` returns a real Nextcloud login redirect. Do not import real files until the AIO restore drill and client certificate trust are handled.
-- VM 130 Home Assistant OS is deployed at `192.168.1.130`. `ha.internal` works through NPM after adding the Home Assistant reverse-proxy trust block for NPM.
+- LXC 102 was recreated intentionally as `apps-light`. Its PBS restore drill restored snapshot `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` to temporary CT `902`, mounted the root filesystem, verified service stack files and Docker volumes, and destroyed the temporary CT.
+- VM 110 Immich is deployed with a 500 GB data disk mounted at `/mnt/immich-library`. PBS file-level restore validation confirmed the OS disk, Immich `upload` tree, generated media directories, backups directory, and PostgreSQL data. Do not import the full photo library until a full boot/service restore drill and offsite plan are complete.
+- VM 120 Nextcloud AIO is provisioned with a 250 GB data disk. AIO now runs on the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel, all AIO child containers are healthy, and `https://files.internal` returns a real Nextcloud login redirect. PBS file-level restore validation confirmed the OS stack path and Nextcloud data directory. Do not import real files until the AIO full boot/service restore drill and client certificate trust are handled.
+- VM 130 Home Assistant OS is deployed at `192.168.1.130`. `ha.internal` works through NPM after adding the Home Assistant reverse-proxy trust block for NPM. PBS file-level restore validation confirmed the HAOS data partition and `supervisor/homeassistant` directory. A full HAOS boot/service restore drill is still required before treating automations as production-critical.
 - LXC 103 operations extensions are deployed at `192.168.1.53`. NetAlertX, Scrutiny, and ntfy are reachable through NPM and have Kuma monitors. Scrutiny web/API stays in LXC 103, while the SMART collector runs on the Proxmox host through `/usr/local/bin/scrutiny-collector-metrics` and daily `scrutiny-collector.timer`.
 - `ssd_pool` is storage-constrained. Treat this as an operational gate: finish restore drills and capacity/offsite planning before loading full Immich, Nextcloud, or Jellyfin datasets.
 - During the 2026-06-22 audit, Proxmox and LXC 100 had stale `/etc/hosts` entries for the public VPN hostname. They were corrected to resolve the control-plane hostname to `192.168.1.50` locally so infrastructure nodes can reconnect to Headscale through NPM without hairpinning through the WAN.
@@ -71,6 +72,8 @@ Host fixes applied during the 2026-06-23 audit:
 - Proxmox logs showed repeated `e1000e nic0 Detected Hardware Unit Hang` before reboot. `tcp-segmentation-offload`, `generic-segmentation-offload`, and `generic-receive-offload` were disabled on `nic0` and persisted with `nic0-offload-hardening.service`.
 - Proxmox logs showed stale `zfs-import@TESD.service` failures. `zpool status` showed only `rpool` and `ssd_pool`, and `zpool import` showed no importable `TESD` pool, so `zfs-import@TESD.service` was disabled and reset.
 - Fresh warning logs after those fixes no longer showed the NIC hang or `TESD` import failure. OverlayFS warnings from Docker-on-ZFS/LXC remain informational unless paired with service failures.
+- Proxmox and service LXC host/search-domain settings were aligned to `.internal`. LXC101 and LXC102 already used `search internal`; Proxmox, LXC100, and LXC103 were corrected from legacy non-internal domain drift.
+- The 2026-06-23 log review showed no failed systemd units. The only recent error-level entry was a Proxmox authentication failure from `192.168.1.100`; treat repeated occurrences as an account/session audit item before changing authentication policy.
 
 ## Phase A: Access Gate
 
@@ -360,14 +363,18 @@ Current restore drill evidence:
 |---|---|---|---|
 | 2026-06-21 | `pbs-p710:backup/ct/101/2026-06-21T18:18:54Z` | temporary CT `901` | restored, mounted, stack files verified, test CT destroyed |
 | 2026-06-22 | `pbs-p710:backup/ct/103/2026-06-22T09:54:58Z` | temporary CT `903` | restored, mounted, ops-extension stack files verified, test CT destroyed |
+| 2026-06-23 | `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` | temporary CT `902` | restored, mounted, app stack files and Docker volumes verified, test CT destroyed |
+| 2026-06-23 | `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z` | `proxmox-file-restore` | file-level validation confirmed OS disk, Immich upload tree, generated media directories, backups directory, and PostgreSQL data |
+| 2026-06-23 | `pbs-p710:backup/vm/120/2026-06-23T01:34:56Z` | `proxmox-file-restore` | file-level validation confirmed OS stack path and Nextcloud data directory |
+| 2026-06-23 | `pbs-p710:backup/vm/130/2026-06-23T01:38:27Z` | `proxmox-file-restore` | file-level validation confirmed HAOS data partition and supervisor/Home Assistant directories |
 
 Current scheduled backup:
 
 | Job | Guests | Schedule | Storage | Notes |
 |---|---|---|---|---|
-| `sovereign-core-nightly` | `100,101,102,103,110,120,130` | `03:00` daily | `pbs-p710` | excludes PBS itself; CT102, CT103, VM110, VM120, and VM130 still require restore drills before real data import |
+| `sovereign-core-nightly` | `100,101,102,103,110,120,130` | `03:00` daily | `pbs-p710` | excludes PBS itself; LXC101/LXC102/LXC103 have restore drills; VM110/VM120/VM130 have file-level validation but still need full boot/service restore drills before real data import |
 
-VM 120, VM 130, and LXC 103 are now included after their services became reachable. LXC 103 has a restore drill. VM 110, VM 120, and VM 130 backups are recovery points, but they must not be treated as production readiness until service-specific restore drills have been completed.
+VM 120, VM 130, and LXC 103 are now included after their services became reachable. VM 110, VM 120, and VM 130 backups are recovery points with file-level validation, but they must not be treated as full production readiness until service-specific boot/restore drills have been completed.
 
 Manual post-hardening backups on 2026-06-22:
 

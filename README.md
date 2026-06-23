@@ -39,11 +39,11 @@ Last live build log: [2026-06-22](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000` |
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
-| Monitoring | Uptime Kuma initialized with 35 live monitors covering VPN, DNS, core aliases, apps, operations extensions, Home Assistant, and protocol checks |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101 and LXC 103 restore drills completed; manual post-hardening backups completed for LXC 100, LXC 101, and LXC 103 |
-| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` disabled after confirming no such pool exists |
+| Monitoring | Uptime Kuma initialized with 35 live monitors; all were UP during the 2026-06-23 audit across VPN, DNS, core aliases, apps, operations extensions, Home Assistant, and protocol checks |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, and LXC 103 restore drills completed; VM 110, VM 120, and VM 130 passed PBS file-level restore validation |
+| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` disabled after confirming no such pool exists; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; pause large photo, media, and file growth until capacity/offsite decisions are made |
-| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and restore drills for LXC 102, VM 110, VM 120, and VM 130 before importing real critical data |
+| Open gates | Trusted internal CA distribution, offsite backup, Authentik MFA/app protection policy, and full boot/service restore drills for VM 110, VM 120, and VM 130 before importing real critical data |
 
 ## Network and Access Model
 
