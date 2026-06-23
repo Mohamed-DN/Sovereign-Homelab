@@ -53,7 +53,7 @@ Last checked: 2026-06-23.
 | Exit node | `proxmox-p710` advertises and serves `0.0.0.0/0` and `::/0` |
 | Internal DNS | `*.internal` rewrites to `192.168.1.50` |
 | Backup/PBS | `pbs-p710` storage active, datastore `p710-local`, scheduled job covers `100,101,102,103,110,120,130`, LXC101/LXC102/LXC103/VM110/VM120/VM130 restore drills completed; offsite still required |
-| Storage pressure | `ssd_pool` was above 90% used during the 2026-06-23 audit; do not expand photo, media, or file datasets before adding capacity, pruning data, or moving cold data off the pool |
+| Storage model | `ssd_pool` uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. The capacity gate remains active in the live audit script |
 
 ## Hosts and LXC
 

@@ -350,7 +350,7 @@ Evidence collected:
 
 Storage caveat:
 
-- `ssd_pool` remained above 90% used. Avoid full temporary restores of large VMs or importing full photo/media/file datasets until capacity, pruning, or offsite storage is planned.
+- `ssd_pool` initially remained above 90% reported use. A later follow-up showed this was mostly thick ZFS `refreservation`, not written data.
 
 ## Remaining Gates
 
@@ -452,7 +452,26 @@ The script validates:
 - Uptime Kuma active monitor state;
 - every Compose template with its `.env.example`.
 
-The script completed successfully from the Windows workstation. It found the same known operational caveats already documented elsewhere: the physical phone still needs the final hands-on 4G enrollment/reconnect test, `ssd_pool` is storage-constrained, and Wazuh remains an optional heavy stack rather than a day-one production service.
+The script completed successfully from the Windows workstation. It found the same known operational caveats already documented elsewhere: the physical phone still needs the final hands-on 4G enrollment/reconnect test, offsite backup is still required for disaster recovery, and Wazuh remains an optional heavy stack rather than a day-one production service.
+
+## 2026-06-23 ZFS Sparse Storage Fix
+
+The high `ssd_pool` usage was traced to Proxmox-created thick zvol reservations:
+
+- pool reported use before the fix was about 93%;
+- actual logical data was about 275 GB;
+- large VM disks showed most usage as `usedbyrefreservation`, not written guest data.
+
+Corrective action:
+
+- `/etc/pve/storage.cfg` was backed up to `/root/sovereign-backups/storage.cfg.before-ssd-pool-sparse-20260623-121957`;
+- Proxmox storage `ssd_pool` was changed to `sparse 1`;
+- existing VM zvol `refreservation` values were cleared for VM 110, VM 120, and VM 140 disks;
+- `pvesm status` reported `ssd_pool` at about 15% used after the change;
+- `zpool status -x` reported all pools healthy;
+- the full live audit passed after the storage change.
+
+This is not a substitute for offsite backup. It fixes operational headroom and emergency-restore capacity, while shifting the pool to thin allocation. Keep Uptime Kuma, Proxmox storage checks, and `scripts/sovereign-live-audit.ps1` active before importing large photo, file, or media datasets.
 
 ## Rollback Notes
 

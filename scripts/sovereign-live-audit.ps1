@@ -151,6 +151,22 @@ try {
     Write-Section 'Proxmox Baseline'
     Invoke-Ssh "hostname; pveversion; systemctl --failed --no-pager; pvesm status; zpool status -x; pct list; qm list"
 
+    Write-Section 'Storage Capacity Gate'
+    $storageStatus = Invoke-Ssh "pvesm status"
+    $ssdPoolLine = $storageStatus | Where-Object { $_ -match '^ssd_pool\s+' } | Select-Object -First 1
+    if ($ssdPoolLine -and $ssdPoolLine -match '\s([0-9]+(?:\.[0-9]+)?)%\s*$') {
+        $ssdPoolUsedPercent = [double]$Matches[1]
+        if ($ssdPoolUsedPercent -ge 90) {
+            Add-Failure "ssd_pool is $ssdPoolUsedPercent% used; stop app growth and add capacity or prune data"
+        } elseif ($ssdPoolUsedPercent -ge 80) {
+            Add-Warn "ssd_pool is $ssdPoolUsedPercent% used; plan capacity before importing large media/photo/file data"
+        } else {
+            Add-Pass "ssd_pool capacity is healthy at $ssdPoolUsedPercent% used"
+        }
+    } else {
+        Add-Warn 'could not parse ssd_pool usage from pvesm status'
+    }
+
     Write-Section 'Headscale and Routes'
     Invoke-Ssh "pct exec 100 -- docker exec headscale headscale configtest; pct exec 100 -- docker exec headscale headscale nodes list-routes; pct exec 100 -- docker exec headscale headscale nodes list; pct exec 100 -- systemctl is-active sovereign-duckdns-update.timer"
 
