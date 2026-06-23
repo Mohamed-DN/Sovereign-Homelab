@@ -335,17 +335,38 @@ Interpretation:
 
 Subsequent live access was restored from the workstation. SSH to Proxmox worked, server-side VPN health was rechecked, and live changes were applied through the Proxmox host. Keep the layer-2 note above as a troubleshooting reference because the symptom can recur if Wi-Fi isolation, cabling, or routing changes.
 
+## 2026-06-23 Production-Readiness Audit
+
+The follow-up audit focused on restore evidence, `.internal` DNS consistency, dashboard health, and host logs.
+
+Evidence collected:
+
+- LXC 102 restore drill completed from `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` to temporary CT `902`; the root filesystem was mounted, service stack files and Docker volumes were verified, and CT `902` was destroyed.
+- VM 110 Immich passed PBS file-level restore validation from `pbs-p710:backup/vm/110/2026-06-23T01:03:10Z`; the backup exposes the OS disk, Immich `upload` tree, generated media directories, backups directory, and PostgreSQL data.
+- VM 120 Nextcloud AIO passed PBS file-level restore validation from `pbs-p710:backup/vm/120/2026-06-23T01:34:56Z`; the backup exposes the OS stack path and Nextcloud data directory.
+- VM 130 Home Assistant OS passed PBS file-level restore validation from `pbs-p710:backup/vm/130/2026-06-23T01:38:27Z`; the backup exposes the HAOS data partition and `supervisor/homeassistant` directory.
+- Proxmox and LXC host/search-domain settings were aligned to `.internal`; AdGuard now answers as `core-network.internal`.
+- Proxmox host DNS now uses AdGuard `192.168.1.50`, so `.internal` aliases resolve from the host as well as clients.
+- Uptime Kuma reported 35/35 monitors UP with fresh heartbeats.
+- All dashboard/app aliases returned expected HTTP status codes: 200 for direct pages/APIs and 302/307 for login redirects.
+- Proxmox had no failed systemd units; ZFS pools were ONLINE with no known data errors.
+- Recent Proxmox error logs showed only an authentication failure from `192.168.1.100`; treat repeats as an account/session audit item.
+
+Storage caveat:
+
+- `ssd_pool` remained above 90% used. Avoid full temporary restores of large VMs or importing full photo/media/file datasets until capacity, pruning, or offsite storage is planned.
+
 ## Remaining Gates
 
 | Gate | Required before production use |
 |---|---|
 | Internal CA | move private aliases from bootstrap HTTP to trusted private HTTPS where needed |
 | Authentik policy | enable MFA, recovery, and app protection rules before relying on SSO |
-| LXC102 restore drill | restore the container to a temporary ID and verify app data paths |
-| VM110 restore drill | restore Immich to a temporary VM or isolated network and verify DB plus library consistency |
-| VM120 Nextcloud AIO | complete AIO restore drill and trusted internal certificate rollout before real files |
+| LXC102 restore drill | complete; temporary CT `902` restore validated stack files and Docker volumes |
+| VM110 restore drill | file-level validation complete; full Immich boot/service restore still required before importing the full library |
+| VM120 Nextcloud AIO | file-level validation complete; complete AIO boot/service restore and trusted internal certificate rollout before real files |
 | Offsite backup | add restic or second PBS for host-loss protection |
-| Home Assistant OS | live; complete HA native backup and PBS restore drill |
+| Home Assistant OS | live; PBS file-level validation complete; complete HA native backup and full boot/service restore drill |
 | Ops extensions | live; Scrutiny host collector active; finish ntfy auth/topic policy before using alerts for sensitive events |
 | Wazuh | still planned; deploy only after core backup/restore is stable and RAM pressure is acceptable |
 
