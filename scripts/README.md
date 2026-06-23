@@ -2,6 +2,35 @@
 
 These scripts are reusable helpers for live operations. They must not contain real tokens, passwords, private keys, or environment-specific secrets.
 
+## Live Audit
+
+File:
+
+- `sovereign-live-audit.ps1`
+
+Purpose:
+
+- check the public Headscale health endpoint;
+- verify public DuckDNS resolution is not a private RFC1918 address;
+- verify AdGuard split DNS for the VPN hostname and `dash.internal`;
+- smoke-test every Homepage card;
+- collect Proxmox failed units, storage state, VM/LXC inventory, Headscale routes, live Docker inventory, and Uptime Kuma monitor state;
+- validate local Compose templates from `.env.example`.
+
+Run from the Windows workstation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
+```
+
+Use `-SkipCompose` if Docker is not available on the workstation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -SkipCompose
+```
+
+The script uses the SSH key path by default. It does not print passwords, DuckDNS tokens, pre-auth keys, or API keys.
+
 ## DuckDNS Updater
 
 Files:

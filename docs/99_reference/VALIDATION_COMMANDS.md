@@ -9,6 +9,26 @@ git status --short --branch
 git diff --check
 ```
 
+## Live Production Audit
+
+From the Windows workstation, run the consolidated live audit after VPN, DNS,
+dashboard, backup, or stack changes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
+```
+
+Use `-SkipCompose` only when Docker is unavailable on the workstation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -SkipCompose
+```
+
+This checks the public VPN health endpoint, DuckDNS public DNS, AdGuard split
+DNS, every Homepage card, Proxmox failed units, storage, Headscale routes,
+Uptime Kuma monitor state, live Docker inventory, and local Compose templates.
+It does not print secrets.
+
 ## Documentation Safety
 
 ```bash

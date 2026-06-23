@@ -435,6 +435,25 @@ Manual phone acceptance checklist:
 6. Confirm `dash.internal` resolves through AdGuard.
 7. Select the Proxmox exit node and confirm the public IP changes while DNS queries still appear in AdGuard logs.
 
+## 2026-06-23 Live Audit Automation
+
+A repeatable Windows-side audit script was added at `scripts/sovereign-live-audit.ps1`.
+
+The script validates:
+
+- repository status;
+- public Headscale `/health`;
+- public DuckDNS A record;
+- AdGuard split DNS for the public VPN hostname and `dash.internal`;
+- all Homepage cards;
+- Proxmox failed units, storage, ZFS, LXC, and VM inventory;
+- Headscale config, nodes, subnet route, exit-node route, and DuckDNS updater timer;
+- live Docker inventory for LXC 100, 101, 102, and 103;
+- Uptime Kuma active monitor state;
+- every Compose template with its `.env.example`.
+
+The script completed successfully from the Windows workstation. It found the same known operational caveats already documented elsewhere: the physical phone still needs the final hands-on 4G enrollment/reconnect test, `ssd_pool` is storage-constrained, and Wazuh remains an optional heavy stack rather than a day-one production service.
+
 ## Rollback Notes
 
 - LXC 102, VM 110, and VM 120 have PBS backups available after the live deployment pass.
