@@ -2,7 +2,7 @@
 
 Last validated: 2026-06-24 with `scripts/sovereign-live-audit.ps1`.
 
-This file is the compact live-state table. For design rules use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md), for ports and DNS use [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md), and for host ownership use [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md).
+This file is the compact live-state table. For design rules use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md), for ports and DNS use [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md), for host ownership use [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md), and for SSO, proxy-provider, OIDC, and LDAP decisions use [Identity Access Matrix](IDENTITY_ACCESS_MATRIX.md).
 
 ## Acceptance Rule
 
@@ -126,14 +126,17 @@ This table is the current public audit view. It proves routing, monitoring, back
 
 ## Open Gates
 
-| Gate | Why it remains | Next action |
-|---|---|---|
-| Offsite backup | PBS is on the same physical P710, so it is local recovery only | add restic/offsite or a second PBS and test a restore |
-| Internal CA trust rollout | Smallstep CA is live, but clients must trust the root before HTTPS migration is useful | distribute root trust, migrate one alias, validate, then continue |
-| Authentik enforcement | Authentik is live but not yet mandatory for every sensitive UI | enable MFA/recovery and protect services one by one |
-| Alert email SMTP | The repo has the anti-spam relay and docs, but SMTP credentials must remain local | fill `/root/sovereign-secrets/alert-relay.env`, configure Kuma webhook, test DOWN/reminder/recovery |
-| ntfy sensitive topics | ntfy is live but topics/auth need deliberate configuration | enable auth/topics before sending sensitive payloads |
-| Representative restore drills | Baseline drills proved mechanics, but not all services have production-like test data | repeat app-aware drills with representative samples |
+| Gate | Current evidence | Why it remains | Next safe action | Status |
+|---|---|---|---|---|
+| 4G VPN client path | User confirmed phone-on-4G connectivity; live audit confirms public edge, split DNS, subnet route, and exit-node route | it must be regression-tested after VPN, NPM, router, DNS, or Headscale policy changes | repeat the phone-side checklist in [Live Proxmox Validation](../06_operations_security/LIVE_PROXMOX_VALIDATION.md) after every relevant change | operational, regression gate |
+| Offsite backup | PBS is live and local restore mechanics are documented | PBS is on the same physical P710, so it is local recovery only | add restic/offsite or a second PBS and test a restore | production gate for irreplaceable data |
+| Internal CA trust rollout | Smallstep CA is live and monitored | clients must trust the root before HTTPS migration is useful | distribute root trust, migrate one low-risk alias, validate, then continue | hardening pending |
+| Authentik MFA and app protection | Authentik is live; `akadmin` recovery works; identity matrix exists | broad SSO enforcement can lock out admin tools if recovery is not proven first | enroll MFA and recovery codes, then protect one low-risk UI and test rollback | hardening pending |
+| LDAPS compatibility outpost | LDAP/LDAPS design is documented; no LDAP consumer is active | LDAP should not be deployed until a real consumer needs it | deploy only when Proxmox, PBS, Linux/SSSD, or Nextcloud LDAP is selected as a pilot | planned |
+| Alert email SMTP | anti-spam relay files and docs exist | SMTP credentials must stay local and were not committed | fill `/root/sovereign-secrets/alert-relay.env`, configure Kuma webhook, test DOWN/reminder/recovery | local secret gate |
+| ntfy sensitive topics | ntfy is live and monitored | topics/auth need deliberate configuration before sensitive payloads | enable auth/topics before sending sensitive alert payloads | hardening pending |
+| Representative restore drills | baseline drills proved restore mechanics | not every service has production-like test data | repeat app-aware drills with representative samples before importing critical data | production gate |
+| Credential completion | root-only vault exists and recovery paths are documented | app-level production credentials must remain private and may still need final owner entries | fill remaining local-only credential records before each service receives critical data | local-only gate |
 
 ## Last Audit Result
 
@@ -141,6 +144,7 @@ The latest live audit passed these checks:
 
 - public Headscale health HTTP `200`;
 - public DuckDNS A record resolves externally;
+- phone-on-4G VPN connectivity is user-confirmed; server-side public edge, split DNS, subnet route, and exit-node route passed audit;
 - internal AdGuard split DNS resolves the VPN hostname to `192.168.1.50`;
 - AdGuard recovery admin credential was validated and stored only in the root-only local vault;
 - all generated NPM proxy targets map to the documented upstreams;
@@ -151,6 +155,7 @@ The latest live audit passed these checks:
 - 37 Uptime Kuma monitors are active and UP;
 - Uptime Kuma recovery admin credential was validated and stored only in the root-only local vault;
 - Beszel recovery admin credential was validated and stored only in the root-only local vault;
+- identity access model is documented; LDAP/LDAPS remains planned, private, and not exposed;
 - LXC 100 serves `192.168.1.0/24`;
 - Proxmox serves `0.0.0.0/0` and `::/0`;
 - Proxmox storage and ZFS pools are healthy;
