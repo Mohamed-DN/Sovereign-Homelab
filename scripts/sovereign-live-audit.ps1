@@ -89,6 +89,20 @@ function Invoke-LocalPython {
     return $false
 }
 
+function Test-RemoteCondition {
+    param(
+        [string]$Name,
+        [string]$Command
+    )
+
+    try {
+        Invoke-Ssh $Command | Out-Null
+        Add-Pass $Name
+    } catch {
+        Add-Failure "$Name failed"
+    }
+}
+
 function Test-HttpStatus {
     param(
         [string]$Url,
@@ -240,6 +254,20 @@ try {
     } else {
         Add-Failure 'alert relay anti-spam self-test failed'
     }
+
+    Write-Section 'Local Credential Vault'
+    Test-RemoteCondition 'credential vault directory mode is 700' 'test "$(stat -c %a /root/sovereign-secrets)" = 700'
+    Test-RemoteCondition 'credential vault directory owner is root:root' 'test "$(stat -c %U:%G /root/sovereign-secrets)" = root:root'
+    Test-RemoteCondition 'credential vault file mode is 600' 'test "$(stat -c %a /root/sovereign-secrets/HOMELAB_CREDENTIALS.md)" = 600'
+    Test-RemoteCondition 'credential vault file owner is root:root' 'test "$(stat -c %U:%G /root/sovereign-secrets/HOMELAB_CREDENTIALS.md)" = root:root'
+    Test-RemoteCondition 'credential vault has admin access audit marker' "grep -q '^## Admin Access Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has AdGuard recovery marker' "grep -q '^## AdGuard Home Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has Authentik recovery marker' "grep -q '^## Authentik Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has Beszel recovery marker' "grep -q '^## Beszel Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has NPM recovery marker' "grep -q '^## Nginx Proxy Manager Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has Uptime Kuma recovery marker' "grep -q '^## Uptime Kuma Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has structure audit marker' "grep -q '^## Credential File Structure Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has gap audit marker' "grep -q '^## Credential Gap Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
 
     Write-Section 'Public VPN Edge'
     Test-HttpStatus "https://$PublicVpnHost/health" 'Headscale public health'
