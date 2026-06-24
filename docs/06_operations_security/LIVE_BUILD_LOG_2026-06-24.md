@@ -45,6 +45,8 @@ docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
 
 Later on 2026-06-24, the server-local credential vault was rechecked against the required section structure. Missing section headings were added with placeholder values such as `TODO: fill manually`; no real credential values were copied into Git. The root-only file now includes a `Credential File Structure Audit 2026-06-24` marker.
 
+A later non-secret credential gap audit was also recorded only in the same root-only vault. It lists remaining TODO/placeholder counts by service section, so recovered core-panel access is separated from app-level production credentials that still need manual completion before irreplaceable data import. The public repository records only the existence of the audit marker, not the vault contents.
+
 ## Beszel Access Recovery
 
 Beszel was the concrete login issue in this pass.
