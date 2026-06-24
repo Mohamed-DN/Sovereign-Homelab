@@ -23,14 +23,14 @@
 - Admin:
     - Proxmox VE:
         icon: proxmox.png
-        href: http://proxmox.internal
-        siteMonitor: http://proxmox.internal
-        description: P710 192.168.1.150:8006, hypervisor for VMs, LXCs, bridges, and storage
+        href: https://proxmox.internal
+        siteMonitor: https://proxmox.internal
+        description: P710 192.168.1.150:8006, Smallstep HTTPS alias for VMs, LXCs, bridges, and storage
     - Proxmox Backup Server:
         icon: proxmox.png
-        href: http://pbs.internal
-        siteMonitor: http://pbs.internal
-        description: VM140 192.168.1.20:8007, datastore, verify jobs, prune jobs, and restores
+        href: https://pbs.internal
+        siteMonitor: https://pbs.internal
+        description: VM140 192.168.1.20:8007, Smallstep HTTPS alias for datastore, verify jobs, prune jobs, and restores
 
 - Identity:
     - Authentik:

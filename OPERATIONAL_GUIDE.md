@@ -142,7 +142,7 @@ curl -I http://status.internal
 curl -I http://dash.internal
 ```
 
-Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. During bootstrap, internal aliases are HTTP over LAN/VPN. Move them to private HTTPS after an internal CA is deployed.
+Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. During bootstrap, most internal aliases are HTTP over LAN/VPN. The live Proxmox and PBS aliases have already moved to private HTTPS with Smallstep certificates; move the remaining aliases one at a time after root trust and renewal are proven.
 
 ### Layer 4.5: Internal CA for Private HTTPS
 
@@ -160,7 +160,7 @@ docker compose --env-file .env up -d
 
 **Clear Explanation**
 
-Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. It should be deployed after PBS and the dashboards are stable, because losing or replacing a private CA after clients trust it creates operational cleanup work. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS.
+Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. It should be deployed after PBS and the dashboards are stable, because losing or replacing a private CA after clients trust it creates operational cleanup work. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS. Proxmox/PBS are the first live HTTPS aliases; wider rollout remains deliberate.
 
 **Success Verification**
 

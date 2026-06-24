@@ -70,15 +70,15 @@ Design references:
 | Smallstep CA | `ca.internal` | 9002 | VPN/admin | Private CA for trusted `.internal` TLS |
 | CrowdSec LAPI | none | 8089 | localhost/LAN only | Detection API |
 
-Live bootstrap state as of 2026-06-22:
+Live bootstrap state as of 2026-06-24:
 
 | Alias | Client-side URL | Upstream |
 |---|---|---|
 | `adguard.internal` | `http://adguard.internal` | `http://192.168.1.50:3000` |
 | `npm.internal` | `http://npm.internal` | `http://192.168.1.50:81` |
 | `headscale.internal/web` | `http://headscale.internal/web` | `http://192.168.1.50:8081` |
-| `proxmox.internal` | `http://proxmox.internal` | `https://192.168.1.150:8006` |
-| `pbs.internal` | `http://pbs.internal` | `https://192.168.1.20:8007` |
+| `proxmox.internal` | `https://proxmox.internal` | client-side HTTPS on NPM with Smallstep CA certificate, upstream `https://192.168.1.150:8006` |
+| `pbs.internal` | `https://pbs.internal` | client-side HTTPS on NPM with Smallstep CA certificate, upstream `https://192.168.1.20:8007` |
 | `auth.internal` | `http://auth.internal` | `http://192.168.1.51:9000` |
 | `ldap.internal` | `ldaps://ldap.internal:636` | direct to `192.168.1.51:636` after LDAP outpost deployment; no NPM proxy |
 | `dash.internal` | `http://dash.internal` | `http://192.168.1.51:3002` |
@@ -102,7 +102,7 @@ Live bootstrap state as of 2026-06-22:
 | `files.internal` | `https://files.internal` | client-side HTTPS on NPM, upstream `http://192.168.1.120:11000`; live Nextcloud AIO |
 | `ca.internal` | `https://ca.internal:9002` | optional direct/API access to Smallstep on LXC 101 after deployment |
 
-Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Nextcloud is the exception: `files.internal` uses client-side HTTPS now because AIO expects secure browser access. Move all private aliases to trusted private HTTPS after deploying an internal CA.
+Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Proxmox VE, PBS, and Nextcloud now use client-side HTTPS on NPM. Proxmox/PBS use Smallstep-issued host certificates; Nextcloud uses the existing internal certificate path until it is migrated. Move the remaining private aliases to trusted private HTTPS one service at a time after validating the CA root trust and renewal path.
 
 ## Live Apps
 

@@ -27,7 +27,7 @@ Repository rules:
 
 ## Proxmox VE
 
-- URL: `http://proxmox.internal` or `https://PVE_IP:8006`
+- URL: `https://proxmox.internal` or direct `https://PVE_IP:8006`
 - Host: `PVE_IP`
 - Username: `root`
 - Password: `<ROOT_PASSWORD>`
@@ -35,7 +35,7 @@ Repository rules:
 
 ## Proxmox Backup Server
 
-- URL: `http://pbs.internal` or `https://PBS_IP:8007`
+- URL: `https://pbs.internal` or direct `https://PBS_IP:8007`
 - Host: `PBS_IP`
 - Username: `<PBS_USERNAME>`
 - Password/token path: `<PBS_TOKEN_PATH>`

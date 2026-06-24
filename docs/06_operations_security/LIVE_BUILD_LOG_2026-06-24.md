@@ -270,3 +270,90 @@ Beszel access recovery created pre-reset backups in:
 ```
 
 If a Beszel account recovery breaks login, restore the latest Beszel data backup or restore LXC 101 from PBS.
+
+## Proxmox/PBS Internal HTTPS Migration
+
+Live change completed on 2026-06-24:
+
+- ran the live audit before the change; VPN edge, DNS, NPM target map, Homepage, Uptime Kuma, PBS backups, Headscale routes, and compose templates were healthy;
+- verified `http://proxmox.internal` and `http://pbs.internal` worked before migration, while client-side `https://proxmox.internal` and `https://pbs.internal` did not;
+- verified Smallstep CA health at `https://ca.internal:9002/health`;
+- backed up the Smallstep CA config and changed only the internal TLS certificate duration policy to 30 days;
+- issued Smallstep certificates for `proxmox.internal` and `pbs.internal`;
+- installed those certificates under NPM custom SSL storage:
+
+  ```text
+  /opt/core-network/npm/data/custom_ssl/step-ca-proxmox/
+  /opt/core-network/npm/data/custom_ssl/step-ca-pbs/
+  ```
+
+- backed up the two NPM proxy host files before editing them;
+- changed `proxmox.internal` and `pbs.internal` to redirect HTTP to HTTPS on the client side;
+- kept the upstreams unchanged:
+
+  ```text
+  proxmox.internal -> https://192.168.1.150:8006
+  pbs.internal     -> https://192.168.1.20:8007
+  ```
+
+- ran `nginx -t` inside the NPM container and reloaded only NPM;
+- updated live Homepage links and Uptime Kuma monitor URLs to `https://proxmox.internal` and `https://pbs.internal`;
+- mounted the Smallstep root CA into the Uptime Kuma container with `NODE_EXTRA_CA_CERTS` so the HTTPS monitors validate the internal CA instead of ignoring TLS;
+- tested both aliases with `GET`; both returned HTTP `200`;
+- confirmed the two Kuma monitors recovered to `200 - OK`;
+- documented that `HEAD` requests can return service-specific statuses and are not the authoritative test for these two aliases.
+
+Renewal was installed on the Proxmox host:
+
+```text
+/usr/local/sbin/sovereign-renew-npm-internal-certs
+/etc/systemd/system/sovereign-renew-npm-internal-certs.service
+/etc/systemd/system/sovereign-renew-npm-internal-certs.timer
+```
+
+The timer is enabled and scheduled weekly. The renewal script reissues the two certificates, copies them into NPM, runs `nginx -t`, and reloads only the NPM container.
+
+Rollback:
+
+1. Restore the backed-up NPM proxy host files from `/root/sovereign-secrets/backups/`.
+2. Run `docker exec npm nginx -t`.
+3. Reload NPM.
+4. Return Homepage and Uptime Kuma URLs for Proxmox/PBS to HTTP if required.
+
+Remaining gate: install the Smallstep root CA on admin clients so browsers trust `https://proxmox.internal` and `https://pbs.internal` without warnings.
+
+## Access Inventory and Password Standardization Gate
+
+Created the local-only root inventory:
+
+```text
+/root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md
+```
+
+Permissions were set to `600`. The file records aliases, admin usernames/emails, recovery methods, and open gates. It does not belong in Git.
+
+Password standardization was not performed in this pass because the common app password is not yet stored in a root-only local source file. The safe gate is:
+
+```bash
+printf '%s\n' '<COMMON_APP_PASSWORD>' >/root/sovereign-secrets/common-app-password
+chmod 600 /root/sovereign-secrets/common-app-password
+```
+
+After that file exists, reset one service at a time using the service-supported recovery method, excluding AdGuard and excluding database passwords, API tokens, DuckDNS token, RustDesk keys, CA secrets, and service-account credentials.
+
+## Gmail SMTP Alert Gate
+
+Gmail SMTP was not enabled in this pass because the Gmail app password is not yet present on the server.
+
+Required local setup:
+
+1. Enable 2-Step Verification on the Google account if it is not already enabled.
+2. Create a Gmail app password for the homelab alert relay.
+3. Store it only locally:
+
+   ```bash
+   printf '%s\n' '<GMAIL_APP_PASSWORD>' >/root/sovereign-secrets/smtp-password
+   chmod 600 /root/sovereign-secrets/smtp-password
+   ```
+
+The public repository still contains only placeholders and the relay self-test. Real SMTP DOWN/reminder/no-spam/recovery testing remains open.

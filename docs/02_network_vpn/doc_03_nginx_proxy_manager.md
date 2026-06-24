@@ -253,8 +253,8 @@ Current verified live target model:
 | Hostname | Verified upstream |
 |---|---|
 | `vpn.casca-certosa.duckdns.org` | root path to Headscale API `http://192.168.1.50:8080`; `/web` to Headscale-UI `http://192.168.1.50:8081` |
-| `proxmox.internal` | `https://192.168.1.150:8006` |
-| `pbs.internal` | `https://192.168.1.20:8007` |
+| `proxmox.internal` | client `https://proxmox.internal`, upstream `https://192.168.1.150:8006` |
+| `pbs.internal` | client `https://pbs.internal`, upstream `https://192.168.1.20:8007` |
 | `adguard.internal` | `http://192.168.1.50:3000` |
 | `npm.internal` | `http://192.168.1.50:81` |
 | `headscale.internal` | `http://192.168.1.50:8081` |
@@ -321,9 +321,16 @@ Accepted options:
 
 1. HTTP inside VPN during bootstrap.
 2. NPM self-signed or custom internal certificate.
-3. A future internal CA such as Smallstep `step-ca`.
+3. Smallstep `step-ca` certificates with a renewal procedure.
 
-For the current lab, VPN-first HTTP upstreams behind NPM are acceptable while internal CA work is planned separately.
+Live state: Proxmox VE and PBS have been moved to client-side HTTPS aliases using Smallstep-issued certificates. Keep the upstreams unchanged:
+
+```text
+proxmox.internal -> https://192.168.1.150:8006
+pbs.internal     -> https://192.168.1.20:8007
+```
+
+The rollback is service-local: restore the backed-up NPM proxy host file or disable the SSL server block and return the Homepage/Kuma URLs to HTTP. Do not change the public Headscale proxy while working on internal HTTPS.
 
 ## Phase K: Homepage and Uptime Kuma
 
@@ -379,6 +386,24 @@ Most `.internal` aliases can remain HTTP during the VPN-only bootstrap phase. Ne
 ```
 
 This is functional for LAN/VPN clients, but browsers will warn until the internal certificate authority or certificate is trusted on the device. The long-term target is a managed internal CA such as Smallstep `step-ca`.
+
+### Proxmox/PBS HTTPS Alias State
+
+The live lab uses Smallstep certificates for the two admin infrastructure aliases:
+
+```text
+/opt/core-network/npm/data/custom_ssl/step-ca-proxmox/
+/opt/core-network/npm/data/custom_ssl/step-ca-pbs/
+```
+
+The CA policy currently allows 30-day internal TLS certificates. Keep a renewal timer in place before migrating more aliases. Test with:
+
+```bash
+curl -k -I https://proxmox.internal
+curl -k -I https://pbs.internal
+```
+
+`HEAD` may return Proxmox/PBS-specific status codes such as `501` or `400`; use a `GET` fingerprint check for the authoritative result.
 
 ## Sources
 
