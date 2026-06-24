@@ -11,6 +11,7 @@ File:
 Purpose:
 
 - check the public Headscale health endpoint;
+- run the local alert relay syntax check and anti-spam self-test without SMTP;
 - verify public DuckDNS resolution is not a private RFC1918 address;
 - verify AdGuard split DNS for the VPN hostname and `dash.internal`;
 - smoke-test every Homepage card;
