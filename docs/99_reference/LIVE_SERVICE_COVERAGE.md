@@ -31,7 +31,8 @@ The public repository does not store credentials. The live server stores real va
 | Beszel | Recovery verified | dedicated recovery Hub admin validated on 2026-06-24; credential stored only in the root-only vault |
 | Proxmox/PBS | Access path documented | SSH key works for Proxmox; web credentials remain local |
 | NPM | Recovery verified | dedicated recovery admin validated on 2026-06-24; credential stored only in the root-only vault |
-| AdGuard, Authentik, Kuma | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
+| Kuma | Recovery verified | `admin` login validated on 2026-06-24; credential stored only in the root-only vault |
+| AdGuard, Authentik | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
 | Critical apps | UI reachable, production credential gate | fill private credentials before importing irreplaceable data |
 | Alerting | SMTP gated | no SMTP app password committed; configure locally before enabling email relay |
 
@@ -50,7 +51,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 | Proxmox Backup Server | VM140 | `192.168.1.20` | 8007 | `pbs.internal` | `https://192.168.1.20:8007` | yes | alias + TCP | datastore + config; offsite pending | guest restore evidence exists | root/PAM or PBS admin local | local credential/recovery vault | Live local recovery | not full DR until offsite exists |
 | Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI | Postgres + media + `.env` + PBS | LXC101 restore drill completed | recovery documented; MFA gate open | local credential/recovery vault | Live, hardening gate | enable MFA/recovery before protecting all UIs |
 | Homepage | LXC101 | `192.168.1.51` | 3002 | `dash.internal` | `http://192.168.1.51:3002` | yes | UI | YAML config + PBS | LXC101 restore drill completed | no app login by default | config/recovery notes local | Live | 27 cards validated |
-| Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | data volume + PBS | LXC101 restore drill completed | recovery documented | local credential/recovery vault | Live | 37 monitors UP during latest audit |
+| Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | data volume + PBS; pre-reset backup local | LXC101 restore drill completed | recovery admin verified | recovery credential stored local only | Live | 37 monitors UP during latest audit |
 | Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS; pre-reset backup local | LXC101 restore drill completed | recovery admin verified | recovery credential stored local only | Live | PocketBase superuser and Hub user are separate |
 | Dozzle | LXC101 | `192.168.1.51` | 8088 | `logs.internal` | `http://192.168.1.51:8088` | yes | UI | no critical data + PBS | LXC101 restore drill completed | VPN/Auth recommended | recovery notes local | Live | logs may expose secrets |
 | Smallstep CA | LXC101 | `192.168.1.51` | 9002 | `ca.internal:9002` | direct/API exception | health card | health | CA volume + root fingerprint + secret backup | LXC101 restore drill completed | provisioner/CA secrets local | secret path local | Live, trust gate | client root trust rollout pending |
@@ -90,7 +91,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 | PBS | VM140 | `192.168.1.20` | 8007 | `pbs.internal` | `https://192.168.1.20:8007` | yes | alias + TCP monitor | datastore + config; offsite pending | local datastore restore evidence exists for guests | Live local recovery | not full DR until offsite exists |
 | Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI monitor | PostgreSQL + media + `.env` + PBS | LXC101 restore drill completed | Live, hardening gate | enable MFA/recovery/proxy policies |
 | Homepage | LXC101 | `192.168.1.51` | 3002 | `dash.internal` | `http://192.168.1.51:3002` | yes | UI monitor | YAML config + PBS | LXC101 restore drill completed | Live | 27 cards validated |
-| Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | Kuma data volume + PBS | LXC101 restore drill completed | Live | 37 active monitors UP during audit |
+| Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | Kuma data volume + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live | recovery admin credential verified 2026-06-24; 37 active monitors UP during audit |
 | Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live | recovery admin credential verified 2026-06-24; agent uses hub/WebSocket enrollment |
 | Dozzle | LXC101 | `192.168.1.51` | 8088 | `logs.internal` | `http://192.168.1.51:8088` | yes | UI monitor | no critical data + PBS | LXC101 restore drill completed | Live | admin-only because logs may expose secrets |
 | Smallstep CA | LXC101 | `192.168.1.51` | 9002 | `ca.internal:9002` | direct/API exception | health card | health monitor | CA volume + root fingerprint + secret backup | LXC101 restore drill completed | Live, trust gate | distribute root trust before HTTPS migration |
@@ -145,6 +146,7 @@ The latest live audit passed these checks:
 - critical alias fingerprints match the expected services;
 - all 27 Homepage cards return `2xx` or expected login/redirect status;
 - 37 Uptime Kuma monitors are active and UP;
+- Uptime Kuma recovery admin credential was validated and stored only in the root-only local vault;
 - Beszel recovery admin credential was validated and stored only in the root-only local vault;
 - LXC 100 serves `192.168.1.0/24`;
 - Proxmox serves `0.0.0.0/0` and `::/0`;

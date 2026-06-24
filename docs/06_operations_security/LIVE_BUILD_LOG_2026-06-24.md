@@ -79,6 +79,20 @@ Recovery actions:
 
 No public service hostnames, DuckDNS rules, proxy targets, or certificates were changed.
 
+## Uptime Kuma Access Recovery
+
+Uptime Kuma admin access was recovered safely on 2026-06-24.
+
+Recovery actions:
+
+1. Created a root-only backup of the Kuma Docker volume under `/root/sovereign-secrets/backups/`.
+2. Used Uptime Kuma's official `npm run reset-password` helper inside the running container.
+3. Verified the recovered `admin` login through the local Socket.IO login flow without printing the password.
+4. Re-ran the live audit after reset; 37 Kuma monitors were still UP and all dashboard/proxy checks passed.
+5. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+No monitors, notification channels, aliases, proxy targets, or dashboard cards were removed.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:

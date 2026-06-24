@@ -43,7 +43,7 @@ Last audited: 2026-06-24.
 | Headscale UI | `headscale.internal/web` | UI is reachable; Headscale API and pre-auth keys are generated on demand. | rotate API/pre-auth keys |
 | Authentik | `auth.internal` | UI is reachable; enable MFA/recovery codes before enforcing Authentik everywhere. | Authentik recovery command plus DB backup |
 | Homepage | `dash.internal` | No separate app login by default; protect with VPN/Auth when needed. | YAML restore from LXC 101/PBS |
-| Uptime Kuma | `status.internal` | UI is reachable; monitor data is backed by LXC 101/PBS. | Kuma password reset after data backup |
+| Uptime Kuma | `status.internal` | Recovery admin credential verified and stored only in the root-only local vault; 37 monitors remained UP after reset. | Kuma official reset tool after data backup |
 | Beszel | `monitor.internal` | Recovery admin credential verified and stored only in the root-only local vault. | Beszel/PocketBase recovery procedure below |
 | Dozzle | `logs.internal` | UI is reachable; logs can expose secrets, keep VPN/Auth only. | no critical account data |
 | Smallstep CA | `ca.internal:9002` | CA health works; CA secrets must remain local and backed up. | restore CA volume or rotate CA with trust migration |
@@ -159,7 +159,21 @@ Use the Authentik recovery/bootstrap command from the running stack only after c
 
 ### Uptime Kuma
 
-Back up the Kuma data volume first. After password recovery:
+Back up the Kuma data volume first. The deployed container includes the official reset helper:
+
+```bash
+docker exec uptime-kuma npm run reset-password
+```
+
+Live recovery completed on 2026-06-24:
+
+1. Backed up the Kuma Docker volume to `/root/sovereign-secrets/backups/`.
+2. Used the official `npm run reset-password` helper inside the `uptime-kuma` container.
+3. Verified the recovered `admin` login through the local Socket.IO login flow.
+4. Re-ran the live audit; all 37 monitors remained UP and all dashboard aliases stayed healthy.
+5. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+After password recovery:
 
 1. confirm all monitors still exist;
 2. send a test notification;
@@ -194,3 +208,4 @@ An admin recovery is complete only when:
 - Beszel user account recovery: https://beszel.dev/guide/user-accounts
 - Beszel REST API model: https://beszel.dev/guide/rest-api
 - PocketBase authentication model: https://pocketbase.io/docs/authentication/
+- Uptime Kuma reset password helper: https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI
