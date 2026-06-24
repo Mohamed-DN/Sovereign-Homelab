@@ -93,6 +93,22 @@ Recovery actions:
 
 No monitors, notification channels, aliases, proxy targets, or dashboard cards were removed.
 
+## AdGuard Home Access Recovery
+
+AdGuard Home admin access was recovered safely on 2026-06-24.
+
+Recovery actions:
+
+1. Created a root-only backup of the full AdGuard directory under `/root/sovereign-secrets/backups/`.
+2. Generated a bcrypt password hash with the official `htpasswd -B` pattern.
+3. Updated only the existing `sole` user's password hash in `/opt/core-network/adguard/conf/AdGuardHome.yaml`.
+4. Restarted only the `adguardhome` container.
+5. Validated login through the AdGuard API and validated DNS resolution for `.internal`.
+6. Re-ran the live audit after restart; DNS, split DNS, NPM proxy targets, dashboard cards, and Kuma monitors passed.
+7. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+No DNS rewrites, filter lists, DHCP settings, upstream resolvers, or client definitions were changed.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:

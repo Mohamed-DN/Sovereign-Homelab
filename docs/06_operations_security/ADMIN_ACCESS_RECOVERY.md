@@ -38,7 +38,7 @@ Last audited: 2026-06-24.
 |---|---|---|---|
 | Proxmox VE | `proxmox.internal` | SSH key works from the admin workstation; web login is root/PAM. | root password rotation and password manager entry |
 | Proxmox Backup Server | `pbs.internal` | UI is reachable; PBS token is used for PVE backup integration. | root/PAM or dedicated PBS admin entry |
-| AdGuard Home | `adguard.internal` | UI is reachable; credentials must stay local. | AdGuard password reset or restore LXC 100 |
+| AdGuard Home | `adguard.internal` | Recovery admin credential verified and stored only in the root-only local vault; DNS remained healthy after reset. | AdGuard bcrypt hash reset or restore LXC 100 |
 | Nginx Proxy Manager | `npm.internal` | Recovery admin credential verified and stored only in the root-only local vault. | NPM SQLite auth recovery or restore LXC 100 |
 | Headscale UI | `headscale.internal/web` | UI is reachable; Headscale API and pre-auth keys are generated on demand. | rotate API/pre-auth keys |
 | Authentik | `auth.internal` | UI is reachable; enable MFA/recovery codes before enforcing Authentik everywhere. | Authentik recovery command plus DB backup |
@@ -121,6 +121,18 @@ AdGuard stores config and credentials in its work/config directories. If UI acce
    ```bash
    nslookup dash.internal 192.168.1.50
    ```
+
+Live recovery completed on 2026-06-24:
+
+1. Backed up the full AdGuard directory to `/root/sovereign-secrets/backups/`.
+2. Generated a bcrypt password hash with the official `htpasswd -B` pattern.
+3. Replaced only the `password` value for the existing `sole` user in `/opt/core-network/adguard/conf/AdGuardHome.yaml`.
+4. Restarted only the `adguardhome` container.
+5. Validated login through the AdGuard API and validated DNS with `nslookup dash.internal`.
+6. Re-ran the live audit; AdGuard DNS, split DNS, Homepage, NPM targets, and Kuma monitors remained healthy.
+7. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+Do not commit the bcrypt hash or the recovery password.
 
 ### Nginx Proxy Manager
 
@@ -209,3 +221,5 @@ An admin recovery is complete only when:
 - Beszel REST API model: https://beszel.dev/guide/rest-api
 - PocketBase authentication model: https://pocketbase.io/docs/authentication/
 - Uptime Kuma reset password helper: https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI
+- AdGuard Home password hash configuration: https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration
+- Apache htpasswd bcrypt helper: https://httpd.apache.org/docs/current/programs/htpasswd.html
