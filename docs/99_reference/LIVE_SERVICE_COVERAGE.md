@@ -33,7 +33,7 @@ The public repository does not store credentials. The live server stores real va
 | NPM | Recovery verified | dedicated recovery admin validated on 2026-06-24; credential stored only in the root-only vault |
 | Kuma | Recovery verified | `admin` login validated on 2026-06-24; credential stored only in the root-only vault |
 | AdGuard | Recovery verified | `sole` login validated on 2026-06-24; credential stored only in the root-only vault |
-| Authentik | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
+| Authentik | Recovery verified | `akadmin` password verified on 2026-06-24; MFA/recovery-code hardening still open |
 | Critical apps | UI reachable, production credential gate | fill private credentials before importing irreplaceable data |
 | Alerting | SMTP gated | no SMTP app password committed; configure locally before enabling email relay |
 
@@ -50,7 +50,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 | CrowdSec LAPI | LXC100 | `192.168.1.50` | 8089 | protocol/API exception | none | no | TCP LAPI | config + DB + PBS | LXC100 restore path documented | API secret managed locally | secret path local | Live detection | no remediation bouncer yet |
 | Proxmox VE | Host | `192.168.1.150` | 8006 | `proxmox.internal` | `https://192.168.1.150:8006` | yes | alias HTTP | host config notes + PBS plan | host rebuild documented | SSH key works; web credentials local | local credential/recovery vault | Live | durable exit node |
 | Proxmox Backup Server | VM140 | `192.168.1.20` | 8007 | `pbs.internal` | `https://192.168.1.20:8007` | yes | alias + TCP | datastore + config; offsite pending | guest restore evidence exists | root/PAM or PBS admin local | local credential/recovery vault | Live local recovery | not full DR until offsite exists |
-| Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI | Postgres + media + `.env` + PBS | LXC101 restore drill completed | recovery documented; MFA gate open | local credential/recovery vault | Live, hardening gate | enable MFA/recovery before protecting all UIs |
+| Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI | Postgres + media + `.env` + PBS; pre-reset backup local | LXC101 restore drill completed | `akadmin` recovery verified; MFA gate open | recovery credential stored local only | Live, hardening gate | enable MFA/recovery before protecting all UIs |
 | Homepage | LXC101 | `192.168.1.51` | 3002 | `dash.internal` | `http://192.168.1.51:3002` | yes | UI | YAML config + PBS | LXC101 restore drill completed | no app login by default | config/recovery notes local | Live | 27 cards validated |
 | Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | data volume + PBS; pre-reset backup local | LXC101 restore drill completed | recovery admin verified | recovery credential stored local only | Live | 37 monitors UP during latest audit |
 | Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS; pre-reset backup local | LXC101 restore drill completed | recovery admin verified | recovery credential stored local only | Live | PocketBase superuser and Hub user are separate |
@@ -90,7 +90,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 | CrowdSec | LXC100 | `192.168.1.50` | 8089 LAPI | none | protocol/API exception | no | TCP LAPI monitor | config + DB + PBS | LXC100 recovery path documented | Live detection | no bouncer/remediation yet |
 | Proxmox VE | Host | `192.168.1.150` | 8006 | `proxmox.internal` | `https://192.168.1.150:8006` | yes | alias monitor | host config notes + PBS restore plan | host rebuild process documented | Live | also durable exit node |
 | PBS | VM140 | `192.168.1.20` | 8007 | `pbs.internal` | `https://192.168.1.20:8007` | yes | alias + TCP monitor | datastore + config; offsite pending | local datastore restore evidence exists for guests | Live local recovery | not full DR until offsite exists |
-| Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI monitor | PostgreSQL + media + `.env` + PBS | LXC101 restore drill completed | Live, hardening gate | enable MFA/recovery/proxy policies |
+| Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI monitor | PostgreSQL + media + `.env` + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live, hardening gate | `akadmin` recovery verified 2026-06-24; enable MFA/recovery/proxy policies |
 | Homepage | LXC101 | `192.168.1.51` | 3002 | `dash.internal` | `http://192.168.1.51:3002` | yes | UI monitor | YAML config + PBS | LXC101 restore drill completed | Live | 27 cards validated |
 | Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | Kuma data volume + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live | recovery admin credential verified 2026-06-24; 37 active monitors UP during audit |
 | Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live | recovery admin credential verified 2026-06-24; agent uses hub/WebSocket enrollment |
@@ -145,6 +145,7 @@ The latest live audit passed these checks:
 - AdGuard recovery admin credential was validated and stored only in the root-only local vault;
 - all generated NPM proxy targets map to the documented upstreams;
 - NPM recovery admin credential was validated and stored only in the root-only local vault;
+- Authentik `akadmin` recovery credential was validated and stored only in the root-only local vault;
 - critical alias fingerprints match the expected services;
 - all 27 Homepage cards return `2xx` or expected login/redirect status;
 - 37 Uptime Kuma monitors are active and UP;

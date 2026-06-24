@@ -109,6 +109,21 @@ Recovery actions:
 
 No DNS rewrites, filter lists, DHCP settings, upstream resolvers, or client definitions were changed.
 
+## Authentik Access Recovery
+
+Authentik `akadmin` access was recovered safely on 2026-06-24.
+
+Recovery actions:
+
+1. Created a root-only Postgres dump under `/root/sovereign-secrets/backups/`.
+2. Created a root-only backup of the Authentik media and custom template volumes.
+3. Used Authentik's official `ak changepassword akadmin` command inside the running server container.
+4. Verified the recovered password through Authentik's Django user model.
+5. Re-ran the live audit after reset; `auth.internal`, Homepage, NPM aliases, and Kuma monitors passed.
+6. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+MFA enrollment, recovery codes, and one-by-one Authentik protection of sensitive admin UIs remain explicit hardening gates.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:
