@@ -165,6 +165,11 @@ Validated state:
 - repository working tree was clean;
 - `https://vpn.casca-certosa.duckdns.org/health` returned HTTP `200`;
 - public DuckDNS resolved to the current home public IP;
+- Headscale `server_url` was the public HTTPS DuckDNS endpoint and `listen_addr` was `0.0.0.0:8080`;
+- Headscale MagicDNS was enabled, `override_local_dns` was enabled, and global DNS pointed clients to AdGuard `192.168.1.50`;
+- the public NPM VPN proxy host was enabled, SSL-forced, WebSocket-enabled, had no access list, forwarded root traffic to Headscale `192.168.1.50:8080`, and forwarded `/web` to Headscale-UI `192.168.1.50:8081`;
+- Proxmox and LXC 100 used the public Headscale control URL while keeping Tailscale DNS disabled locally for infrastructure stability;
+- Proxmox and LXC 100 both had IPv4 and IPv6 forwarding enabled for exit-node and subnet-router roles;
 - NPM generated proxy targets matched the documented upstreams for core, platform, apps, operations extensions, Nextcloud, Home Assistant, and the public Headscale edge;
 - AdGuard split DNS returned `vpn.casca-certosa.duckdns.org -> 192.168.1.50`;
 - `dash.internal` resolved through AdGuard to the NPM IP;

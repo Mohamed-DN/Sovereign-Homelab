@@ -50,7 +50,7 @@ Last checked: 2026-06-24.
 | Live image tags | core live Compose pinned to Headscale `v0.28.0`, Headscale-UI `2026.03.17`, AdGuard Home `v0.107.77`, and NPM `2.15.1`; Scrutiny pinned to `v0.9.2-omnibus` |
 | Storage model | `ssd_pool` initially appeared above 90% used because VM zvols were thick-reserved; sparse allocation is now enabled and thick zvol reservations were cleared, reducing reported usage to about 15% |
 | Runtime DNS domain | Proxmox, LXC100, LXC101, LXC102, and LXC103 now use `search internal`; AdGuard answers as `core-network.internal` |
-| Latest live audit | `scripts/sovereign-live-audit.ps1` passed on 2026-06-24 after the identity/LDAP documentation slice |
+| Latest live audit | `scripts/sovereign-live-audit.ps1` passed on 2026-06-24 with VPN control-plane invariants, public NPM edge flags, infrastructure Tailscale DNS posture, IP forwarding, and PBS backup coverage gates |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
 
