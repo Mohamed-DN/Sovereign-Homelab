@@ -84,6 +84,7 @@ grep -q '^## Beszel Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENT
 grep -q '^## Nginx Proxy Manager Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 grep -q '^## Uptime Kuma Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 grep -q '^## Credential File Structure Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+grep -q '^## Credential Gap Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 ```
 
 Beszel recovery health check:
