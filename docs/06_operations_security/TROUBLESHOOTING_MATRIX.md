@@ -61,6 +61,11 @@
 | `zfs-import@POOL.service` fails for a pool that no longer exists | stale ZFS import unit | confirm `zpool status` and `zpool import`, then disable/reset the stale `zfs-import@POOL.service` |
 | Proxmox journal shows `overlayfs ... falling back to xino=off` | `systemctl --failed`, `zpool status -x`, container health | acceptable Docker-in-LXC-on-ZFS warning if services are healthy; do not rebuild Docker storage only to silence it |
 | ntfy receives no alerts | Kuma notification URL and ntfy logs | verify topic URL, auth mode, and NPM proxy path |
+| Alert relay self-test fails | `python scripts/sovereign-alert-relay.py --self-test` | do not enable SMTP yet; fix the relay script, re-run `python -m py_compile`, and confirm the expected `ALERT`, `REMINDER`, and `RESOLVED` sequence |
+| Alert relay health works but Kuma webhook returns `401` | `curl -i http://127.0.0.1:8099/health`, Kuma webhook Authorization header, relay token file path | verify Kuma sends `Authorization: Bearer <ALERT_RELAY_TOKEN>` and that the token is read only from `/root/sovereign-secrets/alert-relay-token` |
+| Alert relay health works but Kuma webhook returns `404` | Kuma webhook URL | use `/webhook` or `/kuma`; do not point Kuma at `/health` |
+| Alert relay dry-run prints email events but real SMTP does not send | `ALERT_DRY_RUN`, `/root/sovereign-secrets/alert-relay.env`, journal logs | set `ALERT_DRY_RUN=false`, verify SMTP host/port/starttls/user/password file, restart the service, then test with one safe monitor |
+| Alert relay keeps dry-running in production | `grep ALERT_DRY_RUN /root/sovereign-secrets/alert-relay.env` | set `ALERT_DRY_RUN=false` and restart `sovereign-alert-relay`; dry-run is only for pre-SMTP validation |
 | Email alerts never arrive | `systemctl status sovereign-alert-relay`, relay logs, SMTP settings | verify `/root/sovereign-secrets/alert-relay.env`, SMTP app password file, recipient, relay token, and Kuma webhook authorization |
 | Email alerts spam repeatedly | alert relay state file and Kuma resend settings | use the local relay for anti-spam behavior; avoid attaching a raw SMTP notification directly to noisy monitors |
 | Recovery email is missing | relay state file and Kuma UP webhook delivery | confirm Kuma sends recovery webhooks and that the incident had already sent a DOWN email |
