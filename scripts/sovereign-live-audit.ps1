@@ -67,6 +67,28 @@ function Invoke-Scp {
     }
 }
 
+function Invoke-LocalPython {
+    param([string[]]$Arguments)
+
+    $candidates = @(
+        @{ Command = 'python'; Prefix = @() },
+        @{ Command = 'py'; Prefix = @('-3') }
+    )
+
+    foreach ($candidate in $candidates) {
+        try {
+            & $candidate.Command @($candidate.Prefix) @Arguments
+            if ($LASTEXITCODE -eq 0) {
+                return $true
+            }
+        } catch {
+            continue
+        }
+    }
+
+    return $false
+}
+
 function Test-HttpStatus {
     param(
         [string]$Url,
@@ -203,6 +225,20 @@ try {
         Add-Warn 'working tree has local changes; commit or discard them before publishing'
     } else {
         Add-Pass 'working tree has no local changes'
+    }
+
+    Write-Section 'Alert Relay Self-Test'
+    $relayScript = Join-Path $RepoRoot 'scripts/sovereign-alert-relay.py'
+    if (Invoke-LocalPython -Arguments @('-m', 'py_compile', $relayScript)) {
+        Add-Pass 'alert relay Python syntax is valid'
+    } else {
+        Add-Failure 'alert relay Python syntax check failed'
+    }
+
+    if (Invoke-LocalPython -Arguments @($relayScript, '--self-test')) {
+        Add-Pass 'alert relay anti-spam self-test passed'
+    } else {
+        Add-Failure 'alert relay anti-spam self-test failed'
     }
 
     Write-Section 'Public VPN Edge'
