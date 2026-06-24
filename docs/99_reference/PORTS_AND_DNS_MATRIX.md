@@ -2,7 +2,7 @@
 
 This matrix is the single source of truth for hostnames, ports, and access model.
 
-For dashboard and monitoring coverage, use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md).
+For dashboard and monitoring coverage, use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md). For identity decisions, use [Identity Access Matrix](IDENTITY_ACCESS_MATRIX.md).
 
 ## Enterprise DNS Model
 
@@ -62,6 +62,7 @@ Design references:
 | Service | Hostname | Template port | Access | Notes |
 |---|---:|---:|---|---|
 | Authentik | `auth.internal` | 9000 | VPN/Auth by default | Identity provider |
+| Authentik LDAP outpost | `ldap.internal` | 636 | LAN/VPN service accounts | Direct LDAPS to LXC 101, no NPM, no public exposure |
 | Homepage | `dash.internal` | 3002 | VPN/Auth | Dashboard |
 | Uptime Kuma | `status.internal` | 3001 | VPN/Auth | Monitoring |
 | Beszel | `monitor.internal` | 8090 | VPN/Auth | Metrics |
@@ -79,6 +80,7 @@ Live bootstrap state as of 2026-06-22:
 | `proxmox.internal` | `http://proxmox.internal` | `https://192.168.1.150:8006` |
 | `pbs.internal` | `http://pbs.internal` | `https://192.168.1.20:8007` |
 | `auth.internal` | `http://auth.internal` | `http://192.168.1.51:9000` |
+| `ldap.internal` | `ldaps://ldap.internal:636` | direct to `192.168.1.51:636` after LDAP outpost deployment; no NPM proxy |
 | `dash.internal` | `http://dash.internal` | `http://192.168.1.51:3002` |
 | `status.internal` | `http://status.internal` | `http://192.168.1.51:3001` |
 | `monitor.internal` | `http://monitor.internal` | `http://192.168.1.51:8090` |
@@ -156,6 +158,7 @@ In AdGuard:
 | `pbs.internal` | NPM IP |
 | `headscale.internal` | NPM IP |
 | `auth.internal` | NPM IP |
+| `ldap.internal` | LXC 101 IP directly, not NPM |
 | `dash.internal` | NPM IP |
 | `status.internal` | NPM IP |
 | `monitor.internal` | NPM IP |

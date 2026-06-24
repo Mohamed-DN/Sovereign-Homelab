@@ -126,6 +126,30 @@ Recovery actions:
 
 MFA enrollment, recovery codes, and one-by-one Authentik protection of sensitive admin UIs remain explicit hardening gates.
 
+## Identity/LDAP Design Slice
+
+Later on 2026-06-24, the identity plan was expanded as documentation only. No live LDAP outpost, Proxmox realm, app SSO enforcement, or access-list change was applied in this slice.
+
+Recorded design:
+
+- Authentik remains the source for users, groups, MFA, application policy, and recovery.
+- OIDC/OAuth or Authentik Proxy Provider is the default for web applications.
+- LDAP/LDAPS is only a compatibility layer for services that need it.
+- Planned LDAP base DN is `dc=sovereign,dc=internal`.
+- Planned LDAPS endpoint is `ldap.internal:636`, direct to LXC 101 and never through NPM.
+- Standard groups are `homelab-admins`, `homelab-users`, `homelab-family`, and `homelab-service-accounts`.
+- Local break-glass accounts remain outside SSO and are stored only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+- The public Headscale endpoint remains unprotected by Authentik and NPM access lists.
+
+Remaining gates before broad SSO rollout:
+
+1. enroll MFA and save recovery codes;
+2. verify local break-glass access for critical services;
+3. protect one low-risk app first;
+4. validate rollback;
+5. deploy LDAPS only when a real LDAP consumer is ready;
+6. validate LDAPS certificate trust before using LDAP for Proxmox, PBS, Linux/SSSD, or Nextcloud.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:

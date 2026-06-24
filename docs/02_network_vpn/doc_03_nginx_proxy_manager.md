@@ -173,6 +173,7 @@ AdGuard must resolve internal names to NPM:
 | Pattern | Target |
 |---|---|
 | `*.internal` | NPM IP |
+| `ldap.internal` | LXC 101 IP directly, not NPM |
 | `vpn.yourdomain.duckdns.org` | `LXC100_IP` |
 
 Why:
@@ -180,6 +181,7 @@ Why:
 - LAN/VPN users reach internal services through NPM.
 - Remote VPN clients use AdGuard as DNS and get the same private aliases.
 - Headscale clients at home avoid hairpin routing for `vpn.yourdomain.duckdns.org`.
+- LDAPS clients reach the Authentik LDAP outpost directly. If a wildcard rewrite exists, keep the `ldap.internal` rewrite as a specific override.
 
 ## Phase E: Public Proxy Host
 
@@ -302,13 +304,14 @@ Some services are not HTTP web UIs. Give them DNS names when useful, but do not 
 | Service | Endpoint | NPM | Monitor |
 |---|---|---|---|
 | RustDesk OSS server | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | no | TCP monitors plus manual client test |
+| Authentik LDAP outpost | `ldap.internal:636/tcp` | no | optional TCP monitor after deployment |
 | Syncthing sync | `LXC102_IP:22000/tcp+udp` | no | TCP monitor |
 | Syncthing discovery | `LXC102_IP:21027/udp` | no | optional manual LAN test |
 | Forgejo SSH | `LXC102_IP:2222/tcp` | no | TCP monitor |
 | Ollama API | `AI_HOST_IP:11434/tcp` | no public NPM proxy | optional TCP monitor |
 | CrowdSec LAPI | `LXC100_IP:8089/tcp` | no | optional TCP monitor; live placement follows NPM logs |
 
-`rustdesk.internal` must resolve directly to `RUSTDESK_HOST_IP`, not to NPM, because RustDesk clients connect to protocol ports directly.
+`rustdesk.internal` must resolve directly to `RUSTDESK_HOST_IP`, not to NPM, because RustDesk clients connect to protocol ports directly. `ldap.internal` must resolve directly to LXC 101, not to NPM, because LDAPS is not HTTP.
 
 ## Phase J: TLS for `.internal`
 

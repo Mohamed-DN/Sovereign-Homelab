@@ -11,13 +11,14 @@ Use [Start Here](../START_HERE.md) as the main reading path. This index explains
 | `04_apps/` | Vaultwarden, Immich, Syncthing, Nextcloud, Paperless, Home Assistant, Jellyfin, RSS, bookmarks, search, Git, AI |
 | `05_backup_dr/` | PBS, retention, verify, restore drills, restic/offsite |
 | `06_operations_security/` | operations manual, admin access recovery, live Proxmox validation, live build logs, deployment workflow, security operations, troubleshooting |
-| `99_reference/` | inventory, ports/DNS matrix, service visibility matrix, live service coverage, local credentials template, pinned image versions, validation commands, and the open-source stack catalog |
+| `99_reference/` | inventory, ports/DNS matrix, service visibility matrix, identity access matrix, live service coverage, local credentials template, pinned image versions, validation commands, and the open-source stack catalog |
 
 Numbered `doc_XX_*.md` files are canonical runbooks inside their section folders. Use [START_HERE.md](../START_HERE.md) for the ordered path.
 
 Current high-signal files:
 
 - [Live Service Coverage](99_reference/LIVE_SERVICE_COVERAGE.md)
+- [Identity Access Matrix](99_reference/IDENTITY_ACCESS_MATRIX.md)
 - [Local Credentials Template](99_reference/LOCAL_CREDENTIALS_TEMPLATE.md)
 - [Admin Access Recovery](06_operations_security/ADMIN_ACCESS_RECOVERY.md)
 - [Future Improvements Research](00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md)

@@ -95,6 +95,61 @@ curl -s -o /dev/null -w '%{http_code}\n' http://monitor.internal
 
 Expected result: `200`. The actual Beszel recovery credential is stored only in the local root-only vault.
 
+## Identity and LDAP Access Model
+
+Repository-level identity design checks:
+
+```bash
+test -f docs/99_reference/IDENTITY_ACCESS_MATRIX.md
+rg -n "homelab-admins|homelab-users|homelab-family|homelab-service-accounts|dc=sovereign,dc=internal|ldap.internal" docs/03_platform_services/doc_07_identity_sso_authentik.md docs/99_reference/IDENTITY_ACCESS_MATRIX.md docs/99_reference/PORTS_AND_DNS_MATRIX.md docs/99_reference/SERVICE_VISIBILITY_MATRIX.md docs/99_reference/INVENTORY_AND_IP_PLAN.md
+```
+
+Expected:
+
+- `IDENTITY_ACCESS_MATRIX.md` exists;
+- Authentik is documented as the identity source;
+- OIDC/OAuth or proxy-provider SSO is the preferred web-app model;
+- LDAP is documented as a compatibility layer only;
+- `ldap.internal` is direct LDAPS to LXC 101, not NPM;
+- public Headscale remains outside Authentik forward-auth and NPM access lists;
+- break-glass credentials remain outside SSO and only in the local root-only vault.
+
+Planned live checks after the LDAP outpost is deployed:
+
+```bash
+nslookup ldap.internal 192.168.1.50
+nc -vz ldap.internal 636
+ldapsearch -x -H ldaps://ldap.internal:636 \
+  -D 'cn=ldap-bind,ou=users,dc=sovereign,dc=internal' \
+  -W \
+  -b 'dc=sovereign,dc=internal' '(objectClass=user)'
+```
+
+Expected:
+
+- `ldap.internal` resolves to LXC 101 directly, not NPM;
+- TCP `636` is reachable only on LAN/VPN;
+- the bind password is typed interactively and never appears in shell history;
+- users appear under `ou=users,dc=sovereign,dc=internal`;
+- groups appear under `ou=groups,dc=sovereign,dc=internal`.
+
+Proxy-provider pilot checks after protecting the first low-risk app:
+
+```bash
+curl -I http://dash.internal
+curl -I http://rss.internal
+curl -I http://auth.internal/if/user/
+```
+
+Manual acceptance:
+
+1. unauthenticated browser is redirected to Authentik;
+2. a `homelab-users` member can open the low-risk app;
+3. a non-member is denied;
+4. `homelab-admins` can still reach admin UIs;
+5. local break-glass login still works for Proxmox, NPM, AdGuard, Authentik, Uptime Kuma, PBS, and critical apps;
+6. Uptime Kuma monitors remain meaningful after auth enforcement.
+
 ## Alert Relay Template
 
 The alert relay is optional until SMTP credentials are available locally, but the script must remain syntactically valid:

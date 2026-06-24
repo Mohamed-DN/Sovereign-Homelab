@@ -62,13 +62,14 @@ Large environments usually use a private subdomain of a registered corporate dom
 
 ### 3. Identity, Monitoring, and Backup
 
-1. [Runbook 07](docs/03_platform_services/doc_07_identity_sso_authentik.md): Authentik, MFA, OIDC, and proxy provider.
-2. [Platform Services from Empty LXC](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md): LXC 101, Authentik, dashboard, monitoring, logs, CrowdSec.
-3. [Runbook 08](docs/03_platform_services/doc_08_observability_dashboard.md): Homepage, Uptime Kuma, Beszel, and Dozzle.
-4. [Runbook 12](docs/03_platform_services/doc_12_internal_ca_smallstep.md): Smallstep internal CA for trusted private `.internal` TLS.
-5. [Runbook 09](docs/05_backup_dr/doc_09_backup_dr.md): Proxmox Backup Server, restore tests, and restic offsite.
-6. [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md): datastore, jobs, verify, prune, restore drills, offsite.
-7. Optional after the core is stable: add NetAlertX, Scrutiny, and ntfy as operations extensions for asset visibility, disk health, and self-hosted alerts.
+1. [Runbook 07](docs/03_platform_services/doc_07_identity_sso_authentik.md): Authentik, MFA, OIDC, proxy provider, and LDAPS compatibility planning.
+2. [Identity Access Matrix](docs/99_reference/IDENTITY_ACCESS_MATRIX.md): service-by-service SSO, OIDC, proxy-provider, LDAP, and break-glass decisions.
+3. [Platform Services from Empty LXC](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md): LXC 101, Authentik, dashboard, monitoring, logs, CrowdSec.
+4. [Runbook 08](docs/03_platform_services/doc_08_observability_dashboard.md): Homepage, Uptime Kuma, Beszel, and Dozzle.
+5. [Runbook 12](docs/03_platform_services/doc_12_internal_ca_smallstep.md): Smallstep internal CA for trusted private `.internal` TLS.
+6. [Runbook 09](docs/05_backup_dr/doc_09_backup_dr.md): Proxmox Backup Server, restore tests, and restic offsite.
+7. [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md): datastore, jobs, verify, prune, restore drills, offsite.
+8. Optional after the core is stable: add NetAlertX, Scrutiny, and ntfy as operations extensions for asset visibility, disk health, and self-hosted alerts.
 
 ### 4. Personal Applications
 

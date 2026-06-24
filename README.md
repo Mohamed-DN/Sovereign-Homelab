@@ -35,6 +35,7 @@ Last live build log: [2026-06-24](docs/06_operations_security/LIVE_BUILD_LOG_202
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
 | Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; Homepage uses tabs, icons, and safe visual `siteMonitor` checks |
 | Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
+| Identity | Authentik is live and remains the source for users, groups, MFA, and app access policy; LDAP/LDAPS is planned only as a compatibility outpost for services such as Proxmox or Linux/SSSD that need directory login |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
 | Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk; PBS boot/service restore drill passed; baseline app-aware DB restore and library manifest drill passed |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
@@ -134,6 +135,7 @@ High-signal reference files:
 | File | Purpose |
 |---|---|
 | [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md) | compact live table for service, alias, NPM, Homepage, Kuma, backup, restore, and gate status |
+| [IDENTITY_ACCESS_MATRIX.md](docs/99_reference/IDENTITY_ACCESS_MATRIX.md) | Authentik groups, SSO method per service, LDAP compatibility scope, and break-glass access model |
 | [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) | safe public template for the root-only local credentials file |
 | [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) | safe admin-access recovery runbook for Proxmox, PBS, platform services, Beszel, and apps |
 | [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md) | researched future ideas, benefits, risks, and priorities; no live changes |
@@ -145,11 +147,12 @@ High-signal reference files:
 2. Confirm the hardware and guest plan in [HARDWARE_AND_RESOURCE_PLAN.md](docs/01_proxmox_foundation/HARDWARE_AND_RESOURCE_PLAN.md).
 3. Build DNS/VPN/proxy from [docs/02_network_vpn](docs/02_network_vpn).
 4. Build platform services from [PLATFORM_SERVICES_FROM_EMPTY_LXC.md](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md).
-5. Configure PBS and run a restore test using [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md).
-6. Deploy one app at a time from [docs/04_apps/00_APP_SERVICES_INDEX.md](docs/04_apps/00_APP_SERVICES_INDEX.md).
-7. Add alias, NPM proxy, Homepage card, Uptime Kuma monitor, backup, restore, and rollback for each service.
-8. Record or recover admin access using [Admin Access Recovery](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md).
-9. Add optional operations extensions only after the core is green: NetAlertX for asset visibility, Scrutiny for disk SMART, and ntfy for self-hosted alerts.
+5. Review the identity plan in [Identity Access Matrix](docs/99_reference/IDENTITY_ACCESS_MATRIX.md) before enforcing SSO.
+6. Configure PBS and run a restore test using [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md).
+7. Deploy one app at a time from [docs/04_apps/00_APP_SERVICES_INDEX.md](docs/04_apps/00_APP_SERVICES_INDEX.md).
+8. Add alias, NPM proxy, Homepage card, Uptime Kuma monitor, backup, restore, and rollback for each service.
+9. Record or recover admin access using [Admin Access Recovery](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md).
+10. Add optional operations extensions only after the core is green: NetAlertX for asset visibility, Scrutiny for disk SMART, and ntfy for self-hosted alerts.
 
 ## Stack Usage
 

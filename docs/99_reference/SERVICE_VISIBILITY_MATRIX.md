@@ -2,6 +2,8 @@
 
 This matrix is the source of truth for service visibility. A service is not considered operational until its access path, dashboard entry, monitor, and backup rule are documented.
 
+Identity and authorization decisions are tracked in [Identity Access Matrix](IDENTITY_ACCESS_MATRIX.md).
+
 ## Visibility Rule
 
 - Every web UI gets a `.internal` alias.
@@ -51,6 +53,7 @@ Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
 | Authentik | `auth.internal` | `http://LXC101_IP:9000` | yes | yes | HTTP monitor until internal CA | VPN/Auth | PostgreSQL + media + `.env` |
+| Authentik LDAP outpost | `ldap.internal` | `ldaps://LXC101_IP:636` | no; protocol exception | no | optional TCP `636` monitor after deployment | LAN/VPN service accounts | Authentik config + service-account credential in local vault |
 | Homepage | `dash.internal` | `http://LXC101_IP:3002` | yes | yes | HTTP monitor until internal CA | VPN/Auth | YAML config |
 | Uptime Kuma | `status.internal` | `http://LXC101_IP:3001` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Kuma data volume |
 | Beszel | `monitor.internal` | `http://LXC101_IP:8090` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Beszel data volume |
@@ -95,6 +98,7 @@ These are optional panels for running the lab at a higher operational level. The
 |---|---|---|---|---|
 | AdGuard DNS | `LXC100_IP:53/tcp+udp` | DNS protocol, not HTTP | no direct UI card; UI card uses `adguard.internal` | DNS monitor |
 | AdGuard DHCP | `LXC100_IP:67/udp` | DHCP broadcast service, not proxied | no | not normally monitored by Kuma |
+| Authentik LDAP outpost | `ldap.internal:636` | LDAPS protocol, not HTTP; direct to LXC 101 and never public | no | optional TCP `636` monitor after deployment |
 | Headscale metrics | `LXC100_IP:9090` | metrics endpoint, not public UI | no | optional internal HTTP monitor |
 | CrowdSec LAPI | `LXC100_IP:8089` | security API, not UI; live placement follows NPM logs | no | optional TCP monitor |
 | Beszel agent | hub/WebSocket enrollment | live platform agent connects outbound to the hub; no separate inbound TCP port is monitored | no | verify inside Beszel system list |

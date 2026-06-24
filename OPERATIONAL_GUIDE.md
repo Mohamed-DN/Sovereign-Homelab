@@ -10,6 +10,7 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 4:** Re-audited service visibility, recovery paths, DNS/proxy flow, and data protection rules so every service is either reachable through the documented path or listed as an exception.
 - **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
 - **Round 6:** Re-ran the live audit, recovered Beszel admin access through the supported PocketBase path, stored the recovery credential only in the root-only local vault, and added the public admin-access recovery runbook.
+- **Round 7:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
 
@@ -201,7 +202,7 @@ curl -I http://logs.internal
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, and Smallstep CA. Uptime Kuma has 37 live monitors covering VPN, DNS, critical alias fingerprints, app aliases including Nextcloud, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, the internal CA, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates.
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, and Smallstep CA. Uptime Kuma has 37 live monitors covering VPN, DNS, critical alias fingerprints, app aliases including Nextcloud, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, the internal CA, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates. The planned identity model is Authentik-first: use OIDC/OAuth or proxy-provider SSO for web apps, and add an Authentik LDAP/LDAPS outpost only for services that require directory compatibility. The service-by-service source of truth is [IDENTITY_ACCESS_MATRIX.md](docs/99_reference/IDENTITY_ACCESS_MATRIX.md).
 
 Optional operations extensions belong after this layer, not before it:
 
