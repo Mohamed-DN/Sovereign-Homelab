@@ -30,7 +30,8 @@ The public repository does not store credentials. The live server stores real va
 | Credential vault permissions | Verified | `/root/sovereign-secrets` is `700`; `HOMELAB_CREDENTIALS.md` is `600` |
 | Beszel | Recovery verified | dedicated recovery Hub admin validated on 2026-06-24; credential stored only in the root-only vault |
 | Proxmox/PBS | Access path documented | SSH key works for Proxmox; web credentials remain local |
-| NPM, AdGuard, Authentik, Kuma | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
+| NPM | Recovery verified | dedicated recovery admin validated on 2026-06-24; credential stored only in the root-only vault |
+| AdGuard, Authentik, Kuma | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
 | Critical apps | UI reachable, production credential gate | fill private credentials before importing irreplaceable data |
 | Alerting | SMTP gated | no SMTP app password committed; configure locally before enabling email relay |
 
@@ -42,7 +43,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 |---|---|---:|---:|---|---|---|---|---|---|---|---|---|---|
 | Headscale API | LXC100 | `192.168.1.50` | 8080 | `vpn.yourdomain.duckdns.org` | `http://192.168.1.50:8080` | yes, health link | public HTTPS + API TCP | config + SQLite DB + PBS | LXC100/PBS recovery path documented | admin via CLI/API keys | key paths/recovery notes local | Live | only public default endpoint |
 | AdGuard Home | LXC100 | `192.168.1.50` | 3000 UI, 53 DNS | `adguard.internal` | `http://192.168.1.50:3000` | yes | UI + DNS | config/work dirs + PBS | LXC100 restore path documented | recovery documented | local credential/recovery vault | Live | required DNS for LAN/VPN |
-| Nginx Proxy Manager | LXC100 | `192.168.1.50` | 81 UI, 80/443 edge | `npm.internal` | `http://192.168.1.50:81` | yes | UI | `/data`, `/letsencrypt`, DB + PBS | LXC100 restore path documented | recovery documented | local credential/recovery vault | Live | public Headscale proxy must stay open/no Authentik |
+| Nginx Proxy Manager | LXC100 | `192.168.1.50` | 81 UI, 80/443 edge | `npm.internal` | `http://192.168.1.50:81` | yes | UI | `/data`, `/letsencrypt`, DB + PBS; pre-reset backup local | LXC100 restore path documented | recovery admin verified | recovery credential stored local only | Live | public Headscale proxy must stay open/no Authentik |
 | Headscale UI | LXC100 | `192.168.1.50` | 8081 | `headscale.internal/web` | `http://192.168.1.50:8081` | yes | UI | config + PBS | LXC100 restore path documented | admin-only UI | recovery notes local | Live | not public except `/web` custom location as configured |
 | CrowdSec LAPI | LXC100 | `192.168.1.50` | 8089 | protocol/API exception | none | no | TCP LAPI | config + DB + PBS | LXC100 restore path documented | API secret managed locally | secret path local | Live detection | no remediation bouncer yet |
 | Proxmox VE | Host | `192.168.1.150` | 8006 | `proxmox.internal` | `https://192.168.1.150:8006` | yes | alias HTTP | host config notes + PBS plan | host rebuild documented | SSH key works; web credentials local | local credential/recovery vault | Live | durable exit node |
@@ -82,7 +83,7 @@ This table is the current public audit view. It proves routing, monitoring, back
 | Service | Host | IP | Port | Alias | NPM upstream | Homepage | Kuma | Backup | Restore status | Final state | Notes |
 |---|---|---:|---:|---|---|---|---|---|---|---|---|
 | AdGuard Home | LXC100 | `192.168.1.50` | 3000 UI, 53 DNS | `adguard.internal` | `http://192.168.1.50:3000` | yes | UI + DNS monitors | config/work dirs + PBS | LXC100 recovery path documented | Live | required for LAN/VPN DNS |
-| Nginx Proxy Manager | LXC100 | `192.168.1.50` | 81 UI, 80/443 edge | `npm.internal` | `http://192.168.1.50:81` | yes | UI monitor | `/data`, `/letsencrypt`, DB + PBS | LXC100 recovery path documented | Live | generated Nginx target map is audited |
+| Nginx Proxy Manager | LXC100 | `192.168.1.50` | 81 UI, 80/443 edge | `npm.internal` | `http://192.168.1.50:81` | yes | UI monitor | `/data`, `/letsencrypt`, DB + PBS; pre-reset backup in root-only vault | LXC100 recovery path documented | Live | recovery admin credential verified 2026-06-24; generated Nginx target map is audited |
 | Headscale-UI | LXC100 | `192.168.1.50` | 8081 | `headscale.internal/web` | `http://192.168.1.50:8081` | yes | UI monitor | config if changed + PBS | LXC100 recovery path documented | Live | admin-only |
 | CrowdSec | LXC100 | `192.168.1.50` | 8089 LAPI | none | protocol/API exception | no | TCP LAPI monitor | config + DB + PBS | LXC100 recovery path documented | Live detection | no bouncer/remediation yet |
 | Proxmox VE | Host | `192.168.1.150` | 8006 | `proxmox.internal` | `https://192.168.1.150:8006` | yes | alias monitor | host config notes + PBS restore plan | host rebuild process documented | Live | also durable exit node |
@@ -140,6 +141,7 @@ The latest live audit passed these checks:
 - public DuckDNS A record resolves externally;
 - internal AdGuard split DNS resolves the VPN hostname to `192.168.1.50`;
 - all generated NPM proxy targets map to the documented upstreams;
+- NPM recovery admin credential was validated and stored only in the root-only local vault;
 - critical alias fingerprints match the expected services;
 - all 27 Homepage cards return `2xx` or expected login/redirect status;
 - 37 Uptime Kuma monitors are active and UP;

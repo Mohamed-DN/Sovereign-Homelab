@@ -39,7 +39,7 @@ Last audited: 2026-06-24.
 | Proxmox VE | `proxmox.internal` | SSH key works from the admin workstation; web login is root/PAM. | root password rotation and password manager entry |
 | Proxmox Backup Server | `pbs.internal` | UI is reachable; PBS token is used for PVE backup integration. | root/PAM or dedicated PBS admin entry |
 | AdGuard Home | `adguard.internal` | UI is reachable; credentials must stay local. | AdGuard password reset or restore LXC 100 |
-| Nginx Proxy Manager | `npm.internal` | UI is reachable; credentials must stay local. | NPM user reset or restore LXC 100 |
+| Nginx Proxy Manager | `npm.internal` | Recovery admin credential verified and stored only in the root-only local vault. | NPM SQLite auth recovery or restore LXC 100 |
 | Headscale UI | `headscale.internal/web` | UI is reachable; Headscale API and pre-auth keys are generated on demand. | rotate API/pre-auth keys |
 | Authentik | `auth.internal` | UI is reachable; enable MFA/recovery codes before enforcing Authentik everywhere. | Authentik recovery command plus DB backup |
 | Homepage | `dash.internal` | No separate app login by default; protect with VPN/Auth when needed. | YAML restore from LXC 101/PBS |
@@ -136,6 +136,17 @@ Use the upstream-supported reset method for the deployed NPM version, then verif
 curl -I http://npm.internal
 curl -I https://vpn.yourdomain.duckdns.org
 ```
+
+Live recovery completed on 2026-06-24:
+
+1. Backed up NPM data and Let's Encrypt material to `/root/sovereign-secrets/backups/`.
+2. Updated the existing active NPM admin account and password hash in `/opt/core-network/npm/data/database.sqlite`.
+3. Restarted only the `npm` container.
+4. Validated the recovery login through the NPM API.
+5. Re-ran the live audit to verify public Headscale, all `.internal` proxy hosts, Homepage, and Uptime Kuma remained healthy.
+6. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+Do not commit the recovery email/password. Public docs may record the method and backup location pattern only.
 
 ### Authentik
 
