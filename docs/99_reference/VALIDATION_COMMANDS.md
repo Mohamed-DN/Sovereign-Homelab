@@ -78,6 +78,7 @@ Admin-access audit checks on the Proxmox host. These commands show status only; 
 
 ```bash
 grep -q '^## Admin Access Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+grep -q '^## AdGuard Home Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 grep -q '^## Beszel Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 grep -q '^## Nginx Proxy Manager Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 grep -q '^## Uptime Kuma Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
