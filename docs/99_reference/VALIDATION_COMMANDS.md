@@ -510,8 +510,25 @@ On Proxmox:
 
 ```bash
 pvesm status
+pvesh get /cluster/backup --output-format json
+pvesm list pbs-p710 --vmid 100
+pvesm list pbs-p710 --vmid 101
+pvesm list pbs-p710 --vmid 102
+pvesm list pbs-p710 --vmid 103
+pvesm list pbs-p710 --vmid 110
+pvesm list pbs-p710 --vmid 120
+pvesm list pbs-p710 --vmid 130
 vzdump --help
 ```
+
+Expected result:
+
+- storage `pbs-p710` is `active`;
+- backup job `sovereign-core-nightly` is enabled;
+- job `sovereign-core-nightly` targets `pbs-p710`;
+- job `sovereign-core-nightly` includes guests `100,101,102,103,110,120,130`;
+- VM `140` is not included in that local PBS job because PBS must not be backed up only to itself;
+- each protected guest has at least one `pbs-p710:backup/...` snapshot.
 
 On PBS:
 

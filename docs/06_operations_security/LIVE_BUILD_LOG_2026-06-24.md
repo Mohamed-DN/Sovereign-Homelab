@@ -176,6 +176,8 @@ Validated state:
 - ZFS pools were healthy;
 - `ssd_pool` reported about 15% used;
 - PBS storage `pbs-p710` was active;
+- scheduled backup job `sovereign-core-nightly` was enabled, targeted `pbs-p710`, included guests `100,101,102,103,110,120,130`, and excluded PBS VM `140`;
+- PBS snapshots existed for every protected core/app guest in that job;
 - LXC 100, 101, 102, 103 and VM 110, 120, 130, 140 were running;
 - Headscale routes showed Proxmox serving `0.0.0.0/0` and `::/0`, and LXC 100 serving `192.168.1.0/24`;
 - `sovereign-duckdns-update.timer` was active;

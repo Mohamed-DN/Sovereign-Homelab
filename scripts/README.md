@@ -17,6 +17,7 @@ Purpose:
 - verify AdGuard split DNS for the VPN hostname and `dash.internal`;
 - smoke-test every Homepage card;
 - collect Proxmox failed units, storage state, VM/LXC inventory, Headscale routes, live Docker inventory, and Uptime Kuma monitor state;
+- verify PBS storage, the `sovereign-core-nightly` backup job, required guest coverage, PBS self-backup exclusion, and existing guest snapshots;
 - validate local Compose templates from `.env.example`.
 
 Run from the Windows workstation:

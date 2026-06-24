@@ -400,6 +400,71 @@ try {
         Add-Warn 'could not parse ssd_pool usage from pvesm status'
     }
 
+    Write-Section 'PBS Backup Coverage Gate'
+    $pbsStorageLine = $storageStatus | Where-Object { $_ -match '^pbs-p710\s+pbs\s+active\s+' } | Select-Object -First 1
+    if ($pbsStorageLine) {
+        Add-Pass 'PBS storage pbs-p710 is active'
+    } else {
+        Add-Failure 'PBS storage pbs-p710 is not active'
+    }
+
+    $requiredBackupVmids = @('100', '101', '102', '103', '110', '120', '130')
+    try {
+        $backupJobsRaw = Invoke-Ssh 'pvesh get /cluster/backup --output-format json'
+        $backupJobs = ($backupJobsRaw -join "`n") | ConvertFrom-Json
+        $backupJob = $backupJobs | Where-Object { $_.id -eq 'sovereign-core-nightly' } | Select-Object -First 1
+
+        if (-not $backupJob) {
+            Add-Failure 'backup job sovereign-core-nightly is missing'
+        } else {
+            Add-Pass 'backup job sovereign-core-nightly exists'
+
+            if ([string]$backupJob.storage -eq 'pbs-p710') {
+                Add-Pass 'backup job sovereign-core-nightly targets pbs-p710'
+            } else {
+                Add-Failure "backup job sovereign-core-nightly targets $($backupJob.storage), expected pbs-p710"
+            }
+
+            if ([int]$backupJob.enabled -eq 1) {
+                Add-Pass 'backup job sovereign-core-nightly is enabled'
+            } else {
+                Add-Failure 'backup job sovereign-core-nightly is disabled'
+            }
+
+            $jobVmids = @([string]$backupJob.vmid -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+            $missingVmids = @($requiredBackupVmids | Where-Object { $jobVmids -notcontains $_ })
+            if ($missingVmids.Count -eq 0) {
+                Add-Pass "backup job sovereign-core-nightly includes required guests $($requiredBackupVmids -join ',')"
+            } else {
+                Add-Failure "backup job sovereign-core-nightly is missing required guests $($missingVmids -join ',')"
+            }
+
+            if ($jobVmids -contains '140') {
+                Add-Failure 'backup job sovereign-core-nightly includes PBS VM 140; do not back PBS up to itself as the only copy'
+            } else {
+                Add-Pass 'backup job sovereign-core-nightly excludes PBS VM 140'
+            }
+        }
+    } catch {
+        Add-Failure "could not read Proxmox backup jobs: $($_.Exception.Message)"
+    }
+
+    foreach ($vmid in $requiredBackupVmids) {
+        try {
+            $backupList = Invoke-Ssh "pvesm list pbs-p710 --vmid $vmid"
+            $snapshots = @($backupList | Where-Object { $_ -match "pbs-p710:backup/(ct|vm)/$vmid/" })
+            if ($snapshots.Count -gt 0) {
+                $latestSnapshot = $snapshots | Sort-Object | Select-Object -Last 1
+                Add-Pass "PBS has backup snapshots for VMID $vmid"
+                Write-Host "latest VMID ${vmid}: $latestSnapshot"
+            } else {
+                Add-Failure "PBS has no backup snapshots for VMID $vmid"
+            }
+        } catch {
+            Add-Failure "could not list PBS snapshots for VMID ${vmid}: $($_.Exception.Message)"
+        }
+    }
+
     Write-Section 'Headscale and Routes'
     Invoke-Ssh "pct exec 100 -- docker exec headscale headscale configtest; pct exec 100 -- docker exec headscale headscale nodes list-routes; pct exec 100 -- docker exec headscale headscale nodes list; pct exec 100 -- systemctl is-active sovereign-duckdns-update.timer"
 

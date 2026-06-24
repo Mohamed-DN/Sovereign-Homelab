@@ -226,6 +226,22 @@ Additional live backup evidence:
 
 Do not treat VM backups as fully production-ready for irreplaceable personal data until a boot/service restore drill proves that the guest and application data are usable, and an app-aware restore proves that the database and data directory can be recovered together. The 2026-06-23 app-aware baselines prove the mechanics on current data; repeat them with representative real datasets and an offsite copy before trusting the lab with irreplaceable photos, passwords, documents, or repositories.
 
+### Automated Coverage Check
+
+The repository live audit checks the minimum PBS coverage before publishing operational changes:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
+```
+
+The PBS gate verifies that:
+
+- storage `pbs-p710` is active;
+- backup job `sovereign-core-nightly` exists, is enabled, and targets `pbs-p710`;
+- guests `100,101,102,103,110,120,130` are included;
+- PBS VM `140` is excluded from that local job;
+- every protected guest has at least one backup snapshot in `pbs-p710`.
+
 ## Phase G: App-Aware Critical Backups
 
 PBS is not enough for every application failure. Add app-aware/offsite backup for:
