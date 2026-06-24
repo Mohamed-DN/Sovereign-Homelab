@@ -9,6 +9,7 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 3:** Reconciled service runbooks with official upstream guidance for Immich, Nextcloud AIO, Paperless-ngx, Homepage, RustDesk, Forgejo, and the other defined stacks.
 - **Round 4:** Re-audited service visibility, recovery paths, DNS/proxy flow, and data protection rules so every service is either reachable through the documented path or listed as an exception.
 - **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
+- **Round 6:** Re-ran the live audit, recovered Beszel admin access through the supported PocketBase path, stored the recovery credential only in the root-only local vault, and added the public admin-access recovery runbook.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
 
@@ -212,7 +213,7 @@ Optional operations extensions belong after this layer, not before it:
 
 Alert email gate: the repository includes `scripts/sovereign-alert-relay.py` and `scripts/systemd/sovereign-alert-relay.service` for the required anti-spam alert behavior. Do not enable it until SMTP credentials exist only in `/root/sovereign-secrets/alert-relay.env`. After configuration, test one safe monitor DOWN, first email after one minute, one reminder after five minutes, no further spam, and one recovery email.
 
-Local credentials gate: the private credentials file exists only on the Proxmox host at `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` with root-only permissions. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md).
+Local credentials gate: the private credentials file exists only on the Proxmox host at `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` with root-only permissions. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md). If a login is missing, use [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) and never reset a password without first confirming backup coverage.
 
 ### Layer 6: Application Micro-Stacks
 

@@ -12,6 +12,7 @@ The manual uses these supporting documents:
 - [Ports and DNS Matrix](../99_reference/PORTS_AND_DNS_MATRIX.md)
 - [Live Service Coverage](../99_reference/LIVE_SERVICE_COVERAGE.md)
 - [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md)
+- [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md)
 - [Validation Commands](../99_reference/VALIDATION_COMMANDS.md)
 - [Live Proxmox Validation](LIVE_PROXMOX_VALIDATION.md)
 - [Troubleshooting Matrix](TROUBLESHOOTING_MATRIX.md)
@@ -53,6 +54,7 @@ Rules:
 - Never paste it into issues, chat, screenshots, or runbooks.
 - Keep the public template at [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) placeholder-only.
 - If you rotate a secret, update the local file and record only the rotation date in public docs.
+- If a login is lost, use [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md); do not reset passwords without a backup.
 
 Quick safety check from the repository:
 
@@ -94,6 +96,10 @@ Expected time: 5-10 minutes.
    - ntfy is reachable if used;
    - the alert relay is running only after SMTP credentials are configured locally;
    - no monitor is still muted after maintenance.
+7. Check admin-access drift:
+   - no production service has an unknown admin credential;
+   - new recovery credentials are stored only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`;
+   - Beszel recovery remains documented in the local vault and `monitor.internal` still authenticates.
 
 Quick commands:
 

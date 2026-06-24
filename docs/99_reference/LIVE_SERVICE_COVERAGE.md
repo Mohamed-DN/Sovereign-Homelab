@@ -1,6 +1,6 @@
 # Live Service Coverage
 
-Last validated: 2026-06-23 with `scripts/sovereign-live-audit.ps1`.
+Last validated: 2026-06-24 with `scripts/sovereign-live-audit.ps1`.
 
 This file is the compact live-state table. For design rules use [Service Visibility Matrix](SERVICE_VISIBILITY_MATRIX.md), for ports and DNS use [Ports and DNS Matrix](PORTS_AND_DNS_MATRIX.md), and for host ownership use [Inventory and IP Plan](INVENTORY_AND_IP_PLAN.md).
 
@@ -14,7 +14,25 @@ A service is operational only when these fields are known:
 4. Homepage card when it has a web UI;
 5. Uptime Kuma monitor;
 6. backup path;
-7. restore status or explicit production gate.
+7. restore status or explicit production gate;
+8. admin credential or documented recovery path in the root-only local credential vault.
+
+## Admin Access Status
+
+The public repository does not store credentials. The live server stores real values and recovery notes only in:
+
+```text
+/root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+| Area | Status | Notes |
+|---|---|---|
+| Credential vault permissions | Verified | `/root/sovereign-secrets` is `700`; `HOMELAB_CREDENTIALS.md` is `600` |
+| Beszel | Recovery verified | dedicated recovery Hub admin validated on 2026-06-24; credential stored only in the root-only vault |
+| Proxmox/PBS | Access path documented | SSH key works for Proxmox; web credentials remain local |
+| NPM, AdGuard, Authentik, Kuma | UI reachable, recovery documented | see [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md) |
+| Critical apps | UI reachable, production credential gate | fill private credentials before importing irreplaceable data |
+| Alerting | SMTP gated | no SMTP app password committed; configure locally before enabling email relay |
 
 ## Public Edge
 
@@ -35,7 +53,7 @@ A service is operational only when these fields are known:
 | Authentik | LXC101 | `192.168.1.51` | 9000 | `auth.internal` | `http://192.168.1.51:9000` | yes | UI monitor | PostgreSQL + media + `.env` + PBS | LXC101 restore drill completed | Live, hardening gate | enable MFA/recovery/proxy policies |
 | Homepage | LXC101 | `192.168.1.51` | 3002 | `dash.internal` | `http://192.168.1.51:3002` | yes | UI monitor | YAML config + PBS | LXC101 restore drill completed | Live | 27 cards validated |
 | Uptime Kuma | LXC101 | `192.168.1.51` | 3001 | `status.internal` | `http://192.168.1.51:3001` | yes | self monitor | Kuma data volume + PBS | LXC101 restore drill completed | Live | 37 active monitors UP during audit |
-| Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS | LXC101 restore drill completed | Live | agent uses hub/WebSocket enrollment |
+| Beszel | LXC101 | `192.168.1.51` | 8090 | `monitor.internal` | `http://192.168.1.51:8090` | yes | hub monitor | data volume + PBS; pre-reset backup in root-only vault | LXC101 restore drill completed | Live | recovery admin credential verified 2026-06-24; agent uses hub/WebSocket enrollment |
 | Dozzle | LXC101 | `192.168.1.51` | 8088 | `logs.internal` | `http://192.168.1.51:8088` | yes | UI monitor | no critical data + PBS | LXC101 restore drill completed | Live | admin-only because logs may expose secrets |
 | Smallstep CA | LXC101 | `192.168.1.51` | 9002 | `ca.internal:9002` | direct/API exception | health card | health monitor | CA volume + root fingerprint + secret backup | LXC101 restore drill completed | Live, trust gate | distribute root trust before HTTPS migration |
 
@@ -88,6 +106,7 @@ The latest live audit passed these checks:
 - critical alias fingerprints match the expected services;
 - all 27 Homepage cards return `2xx` or expected login/redirect status;
 - 37 Uptime Kuma monitors are active and UP;
+- Beszel recovery admin credential was validated and stored only in the root-only local vault;
 - LXC 100 serves `192.168.1.0/24`;
 - Proxmox serves `0.0.0.0/0` and `::/0`;
 - Proxmox storage and ZFS pools are healthy;
