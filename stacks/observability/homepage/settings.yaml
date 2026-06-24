@@ -1,13 +1,17 @@
 title: Sovereign Homelab
 description: VPN-first private operations dashboard
 theme: dark
-color: slate
+color: zinc
 headerStyle: boxedWidgets
 iconStyle: theme
 statusStyle: dot
 fullWidth: true
 useEqualHeights: true
 target: _self
+quicklaunch:
+  searchDescriptions: true
+  hideInternetSearch: false
+  showSearchSuggestions: true
 
 layout:
   Network:

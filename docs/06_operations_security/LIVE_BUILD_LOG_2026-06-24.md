@@ -232,7 +232,7 @@ These items remain intentional gates:
 
 The future-improvements research document was rechecked on 2026-06-24 against current official sources for Proxmox clustering/QDevice, PBS remote sync, restic retention/prune behavior, Borg append-only behavior, Authentik proxy/MFA planning, Smallstep CA, ntfy, Uptime Kuma, and lightweight monitoring options.
 
-No future idea was applied live. The refreshed recommendation remains conservative: finish offsite backup, alert email, Authentik MFA/recovery, internal CA trust rollout, and rebuild automation before adding heavy platforms or more application services.
+No future idea was applied live during that research refresh. The refreshed recommendation remains conservative: finish offsite backup, Authentik MFA/recovery, internal CA trust rollout, alert coverage expansion, and rebuild automation before adding heavy platforms or more application services.
 
 ## Alert Relay Self-Test Improvement
 
@@ -250,7 +250,7 @@ The self-test validates the required anti-spam state machine without SMTP creden
 - one `RESOLVED` event after recovery;
 - incident state cleared after recovery.
 
-This does not complete the live email alert gate. SMTP credentials, the Uptime Kuma webhook, and the real DOWN/reminder/no-spam/recovery email test still must be completed locally.
+At the time of this repository-only self-test, SMTP credentials, the Uptime Kuma webhook, and the real DOWN/reminder/no-spam/recovery email test still had to be completed locally. They were completed later in this same live build log under "Gmail SMTP Alert Relay".
 
 Validation for this repository change:
 
@@ -313,6 +313,31 @@ Renewal was installed on the Proxmox host:
 
 The timer is enabled and scheduled weekly. The renewal script reissues the two certificates, copies them into NPM, runs `nginx -t`, and reloads only the NPM container.
 
+Follow-up completed later on 2026-06-24:
+
+- changed the internal alias certificate policy from 30 days to 365 days for resilience;
+- regenerated `proxmox.internal` and `pbs.internal` certificates, now expiring in 2027;
+- kept weekly renewal in place anyway, so long lifetime is a safety buffer, not the main control;
+- added a daily certificate expiry audit:
+
+  ```text
+  /usr/local/sbin/sovereign-cert-expiry-audit
+  /etc/systemd/system/sovereign-cert-expiry-audit.service
+  /etc/systemd/system/sovereign-cert-expiry-audit.timer
+  ```
+
+- the audit checks public Headscale, Proxmox, PBS, and Nextcloud certificates;
+- if Proxmox/PBS approach the warning window, the audit triggers renewal and checks again.
+
+Latest expiry audit result:
+
+```text
+public-headscale: valid beyond 30 days
+proxmox-internal: valid beyond 30 days
+pbs-internal: valid beyond 30 days
+nextcloud-internal: valid beyond 30 days
+```
+
 Rollback:
 
 1. Restore the backed-up NPM proxy host files from `/root/sovereign-secrets/backups/`.
@@ -328,9 +353,10 @@ Created the local-only root inventory:
 
 ```text
 /root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md
+/root/sovereign-secrets/HOMELAB_PASSWORD_INDEX.md
 ```
 
-Permissions were set to `600`. The file records aliases, admin usernames/emails, recovery methods, and open gates. It does not belong in Git.
+Permissions were set to `600`. The inventory records aliases, admin usernames/emails, recovery methods, and open gates. The password index maps each service to the local vault section or secret file where the real credential is stored. These files do not belong in Git.
 
 Password standardization was not performed in this pass because the common app password is not yet stored in a root-only local source file. The safe gate is:
 
@@ -341,19 +367,40 @@ chmod 600 /root/sovereign-secrets/common-app-password
 
 After that file exists, reset one service at a time using the service-supported recovery method, excluding AdGuard and excluding database passwords, API tokens, DuckDNS token, RustDesk keys, CA secrets, and service-account credentials.
 
-## Gmail SMTP Alert Gate
+## Gmail SMTP Alert Relay
 
-Gmail SMTP was not enabled in this pass because the Gmail app password is not yet present on the server.
+The Gmail-backed alert relay is now enabled on LXC 101. The Gmail app password, relay token, and environment file are stored only under `/root/sovereign-secrets` and were not committed to Git.
 
-Required local setup:
+Live files:
 
-1. Enable 2-Step Verification on the Google account if it is not already enabled.
-2. Create a Gmail app password for the homelab alert relay.
-3. Store it only locally:
+```text
+/opt/sovereign-alert-relay/sovereign-alert-relay.py
+/etc/systemd/system/sovereign-alert-relay.service
+/root/sovereign-secrets/alert-relay.env
+/root/sovereign-secrets/alert-relay-token
+/root/sovereign-secrets/smtp-password
+```
 
-   ```bash
-   printf '%s\n' '<GMAIL_APP_PASSWORD>' >/root/sovereign-secrets/smtp-password
-   chmod 600 /root/sovereign-secrets/smtp-password
-   ```
+Validation completed:
 
-The public repository still contains only placeholders and the relay self-test. Real SMTP DOWN/reminder/no-spam/recovery testing remains open.
+- `sovereign-alert-relay.py --self-test` passed;
+- service is enabled and active;
+- `http://127.0.0.1:8099/health` returns `ok`;
+- direct Gmail SMTP send from LXC 101 succeeded;
+- Uptime Kuma notification `Sovereign Email Relay` was added and attached to 17 P0/P1 monitors;
+- live webhook test sent an alert and recovery email;
+- reminder/no-spam behavior was verified by forcing the test incident into the reminder window.
+
+The public repository still contains only placeholders. Rotate the Gmail app password if it is exposed outside the local root-only secret store.
+
+## Dashboard Polish and Final Audit
+
+Homepage was polished with clearer spacing, stronger hover states, interactive icon emphasis, tab styling, and a less flat background while keeping the same `.internal` service model. The live `homepage` container was restarted after backing up the previous config under `/root/sovereign-secrets/backups/`.
+
+Final validation after the alert relay and dashboard changes:
+
+- live audit passed without detected failures;
+- 37 active Uptime Kuma monitors had latest UP heartbeat;
+- 27 Homepage cards resolved successfully;
+- certificate expiry audit passed;
+- public Headscale, split DNS, subnet route, exit-node route, NPM proxy map, PBS backup coverage, Proxmox/PBS HTTPS aliases, and Compose templates passed.

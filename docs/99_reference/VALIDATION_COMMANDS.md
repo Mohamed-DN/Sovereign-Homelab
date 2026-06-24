@@ -27,8 +27,8 @@ powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -Ski
 This checks the public VPN health endpoint, Headscale `server_url`, listener,
 MagicDNS, DNS override, AdGuard global DNS, public NPM edge flags, route
 advertisements, infrastructure `--accept-dns=false`, IP forwarding, alert relay
-syntax and self-test, root-only credential vault permissions and audit markers,
-DuckDNS public DNS through multiple resolvers, NPM generated proxy target
+syntax and self-test, certificate-expiry audit, root-only credential vault
+permissions and audit markers, DuckDNS public DNS through multiple resolvers, NPM generated proxy target
 mappings, AdGuard split DNS, critical alias fingerprints, every Homepage card,
 Proxmox failed units, storage capacity, PBS backup job coverage, Headscale
 routes, Uptime Kuma monitor state, live Docker inventory, and local Compose
@@ -156,14 +156,31 @@ Manual acceptance:
 
 ## Alert Relay Template
 
-The alert relay is optional until SMTP credentials are available locally, but the script must remain syntactically valid:
+The alert relay runs live on LXC 101, but the public repository still validates only the safe parts:
 
 ```bash
 python -m py_compile scripts/sovereign-alert-relay.py
 python scripts/sovereign-alert-relay.py --self-test
 ```
 
-The self-test validates the alert, reminder, no-spam, and recovery state machine without opening a listener or sending email. It does not replace the later live SMTP test.
+The self-test validates the alert, reminder, no-spam, and recovery state machine without opening a listener or sending email. The live SMTP test is performed on LXC 101 with secrets stored only under `/root/sovereign-secrets`.
+
+## Certificate Expiry Audit
+
+The live Proxmox host runs daily certificate expiry checks and can trigger internal Proxmox/PBS renewal before those aliases become risky:
+
+```bash
+ssh root@PVE_IP /usr/local/sbin/sovereign-cert-expiry-audit
+ssh root@PVE_IP systemctl status sovereign-cert-expiry-audit.timer --no-pager
+ssh root@PVE_IP systemctl status sovereign-renew-npm-internal-certs.timer --no-pager
+```
+
+Expected:
+
+- public Headscale, Proxmox, PBS, and Nextcloud certificates are valid beyond the warning window;
+- Proxmox/PBS renewal timer is enabled;
+- expiry-audit timer is enabled;
+- the live audit reports `certificate expiry audit passed`.
 
 When configured live, validate:
 

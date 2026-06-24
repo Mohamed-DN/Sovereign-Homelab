@@ -137,7 +137,7 @@ Live services:
 - **Beszel** for host/container metrics.
 - **Dozzle** for live Docker logs.
 - **Operations extensions** are live on LXC 103: NetAlertX, Scrutiny, ntfy.
-- **Alert email** remains gated until local SMTP secrets and the anti-spam relay test are complete.
+- **Alert email** is live through the local anti-spam relay on LXC 101. SMTP secrets and the bearer token remain only under `/root/sovereign-secrets`.
 
 Runbook: [doc_08_observability_dashboard.md](../03_platform_services/doc_08_observability_dashboard.md)
 

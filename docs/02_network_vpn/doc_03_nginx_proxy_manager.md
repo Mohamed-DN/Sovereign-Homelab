@@ -396,7 +396,7 @@ The live lab uses Smallstep certificates for the two admin infrastructure aliase
 /opt/core-network/npm/data/custom_ssl/step-ca-pbs/
 ```
 
-The CA policy currently allows 30-day internal TLS certificates. Keep a renewal timer in place before migrating more aliases. Test with:
+The CA policy currently allows 365-day internal TLS certificates for Proxmox/PBS-style infrastructure aliases. This is a resilience buffer, not a reason to ignore renewal. Keep the weekly renewal timer and daily expiry-audit timer in place before migrating more aliases. Test with:
 
 ```bash
 curl -k -I https://proxmox.internal

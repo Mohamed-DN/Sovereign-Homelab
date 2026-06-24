@@ -30,7 +30,7 @@ The final result must provide:
 | Core apps | Live / data gates pending | Vaultwarden, Immich, Syncthing, Nextcloud AIO, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Jellyfin, RustDesk, Ollama, and Open WebUI are deployed |
 | Operations manual | Documented and live-audited | Routines, inventory, deployment workflow, and live audit script |
 | Local credentials | Live local-only | Root-only file exists on the Proxmox host; public repo has only a placeholder template |
-| Alert email | Template ready / SMTP pending | Uptime Kuma and ntfy are live; anti-spam relay is documented but SMTP credentials and end-to-end email test remain local gates |
+| Alert email | Live / tested | Uptime Kuma and ntfy are live; anti-spam email relay is installed on LXC 101, connected to P0/P1 Kuma monitors, and tested with SMTP alert/reminder/no-spam/recovery behavior |
 
 ## Phase 1: Network and VPN - Live
 
