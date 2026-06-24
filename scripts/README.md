@@ -13,6 +13,7 @@ Purpose:
 - check the public Headscale health endpoint;
 - verify Headscale `server_url`, listener, MagicDNS, DNS override, AdGuard global DNS, public NPM edge flags, route advertisements, local infrastructure `--accept-dns=false`, and IP forwarding;
 - run the local alert relay syntax check and anti-spam self-test without SMTP;
+- run the certificate expiry audit for public Headscale, Proxmox, PBS, and Nextcloud;
 - verify the root-only local credential vault permissions and non-secret audit markers;
 - verify public DuckDNS resolution is not a private RFC1918 address;
 - verify AdGuard split DNS for the VPN hostname and `dash.internal`;
@@ -53,6 +54,33 @@ Install on LXC 100 after the NPM DuckDNS certificate exists. The service reads t
 
 See [Runbook 03: Nginx Proxy Manager](../docs/02_network_vpn/doc_03_nginx_proxy_manager.md) for the full installation and validation flow.
 
+## Certificate Expiry Audit
+
+File:
+
+- `sovereign-cert-expiry-audit.sh`
+
+Purpose:
+
+- check the public Headscale certificate;
+- check the internal NPM certificates for `proxmox.internal`, `pbs.internal`, and `files.internal`;
+- trigger the Proxmox/PBS internal renewal script if those certificates enter the warning window;
+- fail the daily systemd unit if a certificate remains too close to expiry.
+
+Live installation:
+
+```text
+/usr/local/sbin/sovereign-cert-expiry-audit
+/etc/systemd/system/sovereign-cert-expiry-audit.service
+/etc/systemd/system/sovereign-cert-expiry-audit.timer
+```
+
+Run manually on the Proxmox host:
+
+```bash
+/usr/local/sbin/sovereign-cert-expiry-audit
+```
+
 ## Alert Email Relay
 
 Files:
@@ -87,6 +115,6 @@ Validate the anti-spam state machine without SMTP credentials:
 python scripts/sovereign-alert-relay.py --self-test
 ```
 
-The self-test proves that one DOWN incident generates exactly one `ALERT`, one `REMINDER`, no extra DOWN spam, and one `RESOLVED` event after recovery. It does not send email and does not replace the later live SMTP test.
+The self-test proves that one DOWN incident generates exactly one `ALERT`, one `REMINDER`, no extra DOWN spam, and one `RESOLVED` event after recovery. It does not send email; the live SMTP path is tested on LXC 101 with secrets stored only under `/root/sovereign-secrets`.
 
 See [Operations Manual](../docs/06_operations_security/OPERATIONS_MANUAL.md) for setup and test steps.

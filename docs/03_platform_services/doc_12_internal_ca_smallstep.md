@@ -98,7 +98,7 @@ Use a harmless test name first:
 ```bash
 step ca certificate test.internal test.internal.crt test.internal.key \
   --ca-url https://ca.internal:9002 \
-  --not-after 720h
+  --not-after 8760h
 ```
 
 Verify the certificate:
@@ -112,7 +112,7 @@ openssl x509 -in test.internal.crt -noout -subject -issuer -dates
 Do this one service at a time:
 
 1. Confirm the service has a PBS backup and a working HTTP alias.
-2. Confirm certificate renewal is automated or scheduled before using short-lived certificates in NPM.
+2. Confirm certificate renewal and expiry audit are automated before using private HTTPS in NPM.
 3. Issue a certificate for the exact hostname, for example `pwd.internal`.
 4. Import the certificate and key into Nginx Proxy Manager as a custom certificate.
 5. Enable SSL for that single proxy host.
@@ -136,7 +136,7 @@ On 2026-06-24, the lab moved `proxmox.internal` and `pbs.internal` to client-sid
 | `proxmox.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-proxmox/` | `https://192.168.1.150:8006` |
 | `pbs.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-pbs/` | `https://192.168.1.20:8007` |
 
-The CA was configured with a 30-day `maxTLSCertDuration` and `defaultTLSCertDuration` for internal service aliases. That is intentionally shorter than a public ACME-style certificate but long enough for a homelab renewal timer.
+The CA was configured with a 365-day `maxTLSCertDuration` and `defaultTLSCertDuration` for internal service aliases. The lab still renews them automatically before expiry; the longer duration is only a resilience buffer if the renewal timer is missed.
 
 Validation:
 
@@ -160,9 +160,21 @@ Live renewal path:
 /usr/local/sbin/sovereign-renew-npm-internal-certs
 /etc/systemd/system/sovereign-renew-npm-internal-certs.service
 /etc/systemd/system/sovereign-renew-npm-internal-certs.timer
+/usr/local/sbin/sovereign-cert-expiry-audit
+/etc/systemd/system/sovereign-cert-expiry-audit.service
+/etc/systemd/system/sovereign-cert-expiry-audit.timer
 ```
 
-The script is root-only, stores transient private keys under `/root/sovereign-secrets/tmp-npm-internal-certs`, removes them after copying into NPM, runs `nginx -t`, and reloads only the NPM container.
+The renewal script is root-only, stores transient private keys under `/root/sovereign-secrets/tmp-npm-internal-certs`, removes them after copying into NPM, runs `nginx -t`, and reloads only the NPM container.
+
+The expiry-audit timer runs daily. It checks:
+
+- public Headscale certificate;
+- `proxmox.internal`;
+- `pbs.internal`;
+- `files.internal`.
+
+If Proxmox/PBS enter the warning window, the audit triggers the internal renewal script and then checks the certificates again. The audit fails if any checked certificate still expires within the configured window.
 
 ## Validation
 

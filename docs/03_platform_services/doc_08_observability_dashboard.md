@@ -205,8 +205,8 @@ Alert rules:
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
 - ntfy is deployed, but protect topics and authentication before sending sensitive alert payloads.
-- The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py`; enable it only after SMTP credentials exist in `/root/sovereign-secrets/alert-relay.env`.
-- Before SMTP credentials exist, validate relay behavior with `python scripts/sovereign-alert-relay.py --self-test`. This proves the anti-spam lifecycle without sending email.
+- The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py` and runs in the live lab on LXC 101 at `127.0.0.1:8099`.
+- SMTP credentials and the relay bearer token must exist only under `/root/sovereign-secrets`; never store them in Compose files, Markdown, Git, or Uptime Kuma notes.
 
 Required email behavior:
 
@@ -218,7 +218,7 @@ Required email behavior:
 | Still DOWN after reminder | send no more DOWN spam for that incident |
 | Recovery | send one `RESOLVED` email |
 
-Current gate: SMTP credentials and the end-to-end email/recovery test are not stored in the public repo and must be completed locally. The relay self-test can prove the state machine, but email alerting is not production-complete until a real DOWN, reminder, no-spam, and recovery email cycle succeeds.
+Live state: the relay is connected to P0/P1 Uptime Kuma monitors as `Sovereign Email Relay` and has passed SMTP send, alert, reminder, no-spam, and recovery tests. Repeat a safe temporary-monitor test after changing Gmail credentials, the relay token, Uptime Kuma notification settings, or the relay service.
 
 ## Phase F: Beszel Usage
 

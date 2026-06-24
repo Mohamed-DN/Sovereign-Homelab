@@ -38,9 +38,10 @@ The live server also keeps a root-only access inventory:
 
 ```text
 /root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md
+/root/sovereign-secrets/HOMELAB_PASSWORD_INDEX.md
 ```
 
-That inventory records aliases, admin usernames, recovery methods, and open access gates. It must stay local and must not contain public documentation secrets.
+The access inventory records aliases, admin usernames, recovery methods, and open access gates. The password index maps each service to the local vault section or secret file that holds the real credential. Both files must stay local and must not contain public documentation secrets.
 
 Required permissions:
 
@@ -277,7 +278,7 @@ Maintenance mute rule:
 - Add a short note in Uptime Kuma or the live log.
 - Resume notifications immediately after validation.
 
-Current gate: SMTP credentials and the final end-to-end alert/recovery test must be completed locally before the alert channel is considered production.
+Live state: the Gmail-backed relay is configured locally and connected to P0/P1 Kuma monitors. Repeat this test after changing SMTP credentials, notification settings, or the relay service.
 
 ## Weekly Routine
 
@@ -339,9 +340,12 @@ Renewal timer:
 ```bash
 systemctl status sovereign-renew-npm-internal-certs.timer --no-pager
 systemctl list-timers sovereign-renew-npm-internal-certs.timer --no-pager
+systemctl status sovereign-cert-expiry-audit.timer --no-pager
+systemctl list-timers sovereign-cert-expiry-audit.timer --no-pager
+/usr/local/sbin/sovereign-cert-expiry-audit
 ```
 
-The timer renews only the NPM client-side certificates for `proxmox.internal` and `pbs.internal`.
+The renewal timer renews only the NPM client-side certificates for `proxmox.internal` and `pbs.internal`. The expiry-audit timer checks public Headscale, Proxmox, PBS, and Nextcloud daily. If Proxmox/PBS enter the warning window, the audit triggers the renewal script before failing the check.
 
 5. Check updates without applying them immediately:
 

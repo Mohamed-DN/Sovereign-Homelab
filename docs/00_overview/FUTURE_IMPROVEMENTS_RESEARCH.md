@@ -20,11 +20,11 @@ Most useful next improvements:
 - offsite backup with a second PBS, restic, Borg, or rotated encrypted disk;
 - trusted internal HTTPS rollout using the live Smallstep CA;
 - Authentik MFA/recovery and proxy-provider protection for sensitive UIs;
-- alert email relay completion with local SMTP secrets and anti-spam behavior;
+- alert coverage expansion for PBS jobs, ZFS health, DuckDNS updater failures, and certificate expiry;
 - Ansible runbooks for repeatable VM/LXC/bootstrap rebuilds;
 - future second Proxmox node only after backup, restore, and operations are stable.
 
-The strongest conclusion is that the next engineering effort should not be more apps. It should be recoverability and control: offsite backup, alert delivery, Authentik MFA, internal TLS trust, and documented rebuild automation.
+The strongest conclusion is that the next engineering effort should not be more apps. It should be recoverability and control: offsite backup, alert coverage, Authentik MFA, internal TLS trust, and documented rebuild automation.
 
 Improvements to avoid for now:
 
@@ -39,7 +39,7 @@ Improvements to avoid for now:
 | Priority | Idea | Benefit | Risk | Cost | Complexity | When to do it |
 |---|---|---|---|---|---|---|
 | P0 | Offsite backup | protects photos/passwords/files from host loss | recurring cost, secret handling | low to medium | medium | before importing irreplaceable data |
-| P0 | Alert email relay completion | actionable incident awareness without spam | SMTP secret handling | low | medium | after SMTP app password or relay account exists |
+| P0 | Alert coverage expansion | actionable incident awareness beyond web uptime | alert noise and ownership | low | medium | after the base relay stays stable |
 | P0 | Internal CA trust rollout | trusted HTTPS for `.internal` apps | client trust mistakes can break access | low | medium | one alias at a time |
 | P1 | Authentik MFA and proxy providers | reduces admin/UI account risk | lockout if recovery is weak | low | medium | after local credential file is complete |
 | P1 | Second PBS or remote PBS sync | stronger disaster recovery | bandwidth/storage cost | medium | medium | after local restore drills stay green |
@@ -55,11 +55,12 @@ Improvements to avoid for now:
 
 ### Short Term
 
-1. Finish alerting:
+1. Expand alerting:
    - keep Uptime Kuma as the monitor source;
-   - use the local alert relay for anti-spam email behavior;
-   - store SMTP credentials only in `/root/sovereign-secrets/alert-relay.env`;
-   - test DOWN, reminder, no-spam, and recovery email behavior.
+   - keep the local alert relay as the anti-spam email path;
+   - add PBS job-result alerting;
+   - add ZFS pool capacity/degraded checks;
+   - add DuckDNS updater and certificate-expiry checks.
 2. Finish offsite backup:
    - choose restic, Borg, second PBS, or rotated encrypted USB;
    - run at least one restore test away from the P710.
@@ -216,7 +217,7 @@ Current base:
 
 Next improvements:
 
-- finish SMTP-backed anti-spam alert relay;
+- keep the SMTP-backed anti-spam relay healthy;
 - add PBS job-result alerting;
 - add ZFS capacity/degraded pool alerts;
 - add DuckDNS updater failure alerts;
@@ -226,7 +227,7 @@ Next improvements:
 Alerting rule:
 
 - Uptime Kuma remains the health source.
-- The local relay should enforce the incident lifecycle: wait 1 minute, send one alert, send one 5-minute reminder, then stay quiet until recovery.
+- The local relay enforces the incident lifecycle: wait 1 minute, send one alert, send one 5-minute reminder, then stay quiet until recovery.
 - ntfy is useful for local push notifications, but sensitive topics need authentication before carrying service details.
 
 ## Automation and IaC Ideas

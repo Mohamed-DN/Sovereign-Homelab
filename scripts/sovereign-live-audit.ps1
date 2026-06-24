@@ -255,6 +255,12 @@ try {
         Add-Failure 'alert relay anti-spam self-test failed'
     }
 
+    Test-RemoteCondition 'live alert relay service is active on LXC101' 'pct exec 101 -- systemctl is-active --quiet sovereign-alert-relay'
+    Test-RemoteCondition 'live alert relay health endpoint responds on LXC101' 'pct exec 101 -- curl -fsS http://127.0.0.1:8099/health'
+    Test-RemoteCondition 'alert relay environment file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/alert-relay.env)" = 600'''
+    Test-RemoteCondition 'alert relay token file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/alert-relay-token)" = 600'''
+    Test-RemoteCondition 'SMTP password file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/smtp-password)" = 600'''
+
     Write-Section 'Local Credential Vault'
     Test-RemoteCondition 'credential vault directory mode is 700' 'test "$(stat -c %a /root/sovereign-secrets)" = 700'
     Test-RemoteCondition 'credential vault directory owner is root:root' 'test "$(stat -c %U:%G /root/sovereign-secrets)" = root:root'
@@ -418,6 +424,13 @@ PY
 
     Write-Section 'Internal CA'
     Test-HttpStatus "https://${InternalCaHost}:9002/health" 'Smallstep internal CA health'
+    try {
+        $certAudit = Invoke-Ssh "if [ -x /usr/local/sbin/sovereign-cert-expiry-audit ]; then /usr/local/sbin/sovereign-cert-expiry-audit; else echo MISSING_CERT_EXPIRY_AUDIT; exit 1; fi"
+        $certAudit | ForEach-Object { Write-Host $_ }
+        Add-Pass 'certificate expiry audit passed'
+    } catch {
+        Add-Failure "certificate expiry audit failed: $($_.Exception.Message)"
+    }
 
     Write-Section 'Critical Alias Fingerprints'
     Test-ResolvedHttpContent 'Proxmox VE HTTPS alias' 'https://proxmox.internal' 'Proxmox Virtual Environment'
