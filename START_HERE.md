@@ -85,14 +85,16 @@ Large environments usually use a private subdomain of a registered corporate dom
 2. [LIVE_PROXMOX_VALIDATION.md](docs/06_operations_security/LIVE_PROXMOX_VALIDATION.md): live server audit, 4G VPN acceptance, dashboards, and backup gate.
 3. [LIVE_BUILD_LOG_2026-06-21.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md): factual record of the first live platform/PBS/Kuma build.
 4. [LIVE_BUILD_LOG_2026-06-22.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md): live apps-light, Immich, Nextcloud, Home Assistant, operations extensions, NPM aliases, Kuma monitors, and PBS backup updates.
-5. [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md): latest live audit, local credentials file, alert relay gate, and future research output.
-6. [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md): compact service-by-service operational coverage table.
-7. [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md): safe template for the root-only private credentials file.
-8. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
-9. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
-10. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
-11. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
-12. [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md): researched future ideas; do not treat them as implemented tasks.
+5. [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md): previous live audit, local credentials file, alert relay gate, and future research output.
+6. [LIVE_BUILD_LOG_2026-06-24.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md): latest live audit and Beszel admin-access recovery.
+7. [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md): safe login recovery procedures and credential-vault rules.
+8. [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md): compact service-by-service operational coverage table.
+9. [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md): safe template for the root-only private credentials file.
+10. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
+11. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
+12. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
+13. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
+14. [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md): researched future ideas; do not treat them as implemented tasks.
 
 ### 6. Controlled Expansion
 

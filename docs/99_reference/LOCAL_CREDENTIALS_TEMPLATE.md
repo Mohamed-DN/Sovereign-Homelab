@@ -106,6 +106,18 @@ Repository rules:
 - Username: `<BESZEL_USERNAME>`
 - Password: `<BESZEL_PASSWORD>`
 - Agent keys/path: `<BESZEL_AGENT_KEY_PATH>`
+- Recovery note: use [Admin Access Recovery](../06_operations_security/ADMIN_ACCESS_RECOVERY.md). Beszel PocketBase superuser access and Hub user access are separate.
+
+## Beszel Recovery Credential
+
+- URL: `http://monitor.internal`
+- PocketBase admin URL: `http://monitor.internal/_/`
+- Recovery admin email: `<BESZEL_RECOVERY_EMAIL>`
+- Recovery admin username: `<BESZEL_RECOVERY_USERNAME>`
+- Recovery admin password: `<BESZEL_RECOVERY_PASSWORD>`
+- Recovery method: `<BESZEL_RECOVERY_METHOD>`
+- Last verified: `<DATE>`
+- Backup before reset: `<BESZEL_BACKUP_PATH>`
 
 ## Dozzle
 
@@ -171,3 +183,14 @@ Repository rules:
 - SSH users: `<SSH_USERS>`
 - Recovery commands: see [Validation Commands](VALIDATION_COMMANDS.md)
 - Backup restore notes: see [PBS Critical Operations](../05_backup_dr/PBS_CRITICAL_OPERATIONS.md)
+
+## Admin Access Audit
+
+- Last reviewed: `<DATE>`
+- Rule: each service promoted to production must have either a known credential in the private vault/password manager or a documented recovery path.
+- Beszel: `<RECOVERY_STATUS>`
+- Proxmox/PBS: `<ACCESS_STATUS>`
+- AdGuard/NPM/Headscale: `<ACCESS_STATUS>`
+- Authentik/Kuma/Homepage/Beszel/Dozzle: `<ACCESS_STATUS>`
+- Critical apps: `<ACCESS_STATUS>`
+- Alerting: `<SMTP_AND_NTFY_STATUS>`

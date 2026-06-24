@@ -50,6 +50,7 @@
 |---|---|---|
 | Homepage 403 or invalid host | `HOMEPAGE_ALLOWED_HOSTS` env | add the correct domain and port |
 | Beszel agent offline | Beszel UI or agent logs | update KEY/TOKEN from the UI |
+| Beszel Hub login lost | [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md), `docker exec beszel /beszel superuser upsert --dir /beszel_data <EMAIL> <PASSWORD>` | reset the PocketBase superuser, then update the Hub user in the `users` collection; the superuser command alone does not reset Hub login |
 | Dozzle does not show logs | Docker socket | verify `/var/run/docker.sock` mount |
 | Uptime Kuma false negative | monitor target | use the correct internal endpoint |
 | NetAlertX is noisy | scan scope and notification settings | start with main LAN only, then add VLANs/sites intentionally |

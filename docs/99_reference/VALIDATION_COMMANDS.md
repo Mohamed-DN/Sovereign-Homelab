@@ -74,6 +74,21 @@ Expected:
 600 root:root /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 ```
 
+Admin-access audit checks on the Proxmox host. These commands show status only; do not print secret values:
+
+```bash
+grep -q '^## Admin Access Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+grep -q '^## Beszel Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
+```
+
+Beszel recovery health check:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' http://monitor.internal
+```
+
+Expected result: `200`. The actual Beszel recovery credential is stored only in the local root-only vault.
+
 ## Alert Relay Template
 
 The alert relay is optional until SMTP credentials are available locally, but the script must remain syntactically valid:

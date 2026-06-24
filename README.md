@@ -27,7 +27,7 @@ The repository is written in English and is designed to be used like an infrastr
 
 ## Live Foundation Status
 
-Last live build log: [2026-06-23](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md).
+Last live build log: [2026-06-24](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md).
 
 | Area | Current state |
 |---|---|
@@ -42,7 +42,7 @@ Last live build log: [2026-06-23](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Monitoring | Uptime Kuma initialized with 37 live monitors; all were UP during the 2026-06-23 audit across VPN, DNS, critical alias fingerprints, apps including Nextcloud, operations extensions, Home Assistant, internal CA, and protocol checks |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
 | Internal TLS | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; client root trust rollout is the next gate before moving private aliases to HTTPS |
-| Local credentials | root-only `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` created on the Proxmox host; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
+| Local credentials | root-only `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` created on the Proxmox host; Beszel recovery credential verified and stored there only; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
 | Alerting | Uptime Kuma and ntfy are live; anti-spam email relay script/template is documented, but SMTP credentials and end-to-end email test remain gated |
 | Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
@@ -135,8 +135,9 @@ High-signal reference files:
 |---|---|
 | [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md) | compact live table for service, alias, NPM, Homepage, Kuma, backup, restore, and gate status |
 | [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) | safe public template for the root-only local credentials file |
+| [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) | safe admin-access recovery runbook for Proxmox, PBS, platform services, Beszel, and apps |
 | [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md) | researched future ideas, benefits, risks, and priorities; no live changes |
-| [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md) | latest live audit, local credentials status, alert gate, and research summary |
+| [LIVE_BUILD_LOG_2026-06-24.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md) | latest live audit, Beszel admin-access recovery, local credential audit, and remaining gates |
 
 ## Deployment Workflow
 
@@ -147,7 +148,8 @@ High-signal reference files:
 5. Configure PBS and run a restore test using [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md).
 6. Deploy one app at a time from [docs/04_apps/00_APP_SERVICES_INDEX.md](docs/04_apps/00_APP_SERVICES_INDEX.md).
 7. Add alias, NPM proxy, Homepage card, Uptime Kuma monitor, backup, restore, and rollback for each service.
-8. Add optional operations extensions only after the core is green: NetAlertX for asset visibility, Scrutiny for disk SMART, and ntfy for self-hosted alerts.
+8. Record or recover admin access using [Admin Access Recovery](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md).
+9. Add optional operations extensions only after the core is green: NetAlertX for asset visibility, Scrutiny for disk SMART, and ntfy for self-hosted alerts.
 
 ## Stack Usage
 
