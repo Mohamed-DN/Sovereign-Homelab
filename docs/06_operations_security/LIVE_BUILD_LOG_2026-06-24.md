@@ -43,6 +43,8 @@ The public repository still contains only the placeholder template at:
 docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
 ```
 
+Later on 2026-06-24, the server-local credential vault was rechecked against the required section structure. Missing section headings were added with placeholder values such as `TODO: fill manually`; no real credential values were copied into Git. The root-only file now includes a `Credential File Structure Audit 2026-06-24` marker.
+
 ## Beszel Access Recovery
 
 Beszel was the concrete login issue in this pass.
