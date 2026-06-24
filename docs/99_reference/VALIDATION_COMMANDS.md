@@ -156,7 +156,10 @@ The alert relay is optional until SMTP credentials are available locally, but th
 
 ```bash
 python -m py_compile scripts/sovereign-alert-relay.py
+python scripts/sovereign-alert-relay.py --self-test
 ```
+
+The self-test validates the alert, reminder, no-spam, and recovery state machine without opening a listener or sending email. It does not replace the later live SMTP test.
 
 When configured live, validate:
 

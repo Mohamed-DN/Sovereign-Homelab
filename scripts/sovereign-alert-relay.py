@@ -18,6 +18,7 @@ import json
 import os
 import smtplib
 import ssl
+import sys
 import threading
 import time
 from email.message import EmailMessage
@@ -32,6 +33,8 @@ PORT = int(os.environ.get("ALERT_RELAY_PORT", "8099"))
 FIRST_DELAY = int(os.environ.get("ALERT_FIRST_DELAY_SECONDS", "60"))
 REMINDER_DELAY = int(os.environ.get("ALERT_REMINDER_DELAY_SECONDS", "300"))
 CHECK_INTERVAL = int(os.environ.get("ALERT_CHECK_INTERVAL_SECONDS", "10"))
+ATTEMPT_THROTTLE = int(os.environ.get("ALERT_ATTEMPT_THROTTLE_SECONDS", "60"))
+DRY_RUN = os.environ.get("ALERT_DRY_RUN", "false").lower() in {"1", "true", "yes"}
 
 
 def read_secret(value_name: str, file_name: str) -> str:
@@ -96,6 +99,10 @@ def is_up(payload: dict[str, Any]) -> bool:
 
 
 def send_email(subject: str, body: str) -> None:
+    if DRY_RUN:
+        print(json.dumps({"dry_run_email": {"subject": subject, "body": body}}, indent=2))
+        return
+
     missing = [
         name
         for name, value in {
@@ -175,34 +182,39 @@ def register_event(payload: dict[str, Any]) -> None:
 def notification_loop() -> None:
     while True:
         time.sleep(CHECK_INTERVAL)
-        with LOCK:
-            state = load_state()
-            changed = False
-            now = int(time.time())
-            for incident in state.get("incidents", {}).values():
-                first_seen = int(incident.get("first_seen", now))
-                emails_sent = int(incident.get("emails_sent", 0))
-                last_attempt = int(incident.get("last_attempt", 0))
-                name = incident.get("name", "unknown-monitor")
-                elapsed = now - first_seen
-                if now - last_attempt < 60:
-                    continue
-                if emails_sent == 0 and elapsed >= FIRST_DELAY:
-                    subject = f"ALERT: {name} is DOWN"
-                    body = json.dumps({"event": "down", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
-                    incident["last_attempt"] = now
-                    changed = True
-                    if try_send_email(subject, body):
-                        incident["emails_sent"] = 1
-                elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
-                    subject = f"REMINDER: {name} is still DOWN after 5 minutes"
-                    body = json.dumps({"event": "reminder", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
-                    incident["last_attempt"] = now
-                    changed = True
-                    if try_send_email(subject, body):
-                        incident["emails_sent"] = 2
-            if changed:
-                save_state(state)
+        process_notifications_once()
+
+
+def process_notifications_once(now: int | None = None) -> None:
+    if now is None:
+        now = int(time.time())
+    with LOCK:
+        state = load_state()
+        changed = False
+        for incident in state.get("incidents", {}).values():
+            first_seen = int(incident.get("first_seen", now))
+            emails_sent = int(incident.get("emails_sent", 0))
+            last_attempt = int(incident.get("last_attempt", 0))
+            name = incident.get("name", "unknown-monitor")
+            elapsed = now - first_seen
+            if now - last_attempt < ATTEMPT_THROTTLE:
+                continue
+            if emails_sent == 0 and elapsed >= FIRST_DELAY:
+                subject = f"ALERT: {name} is DOWN"
+                body = json.dumps({"event": "down", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
+                incident["last_attempt"] = now
+                changed = True
+                if try_send_email(subject, body):
+                    incident["emails_sent"] = 1
+            elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
+                subject = f"REMINDER: {name} is still DOWN after 5 minutes"
+                body = json.dumps({"event": "reminder", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
+                incident["last_attempt"] = now
+                changed = True
+                if try_send_email(subject, body):
+                    incident["emails_sent"] = 2
+        if changed:
+            save_state(state)
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -243,6 +255,73 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {format % args}")
 
 
+def self_test() -> int:
+    """Validate the incident lifecycle without SMTP or network listeners."""
+    import tempfile
+
+    global STATE_PATH, FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE, send_email
+
+    sent_subjects: list[str] = []
+    original_state_path = STATE_PATH
+    original_first_delay = FIRST_DELAY
+    original_reminder_delay = REMINDER_DELAY
+    original_attempt_throttle = ATTEMPT_THROTTLE
+    original_send_email = send_email
+
+    def fake_send_email(subject: str, body: str) -> None:
+        sent_subjects.append(subject)
+
+    with tempfile.TemporaryDirectory(prefix="sovereign-alert-relay-test-") as tmpdir:
+        try:
+            STATE_PATH = Path(tmpdir) / "state.json"
+            FIRST_DELAY = 1
+            REMINDER_DELAY = 5
+            ATTEMPT_THROTTLE = 0
+            send_email = fake_send_email
+
+            down_payload = {
+                "monitor": {"id": "relay-self-test", "name": "Relay Self Test"},
+                "heartbeat": {"status": 0},
+            }
+            up_payload = {
+                "monitor": {"id": "relay-self-test", "name": "Relay Self Test"},
+                "heartbeat": {"status": 1},
+            }
+
+            register_event(down_payload)
+            state = load_state()
+            state["incidents"]["relay-self-test"]["first_seen"] = 1000
+            save_state(state)
+
+            process_notifications_once(now=1000)
+            process_notifications_once(now=1001)
+            process_notifications_once(now=1005)
+            process_notifications_once(now=1010)
+            register_event(up_payload)
+
+            expected = [
+                "ALERT: Relay Self Test is DOWN",
+                "REMINDER: Relay Self Test is still DOWN after 5 minutes",
+                "RESOLVED: Relay Self Test returned UP",
+            ]
+            if sent_subjects != expected:
+                print("self-test failed")
+                print(json.dumps({"expected": expected, "actual": sent_subjects}, indent=2))
+                return 1
+            if load_state().get("incidents"):
+                print("self-test failed: incident state was not cleared after recovery")
+                print(json.dumps(load_state(), indent=2))
+                return 1
+            print("sovereign-alert-relay self-test OK")
+            return 0
+        finally:
+            STATE_PATH = original_state_path
+            FIRST_DELAY = original_first_delay
+            REMINDER_DELAY = original_reminder_delay
+            ATTEMPT_THROTTLE = original_attempt_throttle
+            send_email = original_send_email
+
+
 def main() -> None:
     threading.Thread(target=notification_loop, daemon=True).start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
@@ -251,4 +330,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if "--self-test" in sys.argv:
+        raise SystemExit(self_test())
     main()

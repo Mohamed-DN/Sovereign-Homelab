@@ -181,6 +181,8 @@ ALERT_RELAY_PORT=8099
 ALERT_FIRST_DELAY_SECONDS=60
 ALERT_REMINDER_DELAY_SECONDS=300
 ALERT_STATE_PATH=/var/lib/sovereign-alert-relay/state.json
+ALERT_ATTEMPT_THROTTLE_SECONDS=60
+ALERT_DRY_RUN=false
 ALERT_RELAY_TOKEN_FILE=/root/sovereign-secrets/alert-relay-token
 ALERT_SMTP_HOST=<SMTP_HOST>
 ALERT_SMTP_PORT=<SMTP_PORT>
@@ -200,6 +202,25 @@ openssl rand -base64 32 >/root/sovereign-secrets/alert-relay-token
 printf '%s\n' '<SMTP_PASSWORD>' >/root/sovereign-secrets/smtp-password
 chmod 600 /root/sovereign-secrets/alert-relay-token /root/sovereign-secrets/smtp-password
 ```
+
+### Pre-SMTP Relay Validation
+
+Run these checks from the repository before enabling the systemd unit:
+
+```bash
+python -m py_compile scripts/sovereign-alert-relay.py
+python scripts/sovereign-alert-relay.py --self-test
+```
+
+The self-test does not open a network listener and does not contact SMTP. It validates the relay state machine:
+
+1. one `ALERT` after the first delay;
+2. one `REMINDER` after the reminder delay;
+3. no additional DOWN spam for the same incident;
+4. one `RESOLVED` after recovery;
+5. incident state cleared after recovery.
+
+For a manual dry run on the server without SMTP delivery, set `ALERT_DRY_RUN=true` in a temporary environment file, start the relay, send a test webhook, and inspect the journal output. Do not leave dry-run mode enabled for production alerting.
 
 Enable:
 

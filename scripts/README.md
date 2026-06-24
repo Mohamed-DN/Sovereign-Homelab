@@ -77,4 +77,12 @@ Validate syntax from the repository:
 python -m py_compile scripts/sovereign-alert-relay.py
 ```
 
+Validate the anti-spam state machine without SMTP credentials:
+
+```bash
+python scripts/sovereign-alert-relay.py --self-test
+```
+
+The self-test proves that one DOWN incident generates exactly one `ALERT`, one `REMINDER`, no extra DOWN spam, and one `RESOLVED` event after recovery. It does not send email and does not replace the later live SMTP test.
+
 See [Operations Manual](../docs/06_operations_security/OPERATIONS_MANUAL.md) for setup and test steps.
