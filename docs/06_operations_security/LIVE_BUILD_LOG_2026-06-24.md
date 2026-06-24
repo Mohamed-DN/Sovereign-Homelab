@@ -64,6 +64,21 @@ Recovery actions:
 
 Important lesson: the Beszel `superuser` command affects PocketBase superuser access for `/_/`. It does not automatically reset the Beszel Hub login. The Hub login belongs to the `users` collection.
 
+## Nginx Proxy Manager Access Recovery
+
+NPM admin access was recovered safely on 2026-06-24.
+
+Recovery actions:
+
+1. Created a root-only backup of NPM data, the SQLite database, keys, and Let's Encrypt material under `/root/sovereign-secrets/backups/`.
+2. Updated the existing active NPM admin account in `/opt/core-network/npm/data/database.sqlite` with a generated recovery credential and bcrypt password hash.
+3. Restarted only the `npm` container.
+4. Validated login through the NPM API.
+5. Re-ran the live audit after restart; public VPN, split DNS, all NPM proxy targets, dashboard links, Kuma monitors, Headscale routes, storage, and Compose validation passed.
+6. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+No public service hostnames, DuckDNS rules, proxy targets, or certificates were changed.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:
