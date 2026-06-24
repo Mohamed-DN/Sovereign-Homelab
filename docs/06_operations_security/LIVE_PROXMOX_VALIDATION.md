@@ -30,7 +30,7 @@ Use the real DuckDNS hostname during live validation, but keep repository exampl
 
 ## Current Live Status
 
-Last checked: 2026-06-23.
+Last checked: 2026-06-24.
 
 | Check | Status |
 |---|---|
@@ -45,17 +45,19 @@ Last checked: 2026-06-23.
 | App services | LXC 102 `apps-light` deployed on `192.168.1.52`; VM 110 `immich` deployed on `192.168.1.110`; VM 120 `nextcloud-aio` deployed on `192.168.1.120`; VM 130 `home-assistant-os` deployed on `192.168.1.130` |
 | Operations extensions | LXC 103 `ops-extensions` deployed on `192.168.1.53` with NetAlertX, Scrutiny, and ntfy |
 | Internal aliases | core, platform, LXC102 apps, Immich, Jellyfin, Open WebUI, Nextcloud, Home Assistant, NetAlertX, Scrutiny, and ntfy aliases exist in NPM |
-| Uptime Kuma | 37 live monitors, all UP during the 2026-06-23 audit with fresh heartbeats, including internal CA health |
+| Uptime Kuma | 37 live monitors, all UP during the 2026-06-24 audit with fresh heartbeats, including internal CA health |
 | PBS/backup | VM 140 `pbs` deployed on `192.168.1.20`; datastore `p710-local`; PVE storage `pbs-p710`; scheduled backup covers `100,101,102,103,110,120,130`; LXC101, LXC102, LXC103, VM110, VM120, and VM130 restore drills completed; LXC102 and VM110 app-aware baseline drills completed |
 | Live image tags | core live Compose pinned to Headscale `v0.28.0`, Headscale-UI `2026.03.17`, AdGuard Home `v0.107.77`, and NPM `2.15.1`; Scrutiny pinned to `v0.9.2-omnibus` |
 | Storage model | `ssd_pool` initially appeared above 90% used because VM zvols were thick-reserved; sparse allocation is now enabled and thick zvol reservations were cleared, reducing reported usage to about 15% |
 | Runtime DNS domain | Proxmox, LXC100, LXC101, LXC102, and LXC103 now use `search internal`; AdGuard answers as `core-network.internal` |
+| Latest live audit | `scripts/sovereign-live-audit.ps1` passed on 2026-06-24 after the identity/LDAP documentation slice |
 
 Keep this table factual. Update it after every live audit instead of relying on memory.
 
 Live caveats:
 
 - Authentik is deployed and reachable at `http://auth.internal/if/user/`, but MFA, recovery policy, and application protection still need deliberate hardening before it becomes the mandatory SSO gate. The bare root path can redirect to a non-applicable setup flow after bootstrap; use `/if/user/` for dashboards and monitors.
+- The user has confirmed that the physical phone-on-4G VPN path works. Repeat the full phone-side checklist after any future VPN, NPM, router, DNS, or Headscale policy change.
 - Beszel Hub and a platform-services agent are enrolled. Beszel agent health is checked in Beszel because the live agent uses hub/WebSocket enrollment instead of a separate inbound TCP monitor.
 - Most `.internal` aliases currently use HTTP on the client side over LAN/VPN. `files.internal` already uses client-side HTTPS with an internal certificate because Nextcloud AIO expects secure browser access. Add a trusted internal CA before requiring HTTPS for all private aliases.
 - LXC 102 was recreated intentionally as `apps-light`. Its PBS restore drill restored snapshot `pbs-p710:backup/ct/102/2026-06-23T01:00:42Z` to temporary CT `902`, mounted the root filesystem, verified service stack files and Docker volumes, and destroyed the temporary CT. A later app-aware baseline wrote `/root/sovereign-app-restore-drills/20260623T153506Z`, verified Vaultwarden SQLite integrity, restored Paperless and Forgejo PostgreSQL dumps into temporary databases, and captured critical volume manifests.

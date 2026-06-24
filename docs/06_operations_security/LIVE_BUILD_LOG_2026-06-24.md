@@ -150,6 +150,48 @@ Remaining gates before broad SSO rollout:
 5. deploy LDAPS only when a real LDAP consumer is ready;
 6. validate LDAPS certificate trust before using LDAP for Proxmox, PBS, Linux/SSSD, or Nextcloud.
 
+## Post-Identity Live Audit
+
+After the identity documentation slice, the consolidated live audit was re-run from the Windows workstation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
+```
+
+Result: passed without detected failures.
+
+Validated state:
+
+- repository working tree was clean;
+- `https://vpn.casca-certosa.duckdns.org/health` returned HTTP `200`;
+- public DuckDNS resolved to the current home public IP;
+- NPM generated proxy targets matched the documented upstreams for core, platform, apps, operations extensions, Nextcloud, Home Assistant, and the public Headscale edge;
+- AdGuard split DNS returned `vpn.casca-certosa.duckdns.org -> 192.168.1.50`;
+- `dash.internal` resolved through AdGuard to the NPM IP;
+- `ca.internal` resolved directly to LXC 101;
+- Smallstep CA health returned HTTP `200`;
+- critical alias fingerprints matched Proxmox VE, PBS, AdGuard, NPM, Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, Immich, and Nextcloud;
+- all 27 Homepage cards returned HTTP `2xx` or expected login redirects;
+- Proxmox had no failed systemd units;
+- ZFS pools were healthy;
+- `ssd_pool` reported about 15% used;
+- PBS storage `pbs-p710` was active;
+- LXC 100, 101, 102, 103 and VM 110, 120, 130, 140 were running;
+- Headscale routes showed Proxmox serving `0.0.0.0/0` and `::/0`, and LXC 100 serving `192.168.1.0/24`;
+- `sovereign-duckdns-update.timer` was active;
+- Uptime Kuma had 37 active monitors and all latest heartbeats were UP;
+- all stack Compose templates validated.
+
+4G status:
+
+- The user reported that the phone-on-4G VPN connection works.
+- Server-side evidence also shows the public Headscale path, split DNS, subnet route, and exit-node route are healthy.
+- After any future VPN, NPM, router, DNS, or Headscale policy change, repeat the phone-side checklist: Wi-Fi off, reconnect VPN, ping `192.168.1.50`, resolve `dash.internal` through AdGuard, select the Proxmox exit node, and confirm AdGuard still logs the phone DNS queries.
+
+Observed non-action item:
+
+- Headscale printed an upstream update notice for a newer beta release. The live system remains intentionally pinned to `headscale/headscale:v0.28.0`; do not move to a beta just because the notice exists.
+
 ## Admin Access Audit
 
 Added a dated server-local admin-access audit section to:
