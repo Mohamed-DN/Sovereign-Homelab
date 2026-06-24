@@ -87,6 +87,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `headscale-ui` | LXC 100 | 8081 | `headscale.internal/web` | VPN/Auth | config if present | Admin UI |
 | `npm` | LXC 100 | 80, 443, 81 | `npm.internal` | UI VPN/Auth | `/data`, `/letsencrypt` | Reverse proxy; public Headscale edge stays here |
 | `authentik-server` | LXC 101 | 9000 | `auth.internal` | VPN/Auth by default | DB + media + config | Identity |
+| Authentik LDAP outpost | LXC 101 | 636 | `ldap.internal` | LAN/VPN service accounts; planned | Authentik config + local service-account credential | Direct LDAPS compatibility endpoint, not NPM |
 | `uptime-kuma` | LXC 101 | 3001 | `status.internal` | VPN/Auth | app volume | Monitoring |
 | `homepage` | LXC 101 | 3002 | `dash.internal` | VPN/Auth | YAML config | Dashboard |
 | `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics hub; platform agent enrolled |
