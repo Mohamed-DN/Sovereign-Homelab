@@ -14,8 +14,10 @@ stacks/**/secrets/
 HOMELAB_CREDENTIALS.md
 credentials.md
 secrets.md
+/root/sovereign-secrets/
 sovereign-secrets/
 *credentials*
+*secret*
 *.secret
 *.secrets
 !docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
