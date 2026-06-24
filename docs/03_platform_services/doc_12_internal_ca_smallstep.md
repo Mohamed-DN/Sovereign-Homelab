@@ -97,7 +97,8 @@ Use a harmless test name first:
 
 ```bash
 step ca certificate test.internal test.internal.crt test.internal.key \
-  --ca-url https://ca.internal:9002
+  --ca-url https://ca.internal:9002 \
+  --not-after 720h
 ```
 
 Verify the certificate:
@@ -111,19 +112,57 @@ openssl x509 -in test.internal.crt -noout -subject -issuer -dates
 Do this one service at a time:
 
 1. Confirm the service has a PBS backup and a working HTTP alias.
-2. Issue a certificate for the exact hostname, for example `pwd.internal`.
-3. Import the certificate and key into Nginx Proxy Manager as a custom certificate.
-4. Enable SSL for that single proxy host.
-5. Test from a trusted client:
+2. Confirm certificate renewal is automated or scheduled before using short-lived certificates in NPM.
+3. Issue a certificate for the exact hostname, for example `pwd.internal`.
+4. Import the certificate and key into Nginx Proxy Manager as a custom certificate.
+5. Enable SSL for that single proxy host.
+6. Test from a trusted client:
 
    ```bash
    curl -I https://pwd.internal
    ```
 
-6. Update Uptime Kuma from HTTP to HTTPS.
-7. Update the service runbook and live build log.
+7. Update Uptime Kuma from HTTP to HTTPS.
+8. Update the service runbook and live build log.
 
 Rollback is simple: disable SSL for that one NPM proxy host and return the monitor to HTTP.
+
+## Live Proxmox/PBS Migration
+
+On 2026-06-24, the lab moved `proxmox.internal` and `pbs.internal` to client-side HTTPS with Smallstep-issued host certificates:
+
+| Alias | NPM certificate path | Upstream |
+|---|---|---|
+| `proxmox.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-proxmox/` | `https://192.168.1.150:8006` |
+| `pbs.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-pbs/` | `https://192.168.1.20:8007` |
+
+The CA was configured with a 30-day `maxTLSCertDuration` and `defaultTLSCertDuration` for internal service aliases. That is intentionally shorter than a public ACME-style certificate but long enough for a homelab renewal timer.
+
+Validation:
+
+```bash
+curl -k -s -o /dev/null -w '%{http_code}\n' https://proxmox.internal/
+curl -k -s -o /dev/null -w '%{http_code}\n' https://pbs.internal/
+```
+
+Expected result: `200` for both `GET` checks. `curl -I` can return Proxmox/PBS-specific `HEAD` behavior, so do not treat that alone as a failure.
+
+Renewal gate:
+
+- keep a root-only renewal script or timer on the Proxmox host;
+- reload only NPM after replacing the certificate files;
+- verify Homepage and Uptime Kuma stay green;
+- do not migrate more aliases until this renewal path has been observed at least once.
+
+Live renewal path:
+
+```text
+/usr/local/sbin/sovereign-renew-npm-internal-certs
+/etc/systemd/system/sovereign-renew-npm-internal-certs.service
+/etc/systemd/system/sovereign-renew-npm-internal-certs.timer
+```
+
+The script is root-only, stores transient private keys under `/root/sovereign-secrets/tmp-npm-internal-certs`, removes them after copying into NPM, runs `nginx -t`, and reloads only the NPM container.
 
 ## Validation
 
@@ -163,6 +202,8 @@ Do not lose the CA private material after clients trust it. Losing it forces a C
 | Symptom | Check | Fix |
 |---|---|---|
 | `curl` reports certificate error | client trust store | install the root CA on that client |
+| Proxmox/PBS HTTPS works with `-k` but browser warns | Smallstep root not trusted on the workstation | install the Smallstep root CA on that admin client |
+| Proxmox/PBS certificate expires | renewal timer or CA max duration | renew the cert, copy it into NPM custom SSL storage, reload NPM, then test the alias |
 | CA starts with a new root unexpectedly | Docker volume missing | stop immediately and restore `step_ca_data`; do not trust the new root blindly |
 | ACME/renewal fails through NPM | access policy or proxy mode | test direct CA URL first; remove interactive forward auth from CA issuance path |
 | NPM HTTPS migration breaks one app | NPM custom cert or upstream scheme | roll back that one proxy host to HTTP and retry with a test alias |

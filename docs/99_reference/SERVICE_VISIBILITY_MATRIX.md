@@ -40,8 +40,8 @@ Target placeholders:
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Proxmox VE | `proxmox.internal` | `https://PVE_IP:8006` | yes | yes | HTTP alias monitor plus optional direct TCP/HTTPS | VPN/admin | host config notes + PBS restore plan |
-| Proxmox Backup Server | `pbs.internal` | `https://PBS_IP:8007` | yes | yes | HTTP alias monitor plus TCP `8007` | VPN/admin | datastore + PBS config/offsite plan |
+| Proxmox VE | `proxmox.internal` | client `https://proxmox.internal`, upstream `https://PVE_IP:8006` | yes | yes | HTTPS alias monitor plus optional direct TCP/HTTPS | VPN/admin | host config notes + PBS restore plan |
+| Proxmox Backup Server | `pbs.internal` | client `https://pbs.internal`, upstream `https://PBS_IP:8007` | yes | yes | HTTPS alias monitor plus TCP `8007` | VPN/admin | datastore + PBS config/offsite plan |
 | AdGuard UI | `adguard.internal` | `http://LXC100_IP:3000` | yes | yes | HTTP monitor | VPN/admin | config + work dir |
 | NPM UI | `npm.internal` | `http://LXC100_IP:81` or `http://LXC101_IP:81` | yes | yes | HTTP monitor | VPN/admin | `/data` + `/letsencrypt` |
 | Headscale-UI | `headscale.internal/web` | `http://LXC100_IP:8081` custom location | yes | yes | HTTP monitor until internal CA | VPN/admin | config if present |

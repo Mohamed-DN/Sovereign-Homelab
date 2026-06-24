@@ -34,6 +34,14 @@ The live server has one root-only local credentials file:
 /root/sovereign-secrets/HOMELAB_CREDENTIALS.md
 ```
 
+The live server also keeps a root-only access inventory:
+
+```text
+/root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md
+```
+
+That inventory records aliases, admin usernames, recovery methods, and open access gates. It must stay local and must not contain public documentation secrets.
+
 Required permissions:
 
 ```bash
@@ -55,6 +63,7 @@ Rules:
 - Keep the public template at [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) placeholder-only.
 - If you rotate a secret, update the local file and record only the rotation date in public docs.
 - If a login is lost, use [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md); do not reset passwords without a backup.
+- If you standardize web/admin passwords, place the chosen value in `/root/sovereign-secrets/common-app-password` first, keep mode `600`, and reset one service at a time. Do not change AdGuard, database passwords, API tokens, CA secrets, DuckDNS tokens, RustDesk keys, or service-account credentials during an app-login password pass.
 
 Quick safety check from the repository:
 
@@ -310,9 +319,29 @@ Verify:
 
 - public Headscale certificate exists for `vpn.yourdomain.duckdns.org`;
 - internal service certificate strategy is documented;
+- `https://proxmox.internal` and `https://pbs.internal` return the expected admin pages through NPM;
+- Smallstep-issued internal certs are not close to expiry;
 - certificates are not close to expiry;
 - proxy hosts have WebSockets enabled where needed;
 - admin UIs are protected by VPN/Auth or an access list.
+
+Certificate check:
+
+```bash
+curl -k -s -o /dev/null -w 'proxmox %{http_code}\n' https://proxmox.internal/
+curl -k -s -o /dev/null -w 'pbs %{http_code}\n' https://pbs.internal/
+```
+
+Expected result: `200` for both `GET` checks. `HEAD` checks can be misleading for Proxmox/PBS.
+
+Renewal timer:
+
+```bash
+systemctl status sovereign-renew-npm-internal-certs.timer --no-pager
+systemctl list-timers sovereign-renew-npm-internal-certs.timer --no-pager
+```
+
+The timer renews only the NPM client-side certificates for `proxmox.internal` and `pbs.internal`.
 
 5. Check updates without applying them immediately:
 

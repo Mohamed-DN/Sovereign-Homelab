@@ -420,8 +420,8 @@ PY
     Test-HttpStatus "https://${InternalCaHost}:9002/health" 'Smallstep internal CA health'
 
     Write-Section 'Critical Alias Fingerprints'
-    Test-ResolvedHttpContent 'Proxmox VE alias' 'http://proxmox.internal' 'Proxmox Virtual Environment'
-    Test-ResolvedHttpContent 'Proxmox Backup Server alias' 'http://pbs.internal' 'Proxmox Backup Server'
+    Test-ResolvedHttpContent 'Proxmox VE HTTPS alias' 'https://proxmox.internal' 'Proxmox Virtual Environment'
+    Test-ResolvedHttpContent 'Proxmox Backup Server HTTPS alias' 'https://pbs.internal' 'Proxmox Backup Server'
     Test-ResolvedHttpStatus 'AdGuard API alias' 'http://adguard.internal/control/status' '^401$'
     Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'http://npm.internal' 'Nginx Proxy Manager'
     Test-ResolvedHttpContent 'Authentik alias' 'http://auth.internal/if/user/' 'authentik'
@@ -555,15 +555,27 @@ for monitor_id, name, monitor_type, active in rows:
     ).fetchone()
     if heartbeat is None:
         print(monitor_id, name, monitor_type, 'NO_HEARTBEAT')
+        print('KUMA_DOWN', monitor_id, name, monitor_type, 'NO_HEARTBEAT')
     else:
         print(monitor_id, name, monitor_type, heartbeat[0], heartbeat[1], heartbeat[2])
+        if heartbeat[0] != 1:
+            print('KUMA_DOWN', monitor_id, name, monitor_type, heartbeat[0], heartbeat[1], heartbeat[2])
 '@
     $tempName = "sovereign-kuma-audit-$PID.py"
     $localTemp = Join-Path $env:TEMP $tempName
     Set-Content -LiteralPath $localTemp -Value $kumaPython -Encoding UTF8
     try {
         Invoke-Scp -Source $localTemp -Destination "${SshUser}@${ProxmoxHost}:/tmp/$tempName"
-        Invoke-Ssh "pct push 101 /tmp/$tempName /tmp/$tempName; pct exec 101 -- python3 /tmp/$tempName; pct exec 101 -- rm -f /tmp/$tempName; rm -f /tmp/$tempName"
+        $kumaOutput = Invoke-Ssh "pct push 101 /tmp/$tempName /tmp/$tempName; pct exec 101 -- python3 /tmp/$tempName; pct exec 101 -- rm -f /tmp/$tempName; rm -f /tmp/$tempName"
+        $kumaOutput | ForEach-Object { Write-Host $_ }
+        $downMonitors = $kumaOutput | Where-Object { $_ -match '^KUMA_DOWN\s+' }
+        if ($downMonitors) {
+            foreach ($downMonitor in $downMonitors) {
+                Add-Failure "Uptime Kuma active monitor is not UP: $downMonitor"
+            }
+        } else {
+            Add-Pass 'all active Uptime Kuma monitors have a latest UP heartbeat'
+        }
     } finally {
         Remove-Item -LiteralPath $localTemp -Force -ErrorAction SilentlyContinue
     }

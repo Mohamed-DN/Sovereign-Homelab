@@ -447,7 +447,8 @@ curl -I http://dash.internal
 curl -I http://status.internal
 curl -I http://monitor.internal
 curl -I http://logs.internal
-curl -I http://pbs.internal
+curl -k -s -o /dev/null -w 'proxmox %{http_code}\n' https://proxmox.internal/
+curl -k -s -o /dev/null -w 'pbs %{http_code}\n' https://pbs.internal/
 curl -k -I https://files.internal
 ```
 

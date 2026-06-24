@@ -16,10 +16,13 @@ services:
     image: louislam/uptime-kuma:${UPTIME_KUMA_TAG}
     container_name: uptime-kuma
     restart: unless-stopped
+    environment:
+      NODE_EXTRA_CA_CERTS: ${UPTIME_KUMA_NODE_EXTRA_CA_CERTS}
     ports:
     - "${UPTIME_KUMA_PORT}:3001"
     volumes:
     - uptime_kuma_data:/app/data
+    - ${UPTIME_KUMA_INTERNAL_CA_HOST_PATH}:${UPTIME_KUMA_NODE_EXTRA_CA_CERTS}:ro
 
     healthcheck:
       test:

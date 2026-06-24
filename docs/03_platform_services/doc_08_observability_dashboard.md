@@ -142,8 +142,8 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `AdGuard UI` | HTTP | `http://adguard.internal` | 60s | HTTP 200/302 |
 | `Nginx Proxy Manager UI` | HTTP | `http://npm.internal` | 60s | HTTP 200 |
 | `Headscale UI` | HTTP | `http://headscale.internal/web` | 60s | HTTP 200/302 |
-| `Proxmox VE` | HTTP alias | `http://proxmox.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
-| `Proxmox Backup Server` | HTTP alias | `http://pbs.internal` | 60s | HTTP 200 through NPM to HTTPS upstream |
+| `Proxmox VE` | HTTPS alias | `https://proxmox.internal` | 60s | HTTP 200 through NPM with the Smallstep internal certificate |
+| `Proxmox Backup Server` | HTTPS alias | `https://pbs.internal` | 60s | HTTP 200 through NPM with the Smallstep internal certificate |
 | `Authentik` | HTTP | `http://auth.internal/if/user/` | 60s | HTTP 200/302 after setup is completed |
 | `Homepage` | HTTP | `http://dash.internal` | 60s | HTTP 200 |
 | `Uptime Kuma` | HTTP | `http://status.internal` | 60s | HTTP 200/302 |
@@ -176,7 +176,15 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-23: 37 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, CrowdSec LAPI, and the internal CA health endpoint. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-06-24: 37 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, CrowdSec LAPI, and the internal CA health endpoint. Proxmox VE and PBS monitors now use the `https://proxmox.internal` and `https://pbs.internal` aliases. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+
+Because the Proxmox/PBS aliases use the internal Smallstep CA, the live Kuma container mounts the CA root and starts with:
+
+```text
+NODE_EXTRA_CA_CERTS=/app/data/ca/sovereign-root-ca.crt
+```
+
+Do not replace this with `ignore TLS` unless the CA trust path is broken and you are using it as a temporary incident workaround.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
