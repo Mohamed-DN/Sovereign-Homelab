@@ -1,5 +1,7 @@
 # Future Improvements Research
 
+Last refreshed: 2026-06-24.
+
 ## Scope
 
 This is research only. No live services were installed, no ports were opened, no DNS/NPM/VPN/storage changes were applied, and no backup policy was changed because of this document.
@@ -21,6 +23,8 @@ Most useful next improvements:
 - alert email relay completion with local SMTP secrets and anti-spam behavior;
 - Ansible runbooks for repeatable VM/LXC/bootstrap rebuilds;
 - future second Proxmox node only after backup, restore, and operations are stable.
+
+The strongest conclusion is that the next engineering effort should not be more apps. It should be recoverability and control: offsite backup, alert delivery, Authentik MFA, internal TLS trust, and documented rebuild automation.
 
 Improvements to avoid for now:
 
@@ -122,6 +126,7 @@ Recommendation:
 - Start with a non-clustered second node for PBS/offsite, monitoring, or testing.
 - Add Proxmox cluster only after learning the operational model.
 - If a two-node cluster is required, plan QDevice before moving production workloads.
+- Do not enable HA just because a cluster exists. For this lab, fast restore from tested backups is usually safer than HA until storage, quorum, fencing, and alert ownership are mature.
 
 ### Node Roles
 
@@ -151,6 +156,13 @@ Options:
 | Borg/Borgmatic | mature deduplicating backup | repository/server management | good for Linux app data |
 | Rotated encrypted USB | offline ransomware resistance | manual discipline | excellent low-cost layer |
 | S3-compatible object storage | offsite and scalable | recurring cost and credentials | good after encryption/testing |
+
+Operational guidance:
+
+- Prefer a pull-style offsite copy when possible, so the production host does not hold broad delete rights on the offsite repository.
+- Keep local PBS for fast recovery, but treat it as same-site recovery while it lives on the P710.
+- Use repository checks after prune/forget operations. Backup retention is not proven until restore and repository health checks are part of the routine.
+- Do not call rotated USB "done" unless the disk is encrypted, physically separated, and occasionally restored from.
 
 ## Storage Upgrade Ideas
 
@@ -211,6 +223,12 @@ Next improvements:
 - add certificate-expiry checks for the public Headscale endpoint and future internal CA certs;
 - consider Grafana/Prometheus/Loki only when lightweight tools are no longer enough.
 
+Alerting rule:
+
+- Uptime Kuma remains the health source.
+- The local relay should enforce the incident lifecycle: wait 1 minute, send one alert, send one 5-minute reminder, then stay quiet until recovery.
+- ntfy is useful for local push notifications, but sensitive topics need authentication before carrying service details.
+
 ## Automation and IaC Ideas
 
 Recommended progression:
@@ -221,6 +239,17 @@ Recommended progression:
 4. Renovate/Dependabot only for PRs, never auto-deploy, because image updates can break databases.
 
 Do not store secrets in IaC state. Use local root-only files, environment injection, or a future secret manager.
+
+Best first automation target:
+
+1. create a Debian LXC from a known template;
+2. install Docker and Compose;
+3. copy one stack directory;
+4. inject secrets from root-only local files;
+5. run `docker compose config`;
+6. add NPM, Homepage, Kuma, and backup entries as separate explicit tasks.
+
+Avoid trying to automate every app before the manual recovery model is stable.
 
 ## Future Service Candidates
 
@@ -239,6 +268,8 @@ Do not store secrets in IaC state. Use local root-only files, environment inject
 | OpenBao | secret management | high operational complexity |
 | Forgejo Actions | CI for local repos | runners can become privileged; isolate carefully |
 | WebDAV/SFTP gateway | simple file access | Nextcloud/Syncthing may already cover it |
+| Scrutiny collectors expansion | better disk visibility on more nodes | needs host-level device access and careful permissions |
+| Renovate | image update PR visibility | must never auto-deploy database-backed apps |
 
 ## Upgrade Plan
 
@@ -277,7 +308,7 @@ Do not store secrets in IaC state. Use local root-only files, environment inject
 - Uptime Kuma: <https://uptime.kuma.pet/>
 - NetAlertX docs: <https://docs.netalertx.com/>
 - Scrutiny GitHub project: <https://github.com/AnalogJ/scrutiny>
-- restic forget/append-only notes: <https://restic.readthedocs.io/en/v0.13.0/060_forget.html>
+- restic forget/prune docs: <https://restic.readthedocs.io/en/stable/060_forget.html>
 - BorgBackup append-only notes: <https://borgbackup.readthedocs.io/en/stable/usage/notes.html>
 - OpenBao: <https://openbao.org/docs/what-is-openbao/>
 - Ansible Proxmox module: <https://docs.ansible.com/projects/ansible/latest/collections/community/general/proxmox_module.html>

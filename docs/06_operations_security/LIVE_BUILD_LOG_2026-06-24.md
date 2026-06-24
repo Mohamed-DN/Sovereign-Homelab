@@ -153,6 +153,12 @@ These items remain intentional gates:
 | Representative restore drills | baseline drills passed, but critical apps need production-like sample restore rehearsals |
 | Credential completion | every app promoted to production must have its admin credential or recovery path filled in the root-only local vault |
 
+## Future Research Refresh
+
+The future-improvements research document was rechecked on 2026-06-24 against current official sources for Proxmox clustering/QDevice, PBS remote sync, restic retention/prune behavior, Borg append-only behavior, Authentik proxy/MFA planning, Smallstep CA, ntfy, Uptime Kuma, and lightweight monitoring options.
+
+No future idea was applied live. The refreshed recommendation remains conservative: finish offsite backup, alert email, Authentik MFA/recovery, internal CA trust rollout, and rebuild automation before adding heavy platforms or more application services.
+
 ## Rollback Notes
 
 Beszel access recovery created pre-reset backups in:
