@@ -11,7 +11,8 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
 - **Round 6:** Re-ran the live audit, recovered Beszel admin access through the supported PocketBase path, stored the recovery credential only in the root-only local vault, and added the public admin-access recovery runbook.
 - **Round 7:** Added a local alert-relay self-test and dry-run mode so the anti-spam state machine can be validated before SMTP secrets are available.
-- **Round 7:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
+- **Round 8:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
+- **Round 9:** Added live-audit gates for VPN control-plane invariants, public NPM edge flags, infrastructure Tailscale DNS posture, IP forwarding, and PBS backup coverage.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
 

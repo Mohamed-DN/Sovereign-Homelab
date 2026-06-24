@@ -279,6 +279,74 @@ try {
         Add-Failure "$PublicVpnHost public DNS does not return a public A record"
     }
 
+    Write-Section 'VPN Control Plane Invariants'
+    $headscaleConfig = '/opt/core-network/headscale/config/config.yaml'
+    Test-RemoteCondition 'Headscale server_url is the public HTTPS DuckDNS endpoint' "pct exec 100 -- grep -F -x 'server_url: https://$PublicVpnHost' $headscaleConfig"
+    Test-RemoteCondition 'Headscale listens for NPM on port 8080' "pct exec 100 -- grep -F -x 'listen_addr: 0.0.0.0:8080' $headscaleConfig"
+    Test-RemoteCondition 'Headscale MagicDNS is enabled' "pct exec 100 -- grep -F -x '  magic_dns: true' $headscaleConfig"
+    Test-RemoteCondition 'Headscale forces clients to use tailnet DNS settings' "pct exec 100 -- grep -F -x '  override_local_dns: true' $headscaleConfig"
+    Test-RemoteCondition 'Headscale global DNS points clients to AdGuard' "pct exec 100 -- grep -F -x '      - 192.168.1.50' $headscaleConfig"
+
+    $npmVpnEdgeCheck = @'
+pct exec 100 -- python3 - <<'PY'
+import json
+import sqlite3
+import sys
+
+con = sqlite3.connect('/opt/core-network/npm/data/database.sqlite')
+con.row_factory = sqlite3.Row
+rows = con.execute(
+    'select domain_names,forward_scheme,forward_host,forward_port,access_list_id,'
+    'certificate_id,ssl_forced,allow_websocket_upgrade,enabled,locations '
+    'from proxy_host where is_deleted=0'
+).fetchall()
+
+matches = []
+for row in rows:
+    domains = json.loads(row['domain_names'] or '[]')
+    if 'vpn.casca-certosa.duckdns.org' in domains:
+        matches.append(row)
+
+if len(matches) != 1:
+    sys.exit(1)
+
+row = matches[0]
+root_ok = (
+    row['forward_scheme'] == 'http'
+    and row['forward_host'] == '192.168.1.50'
+    and int(row['forward_port']) == 8080
+    and int(row['access_list_id']) == 0
+    and int(row['certificate_id']) > 0
+    and int(row['ssl_forced']) == 1
+    and int(row['allow_websocket_upgrade']) == 1
+    and int(row['enabled']) == 1
+)
+
+locations = json.loads(row['locations'] or '[]')
+web_ok = any(
+    loc.get('path') == '/web'
+    and loc.get('forward_scheme') == 'http'
+    and loc.get('forward_host') == '192.168.1.50'
+    and int(loc.get('forward_port')) == 8081
+    for loc in locations
+)
+
+if not (root_ok and web_ok):
+    sys.exit(1)
+PY
+'@
+    Test-RemoteCondition 'NPM public VPN edge is enabled, public, SSL-forced, WebSocket-enabled, and mapped to Headscale' $npmVpnEdgeCheck
+
+    $controlUrlPattern = 'https://' + $PublicVpnHost
+    $exitRouteIpv4Pattern = '0.0.0.0/0'
+    $exitRouteIpv6Pattern = '::/0'
+    $lanRoutePattern = '192.168.1.0/24'
+
+    Test-RemoteCondition 'Proxmox exit node uses public Headscale URL and keeps Tailscale DNS disabled locally' "tailscale debug prefs | grep -F '$controlUrlPattern' >/dev/null && tailscale debug prefs | grep -F 'CorpDNS' | grep -F 'false' >/dev/null && tailscale debug prefs | grep -F '$exitRouteIpv4Pattern' >/dev/null && tailscale debug prefs | grep -F '$exitRouteIpv6Pattern' >/dev/null"
+    Test-RemoteCondition 'LXC 100 subnet router uses public Headscale URL and keeps Tailscale DNS disabled locally' "pct exec 100 -- tailscale debug prefs | grep -F '$controlUrlPattern' >/dev/null && pct exec 100 -- tailscale debug prefs | grep -F 'CorpDNS' | grep -F 'false' >/dev/null && pct exec 100 -- tailscale debug prefs | grep -F '$lanRoutePattern' >/dev/null"
+    Test-RemoteCondition 'Proxmox exit node IP forwarding is enabled' "sysctl -n net.ipv4.ip_forward | grep -qx 1 && sysctl -n net.ipv6.conf.all.forwarding | grep -qx 1"
+    Test-RemoteCondition 'LXC 100 subnet-router IP forwarding is enabled' "pct exec 100 -- sysctl -n net.ipv4.ip_forward | grep -qx 1 && pct exec 100 -- sysctl -n net.ipv6.conf.all.forwarding | grep -qx 1"
+
     Write-Section 'NPM Proxy Target Map'
     $vpnConfig = Invoke-Ssh 'pct exec 100 -- cat /opt/core-network/npm/data/nginx/proxy_host/1.conf'
     $vpnText = ($vpnConfig -join "`n")

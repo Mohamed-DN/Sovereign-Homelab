@@ -11,6 +11,7 @@ File:
 Purpose:
 
 - check the public Headscale health endpoint;
+- verify Headscale `server_url`, listener, MagicDNS, DNS override, AdGuard global DNS, public NPM edge flags, route advertisements, local infrastructure `--accept-dns=false`, and IP forwarding;
 - run the local alert relay syntax check and anti-spam self-test without SMTP;
 - verify the root-only local credential vault permissions and non-secret audit markers;
 - verify public DuckDNS resolution is not a private RFC1918 address;
