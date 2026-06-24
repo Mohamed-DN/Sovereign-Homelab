@@ -250,6 +250,7 @@ Validation for this repository change:
 - `python -m py_compile scripts/sovereign-alert-relay.py` passed;
 - `python scripts/sovereign-alert-relay.py --self-test` passed;
 - `scripts/sovereign-live-audit.ps1` now runs the alert relay syntax check and self-test as part of the standard audit;
+- `scripts/sovereign-live-audit.ps1` now verifies the root-only credential vault mode, owner, and required non-secret audit markers without printing credential contents;
 - `scripts/sovereign-live-audit.ps1` passed from the Windows workstation with the expected warning that the working tree had uncommitted local changes during the audit;
 - no SMTP credential, relay token, or email secret was added to Git.
 

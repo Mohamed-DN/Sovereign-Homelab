@@ -25,10 +25,11 @@ powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1 -Ski
 ```
 
 This checks the public VPN health endpoint, alert relay syntax and self-test,
-DuckDNS public DNS through multiple resolvers, NPM generated proxy target
-mappings, AdGuard split DNS, critical alias fingerprints, every Homepage card,
-Proxmox failed units, storage, Headscale routes, Uptime Kuma monitor state, live
-Docker inventory, and local Compose templates.
+root-only credential vault permissions and audit markers, DuckDNS public DNS
+through multiple resolvers, NPM generated proxy target mappings, AdGuard split
+DNS, critical alias fingerprints, every Homepage card, Proxmox failed units,
+storage, Headscale routes, Uptime Kuma monitor state, live Docker inventory, and
+local Compose templates.
 It does not print secrets.
 
 ## Documentation Safety
