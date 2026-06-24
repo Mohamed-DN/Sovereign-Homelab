@@ -10,6 +10,7 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 4:** Re-audited service visibility, recovery paths, DNS/proxy flow, and data protection rules so every service is either reachable through the documented path or listed as an exception.
 - **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
 - **Round 6:** Re-ran the live audit, recovered Beszel admin access through the supported PocketBase path, stored the recovery credential only in the root-only local vault, and added the public admin-access recovery runbook.
+- **Round 7:** Added a local alert-relay self-test and dry-run mode so the anti-spam state machine can be validated before SMTP secrets are available.
 - **Round 7:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
@@ -212,7 +213,7 @@ Optional operations extensions belong after this layer, not before it:
 | Scrutiny | `disks.internal` | SMART disk health visibility | live web/API on LXC 103; Proxmox host collector publishes disk metrics daily |
 | ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
 
-Alert email gate: the repository includes `scripts/sovereign-alert-relay.py` and `scripts/systemd/sovereign-alert-relay.service` for the required anti-spam alert behavior. Do not enable it until SMTP credentials exist only in `/root/sovereign-secrets/alert-relay.env`. After configuration, test one safe monitor DOWN, first email after one minute, one reminder after five minutes, no further spam, and one recovery email.
+Alert email gate: the repository includes `scripts/sovereign-alert-relay.py` and `scripts/systemd/sovereign-alert-relay.service` for the required anti-spam alert behavior. The relay state machine can be tested safely with `python scripts/sovereign-alert-relay.py --self-test`, but live email alerting is not production-complete until SMTP credentials exist only in `/root/sovereign-secrets/alert-relay.env`. After configuration, test one safe monitor DOWN, first email after one minute, one reminder after five minutes, no further spam, and one recovery email.
 
 Local credentials gate: the private credentials file exists only on the Proxmox host at `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` with root-only permissions. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md). If a login is missing, use [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) and never reset a password without first confirming backup coverage.
 

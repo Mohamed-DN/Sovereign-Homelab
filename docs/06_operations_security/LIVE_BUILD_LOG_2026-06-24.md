@@ -227,6 +227,31 @@ The future-improvements research document was rechecked on 2026-06-24 against cu
 
 No future idea was applied live. The refreshed recommendation remains conservative: finish offsite backup, alert email, Authentik MFA/recovery, internal CA trust rollout, and rebuild automation before adding heavy platforms or more application services.
 
+## Alert Relay Self-Test Improvement
+
+The public repository alert relay now includes a safe local validation mode:
+
+```bash
+python scripts/sovereign-alert-relay.py --self-test
+```
+
+The self-test validates the required anti-spam state machine without SMTP credentials, a network listener, or live email delivery:
+
+- one `ALERT` after the first delay;
+- one `REMINDER` after the reminder delay;
+- no further DOWN spam for the same incident;
+- one `RESOLVED` event after recovery;
+- incident state cleared after recovery.
+
+This does not complete the live email alert gate. SMTP credentials, the Uptime Kuma webhook, and the real DOWN/reminder/no-spam/recovery email test still must be completed locally.
+
+Validation for this repository change:
+
+- `python -m py_compile scripts/sovereign-alert-relay.py` passed;
+- `python scripts/sovereign-alert-relay.py --self-test` passed;
+- `scripts/sovereign-live-audit.ps1` passed from the Windows workstation with the expected warning that the working tree had uncommitted local changes during the audit;
+- no SMTP credential, relay token, or email secret was added to Git.
+
 ## Rollback Notes
 
 Beszel access recovery created pre-reset backups in:
