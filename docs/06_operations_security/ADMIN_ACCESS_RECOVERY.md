@@ -41,7 +41,7 @@ Last audited: 2026-06-24.
 | AdGuard Home | `adguard.internal` | Recovery admin credential verified and stored only in the root-only local vault; DNS remained healthy after reset. | AdGuard bcrypt hash reset or restore LXC 100 |
 | Nginx Proxy Manager | `npm.internal` | Recovery admin credential verified and stored only in the root-only local vault. | NPM SQLite auth recovery or restore LXC 100 |
 | Headscale UI | `headscale.internal/web` | UI is reachable; Headscale API and pre-auth keys are generated on demand. | rotate API/pre-auth keys |
-| Authentik | `auth.internal` | UI is reachable; enable MFA/recovery codes before enforcing Authentik everywhere. | Authentik recovery command plus DB backup |
+| Authentik | `auth.internal` | `akadmin` recovery credential verified and stored only in the root-only local vault; MFA/recovery setup remains a hardening gate. | Authentik recovery command plus DB/media backup |
 | Homepage | `dash.internal` | No separate app login by default; protect with VPN/Auth when needed. | YAML restore from LXC 101/PBS |
 | Uptime Kuma | `status.internal` | Recovery admin credential verified and stored only in the root-only local vault; 37 monitors remained UP after reset. | Kuma official reset tool after data backup |
 | Beszel | `monitor.internal` | Recovery admin credential verified and stored only in the root-only local vault. | Beszel/PocketBase recovery procedure below |
@@ -169,6 +169,17 @@ Use the Authentik recovery/bootstrap command from the running stack only after c
 3. record recovery status in the local credential vault;
 4. test one protected app before protecting the next one.
 
+Live recovery completed on 2026-06-24:
+
+1. Dumped the Authentik Postgres database to `/root/sovereign-secrets/backups/`.
+2. Backed up the Authentik media and custom template Docker volumes to `/root/sovereign-secrets/backups/`.
+3. Used the official `ak changepassword akadmin` command inside the `authentik-server` container.
+4. Verified the new password hash with Authentik's Django user model.
+5. Re-ran the live audit; `auth.internal`, dashboard links, and Kuma monitors remained healthy.
+6. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
+
+This does not complete SSO hardening. Before using Authentik to protect every admin UI, log in with the recovered account, enroll MFA, generate recovery codes, and validate one proxy/OIDC integration at a time.
+
 ### Uptime Kuma
 
 Back up the Kuma data volume first. The deployed container includes the official reset helper:
@@ -223,3 +234,4 @@ An admin recovery is complete only when:
 - Uptime Kuma reset password helper: https://github.com/louislam/uptime-kuma/wiki/Reset-Password-via-CLI
 - AdGuard Home password hash configuration: https://github.com/AdguardTeam/AdGuardHome/wiki/Configuration
 - Apache htpasswd bcrypt helper: https://httpd.apache.org/docs/current/programs/htpasswd.html
+- Authentik login recovery: https://docs.goauthentik.io/troubleshooting/login/
