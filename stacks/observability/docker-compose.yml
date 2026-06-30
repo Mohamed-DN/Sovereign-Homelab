@@ -5,13 +5,18 @@ services:
     image: ghcr.io/gethomepage/homepage:${HOMEPAGE_TAG}
     container_name: homepage
     restart: unless-stopped
+    env_file:
+    - path: ${HOMEPAGE_MONITORING_ENV_FILE}
+      required: false
     environment:
       HOMEPAGE_ALLOWED_HOSTS: ${HOMEPAGE_ALLOWED_HOSTS}
+      NODE_EXTRA_CA_CERTS: ${HOMEPAGE_NODE_EXTRA_CA_CERTS}
     ports:
     - "${HOMEPAGE_PORT}:3000"
     volumes:
     - ./homepage:/app/config
     - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ${HOMEPAGE_INTERNAL_CA_HOST_PATH}:${HOMEPAGE_NODE_EXTRA_CA_CERTS}:ro
   uptime-kuma:
     image: louislam/uptime-kuma:${UPTIME_KUMA_TAG}
     container_name: uptime-kuma

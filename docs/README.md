@@ -22,4 +22,5 @@ Current high-signal files:
 - [Local Credentials Template](99_reference/LOCAL_CREDENTIALS_TEMPLATE.md)
 - [Admin Access Recovery](06_operations_security/ADMIN_ACCESS_RECOVERY.md)
 - [Future Improvements Research](00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md)
-- [Live Build Log: 2026-06-24](06_operations_security/LIVE_BUILD_LOG_2026-06-24.md)
+- [Live Build Log: 2026-06-29](06_operations_security/LIVE_BUILD_LOG_2026-06-29.md)
+- [Live Build Log: 2026-06-30](06_operations_security/LIVE_BUILD_LOG_2026-06-30.md)

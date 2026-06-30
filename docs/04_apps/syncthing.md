@@ -53,7 +53,7 @@ services:
   - **Ignore Patterns (`.stignore`)**: Consider ignoring `.DS_Store`, `Thumbs.db`, `.nomedia`, etc.
 
 ## 5. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` to expose the Administrative Web UI securely:
+Log into NPM at `https://npm.internal` to expose the Administrative Web UI securely:
 - **Domain Names**: `sync.internal`
 - **Scheme / Forward IP / Port**: `http` / `<LXC_IP>` / `8384`
 - **Websockets Support**: enabled

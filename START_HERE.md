@@ -66,7 +66,7 @@ Large environments usually use a private subdomain of a registered corporate dom
 2. [Identity Access Matrix](docs/99_reference/IDENTITY_ACCESS_MATRIX.md): service-by-service SSO, OIDC, proxy-provider, LDAP, and break-glass decisions.
 3. [Platform Services from Empty LXC](docs/03_platform_services/PLATFORM_SERVICES_FROM_EMPTY_LXC.md): LXC 101, Authentik, dashboard, monitoring, logs, CrowdSec.
 4. [Runbook 08](docs/03_platform_services/doc_08_observability_dashboard.md): Homepage, Uptime Kuma, Beszel, and Dozzle.
-5. [Runbook 12](docs/03_platform_services/doc_12_internal_ca_smallstep.md): Smallstep internal CA for trusted private `.internal` TLS.
+5. [Runbook 12](docs/03_platform_services/doc_12_internal_ca_smallstep.md): Smallstep internal CA and the `trust.internal` client-onboarding portal for private `.internal` TLS.
 6. [Runbook 09](docs/05_backup_dr/doc_09_backup_dr.md): Proxmox Backup Server, restore tests, and restic offsite.
 7. [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md): datastore, jobs, verify, prune, restore drills, offsite.
 8. Optional after the core is stable: add NetAlertX, Scrutiny, and ntfy as operations extensions for asset visibility, disk health, and self-hosted alerts.
@@ -87,26 +87,28 @@ Large environments usually use a private subdomain of a registered corporate dom
 3. [LIVE_BUILD_LOG_2026-06-21.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-21.md): factual record of the first live platform/PBS/Kuma build.
 4. [LIVE_BUILD_LOG_2026-06-22.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-22.md): live apps-light, Immich, Nextcloud, Home Assistant, operations extensions, NPM aliases, Kuma monitors, and PBS backup updates.
 5. [LIVE_BUILD_LOG_2026-06-23.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-23.md): previous live audit, local credentials file, alert relay gate, and future research output.
-6. [LIVE_BUILD_LOG_2026-06-24.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md): latest live audit and Beszel admin-access recovery.
-7. [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md): safe login recovery procedures and credential-vault rules.
-8. [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md): compact service-by-service operational coverage table.
-9. [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md): safe template for the root-only private credentials file.
-10. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
-11. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
-12. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
-13. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
-14. [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md): researched future ideas; do not treat them as implemented tasks.
+6. [LIVE_BUILD_LOG_2026-06-24.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md): alerting, certificate renewal, and access recovery work.
+7. [LIVE_BUILD_LOG_2026-06-29.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-29.md): full internal HTTPS/NPM migration, `sole_monitor`, HTML alerts, weekly reports, and verified admin-password synchronization.
+8. [LIVE_BUILD_LOG_2026-06-30.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md): client CA onboarding, dashboard Recovery view, and current Immich data-protection checkpoint.
+9. [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md): safe login recovery procedures and credential-vault rules.
+10. [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md): compact service-by-service operational coverage table.
+11. [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md): safe template for the root-only private credentials file.
+12. [CHECKLIST_PRE_DEPLOY.md](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md): before installing or updating.
+13. [VALIDATION_COMMANDS.md](docs/99_reference/VALIDATION_COMMANDS.md): test commands.
+14. [TROUBLESHOOTING_MATRIX.md](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md): symptoms and fixes.
+15. [SERVICE_VISIBILITY_MATRIX.md](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md): alias, NPM, Homepage, Uptime Kuma, backup and exception tracking.
+16. [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md): researched future ideas; do not treat them as implemented tasks.
 
 ### 6. Controlled Expansion
 
 Recommended order for expansion after the current live build:
 
 1. Treat LXC 102 as restore-drill complete at the container/filesystem level and baseline app-aware verified for Vaultwarden, Paperless, and Forgejo. Before storing irreplaceable data, repeat the app-aware restore with real representative data and confirm offsite backup.
-2. Treat VM 110 Immich as boot/service restore complete and baseline app-aware verified for database restore plus library manifests. Complete offsite backup before importing the full photo library.
-3. Treat VM 120 Nextcloud AIO as restore-drill complete at the boot/service level; finish internal certificate trust and offsite backup before importing irreplaceable files.
+2. Treat VM 110 Immich as locally recoverable: PBS, scheduled DB/metadata jobs, SHA-256 baseline, and isolated restore checks are active. Keep phone originals until separate encrypted local and offsite restores also pass.
+3. Treat VM 120 Nextcloud AIO as restore-drill complete at the boot/service level; internal HTTPS is live, but finish CA trust on every client and offsite backup before importing irreplaceable files.
 4. Treat VM 130 Home Assistant as restore-drill complete at the boot/service level; keep exporting native HA backups before major changes.
 5. Finish operations-extension hardening: ntfy authentication/topics and NetAlertX scan scope. Scrutiny already uses a Proxmox host-side collector for SMART data.
-6. Finish alert email by adding SMTP secrets only on the server and testing the anti-spam relay.
+6. Keep the HTML alert relay and Monday weekly report tested after SMTP, token, template, credential-lifecycle, or monitor changes.
 7. Full Wazuh, advanced SIEM, and media automation only when monitoring, backup, and security operations are mature.
 
 ## Naming Standard
@@ -120,6 +122,7 @@ Recommended order for expansion after the current live build:
 | Uptime Kuma | `status.internal` | VPN or Authentik |
 | Beszel | `monitor.internal` | VPN or Authentik |
 | Internal CA | `ca.internal` | VPN/admin only |
+| CA onboarding | `trust.internal` or direct `http://LXC101_IP:8095` bootstrap | VPN/LAN only |
 | NetAlertX | `netalert.internal` | VPN/Auth, optional operations extension |
 | Scrutiny | `disks.internal` | VPN/admin, optional operations extension |
 | ntfy | `alerts.internal` | VPN/Auth, optional operations extension |

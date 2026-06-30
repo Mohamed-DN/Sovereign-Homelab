@@ -26,7 +26,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `search.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8084`
 - **Websockets Support**: disabled; SearXNG does not need it.

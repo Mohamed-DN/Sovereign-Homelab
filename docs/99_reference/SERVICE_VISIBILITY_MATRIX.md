@@ -8,6 +8,7 @@ Identity and authorization decisions are tracked in [Identity Access Matrix](IDE
 
 - Every web UI gets a `.internal` alias.
 - Every web UI gets an Nginx Proxy Manager proxy host unless it is intentionally accessed only by raw IP during bootstrap.
+- Every NPM-managed private web alias uses client-side HTTPS with the Smallstep internal certificate; HTTP exists only as a redirect.
 - Every service shown in Homepage gets an Uptime Kuma monitor.
 - Every exception must be documented in this file.
 - DuckDNS is used only for the public Headscale control-plane endpoint: `vpn.yourdomain.duckdns.org`.
@@ -42,45 +43,46 @@ Target placeholders:
 |---|---|---|---|---|---|---|---|
 | Proxmox VE | `proxmox.internal` | client `https://proxmox.internal`, upstream `https://PVE_IP:8006` | yes | yes | HTTPS alias monitor plus optional direct TCP/HTTPS | VPN/admin | host config notes + PBS restore plan |
 | Proxmox Backup Server | `pbs.internal` | client `https://pbs.internal`, upstream `https://PBS_IP:8007` | yes | yes | HTTPS alias monitor plus TCP `8007` | VPN/admin | datastore + PBS config/offsite plan |
-| AdGuard UI | `adguard.internal` | `http://LXC100_IP:3000` | yes | yes | HTTP monitor | VPN/admin | config + work dir |
-| NPM UI | `npm.internal` | `http://LXC100_IP:81` or `http://LXC101_IP:81` | yes | yes | HTTP monitor | VPN/admin | `/data` + `/letsencrypt` |
-| Headscale-UI | `headscale.internal/web` | `http://LXC100_IP:8081` custom location | yes | yes | HTTP monitor until internal CA | VPN/admin | config if present |
+| AdGuard UI | `adguard.internal` | client `https://adguard.internal`, upstream `http://LXC100_IP:3000` | yes | yes | HTTPS monitor | VPN/admin | config + work dir |
+| NPM UI | `npm.internal` | client `https://npm.internal`, upstream `http://LXC100_IP:81` | yes | yes | HTTPS monitor | VPN/admin | `/data` + `/letsencrypt` |
+| Headscale-UI | `headscale.internal/web` | client `https://headscale.internal/web`, upstream `http://LXC100_IP:8081` | yes | yes | HTTPS monitor | VPN/admin | config if present |
 
-Live note: most current NPM aliases are HTTP on the client side over LAN/VPN and may proxy to HTTPS upstreams such as Proxmox and PBS. `files.internal` is the exception and is already HTTPS on the client side because Nextcloud AIO expects secure browser access. Until a trusted internal CA is deployed, Uptime Kuma can monitor HTTPS aliases with certificate validation disabled where appropriate.
+Live note (2026-06-30): NPM contains 27 editable Proxy Host records: one public Headscale API host and 26 private HTTPS aliases. The private aliases share one Smallstep-issued certificate with explicit SANs. Kuma and Homepage trust the CA root; do not disable certificate validation as a permanent workaround.
 
 ## Platform Services
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Authentik | `auth.internal` | `http://LXC101_IP:9000` | yes | yes | HTTP monitor until internal CA | VPN/Auth | PostgreSQL + media + `.env` |
+| Authentik | `auth.internal` | client `https://auth.internal`, upstream `http://LXC101_IP:9000` | yes | yes | HTTPS monitor | VPN/Auth | PostgreSQL + media + `.env` |
 | Authentik LDAP outpost | `ldap.internal` | `ldaps://LXC101_IP:636` | no; protocol exception | no | optional TCP `636` monitor after deployment | LAN/VPN service accounts | Authentik config + service-account credential in local vault |
-| Homepage | `dash.internal` | `http://LXC101_IP:3002` | yes | yes | HTTP monitor until internal CA | VPN/Auth | YAML config |
-| Uptime Kuma | `status.internal` | `http://LXC101_IP:3001` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Kuma data volume |
-| Beszel | `monitor.internal` | `http://LXC101_IP:8090` | yes | yes | HTTP monitor until internal CA | VPN/Auth | Beszel data volume |
-| Dozzle | `logs.internal` | `http://LXC101_IP:8088` | yes | yes | HTTP monitor until internal CA | VPN/admin | no critical data |
+| Homepage | `dash.internal` | client `https://dash.internal`, upstream `http://LXC101_IP:3002` | yes | yes | HTTPS monitor | VPN/Auth | YAML config |
+| Uptime Kuma | `status.internal` | client `https://status.internal`, upstream `http://LXC101_IP:3001` | yes | yes | HTTPS monitor | VPN/Auth | Kuma data volume |
+| Beszel | `monitor.internal` | client `https://monitor.internal`, upstream `http://LXC101_IP:8090` | yes | yes | HTTPS monitor | VPN/Auth | Beszel data volume |
+| Dozzle | `logs.internal` | client `https://logs.internal`, upstream `http://LXC101_IP:8088` | yes | yes | HTTPS monitor | VPN/admin | no critical data |
 | Smallstep CA | `ca.internal:9002` | `https://LXC101_IP:9002` | direct protocol exception | health card | HTTPS health monitor, ignore TLS until root is trusted | VPN/admin | CA volume + root fingerprint + secret backup |
+| CA Trust Portal | `trust.internal` | client `https://trust.internal`, upstream `http://LXC101_IP:8095` | yes | Recovery card | HTTPS `/healthz` monitor | LAN/VPN onboarding | static config; public root artifacts can be regenerated from protected CA volume |
 
 ## Critical Data Apps
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Vaultwarden | `pwd.internal` | `http://LXC102_IP:8082` | yes | yes | HTTP alias monitor until internal CA | VPN-first | volume + encrypted export; SQLite integrity baseline passed; offsite still required |
-| Immich | `foto.internal` | `http://VM110_IP:2283` | yes | yes | HTTP alias/API monitor until internal CA; live check uses `/api/server/ping` | VPN-first | upload directory + DB backup; PBS boot/service and app-aware baseline passed; offsite still required |
+| Vaultwarden | `pwd.internal` | client `https://pwd.internal`, upstream `http://LXC102_IP:8082` | yes | yes | HTTPS alias monitor | VPN-first | volume + encrypted export; SQLite integrity baseline passed; offsite still required |
+| Immich | `foto.internal` | client `https://foto.internal`, upstream `http://VM110_IP:2283` | yes | yes | HTTPS API monitor at `/api/server/ping` | VPN-first | daily DB/metadata, weekly comparison, quarterly SHA-256, PBS and isolated restore checks; separate local/offsite still required |
 | Nextcloud | `files.internal` | client `https://files.internal`, upstream `http://VM120_IP:11000` | yes | yes | HTTPS monitor with internal-cert handling; accepted state is real Nextcloud login redirect | VPN-first | PBS boot/service restore passed; finish offsite and internal certificate trust before irreplaceable files |
-| Syncthing UI | `sync.internal` | `http://LXC102_IP:8384` | yes | yes | HTTP alias monitor until internal CA | VPN/admin | config + synchronized source data |
-| Paperless-ngx | `paper.internal` | `http://LXC102_IP:8010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | PostgreSQL + media + consume/export; temporary DB restore baseline passed |
+| Syncthing UI | `sync.internal` | client `https://sync.internal`, upstream `http://LXC102_IP:8384` | yes | yes | HTTPS alias monitor | VPN/admin | config + synchronized source data |
+| Paperless-ngx | `paper.internal` | client `https://paper.internal`, upstream `http://LXC102_IP:8010` | yes | yes | HTTPS alias monitor | VPN/Auth | PostgreSQL + media + consume/export; temporary DB restore baseline passed |
 
 ## High-Value Apps
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| Home Assistant OS | `ha.internal` | `http://VM130_IP:8123` | yes | yes | HTTP alias monitor | VPN/Auth | HA backup export + PBS |
-| Jellyfin | `media.internal` | `http://LXC102_IP:8096` | yes | yes | HTTP alias monitor | VPN/Auth | config + metadata + media source plan |
-| FreshRSS | `rss.internal` | `http://LXC102_IP:8087` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | data volume or DB |
-| Karakeep | `bookmarks.internal` | `http://LXC102_IP:3010` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | DB + assets + search index |
-| SearXNG | `search.internal` | `http://LXC102_IP:8084` | yes | yes | HTTP alias monitor until internal CA | VPN/Auth | config |
-| Forgejo | `git.internal` | `http://LXC102_IP:3003` | yes | yes | HTTP alias monitor + TCP `2222` | VPN/Auth | repositories + DB; temporary DB restore baseline passed |
-| Open WebUI | `ai.internal` | `http://AI_HOST_IP:3004` | yes | yes | HTTP alias monitor | VPN only | WebUI data |
+| Home Assistant OS | `ha.internal` | client `https://ha.internal`, upstream `http://VM130_IP:8123` | yes | yes | HTTPS alias monitor | VPN/Auth | HA backup export + PBS |
+| Jellyfin | `media.internal` | client `https://media.internal`, upstream `http://LXC102_IP:8096` | yes | yes | HTTPS alias monitor | VPN/Auth | config + metadata + media source plan |
+| FreshRSS | `rss.internal` | client `https://rss.internal`, upstream `http://LXC102_IP:8087` | yes | yes | HTTPS alias monitor | VPN/Auth | data volume or DB |
+| Karakeep | `bookmarks.internal` | client `https://bookmarks.internal`, upstream `http://LXC102_IP:3010` | yes | yes | HTTPS alias monitor | VPN/Auth | DB + assets + search index |
+| SearXNG | `search.internal` | client `https://search.internal`, upstream `http://LXC102_IP:8084` | yes | yes | HTTPS alias monitor | VPN/Auth | config |
+| Forgejo | `git.internal` | client `https://git.internal`, upstream `http://LXC102_IP:3003` | yes | yes | HTTPS alias monitor + TCP `2222` | VPN/Auth | repositories + DB; temporary DB restore baseline passed |
+| Open WebUI | `ai.internal` | client `https://ai.internal`, upstream `http://AI_HOST_IP:3004` | yes | yes | HTTPS alias monitor | VPN only | WebUI data |
 
 ## Operations Extensions
 
@@ -88,9 +90,9 @@ These are optional panels for running the lab at a higher operational level. The
 
 | Service | Alias | Upstream | NPM | Homepage | Uptime Kuma | Access | Backup |
 |---|---|---|---|---|---|---|---|
-| NetAlertX | `netalert.internal` | `http://LXC103_IP:20211` | yes | yes | HTTP monitor | VPN/Auth | `/data` volume |
-| Scrutiny | `disks.internal` | `http://LXC103_IP:8085` | yes | yes | HTTP monitor; Proxmox host collector publishes SMART data | VPN/admin | config + InfluxDB data + host collector config |
-| ntfy | `alerts.internal` | `http://LXC103_IP:8093` | yes | yes | HTTP monitor | VPN/Auth | server config + cache/attachments if enabled |
+| NetAlertX | `netalert.internal` | client `https://netalert.internal`, upstream `http://LXC103_IP:20211` | yes | yes | HTTPS monitor | VPN/Auth | `/data` volume |
+| Scrutiny | `disks.internal` | client `https://disks.internal`, upstream `http://LXC103_IP:8085` | yes | yes | HTTPS monitor; Proxmox host collector publishes SMART data | VPN/admin | config + InfluxDB data + host collector config |
+| ntfy | `alerts.internal` | client `https://alerts.internal`, upstream `http://LXC103_IP:8093` | yes | yes | HTTPS monitor | VPN/Auth | server config + cache/attachments if enabled |
 
 ## Documented Exceptions
 
@@ -109,9 +111,18 @@ These are optional panels for running the lab at a higher operational level. The
 | Smallstep CA API | `LXC101_IP:9002` or `ca.internal:9002` | certificate issuance API, not a normal user dashboard | no by default | HTTPS health monitor after deployment |
 | RustDesk ID and relay | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | remote desktop protocol, not HTTP | no web UI in OSS server | TCP monitors for `21115`, `21116`, `21117`; UDP availability verified manually |
 | Wazuh Manager API | `VM160_IP:55000` | advanced admin API, not a clean web UI | no until Wazuh dashboard is installed | optional TCP monitor |
-| Alert email relay | `127.0.0.1:8099` or internal relay URL | webhook/API endpoint for Kuma notifications, not a user dashboard | no | local health check after SMTP configuration |
+| Alert email relay | `LXC101_IP:8099` | token-authenticated webhook/API for Kuma and backup jobs, not a user dashboard | no | local health check; never expose through NPM/router |
 
 ## Operational Acceptance
+
+Monitoring API integrations use dedicated service identities:
+
+| System | Identity | Permission | Secret location |
+|---|---|---|---|
+| Proxmox VE | `sole_monitor@pve!homepage` | `PVEAuditor` on `/` for both user and token | root-only monitoring env on the Proxmox host and LXC 101 |
+| Proxmox Backup Server | `sole_monitor@pbs!homepage` | `Audit` on `/` for both user and token | root-only monitoring env on PBS, Proxmox, and LXC 101 |
+
+These tokens have no interactive login password and no automatic expiry. Audit them quarterly and rotate them through a planned replacement; do not use `root@pam` or a human administrator password for dashboards or reports.
 
 Before real data is added to a service, confirm:
 

@@ -54,17 +54,20 @@ Install on LXC 100 after the NPM DuckDNS certificate exists. The service reads t
 
 See [Runbook 03: Nginx Proxy Manager](../docs/02_network_vpn/doc_03_nginx_proxy_manager.md) for the full installation and validation flow.
 
-## Certificate Expiry Audit
+## Internal Certificate Renewal and Expiry Audit
 
-File:
+Files:
 
+- `sovereign-renew-npm-internal-certs.sh`
 - `sovereign-cert-expiry-audit.sh`
 
 Purpose:
 
 - check the public Headscale certificate;
-- check the internal NPM certificates for `proxmox.internal`, `pbs.internal`, and `files.internal`;
-- trigger the Proxmox/PBS internal renewal script if those certificates enter the warning window;
+- renew the single Smallstep-issued NPM edge certificate when it enters a 60-day warning window;
+- include `*.internal` and every explicit private web alias as SANs for browser and Node.js compatibility;
+- upload the renewed certificate through NPM so its UI and database remain authoritative;
+- check representative private aliases plus the public Headscale certificate every day;
 - fail the daily systemd unit if a certificate remains too close to expiry.
 
 Live installation:
@@ -81,11 +84,27 @@ Run manually on the Proxmox host:
 /usr/local/sbin/sovereign-cert-expiry-audit
 ```
 
+## Immich Critical-Data Protection
+
+Files:
+
+- `sovereign-immich-protection.sh`
+- `systemd/sovereign-immich-protection@.service`
+- `systemd/sovereign-immich-daily.timer`
+- `systemd/sovereign-immich-weekly.timer`
+- `systemd/sovereign-immich-quarterly.timer`
+
+The VM110 job stores all artifacts root-only. It creates daily PostgreSQL dumps and metadata inventories, weekly count/size comparisons, quarterly full SHA-256 manifests, and an isolated temporary-database restore test. Failures are sent through the existing token-authenticated alert relay. The script never edits the Immich asset tree.
+
+See [Immich Critical-Data Runbook](../docs/04_apps/immich.md) for deployment, retention, restore, and 3-2-1 gates.
+
 ## Alert Email Relay
 
 Files:
 
 - `sovereign-alert-relay.py`
+- `alerting/templates/alert_*.html`
+- `alerting/templates/alert_*.txt`
 - `systemd/sovereign-alert-relay.service`
 
 Purpose:
@@ -95,6 +114,7 @@ Purpose:
 - send one reminder after 5 minutes;
 - stop DOWN spam for the same incident;
 - send one RESOLVED email after recovery;
+- render a Gmail-compatible HTML message plus a plain-text fallback instead of raw JSON;
 - keep SMTP credentials outside Git.
 
 Secret model:
@@ -118,3 +138,21 @@ python scripts/sovereign-alert-relay.py --self-test
 The self-test proves that one DOWN incident generates exactly one `ALERT`, one `REMINDER`, no extra DOWN spam, and one `RESOLVED` event after recovery. It does not send email; the live SMTP path is tested on LXC 101 with secrets stored only under `/root/sovereign-secrets`.
 
 See [Operations Manual](../docs/06_operations_security/OPERATIONS_MANUAL.md) for setup and test steps.
+
+## Weekly Operations Report
+
+Files:
+
+- `sovereign-weekly-report.py`
+- `reporting/templates/weekly_report.html`
+- `reporting/templates/weekly_report.txt`
+- `systemd/sovereign-weekly-report.service`
+- `systemd/sovereign-weekly-report.timer`
+
+The report runs on Proxmox, uses `sole_monitor` read-only API tokens for PVE/PBS, reads local host/storage health as root, and sends through the LXC 101 alert relay. It also verifies that PVE/PBS root accounts, both monitoring tokens, and Headscale nodes have the expected non-expiring state. The SMTP password remains only on LXC 101.
+
+```bash
+/usr/local/sbin/sovereign-weekly-report.py
+/usr/local/sbin/sovereign-weekly-report.py --send
+systemctl list-timers sovereign-weekly-report.timer --no-pager
+```

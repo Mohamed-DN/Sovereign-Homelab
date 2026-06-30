@@ -30,13 +30,13 @@ docker compose ps
 docker compose ps
 docker compose logs --tail=100 authentik-server
 curl -I http://LXC101_IP:9000
-curl -I http://auth.internal/if/flow/initial-setup/
+curl -I https://auth.internal/if/flow/initial-setup/
 ```
 
 ## Dashboard and Monitor
 
 - Homepage card: `auth.internal`, group `Identity`.
-- Uptime Kuma monitor: `Authentik initial setup`, HTTP, `http://auth.internal/if/flow/initial-setup/` during bootstrap. Switch to the final app URL after Authentik setup is complete.
+- Uptime Kuma monitor: `Authentik initial setup`, HTTP, `https://auth.internal/if/flow/initial-setup/` during bootstrap. Switch to the final app URL after Authentik setup is complete.
 
 ## Backup
 

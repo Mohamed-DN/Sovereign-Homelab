@@ -71,7 +71,7 @@ docker exec -it ollama ollama run llama3
 ```
 
 ## 6. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` and create a Proxy Host for the UI:
+Log into NPM at `https://npm.internal` and create a Proxy Host for the UI:
 - **Domain Names**: `ai.internal`
 - **Scheme / Forward IP / Port**: `http` / `[Target_IP]` / `3004`
 - **Websockets Support**: enabled
@@ -80,11 +80,11 @@ Log into NPM at `http://npm.internal` and create a Proxy Host for the UI:
 *Note: Do not expose the Ollama API port (`11434`) through NPM or publicly.*
 
 ## 7. Dashboard & Monitoring
-- **Homepage.dev**: Add to `services.yaml` pointing to `http://ai.internal` during the VPN-only bootstrap phase.
+- **Homepage.dev**: Add to `services.yaml` pointing to `https://ai.internal`.
 - **GPU Monitoring**: Use `nvidia-smi` on the host to track GPU VRAM usage and model loading. Run `watch -n 1 nvidia-smi` for real-time tracking.
 - **Uptime Kuma**:
   - Add an `HTTP(s)` monitor targeting `http://[IP]:11434/` for the Ollama engine.
-  - Add an HTTP monitor targeting `http://ai.internal` for Open WebUI until an internal CA is deployed.
+  - Add an HTTPS monitor targeting `https://ai.internal` for Open WebUI with the Smallstep root trusted.
 
 ## 8. Backup & Restore (Disaster Recovery)
 

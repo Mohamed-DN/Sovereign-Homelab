@@ -22,6 +22,10 @@ sovereign-secrets/
 *.secrets
 !docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
 
+# Generated public-CA onboarding artifacts are rendered from the live CA.
+stacks/trust-portal/site/downloads/*
+!stacks/trust-portal/site/downloads/.gitkeep
+
 # Local logs and temporary files
 *.log
 *.tmp

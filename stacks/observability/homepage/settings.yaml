@@ -23,10 +23,15 @@ layout:
     tab: Core
     icon: proxmox.png
     style: row
-    columns: 2
+    columns: 1
   Identity:
     tab: Core
     icon: authentik.png
+    style: row
+    columns: 2
+  Recovery:
+    tab: Recovery
+    icon: proxmox.png
     style: row
     columns: 2
   Monitoring:

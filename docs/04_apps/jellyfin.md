@@ -97,7 +97,7 @@ docker compose logs -f
 Add Jellyfin to your `services.yaml` to show active streams and server status:
 ```yaml
 - Jellyfin:
-    href: http://media.internal
+    href: https://media.internal
     icon: jellyfin.png
     widget:
       type: jellyfin
@@ -107,7 +107,7 @@ Add Jellyfin to your `services.yaml` to show active streams and server status:
 
 ### Uptime Kuma
 - Add a new **HTTP(s)** monitor.
-- **URL**: `http://media.internal/health` (or the main URL) until an internal CA is deployed.
+- **URL**: `https://media.internal/health` (or the main URL) through the trusted Smallstep/NPM edge.
 - **Accepted Status Codes**: 200-299.
 
 ## 7. Disaster Recovery & Backup Procedures

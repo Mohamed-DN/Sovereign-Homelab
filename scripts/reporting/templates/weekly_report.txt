@@ -1,0 +1,32 @@
+SOVEREIGN HOMELAB WEEKLY OPERATIONS REPORT
+Status: $status
+Generated: $generated
+
+WHAT YOU NEED TO DO
+$actions_text
+
+SERVICE RELIABILITY
+$monitor_text
+
+PBS RECOVERY COVERAGE
+$backup_text
+
+IMMICH DATA PROTECTION
+$immich_protection_text
+
+GUEST INVENTORY
+$guest_text
+
+PBS DATASTORE
+$pbs_text
+
+SMART HEALTH
+$smart_text
+
+Internal certificate: $certificate_expiry
+CREDENTIAL LIFECYCLE
+$credential_lifecycle_text
+
+Failed host units: $failed_units
+
+Sovereign Homelab - generated locally.

@@ -96,10 +96,10 @@ http://SERVER_IP:9000
 First setup URL:
 
 ```text
-http://auth.internal/if/flow/initial-setup/
+https://auth.internal/if/flow/initial-setup/
 ```
 
-Live note: the current LXC 101 deployment has healthy Authentik containers and exposes `auth.internal`. Use `http://auth.internal/if/user/` for the operational UI and monitors. Do not mark Authentik as the active SSO/MFA gate until the recovery method, MFA policy, and protected application providers are deliberately configured.
+Live note: the current LXC 101 deployment has healthy Authentik containers and exposes `auth.internal`. Use `https://auth.internal/if/user/` for the operational UI and monitors. Do not mark Authentik as the active SSO/MFA gate until the recovery method, MFA policy, and protected application providers are deliberately configured.
 
 Then create the proxy host in NPM:
 
@@ -335,7 +335,7 @@ Protect:
 
 Before using Authentik in production, add:
 
-- Uptime Kuma monitor for `http://auth.internal/if/flow/initial-setup/` during first bootstrap, then `http://auth.internal/if/user/` after setup;
+- Uptime Kuma monitor for `https://auth.internal/if/flow/initial-setup/` during first bootstrap, then `https://auth.internal/if/user/` after setup;
 - PBS backup of the container/host;
 - optional restic backup for application volumes.
 
@@ -344,7 +344,7 @@ Operational verification:
 ```bash
 docker compose ps
 docker compose logs --tail=100 authentik-server
-curl -I http://auth.internal/if/flow/initial-setup/
+curl -I https://auth.internal/if/flow/initial-setup/
 ```
 
 ---

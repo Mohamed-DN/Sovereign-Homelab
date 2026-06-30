@@ -8,7 +8,7 @@ param(
     [string]$NpmIp = '192.168.1.50',
     [string]$InternalCaHost = 'ca.internal',
     [string]$InternalCaIp = '192.168.1.51',
-    [string]$DashboardUrl = 'http://dash.internal',
+    [string]$DashboardUrl = 'https://dash.internal',
     [switch]$SkipCompose
 )
 
@@ -209,7 +209,9 @@ function Test-ResolvedHttpStatus {
 function Test-NpmProxyTarget {
     param(
         [string]$HostName,
-        [string]$ExpectedProxyPass
+        [string]$ExpectedScheme,
+        [string]$ExpectedServer,
+        [int]$ExpectedPort
     )
 
     $safeHost = $HostName -replace "'", "'\''"
@@ -223,10 +225,13 @@ function Test-NpmProxyTarget {
     $configPath = ($first -split ':', 2)[0]
     $content = Invoke-Ssh "pct exec 100 -- cat $configPath"
     $joined = ($content -join "`n")
-    if ($joined -match [regex]::Escape($ExpectedProxyPass)) {
-        Add-Pass "NPM maps $HostName to $ExpectedProxyPass"
+    $schemePattern = 'set\s+\$forward_scheme\s+' + [regex]::Escape($ExpectedScheme) + ';'
+    $serverPattern = 'set\s+\$server\s+"' + [regex]::Escape($ExpectedServer) + '";'
+    $portPattern = 'set\s+\$port\s+' + [regex]::Escape([string]$ExpectedPort) + ';'
+    if ($joined -match $schemePattern -and $joined -match $serverPattern -and $joined -match $portPattern) {
+        Add-Pass "NPM maps $HostName to ${ExpectedScheme}://${ExpectedServer}:${ExpectedPort}"
     } else {
-        Add-Failure "NPM config for $HostName does not contain $ExpectedProxyPass"
+        Add-Failure "NPM config for $HostName does not map to ${ExpectedScheme}://${ExpectedServer}:${ExpectedPort}"
     }
 }
 
@@ -261,6 +266,15 @@ try {
     Test-RemoteCondition 'alert relay token file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/alert-relay-token)" = 600'''
     Test-RemoteCondition 'SMTP password file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/smtp-password)" = 600'''
 
+    $weeklyReportScript = Join-Path $RepoRoot 'scripts/sovereign-weekly-report.py'
+    if (Invoke-LocalPython -Arguments @('-m', 'py_compile', $weeklyReportScript)) {
+        Add-Pass 'weekly report Python syntax is valid'
+    } else {
+        Add-Failure 'weekly report Python syntax check failed'
+    }
+    Test-RemoteCondition 'weekly report timer is enabled and active' 'systemctl is-enabled --quiet sovereign-weekly-report.timer && systemctl is-active --quiet sovereign-weekly-report.timer'
+    Test-RemoteCondition 'weekly report has a generated root-only payload' 'test -n "$(find /root/sovereign-secrets/reports -maxdepth 1 -name ''weekly-report-*.json'' -type f -perm 0600 -print -quit)"'
+
     Write-Section 'Local Credential Vault'
     Test-RemoteCondition 'credential vault directory mode is 700' 'test "$(stat -c %a /root/sovereign-secrets)" = 700'
     Test-RemoteCondition 'credential vault directory owner is root:root' 'test "$(stat -c %U:%G /root/sovereign-secrets)" = root:root'
@@ -274,6 +288,19 @@ try {
     Test-RemoteCondition 'credential vault has Uptime Kuma recovery marker' "grep -q '^## Uptime Kuma Recovery Credential' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
     Test-RemoteCondition 'credential vault has structure audit marker' "grep -q '^## Credential File Structure Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
     Test-RemoteCondition 'credential vault has gap audit marker' "grep -q '^## Credential Gap Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has monitoring identity marker' "grep -q '^## Read-Only Monitoring Service Identities' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'credential vault has password synchronization marker' "grep -q '^## Password Synchronization Audit 2026-06-29' /root/sovereign-secrets/HOMELAB_CREDENTIALS.md"
+    Test-RemoteCondition 'shared initialized-app password source is root-only and non-empty' 'test "$(stat -c %a /root/sovereign-secrets/common-app-password)" = 600 && test -s /root/sovereign-secrets/common-app-password'
+    Test-RemoteCondition 'access inventory and password index are root-only' 'test "$(stat -c %a /root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md)" = 600 && test "$(stat -c %a /root/sovereign-secrets/HOMELAB_PASSWORD_INDEX.md)" = 600'
+    $rootExpirySource = 'import re,subprocess,sys;p=subprocess.run(["chage","-l","root"],text=True,capture_output=True);b=subprocess.run(["ssh","-n","-o","BatchMode=yes","root@192.168.1.20","chage -l root"],text=True,capture_output=True);ok=lambda x:x.returncode==0 and bool(re.search(r"Password expires\s*:\s*never",x.stdout,re.I));sys.exit(0 if ok(p) and ok(b) else 1)'
+    $rootExpiryBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($rootExpirySource))
+    Test-RemoteCondition 'PVE and PBS root accounts do not expire' "echo $rootExpiryBase64 | base64 -d | python3 -"
+    Test-RemoteCondition 'Proxmox sole_monitor user and token have PVEAuditor ACLs' "pveum user list --output-format json | grep -q 'sole_monitor@pve' && pveum user token list sole_monitor@pve --output-format json | grep -q 'homepage' && pveum acl list --output-format json | grep -q 'sole_monitor@pve!homepage'"
+    Test-RemoteCondition 'PBS sole_monitor user and token have Audit ACLs' "ssh -o BatchMode=yes root@192.168.1.20 'proxmox-backup-manager user list --output-format json | grep -q sole_monitor@pbs && proxmox-backup-manager user list-tokens sole_monitor@pbs --output-format json | grep -q sole_monitor@pbs!homepage && proxmox-backup-manager acl list --output-format json | grep -q sole_monitor@pbs!homepage'"
+    $tokenExpirySource = 'import json,subprocess,sys;p=json.loads(subprocess.check_output(["pveum","user","token","list","sole_monitor@pve","--output-format","json"],text=True));b=json.loads(subprocess.check_output(["ssh","-n","-o","BatchMode=yes","root@192.168.1.20","proxmox-backup-manager user list-tokens sole_monitor@pbs --output-format json"],text=True));pok=any(x.get("tokenid")=="homepage" and int(x.get("expire",-1))==0 for x in p);bok=any(x.get("tokenid")=="sole_monitor@pbs!homepage" and int(x.get("expire",-1))==0 for x in b);sys.exit(0 if pok and bok else 1)'
+    $tokenExpiryBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($tokenExpirySource))
+    Test-RemoteCondition 'PVE and PBS sole_monitor tokens have no automatic expiry' "echo $tokenExpiryBase64 | base64 -d | python3 -"
+    Test-RemoteCondition 'monitoring token files are root-only' 'test "$(stat -c %a /root/sovereign-secrets/monitoring/pve-api-token.env)" = 600 && test "$(stat -c %a /root/sovereign-secrets/monitoring/pbs-api-token.env)" = 600 && pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/homepage-monitoring.env)" = 600'''
 
     Write-Section 'Public VPN Edge'
     Test-HttpStatus "https://$PublicVpnHost/health" 'Headscale public health'
@@ -329,19 +356,11 @@ root_ok = (
 )
 
 locations = json.loads(row['locations'] or '[]')
-web_ok = any(
-    loc.get('path') == '/web'
-    and loc.get('forward_scheme') == 'http'
-    and loc.get('forward_host') == '192.168.1.50'
-    and int(loc.get('forward_port')) == 8081
-    for loc in locations
-)
-
-if not (root_ok and web_ok):
+if not (root_ok and locations == []):
     sys.exit(1)
 PY
 '@
-    Test-RemoteCondition 'NPM public VPN edge is enabled, public, SSL-forced, WebSocket-enabled, and mapped to Headscale' $npmVpnEdgeCheck
+    Test-RemoteCondition 'NPM public VPN edge maps only to Headscale API with no public admin UI location' $npmVpnEdgeCheck
 
     $controlUrlPattern = 'https://' + $PublicVpnHost
     $exitRouteIpv4Pattern = '0.0.0.0/0'
@@ -359,43 +378,47 @@ PY
     if ($vpnText -match [regex]::Escape('server_name vpn.casca-certosa.duckdns.org;') -and
         $vpnText -match 'set\s+\$server\s+"192\.168\.1\.50";' -and
         $vpnText -match 'set\s+\$port\s+8080;' -and
-        $vpnText -match [regex]::Escape('proxy_pass       http://192.168.1.50:8081;')) {
-        Add-Pass 'public VPN maps root to Headscale API 192.168.1.50:8080 and /web to Headscale-UI 192.168.1.50:8081'
+        $vpnText -notmatch '192\.168\.1\.50:8081') {
+        Add-Pass 'public VPN maps only to Headscale API 192.168.1.50:8080'
     } else {
-        Add-Failure 'public VPN NPM config does not match required Headscale API plus Headscale-UI /web model'
+        Add-Failure 'public VPN NPM config exposes an unexpected target or admin UI location'
     }
 
     $expectedProxyTargets = @(
-        @{ Host = 'adguard.internal'; Pass = 'proxy_pass http://192.168.1.50:3000;' },
-        @{ Host = 'npm.internal'; Pass = 'proxy_pass http://192.168.1.50:81;' },
-        @{ Host = 'headscale.internal'; Pass = 'proxy_pass http://192.168.1.50:8081;' },
-        @{ Host = 'proxmox.internal'; Pass = 'proxy_pass https://192.168.1.150:8006;' },
-        @{ Host = 'pbs.internal'; Pass = 'proxy_pass https://192.168.1.20:8007;' },
-        @{ Host = 'auth.internal'; Pass = 'proxy_pass http://192.168.1.51:9000;' },
-        @{ Host = 'dash.internal'; Pass = 'proxy_pass http://192.168.1.51:3002;' },
-        @{ Host = 'status.internal'; Pass = 'proxy_pass http://192.168.1.51:3001;' },
-        @{ Host = 'monitor.internal'; Pass = 'proxy_pass http://192.168.1.51:8090;' },
-        @{ Host = 'logs.internal'; Pass = 'proxy_pass http://192.168.1.51:8088;' },
-        @{ Host = 'pwd.internal'; Pass = 'proxy_pass http://192.168.1.52:8082;' },
-        @{ Host = 'sync.internal'; Pass = 'proxy_pass http://192.168.1.52:8384;' },
-        @{ Host = 'paper.internal'; Pass = 'proxy_pass http://192.168.1.52:8010;' },
-        @{ Host = 'rss.internal'; Pass = 'proxy_pass http://192.168.1.52:8087;' },
-        @{ Host = 'bookmarks.internal'; Pass = 'proxy_pass http://192.168.1.52:3010;' },
-        @{ Host = 'search.internal'; Pass = 'proxy_pass http://192.168.1.52:8084;' },
-        @{ Host = 'git.internal'; Pass = 'proxy_pass http://192.168.1.52:3003;' },
-        @{ Host = 'foto.internal'; Pass = 'proxy_pass http://192.168.1.110:2283;' },
-        @{ Host = 'media.internal'; Pass = 'proxy_pass http://192.168.1.52:8096;' },
-        @{ Host = 'ai.internal'; Pass = 'proxy_pass http://192.168.1.52:3004;' },
-        @{ Host = 'files.internal'; Pass = 'proxy_pass http://192.168.1.120:11000;' },
-        @{ Host = 'netalert.internal'; Pass = 'proxy_pass http://192.168.1.53:20211;' },
-        @{ Host = 'disks.internal'; Pass = 'proxy_pass http://192.168.1.53:8085;' },
-        @{ Host = 'alerts.internal'; Pass = 'proxy_pass http://192.168.1.53:8093;' },
-        @{ Host = 'ha.internal'; Pass = 'proxy_pass http://192.168.1.130:8123;' }
+        @{ Host = 'adguard.internal'; Scheme = 'http'; Server = '192.168.1.50'; Port = 3000 },
+        @{ Host = 'npm.internal'; Scheme = 'http'; Server = '192.168.1.50'; Port = 81 },
+        @{ Host = 'headscale.internal'; Scheme = 'http'; Server = '192.168.1.50'; Port = 8081 },
+        @{ Host = 'proxmox.internal'; Scheme = 'https'; Server = '192.168.1.150'; Port = 8006 },
+        @{ Host = 'pbs.internal'; Scheme = 'https'; Server = '192.168.1.20'; Port = 8007 },
+        @{ Host = 'auth.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 9000 },
+        @{ Host = 'dash.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 3002 },
+        @{ Host = 'status.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 3001 },
+        @{ Host = 'monitor.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 8090 },
+        @{ Host = 'logs.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 8088 },
+        @{ Host = 'pwd.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8082 },
+        @{ Host = 'sync.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8384 },
+        @{ Host = 'paper.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8010 },
+        @{ Host = 'rss.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8087 },
+        @{ Host = 'bookmarks.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 3010 },
+        @{ Host = 'search.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8084 },
+        @{ Host = 'git.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 3003 },
+        @{ Host = 'foto.internal'; Scheme = 'http'; Server = '192.168.1.110'; Port = 2283 },
+        @{ Host = 'media.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 8096 },
+        @{ Host = 'ai.internal'; Scheme = 'http'; Server = '192.168.1.52'; Port = 3004 },
+        @{ Host = 'files.internal'; Scheme = 'http'; Server = '192.168.1.120'; Port = 11000 },
+        @{ Host = 'netalert.internal'; Scheme = 'http'; Server = '192.168.1.53'; Port = 20211 },
+        @{ Host = 'disks.internal'; Scheme = 'http'; Server = '192.168.1.53'; Port = 8085 },
+        @{ Host = 'alerts.internal'; Scheme = 'http'; Server = '192.168.1.53'; Port = 8093 },
+        @{ Host = 'ha.internal'; Scheme = 'http'; Server = '192.168.1.130'; Port = 8123 },
+        @{ Host = 'trust.internal'; Scheme = 'http'; Server = '192.168.1.51'; Port = 8095 }
     )
 
     foreach ($target in $expectedProxyTargets) {
-        Test-NpmProxyTarget -HostName $target.Host -ExpectedProxyPass $target.Pass
+        Test-NpmProxyTarget -HostName $target.Host -ExpectedScheme $target.Scheme -ExpectedServer $target.Server -ExpectedPort $target.Port
     }
+    $npmDbCheckSource = 'import json,sqlite3,sys;c=sqlite3.connect("/opt/core-network/npm/data/database.sqlite");c.row_factory=sqlite3.Row;r=c.execute("select domain_names,certificate_id,ssl_forced from proxy_host where is_deleted=0 and enabled=1").fetchall();i=[x for x in r if any(d.endswith(".internal") for d in json.loads(x["domain_names"]))];sys.exit(0 if len(r)==27 and len(i)==26 and len({x["certificate_id"] for x in i})==1 and all(x["certificate_id"]>0 and x["ssl_forced"] for x in i) else 1)'
+    $npmDbCheckBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($npmDbCheckSource))
+    Test-RemoteCondition 'NPM database contains one public and 26 private GUI-managed Proxy Hosts with internal HTTPS forced' "echo $npmDbCheckBase64 | base64 -d | pct exec 100 -- python3 -"
 
     Write-Section 'Split DNS'
     $split = Invoke-Nslookup -Name $PublicVpnHost -Server $AdGuardDns
@@ -414,6 +437,14 @@ PY
         Add-Failure 'dash.internal does not resolve through AdGuard'
     }
 
+    $trustDns = Invoke-Nslookup -Name 'trust.internal' -Server $AdGuardDns
+    Write-Host $trustDns.Trim()
+    if ($trustDns -match [regex]::Escape($AdGuardDns)) {
+        Add-Pass 'trust.internal resolves through the AdGuard wildcard rewrite'
+    } else {
+        Add-Failure 'trust.internal does not resolve through AdGuard'
+    }
+
     $caDns = Invoke-Nslookup -Name $InternalCaHost -Server $AdGuardDns
     Write-Host $caDns.Trim()
     if ($caDns -match [regex]::Escape($InternalCaIp)) {
@@ -424,6 +455,14 @@ PY
 
     Write-Section 'Internal CA'
     Test-HttpStatus "https://${InternalCaHost}:9002/health" 'Smallstep internal CA health'
+    Test-RemoteCondition 'trust portal container is healthy on LXC101' 'pct exec 101 -- docker inspect --format ''{{.State.Health.Status}}'' trust-portal | grep -qx healthy'
+    Test-RemoteCondition 'trust bootstrap is reachable directly only on the private LXC101 address' 'pct exec 101 -- curl -fsS http://127.0.0.1:8095/healthz | grep -qx ok'
+    Test-ResolvedHttpContent 'HTTPS trust portal alias' 'https://trust.internal' 'Sovereign Trust Portal'
+    $chainCheckSource = 'import subprocess,sys;r=subprocess.run(["openssl","s_client","-connect","192.168.1.50:443","-servername","trust.internal","-showcerts"],input=b"",stdout=subprocess.PIPE,stderr=subprocess.DEVNULL);sys.exit(0 if r.stdout.count(b"BEGIN CERTIFICATE")==2 else 1)'
+    $chainCheckBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($chainCheckSource))
+    Test-RemoteCondition 'NPM serves one leaf and one intermediate certificate' "echo $chainCheckBase64 | base64 -d | python3 -"
+    Test-RemoteCondition 'shared NPM certificate explicitly includes trust.internal' 'openssl s_client -connect 192.168.1.50:443 -servername trust.internal </dev/null 2>/dev/null | openssl x509 -noout -ext subjectAltName | grep -q "DNS:trust.internal"'
+    Test-RemoteCondition 'certificate renewal and expiry-audit timers are enabled' 'systemctl is-enabled --quiet sovereign-renew-npm-internal-certs.timer && systemctl is-enabled --quiet sovereign-cert-expiry-audit.timer'
     try {
         $certAudit = Invoke-Ssh "if [ -x /usr/local/sbin/sovereign-cert-expiry-audit ]; then /usr/local/sbin/sovereign-cert-expiry-audit; else echo MISSING_CERT_EXPIRY_AUDIT; exit 1; fi"
         $certAudit | ForEach-Object { Write-Host $_ }
@@ -435,24 +474,33 @@ PY
     Write-Section 'Critical Alias Fingerprints'
     Test-ResolvedHttpContent 'Proxmox VE HTTPS alias' 'https://proxmox.internal' 'Proxmox Virtual Environment'
     Test-ResolvedHttpContent 'Proxmox Backup Server HTTPS alias' 'https://pbs.internal' 'Proxmox Backup Server'
-    Test-ResolvedHttpStatus 'AdGuard API alias' 'http://adguard.internal/control/status' '^401$'
-    Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'http://npm.internal' 'Nginx Proxy Manager'
-    Test-ResolvedHttpContent 'Authentik alias' 'http://auth.internal/if/user/' 'authentik'
-    Test-ResolvedHttpContent 'Homepage alias' 'http://dash.internal' 'Sovereign Homelab'
-    Test-ResolvedHttpContent 'Uptime Kuma alias' 'http://status.internal' 'Uptime Kuma'
-    Test-ResolvedHttpContent 'Beszel alias' 'http://monitor.internal' 'Beszel'
-    Test-ResolvedHttpContent 'Dozzle alias' 'http://logs.internal' 'Dozzle'
-    Test-ResolvedHttpContent 'Immich alias' 'http://foto.internal' '(?i)immich'
+    Test-ResolvedHttpStatus 'AdGuard API alias' 'https://adguard.internal/control/status' '^401$'
+    Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'https://npm.internal' 'Nginx Proxy Manager'
+    Test-ResolvedHttpContent 'Authentik alias' 'https://auth.internal/if/user/' 'authentik'
+    Test-ResolvedHttpContent 'Homepage alias' 'https://dash.internal' '<title[^>]*>Homepage</title>'
+    Test-ResolvedHttpContent 'Uptime Kuma alias' 'https://status.internal' 'Uptime Kuma'
+    Test-ResolvedHttpContent 'Beszel alias' 'https://monitor.internal' 'Beszel'
+    Test-ResolvedHttpContent 'Dozzle alias' 'https://logs.internal' 'Dozzle'
+    Test-ResolvedHttpContent 'Immich alias' 'https://foto.internal' '(?i)immich'
     Test-ResolvedHttpContent 'Nextcloud alias' 'https://files.internal' 'Nextcloud'
+    Test-ResolvedHttpContent 'Trust portal alias' 'https://trust.internal' 'Sovereign Trust Portal'
 
     Write-Section 'Dashboard Links'
-    $services = Invoke-RestMethod -Uri "$DashboardUrl/api/services" -TimeoutSec 20
+    $servicesJson = (& curl.exe -k -sS --max-time 20 --resolve "dash.internal:443:$NpmIp" "$DashboardUrl/api/services" | Out-String)
+    $services = $servicesJson | ConvertFrom-Json
     $cardCount = 0
     foreach ($group in $services) {
         foreach ($service in $group.services) {
             $cardCount++
             $href = [string]$service.href
-            $code = (& curl.exe -k -s -o NUL -w '%{http_code}' --max-time 12 $href).Trim()
+            $uri = [Uri]$href
+            $curlArgs = @('-k', '-s', '-o', 'NUL', '-w', '%{http_code}', '--max-time', '12')
+            if ($uri.Host.EndsWith('.internal')) {
+                $resolveIp = if ($uri.Host -eq $InternalCaHost) { $InternalCaIp } else { $NpmIp }
+                $curlArgs += @('--resolve', "$($uri.Host):$($uri.Port):$resolveIp")
+            }
+            $curlArgs += $href
+            $code = (& curl.exe @curlArgs).Trim()
             if ($code -match '^(2|3)') {
                 Add-Pass "$($group.name) / $($service.name) -> $code"
             } else {
@@ -545,6 +593,16 @@ PY
             Add-Failure "could not list PBS snapshots for VMID ${vmid}: $($_.Exception.Message)"
         }
     }
+
+    Write-Section 'Immich Critical-Data Protection'
+    Test-RemoteCondition 'Immich safety bundle exists on VM110 and verifies its CHECKSUMS' 'qm guest exec 110 -- bash -lc ''bundle=$(find /root/sovereign-secrets -maxdepth 1 -type d -name "immich-safety-*" -printf "%T@ %p\n" | sort -n | tail -n1 | cut -d" " -f2-); test -n "$bundle" && cd "$bundle" && sha256sum -c CHECKSUMS >/dev/null'' >/dev/null'
+    $bundleCheckSource = 'import hashlib,pathlib,sys;r=pathlib.Path("/root/sovereign-secrets/immich-safety");b=max(r.glob("immich-safety-*"),key=lambda p:p.stat().st_mtime,default=None);ok=bool(b and (b/"CHECKSUMS").is_file());lines=(b/"CHECKSUMS").read_text().splitlines() if ok else [];ok=ok and bool(lines);ok=ok and all((lambda f,h:f.is_file() and hashlib.sha256(f.read_bytes()).hexdigest()==h)(b/pathlib.Path(line.split(None,1)[1]).name,line.split(None,1)[0]) for line in lines);sys.exit(0 if ok else 1)'
+    $bundleCheckBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($bundleCheckSource))
+    Test-RemoteCondition 'Immich safety bundle has a verified Proxmox vault copy' "echo $bundleCheckBase64 | base64 -d | python3 -"
+    Test-RemoteCondition 'Immich daily, weekly, and quarterly protection timers are enabled' 'qm guest exec 110 -- bash -lc ''systemctl is-enabled --quiet sovereign-immich-daily.timer && systemctl is-enabled --quiet sovereign-immich-weekly.timer && systemctl is-enabled --quiet sovereign-immich-quarterly.timer'' >/dev/null'
+    Test-RemoteCondition 'Immich has a recent app-aware database dump and metadata inventory' 'qm guest exec 110 -- bash -lc ''find /root/sovereign-secrets/immich-protection/daily -maxdepth 1 -type f -name "immich-db-*.sql.gz" -mmin -1560 -print -quit | grep -q . && find /root/sovereign-secrets/immich-protection/daily -maxdepth 1 -type f -name "library-metadata-*.tsv.gz" -mmin -1560 -print -quit | grep -q .'' >/dev/null'
+    Test-RemoteCondition 'Immich isolated database restore marker exists' 'qm guest exec 110 -- test -s /root/sovereign-secrets/immich-protection/state/last-database-restore-test >/dev/null'
+    Test-RemoteCondition 'Immich PBS file-level restore marker exists' 'test -s /root/sovereign-secrets/immich-safety/LAST_PBS_FILE_RESTORE_TEST'
 
     Write-Section 'Headscale and Routes'
     Invoke-Ssh "pct exec 100 -- docker exec headscale headscale configtest; pct exec 100 -- docker exec headscale headscale nodes list-routes; pct exec 100 -- docker exec headscale headscale nodes list; pct exec 100 -- systemctl is-active sovereign-duckdns-update.timer"

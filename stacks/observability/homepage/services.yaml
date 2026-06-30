@@ -1,8 +1,8 @@
 - Network:
     - AdGuard Home:
         icon: adguard-home.png
-        href: http://adguard.internal
-        siteMonitor: http://adguard.internal
+        href: https://adguard.internal
+        siteMonitor: https://adguard.internal
         description: LXC100 192.168.1.50:3000, DNS filtering, DHCP, and .internal rewrites
     - Headscale Public Health:
         icon: headscale.png
@@ -11,13 +11,13 @@
         description: Public VPN control plane for 4G and travel clients
     - Headscale UI:
         icon: headscale.png
-        href: http://headscale.internal/web
-        siteMonitor: http://headscale.internal/web
+        href: https://headscale.internal
+        siteMonitor: https://headscale.internal
         description: LXC100 192.168.1.50:8081, users, devices, routes, and exit-node approvals
     - Nginx Proxy Manager:
         icon: nginx-proxy-manager.png
-        href: http://npm.internal
-        siteMonitor: http://npm.internal
+        href: https://npm.internal
+        siteMonitor: https://npm.internal
         description: LXC100 192.168.1.50:81, reverse proxy, aliases, and certificates
 
 - Admin:
@@ -26,17 +26,17 @@
         href: https://proxmox.internal
         siteMonitor: https://proxmox.internal
         description: P710 192.168.1.150:8006, Smallstep HTTPS alias for VMs, LXCs, bridges, and storage
-    - Proxmox Backup Server:
-        icon: proxmox.png
-        href: https://pbs.internal
-        siteMonitor: https://pbs.internal
-        description: VM140 192.168.1.20:8007, Smallstep HTTPS alias for datastore, verify jobs, prune jobs, and restores
-
+        widget:
+          type: proxmox
+          url: https://proxmox.internal
+          username: "{{HOMEPAGE_VAR_PVE_TOKEN_ID}}"
+          password: "{{HOMEPAGE_VAR_PVE_TOKEN_SECRET}}"
+          node: pve
 - Identity:
     - Authentik:
         icon: authentik.png
-        href: http://auth.internal/if/user/
-        siteMonitor: http://auth.internal/if/user/
+        href: https://auth.internal/if/user/
+        siteMonitor: https://auth.internal/if/user/
         description: LXC101 192.168.1.51:9000, SSO, MFA, proxy providers, and OIDC
     - Internal CA Health:
         icon: sh-small-step.png
@@ -44,106 +44,124 @@
         siteMonitor: https://ca.internal:9002/health
         description: LXC101 192.168.1.51:9002, Smallstep CA health for private .internal TLS
 
+- Recovery:
+    - Proxmox Backup Server:
+        icon: proxmox.png
+        href: https://pbs.internal
+        siteMonitor: https://pbs.internal
+        description: RECOVERY - datastore, verify jobs, retention, and isolated restore drills
+        widget:
+          type: proxmoxbackupserver
+          url: https://pbs.internal
+          username: "{{HOMEPAGE_VAR_PBS_TOKEN_ID}}"
+          password: "{{HOMEPAGE_VAR_PBS_TOKEN_SECRET}}"
+          datastore: p710-local
+    - HTTPS Trust Portal:
+        icon: sh-small-step.png
+        href: https://trust.internal
+        siteMonitor: https://trust.internal/healthz
+        description: RECOVERY - install and verify private CA trust on personal clients
+
 - Monitoring:
     - Homepage:
         icon: homepage.png
-        href: http://dash.internal
-        siteMonitor: http://dash.internal
+        href: https://dash.internal
+        siteMonitor: https://dash.internal
         description: Clean launchpad for every deployed service
     - Uptime Kuma:
         icon: uptime-kuma.png
-        href: http://status.internal
-        siteMonitor: http://status.internal
+        href: https://status.internal
+        siteMonitor: https://status.internal
         description: Health checks, alerting, and restore confidence
     - Beszel:
         icon: beszel.png
-        href: http://monitor.internal
-        siteMonitor: http://monitor.internal
+        href: https://monitor.internal
+        siteMonitor: https://monitor.internal
         description: Host, VM, LXC, and container metrics
     - Dozzle:
         icon: dozzle.png
-        href: http://logs.internal
-        siteMonitor: http://logs.internal
+        href: https://logs.internal
+        siteMonitor: https://logs.internal
         description: Docker live logs for admin troubleshooting
 
 - Operations Extensions:
     - NetAlertX:
         icon: netalertx.png
-        href: http://netalert.internal
-        siteMonitor: http://netalert.internal
+        href: https://netalert.internal
+        siteMonitor: https://netalert.internal
         description: LAN inventory, device changes, and IP drift
     - Scrutiny:
         icon: scrutiny.png
-        href: http://disks.internal
-        siteMonitor: http://disks.internal
+        href: https://disks.internal
+        siteMonitor: https://disks.internal
         description: SMART disk health and failure trend dashboard
     - ntfy:
         icon: ntfy.png
-        href: http://alerts.internal
-        siteMonitor: http://alerts.internal
+        href: https://alerts.internal
+        siteMonitor: https://alerts.internal
         description: Self-hosted notifications for alerts and jobs
 
 - Critical Data:
     - Vaultwarden:
         icon: vaultwarden.png
-        href: http://pwd.internal
-        siteMonitor: http://pwd.internal
-        description: Password vault; protect with backup and restore proof
+        href: https://pwd.internal
+        siteMonitor: https://pwd.internal
+        description: CRITICAL DATA - password vault with backup and restore proof
     - Immich:
         icon: immich.png
-        href: http://foto.internal
-        siteMonitor: http://foto.internal/api/server/ping
-        description: Photo and video library; DB plus upload backup required
+        href: https://foto.internal
+        siteMonitor: https://foto.internal/api/server/ping
+        description: CRITICAL DATA - photos protected by DB, library, PBS, and integrity checks
     - Nextcloud:
         icon: nextcloud.png
         href: https://files.internal
-        description: Personal cloud; HTTPS-only client access through NPM
+        description: CRITICAL DATA - personal cloud with app-aware and PBS recovery
     - Syncthing:
         icon: syncthing.png
-        href: http://sync.internal
-        siteMonitor: http://sync.internal
-        description: Peer-to-peer file sync UI
+        href: https://sync.internal
+        siteMonitor: https://sync.internal
+        description: CRITICAL DATA - peer-to-peer file sync UI and device identity
     - Paperless-ngx:
         icon: paperless-ngx.png
-        href: http://paper.internal
-        siteMonitor: http://paper.internal
-        description: OCR documents and personal archive
+        href: https://paper.internal
+        siteMonitor: https://paper.internal
+        description: CRITICAL DATA - OCR documents and personal archive
 
 - Apps:
     - Home Assistant:
         icon: home-assistant.png
-        href: http://ha.internal
-        siteMonitor: http://ha.internal
+        href: https://ha.internal
+        siteMonitor: https://ha.internal
         description: Home automation VM and integrations
     - Jellyfin:
         icon: jellyfin.png
-        href: http://media.internal
-        siteMonitor: http://media.internal
+        href: https://media.internal
+        siteMonitor: https://media.internal
         description: Private media server
     - FreshRSS:
         icon: freshrss.png
-        href: http://rss.internal
-        siteMonitor: http://rss.internal
+        href: https://rss.internal
+        siteMonitor: https://rss.internal
         description: RSS reader
     - Karakeep:
         icon: karakeep.png
-        href: http://bookmarks.internal
-        siteMonitor: http://bookmarks.internal
+        href: https://bookmarks.internal
+        siteMonitor: https://bookmarks.internal
         description: Bookmarks and web archive
     - SearXNG:
         icon: searxng.png
-        href: http://search.internal
-        siteMonitor: http://search.internal
+        href: https://search.internal
+        siteMonitor: https://search.internal
         description: Private metasearch
     - Forgejo:
         icon: forgejo.png
-        href: http://git.internal
-        siteMonitor: http://git.internal
+        href: https://git.internal
+        siteMonitor: https://git.internal
         description: Git repositories and infrastructure code
 
 - Advanced Future:
     - Open WebUI:
         icon: open-webui.png
-        href: http://ai.internal
-        siteMonitor: http://ai.internal
+        href: https://ai.internal
+        siteMonitor: https://ai.internal
         description: Local AI interface backed by Ollama

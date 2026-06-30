@@ -23,6 +23,7 @@ flowchart TD
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Platform services\nAuthentik, Homepage, Kuma, Beszel, Dozzle"]
     CA["Internal CA\nSmallstep step-ca\nca.internal"]
+    Trust["Client trust portal\ntrust.internal\nbootstrap on LXC101:8095"]
     Apps["Internal apps\n*.internal"]
     Internet(("Internet"))
 
@@ -35,8 +36,11 @@ flowchart TD
     AGH -->|filtered upstream DNS| Internet
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
-    LAN -->|trust bootstrap| CA
-    Remote -->|trust bootstrap after VPN| CA
+    LAN -->|CA API| CA
+    Remote -->|CA API after VPN| CA
+    LAN -->|untrusted HTTP bootstrap| Trust
+    Remote -->|untrusted HTTP bootstrap after VPN| Trust
+    NPM --> Trust
     NPM --> Apps
 ```
 
@@ -62,6 +66,7 @@ mindmap
       Beszel
       Dozzle
       Smallstep CA
+      Client Trust Portal
     LXC 103: Operations Extensions
       NetAlertX
       Scrutiny

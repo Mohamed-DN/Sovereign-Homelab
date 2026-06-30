@@ -94,7 +94,7 @@ grep -q '^## Credential Gap Audit 2026-06-24' /root/sovereign-secrets/HOMELAB_CR
 Beszel recovery health check:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://monitor.internal
+curl -s -o /dev/null -w '%{http_code}\n' https://monitor.internal
 ```
 
 Expected result: `200`. The actual Beszel recovery credential is stored only in the local root-only vault.
@@ -140,9 +140,9 @@ Expected:
 Proxy-provider pilot checks after protecting the first low-risk app:
 
 ```bash
-curl -I http://dash.internal
-curl -I http://rss.internal
-curl -I http://auth.internal/if/user/
+curl -I https://dash.internal
+curl -I https://rss.internal
+curl -I https://auth.internal/if/user/
 ```
 
 Manual acceptance:
@@ -227,18 +227,18 @@ Write-Host 'Markdown local links resolve.'
 Every service with a web UI must be represented in the service visibility matrix, Homepage, NPM documentation, and Uptime Kuma catalog.
 
 ```bash
-rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|netalert.internal|disks.internal|alerts.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
+rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|trust.internal|netalert.internal|disks.internal|alerts.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
 ```
 
 Minimal Homepage YAML shape check on Windows PowerShell:
 
 ```powershell
 $s = Get-Content -Raw stacks/observability/homepage/services.yaml
-$required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal','headscale.internal','auth.internal','dash.internal','status.internal','monitor.internal','logs.internal','netalert.internal','disks.internal','alerts.internal','pwd.internal','foto.internal','files.internal','sync.internal','paper.internal','ha.internal','media.internal','rss.internal','bookmarks.internal','search.internal','git.internal','ai.internal')
+$required = @('proxmox.internal','pbs.internal','adguard.internal','npm.internal','headscale.internal','auth.internal','dash.internal','status.internal','monitor.internal','logs.internal','trust.internal','netalert.internal','disks.internal','alerts.internal','pwd.internal','foto.internal','files.internal','sync.internal','paper.internal','ha.internal','media.internal','rss.internal','bookmarks.internal','search.internal','git.internal','ai.internal')
 $missing = $required | Where-Object { $s -notmatch [regex]::Escape($_) }
 if ($missing) { $missing; exit 1 }
 if (-not $s.TrimStart().StartsWith('- ')) { exit 1 }
-$groups = @('Network','Admin','Identity','Monitoring','Operations Extensions','Critical Data','Apps','Advanced Future')
+$groups = @('Network','Admin','Identity','Recovery','Monitoring','Operations Extensions','Critical Data','Apps','Advanced Future')
 $missingGroups = $groups | Where-Object { $s -notmatch "(?m)^- $([regex]::Escape($_)):" }
 if ($missingGroups) { $missingGroups; exit 1 }
 $iconCount = ([regex]::Matches($s, '^\s+icon:\s+', 'Multiline')).Count
@@ -459,46 +459,87 @@ Then confirm:
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I http://auth.internal/if/user/
-curl -I http://dash.internal
-curl -I http://status.internal
-curl -I http://monitor.internal
-curl -I http://logs.internal
+curl -I https://auth.internal/if/user/
+curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
+curl -I https://logs.internal
+curl -I https://trust.internal
 curl -k -s -o /dev/null -w 'proxmox %{http_code}\n' https://proxmox.internal/
 curl -k -s -o /dev/null -w 'pbs %{http_code}\n' https://pbs.internal/
 curl -k -I https://files.internal
 ```
 
-Bootstrap note: most internal aliases are currently HTTP over LAN/VPN. `files.internal` is already HTTPS on the client side because Nextcloud AIO expects secure browser access. After an internal CA is deployed and trusted on clients, repeat the same checks with `https://*.internal`.
+Live rule: all private web aliases use HTTPS through NPM. Use the Smallstep root CA on clients. `curl -k` is acceptable only as a diagnostic comparison, not as the production validation result.
 
 ## App Checks
 
 ```bash
-curl -I http://pwd.internal
-curl -I http://foto.internal
-curl -I http://files.internal
+curl -I https://pwd.internal
+curl -I https://foto.internal
+curl -I https://files.internal
 curl -k -I https://files.internal
-curl -I http://sync.internal
-curl -I http://paper.internal
-curl -I http://rss.internal
-curl -I http://bookmarks.internal
-curl -I http://search.internal
-curl -I http://git.internal
-curl -I http://media.internal
-curl -I http://ha.internal
-curl -I http://ai.internal
+curl -I https://sync.internal
+curl -I https://paper.internal
+curl -I https://rss.internal
+curl -I https://bookmarks.internal
+curl -I https://search.internal
+curl -I https://git.internal
+curl -I https://media.internal
+curl -I https://ha.internal
+curl -I https://ai.internal
 ```
 
-For production apps that require secure browser contexts, especially Vaultwarden and Nextcloud, deploy an internal CA and switch these checks to HTTPS before storing real data.
+All checks above validate the client-side NPM TLS edge. Direct upstream HTTP checks are separate diagnostics and must not replace alias validation.
+
+## NPM Ownership and Monitoring Identity Checks
+
+On Proxmox:
+
+```bash
+pveum user list
+pveum user token list sole_monitor@pve
+pveum acl list | grep sole_monitor
+ssh root@PBS_IP proxmox-backup-manager user list
+ssh root@PBS_IP proxmox-backup-manager user list-tokens sole_monitor@pbs
+ssh root@PBS_IP proxmox-backup-manager acl list | grep sole_monitor
+systemctl list-timers sovereign-renew-npm-internal-certs.timer --no-pager
+systemctl list-timers sovereign-cert-expiry-audit.timer --no-pager
+systemctl list-timers sovereign-weekly-report.timer --no-pager
+```
+
+Expected:
+
+- `sole_monitor@pve` and its `homepage` token have `PVEAuditor` on `/`;
+- `sole_monitor@pbs` and its `homepage` token have `Audit` on `/`;
+- token files and Homepage's monitoring env are mode `0600`;
+- NPM contains 27 active Proxy Hosts, including 26 `.internal` hosts sharing one non-zero certificate ID with Force SSL enabled;
+- the public DuckDNS Proxy Host has no `/web` location;
+- certificate renewal, expiry audit, and weekly report timers are enabled and active.
+
+Immich protection checks on VM 110:
+
+```bash
+systemctl list-timers 'sovereign-immich-*'
+/usr/local/sbin/sovereign-immich-protection daily
+/usr/local/sbin/sovereign-immich-protection restore-test
+find /root/sovereign-secrets/immich-protection -type f -printf '%m %p\n'
+```
+
+Generate a weekly report without sending it:
+
+```bash
+/usr/local/sbin/sovereign-weekly-report.py
+```
 
 ## Optional Operations Extension Checks
 
 Run these only after the related operations extension is deployed and added to NPM:
 
 ```bash
-curl -I http://netalert.internal
-curl -I http://disks.internal
-curl -I http://alerts.internal
+curl -I https://netalert.internal
+curl -I https://disks.internal
+curl -I https://alerts.internal
 ```
 
 ## Protocol Checks

@@ -1,0 +1,20 @@
+SOVEREIGN HOMELAB - $status
+Priority: $priority
+Service: $service_text
+Incident ID: $incident_id
+Detected: $timestamp
+Duration: $duration
+Diagnostic: $message_text
+
+Impact
+$impact_text
+
+What to do now
+$actions_text
+
+Suggested commands
+$commands_text
+
+Internal console: $link
+
+$anti_spam

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#111827;color:#e5e7eb;font-family:Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#111827;padding:20px 8px">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#1f2937;border:1px solid #374151;border-radius:8px;overflow:hidden">
+          <tr><td style="background:$status_color;padding:18px 22px;color:#ffffff">
+            <div style="font-size:12px;font-weight:bold">$priority INCIDENT</div>
+            <div style="font-size:24px;font-weight:bold;margin-top:4px">$status: $service</div>
+          </td></tr>
+          <tr><td style="padding:22px">
+            <table role="presentation" width="100%" cellspacing="0" cellpadding="7" style="font-size:14px;border-collapse:collapse">
+              <tr><td style="color:#9ca3af;width:140px">Incident ID</td><td style="font-weight:bold">$incident_id</td></tr>
+              <tr><td style="color:#9ca3af">Detected</td><td>$timestamp</td></tr>
+              <tr><td style="color:#9ca3af">Duration</td><td>$duration</td></tr>
+              <tr><td style="color:#9ca3af">Diagnostic</td><td>$message</td></tr>
+            </table>
+            <h2 style="font-size:16px;margin:22px 0 8px;color:#f9fafb">Impact</h2>
+            <p style="margin:0;line-height:1.55;color:#d1d5db">$impact</p>
+            <h2 style="font-size:16px;margin:22px 0 8px;color:#f9fafb">What to do now</h2>
+            <ul style="margin:0;padding-left:20px;line-height:1.65;color:#d1d5db">$actions_html</ul>
+            <h2 style="font-size:16px;margin:22px 0 8px;color:#f9fafb">Suggested commands</h2>
+            <div style="font-family:Consolas,monospace;font-size:13px;line-height:1.6;background:#111827;border:1px solid #374151;border-radius:6px;padding:12px;color:#d1fae5">$commands_html</div>
+            <p style="margin:22px 0 0"><a href="$link" style="display:inline-block;background:#2563eb;color:#ffffff;text-decoration:none;padding:10px 14px;border-radius:6px;font-weight:bold">Open internal console</a></p>
+          </td></tr>
+          <tr><td style="padding:14px 22px;background:#111827;color:#9ca3af;font-size:12px;line-height:1.5">
+            Sovereign Homelab<br>$anti_spam
+          </td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

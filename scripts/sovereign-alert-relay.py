@@ -1,39 +1,57 @@
 #!/usr/bin/env python3
-"""Small webhook-to-email relay for Uptime Kuma anti-spam alerting.
+"""Authenticated Uptime Kuma webhook relay with HTML email and anti-spam state.
 
-The relay uses only Python standard-library modules. It is intentionally simple:
-
-- first DOWN email after ALERT_FIRST_DELAY_SECONDS, default 60 seconds;
-- one REMINDER email after ALERT_REMINDER_DELAY_SECONDS, default 300 seconds;
-- no more DOWN email for the same incident until recovery;
-- one RESOLVED email when the monitor recovers after an alert was sent.
-
-Secrets come from environment variables or root-only files. Do not commit real
-SMTP credentials or relay tokens.
+The relay uses only the Python standard library. It sends the first DOWN alert
+after one minute, one reminder after five minutes, and one recovery message.
+SMTP credentials and the webhook token are loaded from environment variables or
+root-only files; they must never be committed to the repository.
 """
 
 from __future__ import annotations
 
+import hashlib
+import html
 import json
 import os
 import smtplib
 import ssl
+import string
 import sys
 import threading
 import time
+from datetime import datetime, timezone
 from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
 
+def load_env_file() -> None:
+    path = Path(os.environ.get("ALERT_ENV_FILE", "/root/sovereign-secrets/alert-relay.env"))
+    if not path.is_file():
+        return
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        name, value = line.split("=", 1)
+        os.environ.setdefault(name.strip(), value.strip().strip('"').strip("'"))
+
+
+load_env_file()
+
 STATE_PATH = Path(os.environ.get("ALERT_STATE_PATH", "/var/lib/sovereign-alert-relay/state.json"))
+default_template_dir = Path(__file__).resolve().parent / "alerting" / "templates"
+if not default_template_dir.is_dir():
+    default_template_dir = Path(__file__).resolve().parent / "templates"
+TEMPLATE_DIR = Path(os.environ.get("ALERT_TEMPLATE_DIR", str(default_template_dir)))
 BIND = os.environ.get("ALERT_RELAY_BIND", "127.0.0.1")
 PORT = int(os.environ.get("ALERT_RELAY_PORT", "8099"))
 FIRST_DELAY = int(os.environ.get("ALERT_FIRST_DELAY_SECONDS", "60"))
 REMINDER_DELAY = int(os.environ.get("ALERT_REMINDER_DELAY_SECONDS", "300"))
 CHECK_INTERVAL = int(os.environ.get("ALERT_CHECK_INTERVAL_SECONDS", "10"))
 ATTEMPT_THROTTLE = int(os.environ.get("ALERT_ATTEMPT_THROTTLE_SECONDS", "60"))
+MAX_PAYLOAD_BYTES = int(os.environ.get("ALERT_MAX_PAYLOAD_BYTES", "1048576"))
 DRY_RUN = os.environ.get("ALERT_DRY_RUN", "false").lower() in {"1", "true", "yes"}
 
 
@@ -74,17 +92,24 @@ def save_state(state: dict[str, Any]) -> None:
     STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
     tmp = STATE_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(state, indent=2, sort_keys=True), encoding="utf-8")
+    tmp.chmod(0o600)
     tmp.replace(STATE_PATH)
 
 
 def monitor_key(payload: dict[str, Any]) -> str:
     monitor = payload.get("monitor") or {}
-    return str(monitor.get("id") or monitor.get("name") or payload.get("monitorName") or "unknown-monitor")
+    return str(monitor.get("id") or monitor.get("name") or payload.get("monitorName") or "unknown")
 
 
 def monitor_name(payload: dict[str, Any]) -> str:
     monitor = payload.get("monitor") or {}
     return str(monitor.get("name") or payload.get("monitorName") or monitor_key(payload))
+
+
+def heartbeat_message(payload: dict[str, Any]) -> str:
+    heartbeat = payload.get("heartbeat") or {}
+    message = str(heartbeat.get("msg") or payload.get("msg") or "No diagnostic message was provided.")
+    return message[:800]
 
 
 def is_up(payload: dict[str, Any]) -> bool:
@@ -94,15 +119,120 @@ def is_up(payload: dict[str, Any]) -> bool:
         return raw
     if isinstance(raw, (int, float)):
         return int(raw) == 1
-    status = str(raw).strip().lower()
-    return status in {"up", "ok", "online", "1", "200", "resolved"}
+    return str(raw).strip().lower() in {"up", "ok", "online", "1", "200", "resolved"}
 
 
-def send_email(subject: str, body: str) -> None:
+def format_duration(seconds: int) -> str:
+    seconds = max(0, seconds)
+    minutes, remainder = divmod(seconds, 60)
+    hours, minutes = divmod(minutes, 60)
+    if hours:
+        return f"{hours}h {minutes}m"
+    if minutes:
+        return f"{minutes}m {remainder}s"
+    return f"{remainder}s"
+
+
+def priority_for(name: str) -> str:
+    lowered = name.lower()
+    p0 = ("headscale public", "adguard dns", "proxmox backup", "vaultwarden", "immich", "nextcloud")
+    return "P0" if any(item in lowered for item in p0) else "P1"
+
+
+def guidance_for(name: str) -> tuple[str, list[str], list[str], str]:
+    lowered = name.lower()
+    if "headscale" in lowered:
+        return (
+            "Remote VPN enrollment or administration may be unavailable.",
+            ["Check the public edge, NPM, Headscale container, and approved routes."],
+            ["pct exec 100 -- docker ps", "pct exec 100 -- docker logs --tail 100 headscale"],
+            "https://headscale.internal",
+        )
+    if "adguard" in lowered:
+        return (
+            "LAN/VPN DNS filtering and private name resolution may be unavailable.",
+            ["Check AdGuard health, port 53, and the .internal rewrite policy."],
+            ["pct exec 100 -- docker ps", "dig @192.168.1.50 dash.internal"],
+            "https://adguard.internal",
+        )
+    if "proxmox backup" in lowered or "pbs" in lowered:
+        return (
+            "Recent infrastructure backups or restore operations may be at risk.",
+            ["Check PBS datastore capacity, failed tasks, and the latest backup snapshot."],
+            ["pvesm status", "pvesh get /nodes/pve/tasks --limit 20"],
+            "https://pbs.internal",
+        )
+    if "proxmox" in lowered:
+        return (
+            "VM/LXC management and host-level operations may be unavailable.",
+            ["Check pveproxy, storage pools, failed units, and host resource pressure."],
+            ["systemctl --failed", "pvesm status", "zpool status -x"],
+            "https://proxmox.internal",
+        )
+    return (
+        "The service or its private access path is unavailable.",
+        ["Check the service container/VM, NPM target, DNS alias, and recent logs."],
+        ["systemctl --failed", "docker ps --format 'table {{.Names}}\\t{{.Status}}'"],
+        "https://status.internal",
+    )
+
+
+def incident_id(key: str, first_seen: int) -> str:
+    digest = hashlib.sha256(f"{key}:{first_seen}".encode()).hexdigest()[:8].upper()
+    date = datetime.fromtimestamp(first_seen, timezone.utc).strftime("%Y%m%d")
+    return f"SH-{date}-{digest}"
+
+
+def render_template(path: Path, context: dict[str, str]) -> str:
+    if not path.is_file():
+        raise FileNotFoundError(f"email template not found: {path}")
+    return string.Template(path.read_text(encoding="utf-8")).safe_substitute(context)
+
+
+def render_incident(event: str, incident: dict[str, Any], now: int) -> tuple[str, str, str]:
+    name = str(incident.get("name", "unknown-monitor"))
+    first_seen = int(incident.get("first_seen", now))
+    payload = incident.get("payload") or {}
+    priority = priority_for(name)
+    impact, actions, commands, link = guidance_for(name)
+    labels = {
+        "down": ("DOWN", "#dc2626", f"ALERT: {name} is DOWN"),
+        "reminder": ("STILL DOWN", "#d97706", f"REMINDER: {name} is still DOWN"),
+        "resolved": ("RESOLVED", "#059669", f"RESOLVED: {name} returned UP"),
+        "warning": ("WARNING", "#d97706", f"WARNING: {name}"),
+        "test": ("TEST", "#2563eb", f"TEST: {name}"),
+    }
+    label, color, subject = labels[event]
+    context = {
+        "event": event,
+        "status": label,
+        "status_color": color,
+        "priority": priority,
+        "service": html.escape(name),
+        "service_text": name,
+        "timestamp": datetime.fromtimestamp(now, timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "duration": format_duration(now - first_seen),
+        "impact": html.escape(impact),
+        "impact_text": impact,
+        "message": html.escape(heartbeat_message(payload)),
+        "message_text": heartbeat_message(payload),
+        "actions_html": "".join(f"<li>{html.escape(item)}</li>" for item in actions),
+        "actions_text": "\n".join(f"- {item}" for item in actions),
+        "commands_html": "<br>".join(html.escape(item) for item in commands),
+        "commands_text": "\n".join(commands),
+        "link": html.escape(link),
+        "incident_id": str(incident.get("incident_id") or incident_id(monitor_key(payload), first_seen)),
+        "anti_spam": "One initial alert, one reminder, and one recovery email per incident.",
+    }
+    text_body = render_template(TEMPLATE_DIR / f"alert_{event}.txt", context)
+    html_body = render_template(TEMPLATE_DIR / f"alert_{event}.html", context)
+    return subject, text_body, html_body
+
+
+def send_email(subject: str, text_body: str, html_body: str | None = None) -> None:
     if DRY_RUN:
-        print(json.dumps({"dry_run_email": {"subject": subject, "body": body}}, indent=2))
+        print(json.dumps({"subject": subject, "text": text_body, "has_html": bool(html_body)}, indent=2))
         return
-
     missing = [
         name
         for name, value in {
@@ -121,7 +251,9 @@ def send_email(subject: str, body: str) -> None:
     message["From"] = SMTP_FROM
     message["To"] = SMTP_TO
     message["Subject"] = subject
-    message.set_content(body)
+    message.set_content(text_body)
+    if html_body:
+        message.add_alternative(html_body, subtype="html")
 
     context = ssl.create_default_context()
     if SMTP_STARTTLS:
@@ -135,10 +267,10 @@ def send_email(subject: str, body: str) -> None:
             smtp.send_message(message)
 
 
-def try_send_email(subject: str, body: str) -> bool:
+def try_send_incident(event: str, incident: dict[str, Any], now: int) -> bool:
     try:
-        send_email(subject, body)
-    except Exception as exc:  # noqa: BLE001 - keep relay loop alive and log cause
+        send_email(*render_incident(event, incident, now))
+    except Exception as exc:  # noqa: BLE001 - relay must keep processing later incidents
         print(f"email send failed: {exc}")
         return False
     return True
@@ -148,18 +280,15 @@ def register_event(payload: dict[str, Any]) -> None:
     key = monitor_key(payload)
     name = monitor_name(payload)
     now = int(time.time())
-    up = is_up(payload)
-
     with LOCK:
         state = load_state()
         incidents = state.setdefault("incidents", {})
         incident = incidents.get(key)
-
-        if up:
+        if is_up(payload):
             if incident and incident.get("emails_sent", 0) > 0:
-                subject = f"RESOLVED: {name} returned UP"
-                body = json.dumps({"event": "resolved", "monitor": name, "payload": payload}, indent=2)
-                send_email(subject, body)
+                incident["payload"] = payload
+                if not try_send_incident("resolved", incident, now):
+                    raise RuntimeError("recovery email could not be sent")
             incidents.pop(key, None)
             save_state(state)
             return
@@ -171,12 +300,37 @@ def register_event(payload: dict[str, Any]) -> None:
                 "last_seen": now,
                 "emails_sent": 0,
                 "payload": payload,
+                "incident_id": incident_id(key, now),
             }
         else:
-            incident["name"] = name
-            incident["last_seen"] = now
-            incident["payload"] = payload
+            incident.update({"name": name, "last_seen": now, "payload": payload})
         save_state(state)
+
+
+def process_notifications_once(now: int | None = None) -> None:
+    now = now or int(time.time())
+    with LOCK:
+        state = load_state()
+        changed = False
+        for incident in state.get("incidents", {}).values():
+            first_seen = int(incident.get("first_seen", now))
+            emails_sent = int(incident.get("emails_sent", 0))
+            last_attempt = int(incident.get("last_attempt", 0))
+            elapsed = now - first_seen
+            if now - last_attempt < ATTEMPT_THROTTLE:
+                continue
+            event = None
+            if emails_sent == 0 and elapsed >= FIRST_DELAY:
+                event = "down"
+            elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
+                event = "reminder"
+            if event:
+                incident["last_attempt"] = now
+                changed = True
+                if try_send_incident(event, incident, now):
+                    incident["emails_sent"] = emails_sent + 1
+        if changed:
+            save_state(state)
 
 
 def notification_loop() -> None:
@@ -185,64 +339,37 @@ def notification_loop() -> None:
         process_notifications_once()
 
 
-def process_notifications_once(now: int | None = None) -> None:
-    if now is None:
-        now = int(time.time())
-    with LOCK:
-        state = load_state()
-        changed = False
-        for incident in state.get("incidents", {}).values():
-            first_seen = int(incident.get("first_seen", now))
-            emails_sent = int(incident.get("emails_sent", 0))
-            last_attempt = int(incident.get("last_attempt", 0))
-            name = incident.get("name", "unknown-monitor")
-            elapsed = now - first_seen
-            if now - last_attempt < ATTEMPT_THROTTLE:
-                continue
-            if emails_sent == 0 and elapsed >= FIRST_DELAY:
-                subject = f"ALERT: {name} is DOWN"
-                body = json.dumps({"event": "down", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
-                incident["last_attempt"] = now
-                changed = True
-                if try_send_email(subject, body):
-                    incident["emails_sent"] = 1
-            elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
-                subject = f"REMINDER: {name} is still DOWN after 5 minutes"
-                body = json.dumps({"event": "reminder", "elapsed_seconds": elapsed, "incident": incident}, indent=2)
-                incident["last_attempt"] = now
-                changed = True
-                if try_send_email(subject, body):
-                    incident["emails_sent"] = 2
-        if changed:
-            save_state(state)
+def authenticated(headers: Any) -> bool:
+    return bool(RELAY_TOKEN) and headers.get("Authorization", "") == f"Bearer {RELAY_TOKEN}"
 
 
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path != "/health":
-            self.send_response(404)
-            self.end_headers()
+            self.send_error(404)
             return
         self.send_response(200)
         self.end_headers()
         self.wfile.write(b"ok\n")
 
     def do_POST(self) -> None:
-        if self.path not in {"/webhook", "/kuma"}:
-            self.send_response(404)
-            self.end_headers()
+        if self.path not in {"/webhook", "/kuma", "/report"}:
+            self.send_error(404)
             return
-        if RELAY_TOKEN:
-            expected = f"Bearer {RELAY_TOKEN}"
-            if self.headers.get("Authorization", "") != expected:
-                self.send_response(401)
-                self.end_headers()
-                return
+        if not authenticated(self.headers):
+            self.send_error(401)
+            return
         length = int(self.headers.get("Content-Length", "0"))
-        payload = json.loads(self.rfile.read(length).decode("utf-8") or "{}")
+        if length < 1 or length > MAX_PAYLOAD_BYTES:
+            self.send_error(413)
+            return
         try:
-            register_event(payload)
-        except Exception as exc:  # noqa: BLE001 - return failure to Kuma webhook
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            if self.path == "/report":
+                send_email(str(payload["subject"]), str(payload["text"]), str(payload["html"]))
+            else:
+                register_event(payload)
+        except Exception as exc:  # noqa: BLE001 - return a useful webhook failure
             self.send_response(500)
             self.end_headers()
             self.wfile.write(str(exc).encode("utf-8"))
@@ -256,70 +383,51 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def self_test() -> int:
-    """Validate the incident lifecycle without SMTP or network listeners."""
     import tempfile
 
-    global STATE_PATH, FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE, send_email
+    global STATE_PATH, TEMPLATE_DIR, FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE, send_email
+    sent: list[tuple[str, str, str | None]] = []
+    originals = (STATE_PATH, TEMPLATE_DIR, FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE, send_email)
 
-    sent_subjects: list[str] = []
-    original_state_path = STATE_PATH
-    original_first_delay = FIRST_DELAY
-    original_reminder_delay = REMINDER_DELAY
-    original_attempt_throttle = ATTEMPT_THROTTLE
-    original_send_email = send_email
-
-    def fake_send_email(subject: str, body: str) -> None:
-        sent_subjects.append(subject)
+    def fake_send(subject: str, text_body: str, html_body: str | None = None) -> None:
+        sent.append((subject, text_body, html_body))
 
     with tempfile.TemporaryDirectory(prefix="sovereign-alert-relay-test-") as tmpdir:
         try:
             STATE_PATH = Path(tmpdir) / "state.json"
-            FIRST_DELAY = 1
-            REMINDER_DELAY = 5
-            ATTEMPT_THROTTLE = 0
-            send_email = fake_send_email
-
-            down_payload = {
-                "monitor": {"id": "relay-self-test", "name": "Relay Self Test"},
-                "heartbeat": {"status": 0},
-            }
-            up_payload = {
-                "monitor": {"id": "relay-self-test", "name": "Relay Self Test"},
-                "heartbeat": {"status": 1},
-            }
-
-            register_event(down_payload)
+            FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE = 1, 5, 0
+            send_email = fake_send
+            down = {"monitor": {"id": "test", "name": "Relay Self Test"}, "heartbeat": {"status": 0, "msg": "timeout"}}
+            up = {"monitor": {"id": "test", "name": "Relay Self Test"}, "heartbeat": {"status": 1, "msg": "200 OK"}}
+            register_event(down)
             state = load_state()
-            state["incidents"]["relay-self-test"]["first_seen"] = 1000
+            state["incidents"]["test"]["first_seen"] = 1000
+            state["incidents"]["test"]["incident_id"] = incident_id("test", 1000)
             save_state(state)
-
-            process_notifications_once(now=1000)
-            process_notifications_once(now=1001)
-            process_notifications_once(now=1005)
-            process_notifications_once(now=1010)
-            register_event(up_payload)
-
-            expected = [
-                "ALERT: Relay Self Test is DOWN",
-                "REMINDER: Relay Self Test is still DOWN after 5 minutes",
-                "RESOLVED: Relay Self Test returned UP",
-            ]
-            if sent_subjects != expected:
-                print("self-test failed")
-                print(json.dumps({"expected": expected, "actual": sent_subjects}, indent=2))
-                return 1
+            process_notifications_once(1001)
+            process_notifications_once(1005)
+            process_notifications_once(1010)
+            register_event(up)
+            expected = ["ALERT: Relay Self Test is DOWN", "REMINDER: Relay Self Test is still DOWN", "RESOLVED: Relay Self Test returned UP"]
+            if [item[0] for item in sent] != expected:
+                raise AssertionError("incident message sequence differs from expected")
+            if any(not item[2] or "Sovereign Homelab" not in item[2] for item in sent):
+                raise AssertionError("HTML body was not rendered")
             if load_state().get("incidents"):
-                print("self-test failed: incident state was not cleared after recovery")
-                print(json.dumps(load_state(), indent=2))
-                return 1
+                raise AssertionError("incident state was not cleared")
             print("sovereign-alert-relay self-test OK")
             return 0
+        except Exception as exc:  # noqa: BLE001 - concise test failure
+            print(f"self-test failed: {exc}")
+            return 1
         finally:
-            STATE_PATH = original_state_path
-            FIRST_DELAY = original_first_delay
-            REMINDER_DELAY = original_reminder_delay
-            ATTEMPT_THROTTLE = original_attempt_throttle
-            send_email = original_send_email
+            STATE_PATH, TEMPLATE_DIR, FIRST_DELAY, REMINDER_DELAY, ATTEMPT_THROTTLE, send_email = originals
+
+
+def send_report_file(path: str) -> int:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    send_email(str(payload["subject"]), str(payload["text"]), str(payload["html"]))
+    return 0
 
 
 def main() -> None:
@@ -332,4 +440,7 @@ def main() -> None:
 if __name__ == "__main__":
     if "--self-test" in sys.argv:
         raise SystemExit(self_test())
+    if "--send-report" in sys.argv:
+        index = sys.argv.index("--send-report")
+        raise SystemExit(send_report_file(sys.argv[index + 1]))
     main()

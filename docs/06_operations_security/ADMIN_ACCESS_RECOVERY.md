@@ -32,33 +32,33 @@ Expected:
 
 ## Live Admin Access Status
 
-Last audited: 2026-06-24.
+Last audited: 2026-06-29. The private source of the synchronized initialized-app credential is `/root/sovereign-secrets/common-app-password`; the value is intentionally absent from this repository.
 
 | Service | UI alias | Current admin-access state | Recovery owner |
 |---|---|---|---|
-| Proxmox VE | `proxmox.internal` | SSH key works from the admin workstation; web login is root/PAM. | root password rotation and password manager entry |
-| Proxmox Backup Server | `pbs.internal` | UI is reachable; PBS token is used for PVE backup integration. | root/PAM or dedicated PBS admin entry |
+| Proxmox VE | `proxmox.internal` | SSH/root is break-glass; Homepage/reporting use `sole_monitor@pve!homepage`. | recover human login separately; rotate read-only token through overlap/test/revoke |
+| Proxmox Backup Server | `pbs.internal` | `root@pam` was reset and verified; password/account expiry is disabled; backup integration and monitoring use separate tokens. | shared root-only credential source plus SSH-key break-glass; rotate `sole_monitor@pbs!homepage` independently |
 | AdGuard Home | `adguard.internal` | Recovery admin credential verified and stored only in the root-only local vault; DNS remained healthy after reset. | AdGuard bcrypt hash reset or restore LXC 100 |
-| Nginx Proxy Manager | `npm.internal` | Recovery admin credential verified and stored only in the root-only local vault. | NPM SQLite auth recovery or restore LXC 100 |
+| Nginx Proxy Manager | `npm.internal` | Active admin login was reset and verified through the NPM API after a database backup. | NPM auth recovery or restore LXC 100 |
 | Headscale UI | `headscale.internal/web` | UI is reachable; Headscale API and pre-auth keys are generated on demand. | rotate API/pre-auth keys |
-| Authentik | `auth.internal` | `akadmin` recovery credential verified and stored only in the root-only local vault; MFA/recovery setup remains a hardening gate. | Authentik recovery command plus DB/media backup |
+| Authentik | `auth.internal` | `akadmin` was reset with `ak changepassword` and its hash verified; MFA/recovery setup remains a hardening gate. | Authentik recovery command plus DB/media backup |
 | Homepage | `dash.internal` | No separate app login by default; protect with VPN/Auth when needed. | YAML restore from LXC 101/PBS |
-| Uptime Kuma | `status.internal` | Recovery admin credential verified and stored only in the root-only local vault; 37 monitors remained UP after reset. | Kuma official reset tool after data backup |
-| Beszel | `monitor.internal` | Recovery admin credential verified and stored only in the root-only local vault. | Beszel/PocketBase recovery procedure below |
+| Uptime Kuma | `status.internal` | `admin` was reset with the official helper and verified through the Socket.IO login flow; 37 monitors remained UP. | Kuma official reset tool after data backup |
+| Beszel | `monitor.internal` | Primary superuser and Hub login were reset and verified; legacy identities were synchronized pending ownership cleanup. | Beszel/PocketBase recovery procedure below |
 | Dozzle | `logs.internal` | UI is reachable; logs can expose secrets, keep VPN/Auth only. | no critical account data |
 | Smallstep CA | `ca.internal:9002` | CA health works; CA secrets must remain local and backed up. | restore CA volume or rotate CA with trust migration |
-| Vaultwarden | `pwd.internal` | UI is reachable; admin token must be filled locally before production use. | volume backup plus admin token rotation |
-| Immich | `foto.internal` | UI is reachable; admin account is app-managed. | DB/upload backup, then app-level reset |
-| Nextcloud AIO | `files.internal` | UI is reachable; AIO and Nextcloud credentials must stay local. | AIO backup/PBS restore or app-level reset |
-| Syncthing | `sync.internal` | UI is reachable; GUI auth must be recorded locally if enabled. | config restore or GUI password reset |
-| Paperless-ngx | `paper.internal` | UI is reachable; app admin must be recorded locally before production documents. | Django management reset after DB backup |
-| FreshRSS | `rss.internal` | UI is reachable; credentials must stay local. | app-level password reset or restore |
-| Karakeep | `bookmarks.internal` | UI is reachable; credentials must stay local. | app-level reset after DB backup |
+| Vaultwarden | `pwd.internal` | No user is initialized; no server-side vault password was invented. | complete onboarding, encrypted export, and volume backup |
+| Immich | `foto.internal` | Existing admin login was reset with the official CLI and verified through the API after a DB backup. | DB/upload backup, then official admin reset |
+| Nextcloud AIO | `files.internal` | Nextcloud `admin` was reset with `occ` and verified through OCS; the AIO control-plane credential remains separate. | AIO backup/PBS restore or `occ` reset |
+| Syncthing | `sync.internal` | Existing GUI `admin` was reset through the local REST API and HTTP auth verified after config backup. | config restore or GUI REST reset |
+| Paperless-ngx | `paper.internal` | Existing superuser `sole` was reset and its Django password hash verified after a DB backup. | Django management reset after DB/media backup |
+| FreshRSS | `rss.internal` | No user is initialized; only the placeholder user tree exists. | create the first user during controlled onboarding |
+| Karakeep | `bookmarks.internal` | No user is initialized and the application data volume is empty. | create the first owner during controlled onboarding |
 | SearXNG | `search.internal` | No normal user login; protect config secret. | restore config |
-| Forgejo | `git.internal` | UI is reachable; admin and SSH keys must be recorded locally before production repos. | Forgejo admin reset after DB/repo backup |
-| Jellyfin | `media.internal` | UI is reachable; credentials must stay local. | Jellyfin password reset or config restore |
-| Open WebUI | `ai.internal` | UI is reachable; admin credentials must stay local. | app-level reset after WebUI data backup |
-| Home Assistant | `ha.internal` | UI is reachable; use native HA backup plus PBS before resets. | owner/admin recovery from HA console |
+| Forgejo | `git.internal` | Existing administrator `homelab-admin` was reset with the official CLI and verified through the API. | Forgejo admin reset after DB/repo backup |
+| Jellyfin | `media.internal` | Existing user `sole` was reset through the official PIN/API flow and login verified. | PIN/API reset or config restore |
+| Open WebUI | `ai.internal` | No user is initialized. | create the first owner after WebUI data backup |
+| Home Assistant | `ha.internal` | Home Assistant OS reports no users; onboarding is incomplete. | create the owner after native HA/PBS backup |
 | NetAlertX | `netalert.internal` | UI is reachable; tune auth before sensitive network inventory. | config restore |
 | Scrutiny | `disks.internal` | UI is reachable; SMART data is operational telemetry. | LXC 103 restore |
 | ntfy | `alerts.internal` | UI/API is reachable; topic auth is still a hardening gate. | topic/auth config recovery |
@@ -84,7 +84,7 @@ docker exec beszel /beszel superuser upsert --dir /beszel_data <EMAIL> <PASSWORD
 Then log in to:
 
 ```text
-http://monitor.internal/_/
+https://monitor.internal/_/
 ```
 
 Open the `users` collection and update the Hub account password there. Do not assume the superuser password also logs into the Beszel Hub.
@@ -92,7 +92,7 @@ Open the `users` collection and update the Hub account password there. Do not as
 Validation:
 
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' http://monitor.internal
+curl -s -o /dev/null -w '%{http_code}\n' https://monitor.internal
 ```
 
 Expected result: `200`.
@@ -145,7 +145,7 @@ tar -czf /root/sovereign-secrets/backups/npm-data-$(date -u +%Y%m%dT%H%M%SZ).tgz
 Use the upstream-supported reset method for the deployed NPM version, then verify:
 
 ```bash
-curl -I http://npm.internal
+curl -I https://npm.internal
 curl -I https://vpn.yourdomain.duckdns.org
 ```
 
@@ -159,6 +159,18 @@ Live recovery completed on 2026-06-24:
 6. Stored the recovery credential only in `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`.
 
 Do not commit the recovery email/password. Public docs may record the method and backup location pattern only.
+
+### Monitoring API Tokens
+
+Do not reset an administrator password to repair a dashboard widget. Monitoring tokens are independent service credentials:
+
+1. Confirm `sole_monitor@pve` has `PVEAuditor` on `/` and `sole_monitor@pbs` has `Audit` on `/`.
+2. Create a replacement token with a new token name while the old token remains valid.
+3. Update only the root-only monitoring env files and LXC 101 `/root/sovereign-secrets/homepage-monitoring.env`.
+4. Recreate Homepage and run the weekly report without `--send`.
+5. Confirm both widgets and APIs work, then revoke the old token.
+
+Never write token values into `services.yaml`, Markdown, shell history, or Git.
 
 ### Authentik
 

@@ -50,14 +50,14 @@ Repository rules:
 
 ## AdGuard Home
 
-- URL: `http://adguard.internal`
+- URL: `https://adguard.internal`
 - Username: `<ADGUARD_USERNAME>`
 - Password: `<ADGUARD_PASSWORD>`
 - Notes:
 
 ## Nginx Proxy Manager
 
-- URL: `http://npm.internal`
+- URL: `https://npm.internal`
 - Username: `<NPM_USERNAME>`
 - Password: `<NPM_PASSWORD>`
 - Data paths: `/opt/core-network/npm/data`, `/opt/core-network/npm/letsencrypt`
@@ -66,7 +66,7 @@ Repository rules:
 ## Headscale
 
 - Public endpoint: `https://vpn.yourdomain.duckdns.org`
-- Admin/UI endpoint: `http://headscale.internal/web`
+- Admin/UI endpoint: `https://headscale.internal/web`
 - Token/API key path: `<HEADSCALE_API_KEY_PATH>`
 - Pre-auth key path: `<HEADSCALE_PREAUTH_KEY_PATH>`
 - Notes:
@@ -81,20 +81,20 @@ Repository rules:
 
 ## Authentik
 
-- URL: `http://auth.internal/if/user/`
+- URL: `https://auth.internal/if/user/`
 - Username: `<AUTHENTIK_USERNAME>`
 - Password/recovery path: `<AUTHENTIK_RECOVERY_PATH>`
 - Notes:
 
 ## Homepage
 
-- URL: `http://dash.internal`
+- URL: `https://dash.internal`
 - Config path: `/opt/sovereign-homelab/stacks/observability/homepage`
 - Notes:
 
 ## Uptime Kuma
 
-- URL: `http://status.internal`
+- URL: `https://status.internal`
 - Username: `<KUMA_USERNAME>`
 - Password path: `<KUMA_PASSWORD_PATH>`
 - Notification config: `<KUMA_NOTIFICATION_NOTES>`
@@ -102,7 +102,7 @@ Repository rules:
 
 ## Beszel
 
-- URL: `http://monitor.internal`
+- URL: `https://monitor.internal`
 - Username: `<BESZEL_USERNAME>`
 - Password: `<BESZEL_PASSWORD>`
 - Agent keys/path: `<BESZEL_AGENT_KEY_PATH>`
@@ -110,8 +110,8 @@ Repository rules:
 
 ## Beszel Recovery Credential
 
-- URL: `http://monitor.internal`
-- PocketBase admin URL: `http://monitor.internal/_/`
+- URL: `https://monitor.internal`
+- PocketBase admin URL: `https://monitor.internal/_/`
 - Recovery admin email: `<BESZEL_RECOVERY_EMAIL>`
 - Recovery admin username: `<BESZEL_RECOVERY_USERNAME>`
 - Recovery admin password: `<BESZEL_RECOVERY_PASSWORD>`
@@ -121,7 +121,7 @@ Repository rules:
 
 ## Dozzle
 
-- URL: `http://logs.internal`
+- URL: `https://logs.internal`
 - Notes:
 
 ## Smallstep CA
@@ -135,23 +135,23 @@ Repository rules:
 
 | Service | URL | Username | Password or secret path | Backup note |
 |---|---|---|---|---|
-| Vaultwarden | `http://pwd.internal` | `<VAULTWARDEN_USER>` | `<VAULTWARDEN_SECRET_PATH>` | volume + encrypted export |
-| Immich | `http://foto.internal` | `<IMMICH_ADMIN_EMAIL>` | `<IMMICH_SECRET_PATH>` | DB + upload/library |
+| Vaultwarden | `https://pwd.internal` | `<VAULTWARDEN_USER>` | `<VAULTWARDEN_SECRET_PATH>` | volume + encrypted export |
+| Immich | `https://foto.internal` | `<IMMICH_ADMIN_EMAIL>` | `<IMMICH_SECRET_PATH>` | DB + upload/library |
 | Nextcloud AIO | `https://files.internal` | `<NEXTCLOUD_ADMIN>` | `<NEXTCLOUD_SECRET_PATH>` | AIO backup + PBS/offsite |
-| Syncthing | `http://sync.internal` | `<SYNCTHING_USER>` | `<SYNCTHING_SECRET_PATH>` | config + source data |
-| Paperless-ngx | `http://paper.internal` | `<PAPERLESS_USER>` | `<PAPERLESS_SECRET_PATH>` | DB + media/export |
+| Syncthing | `https://sync.internal` | `<SYNCTHING_USER>` | `<SYNCTHING_SECRET_PATH>` | config + source data |
+| Paperless-ngx | `https://paper.internal` | `<PAPERLESS_USER>` | `<PAPERLESS_SECRET_PATH>` | DB + media/export |
 
 ## High-Value Apps
 
 | Service | URL | Username | Password or secret path | Notes |
 |---|---|---|---|---|
-| Home Assistant | `http://ha.internal` | `<HA_USER>` | `<HA_SECRET_PATH>` | native HA backups + PBS |
-| Jellyfin | `http://media.internal` | `<JELLYFIN_USER>` | `<JELLYFIN_SECRET_PATH>` | media paths separate |
-| FreshRSS | `http://rss.internal` | `<FRESHRSS_USER>` | `<FRESHRSS_SECRET_PATH>` | data volume or DB |
-| Karakeep | `http://bookmarks.internal` | `<KARAKEEP_USER>` | `<KARAKEEP_SECRET_PATH>` | DB + assets |
-| SearXNG | `http://search.internal` | n/a | `<SEARXNG_SECRET_PATH>` | config secret |
-| Forgejo | `http://git.internal` | `<FORGEJO_ADMIN>` | `<FORGEJO_SECRET_PATH>` | repos + DB |
-| Open WebUI | `http://ai.internal` | `<OPEN_WEBUI_ADMIN>` | `<OPEN_WEBUI_SECRET_PATH>` | WebUI data |
+| Home Assistant | `https://ha.internal` | `<HA_USER>` | `<HA_SECRET_PATH>` | native HA backups + PBS |
+| Jellyfin | `https://media.internal` | `<JELLYFIN_USER>` | `<JELLYFIN_SECRET_PATH>` | media paths separate |
+| FreshRSS | `https://rss.internal` | `<FRESHRSS_USER>` | `<FRESHRSS_SECRET_PATH>` | data volume or DB |
+| Karakeep | `https://bookmarks.internal` | `<KARAKEEP_USER>` | `<KARAKEEP_SECRET_PATH>` | DB + assets |
+| SearXNG | `https://search.internal` | n/a | `<SEARXNG_SECRET_PATH>` | config secret |
+| Forgejo | `https://git.internal` | `<FORGEJO_ADMIN>` | `<FORGEJO_SECRET_PATH>` | repos + DB |
+| Open WebUI | `https://ai.internal` | `<OPEN_WEBUI_ADMIN>` | `<OPEN_WEBUI_SECRET_PATH>` | WebUI data |
 
 ## Protocol Exceptions
 
@@ -163,9 +163,9 @@ Repository rules:
 
 | Service | URL | Secret path | Notes |
 |---|---|---|---|
-| NetAlertX | `http://netalert.internal` | `<NETALERTX_SECRET_PATH>` | tune scan scope |
-| Scrutiny | `http://disks.internal` | `<SCRUTINY_SECRET_PATH>` | collector runs where disks are visible |
-| ntfy | `http://alerts.internal` | `<NTFY_SECRET_PATH>` | protect topics before sensitive alerts |
+| NetAlertX | `https://netalert.internal` | `<NETALERTX_SECRET_PATH>` | tune scan scope |
+| Scrutiny | `https://disks.internal` | `<SCRUTINY_SECRET_PATH>` | collector runs where disks are visible |
+| ntfy | `https://alerts.internal` | `<NTFY_SECRET_PATH>` | protect topics before sensitive alerts |
 
 ## Email Alerting
 
@@ -176,6 +176,18 @@ Repository rules:
 - SMTP password path: `<SMTP_PASSWORD_PATH>`
 - Alert relay token path: `<ALERT_RELAY_TOKEN_PATH>`
 - Notes: anti-spam behavior is first alert after 1 minute, one reminder after 5 minutes, then silence until recovery.
+
+## Read-Only Monitoring API Identities
+
+| System | User | Token ID | Role | Root-only secret path |
+|---|---|---|---|---|
+| Proxmox VE | `sole_monitor@pve` | `sole_monitor@pve!homepage` | `PVEAuditor` on `/` | `/root/sovereign-secrets/monitoring/pve-api-token.env` |
+| Proxmox Backup Server | `sole_monitor@pbs` | `sole_monitor@pbs!homepage` | `Audit` on `/` | `/root/sovereign-secrets/monitoring/pbs-api-token.env` |
+
+- Homepage projection on LXC 101: `/root/sovereign-secrets/homepage-monitoring.env`.
+- These are API tokens, not interactive passwords.
+- Do not use root or a human administrator password for monitoring widgets or reports.
+- Tokens are non-expiring by design; audit quarterly and rotate with an overlap/test/revoke procedure.
 
 ## Emergency Access
 

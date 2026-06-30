@@ -13,6 +13,7 @@ This guide is the consolidated operating procedure for the repository. It descri
 - **Round 7:** Added a local alert-relay self-test and dry-run mode so the anti-spam state machine can be validated before SMTP secrets are available.
 - **Round 8:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
 - **Round 9:** Added live-audit gates for VPN control-plane invariants, public NPM edge flags, infrastructure Tailscale DNS posture, IP forwarding, and PBS backup coverage.
+- **Round 10:** Migrated every private web alias to GUI-managed NPM HTTPS, separated Homepage PVE/PBS widgets onto read-only `sole_monitor` identities, synchronized supported initialized admin logins after app-aware backups, and added HTML alert plus weekly credential-lifecycle reporting.
 
 ## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
 
@@ -124,7 +125,7 @@ Expected: `.internal` resolves to NPM, the public VPN name split-resolves to the
 ```bash
 less docs/02_network_vpn/doc_03_nginx_proxy_manager.md
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I http://dash.internal
+curl -I https://dash.internal
 ```
 
 **Clear Explanation**
@@ -137,12 +138,12 @@ Run the public Headscale check from cellular data or another non-home network. A
 
 ```bash
 curl -I https://vpn.yourdomain.duckdns.org
-curl -I http://auth.internal/if/user/
-curl -I http://status.internal
-curl -I http://dash.internal
+curl -I https://auth.internal/if/user/
+curl -I https://status.internal
+curl -I https://dash.internal
 ```
 
-Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. During bootstrap, most internal aliases are HTTP over LAN/VPN. The live Proxmox and PBS aliases have already moved to private HTTPS with Smallstep certificates; move the remaining aliases one at a time after root trust and renewal are proven.
+Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. All private web aliases redirect HTTP to HTTPS and use the Smallstep-issued NPM internal-edge certificate. Upstream services may remain HTTP on their private ports because NPM is the client TLS boundary.
 
 ### Layer 4.5: Internal CA for Private HTTPS
 
@@ -160,12 +161,14 @@ docker compose --env-file .env up -d
 
 **Clear Explanation**
 
-Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. It should be deployed after PBS and the dashboards are stable, because losing or replacing a private CA after clients trust it creates operational cleanup work. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS. Proxmox/PBS are the first live HTTPS aliases; wider rollout remains deliberate.
+Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS. NPM manages one 365-day certificate with a wildcard plus explicit SANs for all 26 private web aliases; weekly renewal and daily expiry auditing are active. `trust.internal` provides Windows, Firefox, Apple, Android, and macOS onboarding, while `http://LXC101_IP:8095` remains the deliberate LAN/VPN-only pre-trust bootstrap.
 
 **Success Verification**
 
 ```bash
 curl -k https://ca.internal:9002/health
+curl -fsS http://LXC101_IP:8095/healthz
+curl -fsS https://trust.internal/healthz
 ```
 
 Expected: the CA health endpoint returns `ok`, the CA volume is backed up, and at least one trusted client can open a migrated test alias over HTTPS without a browser warning.
@@ -195,16 +198,16 @@ LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, and 
 **Success Verification**
 
 ```bash
-curl -I http://auth.internal/if/user/
-curl -I http://dash.internal
-curl -I http://status.internal
-curl -I http://monitor.internal
-curl -I http://logs.internal
+curl -I https://auth.internal/if/user/
+curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
+curl -I https://logs.internal
 ```
 
 Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
 
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, and Smallstep CA. Uptime Kuma has 37 live monitors covering VPN, DNS, critical alias fingerprints, app aliases including Nextcloud, operations extensions, Home Assistant, Immich, Jellyfin, Open WebUI, the internal CA, CrowdSec LAPI, and key TCP protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates. The planned identity model is Authentik-first: use OIDC/OAuth or proxy-provider SSO for web apps, and add an Authentik LDAP/LDAPS outpost only for services that require directory compatibility. The service-by-service source of truth is [IDENTITY_ACCESS_MATRIX.md](docs/99_reference/IDENTITY_ACCESS_MATRIX.md).
+Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, Smallstep CA, and the CA trust portal. Uptime Kuma has 38 live monitors covering VPN, DNS, private aliases, apps, operations extensions, internal CA health, trust onboarding, and key protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates. The planned identity model is Authentik-first: use OIDC/OAuth or proxy-provider SSO for web apps, and add an Authentik LDAP/LDAPS outpost only for services that require directory compatibility. The service-by-service source of truth is [IDENTITY_ACCESS_MATRIX.md](docs/99_reference/IDENTITY_ACCESS_MATRIX.md).
 
 Optional operations extensions belong after this layer, not before it:
 
@@ -214,9 +217,9 @@ Optional operations extensions belong after this layer, not before it:
 | Scrutiny | `disks.internal` | SMART disk health visibility | live web/API on LXC 103; Proxmox host collector publishes disk metrics daily |
 | ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
 
-Alert email state: the repository includes `scripts/sovereign-alert-relay.py` and `scripts/systemd/sovereign-alert-relay.service` for the required anti-spam alert behavior. The live lab runs the relay on LXC 101 at `127.0.0.1:8099`. Gmail SMTP credentials, the relay bearer token, and the SMTP password file are stored only under `/root/sovereign-secrets`. Uptime Kuma has the `Sovereign Email Relay` webhook notification attached to P0/P1 monitors. The relay passed a live SMTP send plus alert, reminder, no-spam, and recovery tests.
+Alert email state: the repository includes `scripts/sovereign-alert-relay.py`, HTML/plain-text templates, and `scripts/systemd/sovereign-alert-relay.service`. The live relay listens on LXC 101 port `8099` for localhost, Kuma, and VM110; POST requests require its bearer token, and the port is never proxied or public. Gmail SMTP credentials and relay secrets stay under `/root/sovereign-secrets`. Messages contain incident context instead of raw JSON. Proxmox also runs `sovereign-weekly-report.timer` every Monday at 09:00 Europe/Rome and includes Immich backup age, capacity, timer state, and restore evidence.
 
-Local credentials gate: the private credentials file exists only on the Proxmox host at `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` with root-only permissions. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md). If a login is missing, use [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) and never reset a password without first confirming backup coverage.
+Local credentials gate: the private credentials file, access inventory, password index, and shared initialized-app password source exist only under `/root/sovereign-secrets` with root-only permissions. The 2026-06-29 rotation was verified for PBS root, NPM, Authentik, Kuma, Beszel, Syncthing, Paperless, Forgejo, Jellyfin, Immich, and Nextcloud. AdGuard remained unchanged; apps without an initialized owner remain onboarding gates. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md).
 
 ### Layer 6: Application Micro-Stacks
 
@@ -244,9 +247,9 @@ Each application is isolated in its own `stacks/<service>` directory. This reduc
 
 ```bash
 docker compose --env-file stacks/vaultwarden/.env.example -f stacks/vaultwarden/docker-compose.yml config --quiet
-curl -I http://pwd.internal
-curl -I http://paper.internal
-curl -I http://git.internal
+curl -I https://pwd.internal
+curl -I https://paper.internal
+curl -I https://git.internal
 ```
 
 Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich; VM 120 serves healthy Nextcloud AIO through `files.internal` with client-side HTTPS and an upstream AIO Apache port on `11000`; VM 130 serves Home Assistant OS through `ha.internal`. LXC102 app-aware baseline validation completed on 2026-06-23: Vaultwarden SQLite integrity returned `ok`, Paperless restored 72 public tables into a temporary PostgreSQL database, Forgejo restored 121 public tables into a temporary PostgreSQL database, and volume manifests were captured.
@@ -291,6 +294,7 @@ flowchart TD
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Platform Services\nLXC101"]
     CA["Internal CA\nca.internal"]
+    Trust["CA client onboarding\ntrust.internal / LXC101:8095"]
     Apps["Internal apps\n*.internal"]
     PBS["Proxmox Backup Server\nVM140"]
     Offsite["restic/offsite copy"]
@@ -305,8 +309,11 @@ flowchart TD
     AGH -->|filtered upstream DNS| Internet
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
-    LAN -->|trust bootstrap| CA
-    Remote -->|trust bootstrap after VPN| CA
+    LAN -->|CA API| CA
+    Remote -->|CA API after VPN| CA
+    LAN -->|untrusted HTTP bootstrap| Trust
+    Remote -->|untrusted HTTP bootstrap after VPN| Trust
+    NPM --> Trust
     NPM --> Apps
     Platform --> PBS
     Apps --> PBS
