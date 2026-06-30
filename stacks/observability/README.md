@@ -43,13 +43,13 @@ curl -I http://LXC101_IP:8088
 NPM aliases:
 
 ```bash
-curl -I http://dash.internal
-curl -I http://status.internal
-curl -I http://monitor.internal
-curl -I http://logs.internal
+curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
+curl -I https://logs.internal
 ```
 
-Use HTTP for the current VPN-only bootstrap. After an internal CA is deployed, move these aliases to HTTPS and update the monitors.
+The live build terminates trusted private HTTPS at NPM. Upstream HTTP remains acceptable on the isolated LAN where documented; browser-facing links and monitors use HTTPS.
 
 ## Homepage
 
@@ -60,6 +60,8 @@ homepage/services.yaml
 ```
 
 Every visible web service must have a matching Uptime Kuma monitor unless it is listed as an exception in the service visibility matrix.
+
+The current layout uses Core, Operations, Data, Apps, and Recovery tabs. The Recovery tab contains PBS and the CA trust portal. Critical-data cards are visually distinct, but Uptime Kuma and backup evidence remain the authoritative health and recovery signals.
 
 ## Beszel Agent
 

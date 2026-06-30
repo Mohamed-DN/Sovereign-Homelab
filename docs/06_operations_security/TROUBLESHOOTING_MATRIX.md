@@ -29,10 +29,14 @@
 | App opens on LAN but not through domain | NPM proxy host | fix upstream host or port |
 | WebSocket app does not work | NPM Details tab | enable Websockets Support |
 | HTTPS loop | NPM advanced/proxy settings | check scheme, Force SSL, and upstream behavior |
-| `https://proxmox.internal` or `https://pbs.internal` works with `curl -k` but warns in browser | client trust store | install the Smallstep root CA on the admin workstation; the alias itself is still working |
+| `https://proxmox.internal` or `https://pbs.internal` works with `curl -k` but warns in browser | client trust store | use private `http://LXC101_IP:8095` to install the verified root, then reopen `https://trust.internal`; the alias itself is already working |
+| Firefox reports `SEC_ERROR_UNKNOWN_ISSUER` after OS import | Firefox enterprise-root setting or stale process | enable automatic third-party root trust/`ImportEnterpriseRoots`, fully restart Firefox, and retry without bypassing TLS |
+| iPhone installs the profile but still warns | manual full trust is disabled | Settings > General > About > Certificate Trust Settings, then enable full trust for the Sovereign Homelab root |
 | `https://proxmox.internal` or `https://pbs.internal` returns `000` in a server-side curl test | local resolver or proxy path | test from the admin workstation and through NPM; inside LXC 100 may not use AdGuard for `.internal` resolution |
 | `curl -I https://proxmox.internal` returns `501` or `curl -I https://pbs.internal` returns `400` | upstream application does not handle `HEAD` like a browser request | use a `GET` fingerprint or Kuma HTTP monitor instead of treating the `HEAD` status as failure |
-| Internal HTTPS certificate expired | NPM custom cert path and Smallstep renewal timer | renew the Smallstep certs, copy them into `/opt/core-network/npm/data/custom_ssl/`, run `nginx -t`, reload NPM, then re-run the live audit |
+| Internal HTTPS certificate expired | `sovereign-renew-npm-internal-certs.timer`, expiry-audit log, NPM certificate record | force the renewal script, confirm it uploads `Sovereign Internal Wildcard` through NPM, run `nginx -t`, then re-run the live audit |
+| Browsers accept `*.internal` but Kuma reports hostname mismatch | certificate SAN list | issue the edge certificate with both `*.internal` and every explicit web alias SAN; Node.js may reject wildcard matching directly below a private suffix |
+| Alias works but is missing from the NPM UI | NPM `proxy_host` database versus generated files | restore the NPM database backup or recreate the alias through the NPM UI/API; do not maintain standalone numbered files under `/data/nginx/proxy_host` |
 | Host replies to ping but SSH or web ports fail | `Test-NetConnection HOST -Port PORT` | check host firewall, Proxmox firewall, LXC firewall, service bind address, and whether the workstation is on the expected LAN/VPN segment |
 | ARP and ping work, but all TCP ports and AdGuard DNS time out across multiple lab hosts | `arp -a`, `Test-NetConnection 192.168.1.150 -Port 22`, `Test-NetConnection 192.168.1.50 -Port 443`, `nslookup dash.internal 192.168.1.50` | treat this as an access-gate outage, not an app-specific bug. Check router/AP client isolation, Windows firewall/security suite, Proxmox firewall datacenter rules, LXC firewall rules, and whether a Tailscale ACL is shadowing direct LAN access. Do not change app configs until one admin path is restored. |
 | Only the router answers; Proxmox, AdGuard, and all VMs are ARP incomplete | `arp -a`, `ping 192.168.1.50`, `ping 192.168.1.150`, subnet TCP scan | use Proxmox console or router lease table; check P710 power, NIC link, switch/AP client isolation, wrong SSID/guest network, VLAN mismatch, and static IP conflict before touching Headscale |
@@ -57,10 +61,11 @@
 | Beszel Hub login lost | [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md), `docker exec beszel /beszel superuser upsert --dir /beszel_data <EMAIL> <PASSWORD>` | reset the PocketBase superuser, then update the Hub user in the `users` collection; the superuser command alone does not reset Hub login |
 | Dozzle does not show logs | Docker socket | verify `/var/run/docker.sock` mount |
 | Uptime Kuma false negative | monitor target | use the correct internal endpoint |
+| Proxmox/PBS Homepage widget shows an authentication error | `sole_monitor` token ACL and LXC 101 root-only env | verify `PVEAuditor`/`Audit` is assigned to both user and privilege-separated token, then recreate Homepage; never replace the token with root credentials |
 | NetAlertX is noisy | scan scope and notification settings | start with main LAN only, then add VLANs/sites intentionally |
 | Scrutiny shows no disks | container device mappings and capabilities | map the disk devices explicitly and allow required SMART access |
 | Scrutiny UI is up but SMART summary is empty | collector location | run the collector on the Proxmox host where the disks are visible and post to `http://LXC103_IP:8085`; do not weaken host disk permissions for an unprivileged LXC |
-| `auth.internal` root returns 500 or redirects to `/setup` after bootstrap | Authentik UI path | use `http://auth.internal/if/user/` for Homepage and Kuma; the setup flow is only for initial bootstrap |
+| `auth.internal` root returns 500 or redirects to `/setup` after bootstrap | Authentik UI path | use `https://auth.internal/if/user/` for Homepage and Kuma; the setup flow is only for initial bootstrap |
 | Proxmox log repeats `e1000e ... Detected Hardware Unit Hang` | Intel NIC offload instability | disable and persist `tso`, `gso`, and `gro` offloads on the physical NIC; verify fresh logs stay clean |
 | `zfs-import@POOL.service` fails for a pool that no longer exists | stale ZFS import unit | confirm `zpool status` and `zpool import`, then disable/reset the stale `zfs-import@POOL.service` |
 | Proxmox journal shows `overlayfs ... falling back to xino=off` | `systemctl --failed`, `zpool status -x`, container health | acceptable Docker-in-LXC-on-ZFS warning if services are healthy; do not rebuild Docker storage only to silence it |
@@ -71,8 +76,10 @@
 | Alert relay dry-run prints email events but real SMTP does not send | `ALERT_DRY_RUN`, `/root/sovereign-secrets/alert-relay.env`, journal logs | set `ALERT_DRY_RUN=false`, verify SMTP host/port/starttls/user/password file, restart the service, then test with one safe monitor |
 | Alert relay keeps dry-running in production | `grep ALERT_DRY_RUN /root/sovereign-secrets/alert-relay.env` | set `ALERT_DRY_RUN=false` and restart `sovereign-alert-relay`; dry-run is only for pre-SMTP validation |
 | Email alerts never arrive | `systemctl status sovereign-alert-relay`, relay logs, SMTP settings | verify `/root/sovereign-secrets/alert-relay.env`, SMTP app password file, recipient, relay token, and Kuma webhook authorization |
+| Alert email contains raw JSON | deployed relay version and template directory | deploy `scripts/sovereign-alert-relay.py` plus `scripts/alerting/templates`, restart the relay, and send the HTML template test |
 | Email alerts spam repeatedly | alert relay state file and Kuma resend settings | use the local relay for anti-spam behavior; avoid attaching a raw SMTP notification directly to noisy monitors |
 | Recovery email is missing | relay state file and Kuma UP webhook delivery | confirm Kuma sends recovery webhooks and that the incident had already sent a DOWN email |
+| Weekly report does not arrive Monday | `sovereign-weekly-report.timer`, service journal, relay health | run the report without `--send`, validate `sole_monitor` tokens, then run `--send`; SMTP remains on LXC 101 |
 
 ## Apps
 

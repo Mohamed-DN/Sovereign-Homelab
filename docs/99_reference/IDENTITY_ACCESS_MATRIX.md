@@ -15,7 +15,7 @@ The lab uses a hybrid Authentik model:
 
 | Endpoint | Target | Protocol | Exposure | Purpose |
 |---|---|---:|---|---|
-| `auth.internal` | LXC 101 `platform-services` | HTTP through NPM during bootstrap, private HTTPS after internal CA trust | LAN/VPN only | Authentik web UI, OIDC/OAuth issuer, proxy-provider control |
+| `auth.internal` | LXC 101 `platform-services` | HTTPS through NPM with the Smallstep internal certificate | LAN/VPN only | Authentik web UI, OIDC/OAuth issuer, proxy-provider control |
 | `ldap.internal` | LXC 101 `platform-services` | LDAPS `636` direct to Authentik LDAP outpost | LAN/VPN only, no NPM | LDAP compatibility for Proxmox, Linux/SSSD, or apps that require LDAP |
 | `vpn.yourdomain.duckdns.org` | LXC 100 Headscale through NPM | HTTPS public edge | Public required | Headscale client login/control plane only |
 
@@ -46,6 +46,17 @@ Rules:
 - Never rely on SSO as the only recovery path for Proxmox, NPM, AdGuard, Authentik, Uptime Kuma, Vaultwarden, Immich, Nextcloud, or PBS.
 - Store break-glass credentials only in the server-local root-only vault. The public repository contains only the template.
 
+## Monitoring Service Accounts
+
+Monitoring is intentionally separated from human and break-glass identities:
+
+| System | Service user | API token | Permission | Expiry |
+|---|---|---|---|---|
+| Proxmox VE | `sole_monitor@pve` | `sole_monitor@pve!homepage` | `PVEAuditor` on `/` for user and token | none; quarterly audit |
+| Proxmox Backup Server | `sole_monitor@pbs` | `sole_monitor@pbs!homepage` | `Audit` on `/` for user and token | none; quarterly audit |
+
+The tokens are used by Homepage and the weekly report. They have no interactive password, cannot modify infrastructure, and can be revoked independently from administrator password changes. Real values stay in root-only env files; Git-managed YAML contains only `HOMEPAGE_VAR_*` references.
+
 ## Service Access Matrix
 
 | Service | Alias | Preferred identity model | Authentik object | Access group | Break-glass account | Notes |
@@ -53,8 +64,8 @@ Rules:
 | Headscale API | `vpn.yourdomain.duckdns.org` | none on public proxy; Headscale auth only | optional future OIDC provider | controlled by Headscale policy | Headscale CLI/admin recovery | Do not add Authentik forward auth or NPM access list to the public endpoint. |
 | Headscale-UI | `headscale.internal/web` | Proxy Provider / forward auth | application `headscale-ui` | `homelab-admins` | local app/admin method if available | Admin UI only. Keep API endpoint public and UI private. |
 | Authentik | `auth.internal` | native local Authentik login with MFA | Authentik self-management | `homelab-admins` | local `akadmin` recovery | Do not lock recovery behind an outpost that depends on Authentik being healthy. |
-| Proxmox VE | `proxmox.internal` | LDAPS realm candidate, later | LDAP provider `homelab-directory` | `homelab-admins` | `root@pam` | Keep `root@pam` available. Add LDAP realm only after LDAPS validation and role sync preview. |
-| Proxmox Backup Server | `pbs.internal` | LDAPS realm candidate, later | LDAP provider `homelab-directory` | `homelab-admins` | local PBS admin/root path | Backup recovery must work even if Authentik is down. |
+| Proxmox VE | `proxmox.internal` | LDAPS realm candidate for humans; API token for monitoring | LDAP provider `homelab-directory` | `homelab-admins` | `root@pam` | Keep `root@pam`; `sole_monitor@pve` is read-only automation, not a human login. |
+| Proxmox Backup Server | `pbs.internal` | LDAPS realm candidate for humans; API token for monitoring | LDAP provider `homelab-directory` | `homelab-admins` | local PBS admin/root path | Keep recovery independent; `sole_monitor@pbs` is read-only automation. |
 | Nginx Proxy Manager | `npm.internal` | Proxy Provider / forward auth in front of UI | application `npm` | `homelab-admins` | local NPM admin | Never protect the public Headscale proxy host itself. |
 | AdGuard Home UI | `adguard.internal` | Proxy Provider / forward auth in front of UI | application `adguard` | `homelab-admins` | local AdGuard admin | DNS service on port 53 is not proxied or SSO-protected. |
 | Homepage | `dash.internal` | Proxy Provider / forward auth | application `homepage` | `homelab-users` | raw VPN/NPM rollback | Low-risk first pilot candidate after MFA is configured. |
@@ -157,7 +168,7 @@ Expected:
 Proxy-provider test after each protected app:
 
 ```bash
-curl -I http://dash.internal
+curl -I https://dash.internal
 ```
 
 Expected:
@@ -174,4 +185,3 @@ Expected:
 - Authentik proxy provider: <https://docs.goauthentik.io/add-secure-apps/providers/proxy/>
 - Proxmox VE user management: <https://pve.proxmox.com/pve-docs/chapter-pveum.html>
 - Nextcloud Authentik integration: <https://integrations.goauthentik.io/chat-communication-collaboration/nextcloud/>
-

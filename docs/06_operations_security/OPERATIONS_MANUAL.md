@@ -43,6 +43,8 @@ The live server also keeps a root-only access inventory:
 
 The access inventory records aliases, admin usernames, recovery methods, and open access gates. The password index maps each service to the local vault section or secret file that holds the real credential. Both files must stay local and must not contain public documentation secrets.
 
+Live state after the 2026-06-29 controlled rotation: `/root/sovereign-secrets/common-app-password` is mode `0600`; PBS root and all initialized supported web accounts except AdGuard were reset and verified one at a time after targeted backups. Vaultwarden, FreshRSS, Karakeep, Open WebUI, and Home Assistant had no initialized owner, so no artificial account was created.
+
 Required permissions:
 
 ```bash
@@ -62,9 +64,11 @@ Rules:
 - Never copy the file into the repository.
 - Never paste it into issues, chat, screenshots, or runbooks.
 - Keep the public template at [Local Credentials Template](../99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) placeholder-only.
+- Keep monitoring API secrets separate from human credentials. Proxmox uses `sole_monitor@pve!homepage` with `PVEAuditor`; PBS uses `sole_monitor@pbs!homepage` with `Audit`. Their root-only files are under `/root/sovereign-secrets/monitoring/` and are projected into Homepage through LXC 101 `/root/sovereign-secrets/homepage-monitoring.env`.
 - If you rotate a secret, update the local file and record only the rotation date in public docs.
 - If a login is lost, use [Admin Access Recovery](ADMIN_ACCESS_RECOVERY.md); do not reset passwords without a backup.
 - If you standardize web/admin passwords, place the chosen value in `/root/sovereign-secrets/common-app-password` first, keep mode `600`, and reset one service at a time. Do not change AdGuard, database passwords, API tokens, CA secrets, DuckDNS tokens, RustDesk keys, or service-account credentials during an app-login password pass.
+- A password that does not expire is not a substitute for MFA, recovery codes, backup, or a tested SSH break-glass path. Certificates remain finite-lived and are renewed automatically before expiry.
 
 Quick safety check from the repository:
 
@@ -268,7 +272,7 @@ Use a safe temporary monitor or a short maintenance window. Do not intentionally
 3. Wait at least 60 seconds and confirm one `ALERT` email.
 4. Wait until 5 minutes from first DOWN and confirm one `REMINDER` email.
 5. Leave it DOWN for another 5 minutes and confirm no extra DOWN spam.
-6. Change the monitor target to a healthy URL, for example `http://dash.internal`.
+6. Change the monitor target to a healthy URL, for example `https://dash.internal`.
 7. Confirm one `RESOLVED` email.
 8. Delete the temporary monitor.
 
@@ -278,7 +282,20 @@ Maintenance mute rule:
 - Add a short note in Uptime Kuma or the live log.
 - Resume notifications immediately after validation.
 
-Live state: the Gmail-backed relay is configured locally and connected to P0/P1 Kuma monitors. Repeat this test after changing SMTP credentials, notification settings, or the relay service.
+Live state: the Gmail-backed relay is configured locally and connected to P0/P1 Kuma monitors. Messages are multipart HTML/plain text and contain a priority, incident ID, impact, checks, commands, and internal link instead of raw JSON. Repeat this test after changing SMTP credentials, templates, notification settings, or the relay service.
+
+### Weekly Report
+
+The Proxmox host sends a weekly report through the same LXC 101 relay. The SMTP app password remains on LXC 101.
+
+```bash
+/usr/local/sbin/sovereign-weekly-report.py
+/usr/local/sbin/sovereign-weekly-report.py --send
+systemctl status sovereign-weekly-report.timer --no-pager
+systemctl list-timers sovereign-weekly-report.timer --no-pager
+```
+
+The timer runs Monday at 09:00 Europe/Rome. The report uses `sole_monitor` API tokens for PVE/PBS and local root only for host-level ZFS, SMART, storage, and guest commands. Generated payloads stay mode `0600` under `/root/sovereign-secrets/reports`.
 
 ## Weekly Routine
 
@@ -316,12 +333,13 @@ Verify:
 - no unknown device is online;
 - no unexpected route exists.
 
-4. Check NPM certificates:
+4. Check NPM certificates and Proxy Host ownership:
 
 - public Headscale certificate exists for `vpn.yourdomain.duckdns.org`;
-- internal service certificate strategy is documented;
-- `https://proxmox.internal` and `https://pbs.internal` return the expected admin pages through NPM;
-- Smallstep-issued internal certs are not close to expiry;
+- NPM shows 27 editable Proxy Hosts: one public Headscale API and 26 private aliases;
+- `trust.internal` and direct `http://LXC101_IP:8095` provide verified private-CA onboarding without exposing CA private material;
+- all private web aliases force HTTPS and use the `Sovereign Internal Wildcard` Smallstep certificate;
+- representative aliases such as `dash.internal`, `proxmox.internal`, `pbs.internal`, and `files.internal` return the expected pages;
 - certificates are not close to expiry;
 - proxy hosts have WebSockets enabled where needed;
 - admin UIs are protected by VPN/Auth or an access list.
@@ -345,7 +363,7 @@ systemctl list-timers sovereign-cert-expiry-audit.timer --no-pager
 /usr/local/sbin/sovereign-cert-expiry-audit
 ```
 
-The renewal timer renews only the NPM client-side certificates for `proxmox.internal` and `pbs.internal`. The expiry-audit timer checks public Headscale, Proxmox, PBS, and Nextcloud daily. If Proxmox/PBS enter the warning window, the audit triggers the renewal script before failing the check.
+The renewal timer checks the shared internal edge certificate weekly and renews it only inside the 60-day warning window. Renewal uploads the certificate through NPM so the UI/database stay authoritative. The expiry-audit timer checks public Headscale plus representative internal aliases daily and triggers renewal before failing.
 
 5. Check updates without applying them immediately:
 
@@ -373,6 +391,7 @@ Expected time: 1-2 hours.
    - Headscale devices;
    - expired or still-valid pre-auth keys;
    - unused API keys.
+   - `sole_monitor` token ACLs and last known consumers; replace one token at a time if rotation is required.
 4. Review secrets:
    - DuckDNS token;
    - NPM/AdGuard/Authentik admin passwords;

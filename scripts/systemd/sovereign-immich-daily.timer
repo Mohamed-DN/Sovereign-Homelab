@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Immich database and metadata protection
+
+[Timer]
+OnCalendar=*-*-* 03:15:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=sovereign-immich-protection@daily.service
+
+[Install]
+WantedBy=timers.target

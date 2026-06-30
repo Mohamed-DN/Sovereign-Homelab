@@ -47,7 +47,7 @@ docker compose ps
 ```
 
 ## 5. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `bookmarks.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `3010`
 - **Websockets Support**: enabled

@@ -20,6 +20,7 @@ Rules:
 | `identity/` | Authentik, PostgreSQL, Redis |
 | `observability/` | Homepage, Uptime Kuma, Beszel, Dozzle |
 | `internal-ca/` | Smallstep `step-ca` for trusted private `.internal` TLS |
+| `trust-portal/` | read-only Windows/Firefox/Apple/Android/macOS CA onboarding portal |
 | `ops-extensions/` | NetAlertX, Scrutiny, ntfy |
 | `security/` | CrowdSec templates |
 | `vaultwarden/` | Password manager |

@@ -336,7 +336,7 @@ For full-tunnel internet traffic, continue with [Runbook 05: Proxmox Host as Tai
 Headscale-UI is exposed through Nginx Proxy Manager at:
 
 ```text
-http://headscale.internal/web
+https://headscale.internal/web
 ```
 
 Generate an API key from LXC 100:

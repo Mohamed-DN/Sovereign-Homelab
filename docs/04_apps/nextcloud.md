@@ -54,25 +54,13 @@ The Docker volume must be named exactly `nextcloud_aio_mastercontainer`. The Com
 
 ## 4. Nginx Proxy Manager (NPM) Setup
 Before completing the AIO setup, configure the reverse proxy:
-Log into NPM at `http://npm.internal` and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `files.internal`
 - **Scheme / Forward IP / Port**: `http` / `VM120_IP` / `11000`
 - **Websockets Support**: enabled
 - **SSL**: required. Use an internal certificate for `files.internal`, enable client-side HTTPS, and redirect HTTP to HTTPS.
 
-The live build uses a manual NPM Nginx file for `files.internal` because the service needs client-side HTTPS while the lab is still moving toward a full internal CA. The file is:
-
-```text
-/opt/core-network/npm/data/nginx/proxy_host/30.conf
-```
-
-The certificate is stored outside Git under:
-
-```text
-/opt/core-network/npm/data/custom_ssl/internal-wildcard/
-```
-
-This makes the alias functional immediately, but browsers will warn until the internal CA or certificate is trusted on your devices. The production-grade target is still a real internal CA, preferably Smallstep `step-ca`, with the root installed on your personal devices.
+The live build manages `files.internal` as a normal NPM Proxy Host record. It uses the shared `Sovereign Internal Wildcard` certificate issued by Smallstep and is editable from the NPM UI. Do not create or edit a numbered file under `/data/nginx/proxy_host`; NPM owns those generated files. Install the Smallstep root CA on personal clients so browsers and sync clients trust the alias.
 
 *Note: Port 11000 is the Apache container port spawned by AIO, NOT 8080!*
 
@@ -82,7 +70,7 @@ Inside VM 120, DNS must resolve `.internal` names through AdGuard:
 
 ```bash
 getent hosts files.internal
-curl -I http://files.internal
+curl -I https://files.internal
 curl -k -I https://files.internal
 ```
 
@@ -97,7 +85,7 @@ HTTPS 302 or 200 from real Nextcloud, not a 502 bootstrap failure
 ## 5. Dashboard and Monitoring
 
 - Homepage: card should point to `https://files.internal`.
-- Uptime Kuma: monitor `app-nextcloud` should point to `https://files.internal` and accept the internal certificate until a trusted internal CA is deployed.
+- Uptime Kuma: monitor `app-nextcloud` points to `https://files.internal`; Kuma trusts the mounted Smallstep root CA and must validate the certificate.
 - Do not mark the monitor green if it is only showing an AIO bootstrap/domaincheck response. The accepted state is a real Nextcloud response, normally `200` or redirect to login.
 
 Useful checks:
@@ -105,7 +93,7 @@ Useful checks:
 ```bash
 docker ps --filter name=nextcloud-aio
 curl -I http://127.0.0.1:11000
-curl -I http://files.internal
+curl -I https://files.internal
 curl -k -I https://files.internal
 ```
 
@@ -131,7 +119,7 @@ Restore drill:
 | `nextcloud-aio-apache` is missing | AIO child container failed to start or the mastercontainer channel is inconsistent | inspect `docker logs nextcloud-aio-mastercontainer` and recreate the child containers from the AIO UI |
 | Domain validation fails | `.internal` is private or VM cannot resolve AdGuard | keep `NEXTCLOUD_SKIP_DOMAIN_VALIDATION=true` and make VM DNS use `192.168.1.50` |
 | AIO UI is unreachable | wrong published port | use `https://VM120_IP:8086`, not the Apache port |
-| `http://files.internal` works but browser jumps to broken HTTPS | NPM has no TLS listener for `files.internal` | add an internal cert and a 443 server/proxy for `files.internal`; do not downgrade Nextcloud to plain HTTP |
+| `https://files.internal` works but browser jumps to broken HTTPS | NPM has no TLS listener for `files.internal` | add an internal cert and a 443 server/proxy for `files.internal`; do not downgrade Nextcloud to plain HTTP |
 | Uploads fail or stop early | proxy buffering/timeouts/body size | set NPM `client_max_body_size 0`, long read/send timeouts, and WebSocket support |
 | Memory crashes occur during sync | VM under-sized | raise VM RAM to 12 GB and review AIO optional services |
 
@@ -140,7 +128,7 @@ Live 2026-06-22 note:
 - VM 120 exists at `192.168.1.120`.
 - AIO was switched to the official `ghcr.io/nextcloud-releases/all-in-one:latest` mastercontainer channel.
 - All AIO child containers were healthy after recreation.
-- `http://files.internal` returns an NPM 301 to HTTPS.
+- `https://files.internal` returns an NPM 301 to HTTPS.
 - `https://files.internal` returns a real Nextcloud login redirect.
 - VM120 is included in PBS and has a successful manual backup.
 - The AIO boot/service restore drill has passed. Treat Nextcloud as gated for irreplaceable files until client trust for the internal certificate path and offsite backup are handled.

@@ -35,9 +35,9 @@ Create HTTP monitors:
 
 | Monitor | Target | Accepted status |
 |---|---|---|
-| `ops-netalertx` | `http://netalert.internal` | 2xx/3xx |
-| `ops-scrutiny` | `http://disks.internal` | 2xx/3xx |
-| `ops-ntfy` | `http://alerts.internal` | 2xx/3xx |
+| `ops-netalertx` | `https://netalert.internal` | 2xx/3xx |
+| `ops-scrutiny` | `https://disks.internal` | 2xx/3xx |
+| `ops-ntfy` | `https://alerts.internal` | 2xx/3xx |
 
 ## Backup
 
@@ -107,7 +107,7 @@ Acceptance test:
 
 ```bash
 /usr/local/bin/scrutiny-collector-metrics run --config /etc/scrutiny/collector.yaml
-curl -fsS http://disks.internal/api/summary
+curl -fsS https://disks.internal/api/summary
 ```
 
 The dashboard is production disk monitoring only when the API summary shows real devices and fresh collector timestamps.

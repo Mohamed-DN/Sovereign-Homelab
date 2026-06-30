@@ -1,0 +1,11 @@
+[Unit]
+Description=Weekly Immich library size comparison
+
+[Timer]
+OnCalendar=Sun *-*-* 05:15:00
+Persistent=true
+RandomizedDelaySec=10m
+Unit=sovereign-immich-protection@weekly.service
+
+[Install]
+WantedBy=timers.target

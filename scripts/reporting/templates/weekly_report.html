@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <body style="margin:0;padding:0;background:#111827;color:#e5e7eb;font-family:Arial,sans-serif">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#111827;padding:20px 8px">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:900px;background:#172033;border:1px solid #374151;border-radius:8px;overflow:hidden">
+          <tr><td style="background:$status_color;padding:20px 24px;color:#fff">
+            <div style="font-size:12px;font-weight:bold">WEEKLY OPERATIONS REPORT</div>
+            <div style="font-size:26px;font-weight:bold;margin-top:5px">$status</div>
+            <div style="font-size:13px;margin-top:6px">Generated $generated</div>
+          </td></tr>
+          <tr><td style="padding:18px">$summary_cards</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:20px">What You Need To Do</h2>$actions_html</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Service Reliability</h2>$monitor_table</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">PBS Recovery Coverage</h2>$backup_table</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Immich Data Protection</h2><pre style="white-space:pre-wrap;background:#111827;padding:12px;border-radius:6px">$immich_protection</pre></td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Guest Inventory</h2>$guest_table</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">PBS Datastore</h2>$pbs_table</td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Storage and ZFS</h2><pre style="white-space:pre-wrap;background:#111827;padding:12px;border-radius:6px">$storage
+
+$zpool</pre></td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Disk Health</h2><pre style="white-space:pre-wrap;background:#111827;padding:12px;border-radius:6px">$smart</pre></td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">VPN Routes</h2><pre style="white-space:pre-wrap;background:#111827;padding:12px;border-radius:6px">$headscale</pre></td></tr>
+          <tr><td style="padding:0 24px 20px"><h2 style="font-size:18px">Credential Lifecycle</h2><pre style="white-space:pre-wrap;background:#111827;padding:12px;border-radius:6px">$credential_lifecycle</pre></td></tr>
+          <tr><td style="padding:0 24px 20px"><strong>Internal certificate:</strong> $certificate_expiry<br><strong>Failed host units:</strong> $failed_units</td></tr>
+          <tr><td style="padding:14px 24px;background:#111827;color:#9ca3af;font-size:12px">Sovereign Homelab - generated locally, no tracking or external assets.</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

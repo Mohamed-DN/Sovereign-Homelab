@@ -155,7 +155,7 @@ vpn.yourdomain.duckdns.org
 
 In NPM:
 
-1. Open `http://npm.internal` or the bootstrap URL `http://LXC100_IP:81`.
+1. Open `https://npm.internal` or the bootstrap URL `http://LXC100_IP:81`.
 2. Go to **SSL Certificates**.
 3. Add a Let's Encrypt certificate.
 4. Domain Names: `vpn.yourdomain.duckdns.org`.
@@ -222,37 +222,38 @@ Expected result: HTTP response from Headscale through NPM with a valid public ce
 
 These aliases are internal only. Protect them with VPN, Authentik forward auth, or an NPM access list.
 
+In the tables below, **Scheme** is the NPM-to-upstream scheme. The client URL is always `https://HOSTNAME` with Force SSL enabled and the Smallstep internal-edge certificate assigned.
+
 | Service | Hostname | Scheme | Upstream | WebSocket | Access |
 |---|---|---|---|---|---|
 | Proxmox VE | `proxmox.internal` | `https` | `PVE_IP:8006` | yes | VPN/admin |
 | PBS | `pbs.internal` | `https` | `PBS_IP:8007` | yes | VPN/admin |
 | AdGuard UI | `adguard.internal` | `http` | `LXC100_IP:3000` | no | VPN/admin |
 | NPM UI | `npm.internal` | `http` | `LXC100_IP:81` or `LXC101_IP:81` | yes | VPN/admin |
-| Headscale base | `headscale.internal` | `http` | `LXC100_IP:8080` | yes | VPN/admin |
+| Headscale UI | `headscale.internal` | `http` | `LXC100_IP:8081` | yes | VPN/admin |
 
-Headscale-UI custom location:
+Headscale-UI private path:
 
 | Field | Value |
 |---|---|
-| Parent host | `headscale.internal` |
-| Location | `/web` |
-| Scheme | `http` |
-| Forward Hostname / IP | `LXC100_IP` |
-| Forward Port | `8081` |
+| Proxy host | `headscale.internal` |
+| Client URL | `https://headscale.internal/web` |
+| Upstream | `http://LXC100_IP:8081` |
+| Public exposure | none; the public DuckDNS host maps only to Headscale API port `8080` |
 
 Use:
 
 ```text
-http://headscale.internal/web
+https://headscale.internal/web
 ```
 
-Live note: the public Headscale proxy and the first core/platform aliases are NPM-managed records in the NPM database. Later app and operations aliases are static Nginx proxy files under `/opt/core-network/npm/data/nginx/proxy_host/` on LXC 100. They are still real Nginx routes and are loaded by the NPM container, but they may not all appear as editable rows in the NPM web UI. The live audit checks the generated Nginx config directly, so an alias is accepted only when the hostname maps to the expected upstream IP and port. For long-term UI-only operations, recreate static aliases through the NPM UI/API during a maintenance window, verify with `scripts/sovereign-live-audit.ps1`, then remove the static file after testing.
+Live note (2026-06-30): every web route is a real NPM database record and is editable in the NPM UI. The database contains 27 Proxy Hosts: one public Headscale API entry and 26 private `.internal` HTTPS entries. Older manually written proxy files were backed up and removed from the active directory during migration. Do not add a new alias by writing directly under `/data/nginx/proxy_host`; create it in NPM so the UI, database, generated config, certificate binding, and audit stay consistent.
 
 Current verified live target model:
 
 | Hostname | Verified upstream |
 |---|---|
-| `vpn.casca-certosa.duckdns.org` | root path to Headscale API `http://192.168.1.50:8080`; `/web` to Headscale-UI `http://192.168.1.50:8081` |
+| `vpn.yourdomain.duckdns.org` | Headscale API only at `http://192.168.1.50:8080`; no public admin UI location |
 | `proxmox.internal` | client `https://proxmox.internal`, upstream `https://192.168.1.150:8006` |
 | `pbs.internal` | client `https://pbs.internal`, upstream `https://192.168.1.20:8007` |
 | `adguard.internal` | `http://192.168.1.50:3000` |
@@ -262,6 +263,7 @@ Current verified live target model:
 | `status.internal` | `http://192.168.1.51:3001` |
 | `monitor.internal` | `http://192.168.1.51:8090` |
 | `logs.internal` | `http://192.168.1.51:8088` |
+| `trust.internal` | `http://192.168.1.51:8095`; direct HTTP is the LAN/VPN-only pre-trust bootstrap |
 | `foto.internal` | `http://192.168.1.110:2283` |
 | `files.internal` | `http://192.168.1.120:11000` behind client-side HTTPS |
 
@@ -274,6 +276,7 @@ Current verified live target model:
 | Uptime Kuma | `status.internal` | `http` | `LXC101_IP:3001` | yes | VPN/Auth |
 | Beszel | `monitor.internal` | `http` | `LXC101_IP:8090` | yes | VPN/Auth |
 | Dozzle | `logs.internal` | `http` | `LXC101_IP:8088` | yes | VPN/admin |
+| CA Trust Portal | `trust.internal` | `http` | `LXC101_IP:8095` | no | VPN/LAN onboarding |
 | NetAlertX | `netalert.internal` | `http` | `LXC103_IP:20211` | no | VPN/Auth |
 | Scrutiny | `disks.internal` | `http` | `LXC103_IP:8085` | no | VPN/admin |
 | ntfy | `alerts.internal` | `http` | `LXC103_IP:8093` | yes | VPN/Auth |
@@ -317,20 +320,27 @@ Some services are not HTTP web UIs. Give them DNS names when useful, but do not 
 
 Private `.internal` names cannot use public Let's Encrypt certificates directly.
 
-Accepted options:
+Required live model:
 
-1. HTTP inside VPN during bootstrap.
-2. NPM self-signed or custom internal certificate.
-3. Smallstep `step-ca` certificates with a renewal procedure.
+1. Smallstep `step-ca` issues one certificate for the NPM internal edge.
+2. The certificate includes `*.internal` and every explicit web alias as a SAN. Explicit SANs are required because some Node.js clients reject a wildcard directly below a private suffix.
+3. NPM stores the custom certificate as `Sovereign Internal Wildcard` and assigns it to all 26 private Proxy Hosts.
+4. Every private Proxy Host forces HTTPS. Upstreams remain on their native HTTP/HTTPS ports.
+5. The weekly renewal timer renews inside a 60-day warning window; the daily expiry audit fails if renewal does not restore the safety margin.
 
-Live state: Proxmox VE and PBS have been moved to client-side HTTPS aliases using Smallstep-issued certificates. Keep the upstreams unchanged:
+Examples:
 
 ```text
 proxmox.internal -> https://192.168.1.150:8006
 pbs.internal     -> https://192.168.1.20:8007
+dash.internal    -> http://192.168.1.51:3002
+foto.internal    -> http://192.168.1.110:2283
+trust.internal   -> http://192.168.1.51:8095
 ```
 
-The rollback is service-local: restore the backed-up NPM proxy host file or disable the SSL server block and return the Homepage/Kuma URLs to HTTP. Do not change the public Headscale proxy while working on internal HTTPS.
+Client traffic remains HTTPS in every example. The scheme on the right is the private upstream connection from NPM. Rollback uses the timestamped NPM database plus Nginx configuration backup created before the migration; it does not make private HTTP the normal steady state. Do not change the public Headscale proxy while repairing the internal certificate.
+
+The direct `http://LXC101_IP:8095` trust bootstrap is the only deliberate browser-facing HTTP exception. It is private and exists only so a new client can install the root CA before it can validate `https://trust.internal`. Never publish port 8095 through the router.
 
 ## Phase K: Homepage and Uptime Kuma
 
@@ -376,31 +386,24 @@ Common causes:
 
 Enable WebSocket support for Authentik, Uptime Kuma, Beszel, Dozzle, ntfy, Vaultwarden, Immich, Nextcloud, Syncthing UI, Forgejo, Home Assistant, Jellyfin, and Open WebUI.
 
-### Nextcloud HTTPS Exception
+### Internal HTTPS State
 
-Most `.internal` aliases can remain HTTP during the VPN-only bootstrap phase. Nextcloud is different: AIO expects secure browser access and redirects to HTTPS. The live lab therefore has a dedicated `files.internal` Nginx proxy file with a private certificate:
+All private web aliases, including Nextcloud, Proxmox, and PBS, use the NPM custom certificate record named `Sovereign Internal Wildcard`. NPM writes its key material under its managed `/data/custom_ssl/npm-CERT_ID/` path. Do not reference a numeric certificate ID in a runbook because the ID can change after restore; find it by name in the NPM UI/API.
 
-```text
-/opt/core-network/npm/data/nginx/proxy_host/30.conf
-/opt/core-network/npm/data/custom_ssl/internal-wildcard/
+The CA policy allows 365-day certificates. This is a resilience buffer, not a reason to ignore renewal. Keep both timers active:
+
+```bash
+systemctl status sovereign-renew-npm-internal-certs.timer --no-pager
+systemctl status sovereign-cert-expiry-audit.timer --no-pager
 ```
 
-This is functional for LAN/VPN clients, but browsers will warn until the internal certificate authority or certificate is trusted on the device. The long-term target is a managed internal CA such as Smallstep `step-ca`.
-
-### Proxmox/PBS HTTPS Alias State
-
-The live lab uses Smallstep certificates for the two admin infrastructure aliases:
-
-```text
-/opt/core-network/npm/data/custom_ssl/step-ca-proxmox/
-/opt/core-network/npm/data/custom_ssl/step-ca-pbs/
-```
-
-The CA policy currently allows 365-day internal TLS certificates for Proxmox/PBS-style infrastructure aliases. This is a resilience buffer, not a reason to ignore renewal. Keep the weekly renewal timer and daily expiry-audit timer in place before migrating more aliases. Test with:
+Test representative aliases with:
 
 ```bash
 curl -k -I https://proxmox.internal
 curl -k -I https://pbs.internal
+curl -k -I https://dash.internal
+curl -k -I https://files.internal
 ```
 
 `HEAD` may return Proxmox/PBS-specific status codes such as `501` or `400`; use a `GET` fingerprint check for the authoritative result.

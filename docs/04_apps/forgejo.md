@@ -26,7 +26,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` and create a Proxy Host for HTTPS:
+Log into NPM at `https://npm.internal` and create a Proxy Host for HTTPS:
 - **Domain Names**: `git.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `3003`
 - **Websockets Support**: enabled

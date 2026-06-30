@@ -1,0 +1,26 @@
+name: sovereign-trust-portal
+
+services:
+  trust-portal:
+    image: nginx:${TRUST_PORTAL_NGINX_TAG}
+    container_name: trust-portal
+    restart: unless-stopped
+    user: "101:101"
+    read_only: true
+    ports:
+      - "${TRUST_PORTAL_PORT}:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./site:/usr/share/nginx/html:ro
+    tmpfs:
+      - /tmp:size=16m,mode=1777
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1:8080/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s

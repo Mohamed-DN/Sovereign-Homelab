@@ -14,6 +14,8 @@ Smallstep `step-ca` gives the lab an open-source private certificate authority. 
 
 ```text
 LAN/VPN client -> AdGuard -> ca.internal -> step-ca on LXC101
+Untrusted LAN/VPN client -> http://LXC101_IP:8095 -> public root CA onboarding
+Trusted LAN/VPN client -> AdGuard -> trust.internal -> NPM -> trust portal
 LAN/VPN client -> AdGuard -> service.internal -> NPM -> app upstream
 ```
 
@@ -27,6 +29,7 @@ The CA is used only after VPN/DNS/NPM/PBS are stable. Do not make `ca.internal` 
 | Stack | `stacks/internal-ca` |
 | Container | `step-ca` |
 | Client URL | `https://ca.internal:9002` |
+| Trust portal | direct bootstrap `http://LXC101_IP:8095`, normal alias `https://trust.internal` |
 | Backup | `internal-ca_step_ca_data` Docker volume plus root fingerprint record |
 | Access | VPN/admin only |
 
@@ -70,26 +73,45 @@ Recommended bootstrap options:
 
 If you create an NPM host for `ca.internal`, keep it VPN/admin only. Do not attach Authentik forward auth to the CA API until certificate issuance and renewal flows are proven, because ACME clients may not be able to complete an interactive SSO flow.
 
-## Client Trust Bootstrap
+## Managed Client Trust Bootstrap
 
-From a trusted admin workstation with the `step` CLI installed:
+Deploy the pinned read-only portal after `step-ca` is healthy:
 
 ```bash
-ssh root@LXC101_IP
-cd /opt/sovereign-homelab/stacks/internal-ca
-docker compose --env-file .env exec step-ca \
-  step certificate fingerprint /home/step/certs/root_ca.crt
+cd /opt/sovereign-homelab/stacks/trust-portal
+cp .env.example .env
+chmod +x render-artifacts.sh
+./render-artifacts.sh /var/lib/docker/volumes/internal-ca_step_ca_data/_data/certs/root_ca.crt
+docker compose --env-file .env config --quiet
+docker compose --env-file .env up -d
+curl -fsS http://127.0.0.1:8095/healthz
 ```
 
-Then on the client:
+The direct HTTP listener is an intentional bootstrap exception. It is reachable only on the private LXC address through LAN/VPN. It exists because an untrusted client cannot validate `https://trust.internal` yet. The portal serves only the root certificate, fingerprint, Windows installer, Apple profile, and instructions. It never receives private CA material.
+
+Create `trust.internal` as a normal NPM Proxy Host targeting `http://LXC101_IP:8095`, assign `Sovereign Internal Wildcard`, enable Force SSL, and leave HSTS disabled during onboarding.
+
+Verify the root fingerprint from the CA host before installation:
+
+```bash
+docker exec step-ca step certificate fingerprint /home/step/certs/root_ca.crt
+```
+
+| Client | Required action |
+|---|---|
+| Windows | run the portal installer as Administrator; it imports the verified root into `LocalMachine\Root` and enables Firefox enterprise roots |
+| Firefox | current Firefox normally uses the OS trust store; if disabled, enable `security.enterprise_roots.enabled` or deploy the Mozilla `ImportEnterpriseRoots` policy |
+| iPhone/iPad | install the `.mobileconfig`, then manually enable full trust under Settings > General > About > Certificate Trust Settings |
+| macOS | import the root into the System keychain and set SSL trust to Always Trust |
+| Android | install the user CA under security credentials; note that some apps intentionally ignore user-installed CAs |
+
+The `step` CLI remains useful for administrators and certificate diagnostics:
 
 ```bash
 step ca bootstrap \
   --ca-url https://ca.internal:9002 \
   --fingerprint FINGERPRINT_FROM_SERVER
 ```
-
-Install the root CA into the OS/browser trust store only on devices you control.
 
 ## Issue a Test Certificate
 
@@ -107,34 +129,37 @@ Verify the certificate:
 openssl x509 -in test.internal.crt -noout -subject -issuer -dates
 ```
 
-## Move a Service to HTTPS
+## Add a Service to the Internal HTTPS Edge
 
-Do this one service at a time:
+The live lab uses one NPM-managed certificate for all private web aliases. For a new service:
 
-1. Confirm the service has a PBS backup and a working HTTP alias.
-2. Confirm certificate renewal and expiry audit are automated before using private HTTPS in NPM.
-3. Issue a certificate for the exact hostname, for example `pwd.internal`.
-4. Import the certificate and key into Nginx Proxy Manager as a custom certificate.
-5. Enable SSL for that single proxy host.
+1. Confirm the service has a PBS backup and its direct upstream responds.
+2. Create the Proxy Host in the NPM UI; do not write a numbered Nginx file manually.
+3. Add the hostname to the SAN list in `scripts/sovereign-renew-npm-internal-certs.sh`.
+4. Run a forced certificate renewal during the change window and confirm NPM updates the custom certificate record.
+5. Assign `Sovereign Internal Wildcard`, enable Force SSL, HTTP/2, and WebSocket support when required.
 6. Test from a trusted client:
 
    ```bash
    curl -I https://pwd.internal
    ```
 
-7. Update Uptime Kuma from HTTP to HTTPS.
+7. Add an HTTPS Uptime Kuma monitor with certificate validation enabled.
 8. Update the service runbook and live build log.
 
-Rollback is simple: disable SSL for that one NPM proxy host and return the monitor to HTTP.
+Rollback restores the NPM database/config backup from before the change or disables only the new Proxy Host. Do not make client-side HTTP the normal rollback state.
 
-## Live Proxmox/PBS Migration
+## Live Full Internal-Edge Migration
 
-On 2026-06-24, the lab moved `proxmox.internal` and `pbs.internal` to client-side HTTPS with Smallstep-issued host certificates:
+On 2026-06-29, the lab migrated all private web aliases to client-side HTTPS:
 
-| Alias | NPM certificate path | Upstream |
-|---|---|---|
-| `proxmox.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-proxmox/` | `https://192.168.1.150:8006` |
-| `pbs.internal` | `/opt/core-network/npm/data/custom_ssl/step-ca-pbs/` | `https://192.168.1.20:8007` |
+| Property | Live value |
+|---|---|
+| NPM Proxy Hosts | 27 total: one public API plus 26 private aliases |
+| Custom certificate name | `Sovereign Internal Wildcard` |
+| Certificate names | `*.internal` plus every explicit private web alias SAN |
+| Private client scheme | HTTPS with HTTP redirect |
+| NPM UI ownership | all Proxy Hosts and the certificate are database-managed and editable |
 
 The CA was configured with a 365-day `maxTLSCertDuration` and `defaultTLSCertDuration` for internal service aliases. The lab still renews them automatically before expiry; the longer duration is only a resilience buffer if the renewal timer is missed.
 
@@ -150,9 +175,9 @@ Expected result: `200` for both `GET` checks. `curl -I` can return Proxmox/PBS-s
 Renewal gate:
 
 - keep a root-only renewal script or timer on the Proxmox host;
-- reload only NPM after replacing the certificate files;
+- upload renewal through NPM so its UI/database and generated files stay synchronized;
 - verify Homepage and Uptime Kuma stay green;
-- do not migrate more aliases until this renewal path has been observed at least once.
+- run the expiry audit after adding or removing any SAN.
 
 Live renewal path:
 
@@ -165,21 +190,22 @@ Live renewal path:
 /etc/systemd/system/sovereign-cert-expiry-audit.timer
 ```
 
-The renewal script is root-only, stores transient private keys under `/root/sovereign-secrets/tmp-npm-internal-certs`, removes them after copying into NPM, runs `nginx -t`, and reloads only the NPM container.
+The renewal script is root-only, stores transient private keys under `/root/sovereign-secrets`, uploads through the authenticated local NPM API, removes temporary files, runs `nginx -t`, and reloads only the NPM container. It renews only inside the 60-day warning window unless explicitly forced.
 
 The expiry-audit timer runs daily. It checks:
 
 - public Headscale certificate;
-- `proxmox.internal`;
-- `pbs.internal`;
-- `files.internal`.
+- the shared internal edge through `dash.internal`;
+- representative aliases `proxmox.internal`, `pbs.internal`, and `files.internal`.
 
-If Proxmox/PBS enter the warning window, the audit triggers the internal renewal script and then checks the certificates again. The audit fails if any checked certificate still expires within the configured window.
+If the shared certificate enters the warning window, the audit triggers renewal and checks the aliases again. The audit fails if any checked certificate still expires within the configured window.
 
 ## Validation
 
 ```bash
 curl -k https://ca.internal:9002/health
+curl -fsS http://LXC101_IP:8095/healthz
+curl -fsS https://trust.internal/healthz
 docker compose --env-file .env logs --tail=100 step-ca
 docker compose --env-file .env ps
 ```
@@ -190,6 +216,7 @@ Expected:
 - container is healthy;
 - no CA password appears in logs;
 - clients that trust the root CA can open the migrated `.internal` HTTPS alias without a browser warning.
+- `proxmox.internal`, `pbs.internal`, `dash.internal`, and `foto.internal` validate without `-k` after client onboarding.
 
 ## Backup
 
@@ -215,6 +242,8 @@ Do not lose the CA private material after clients trust it. Losing it forces a C
 |---|---|---|
 | `curl` reports certificate error | client trust store | install the root CA on that client |
 | Proxmox/PBS HTTPS works with `-k` but browser warns | Smallstep root not trusted on the workstation | install the Smallstep root CA on that admin client |
+| Firefox shows `SEC_ERROR_UNKNOWN_ISSUER` after Windows import | Firefox is not using enterprise roots or needs restart | enable automatic third-party root trust, deploy `ImportEnterpriseRoots`, and restart Firefox |
+| iPhone profile installs but HTTPS still warns | full trust was not enabled | enable the root under Certificate Trust Settings |
 | Proxmox/PBS certificate expires | renewal timer or CA max duration | renew the cert, copy it into NPM custom SSL storage, reload NPM, then test the alias |
 | CA starts with a new root unexpectedly | Docker volume missing | stop immediately and restore `step_ca_data`; do not trust the new root blindly |
 | ACME/renewal fails through NPM | access policy or proxy mode | test direct CA URL first; remove interactive forward auth from CA issuance path |
@@ -226,3 +255,8 @@ Do not lose the CA private material after clients trust it. Losing it forces a C
 - Smallstep Docker CA tutorial: <https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/>
 - Smallstep installation docs: <https://smallstep.com/docs/step-ca/installation/>
 - Nginx Proxy Manager guide: <https://nginxproxymanager.com/guide/>
+- Microsoft `certutil` reference: <https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/certutil>
+- Mozilla certificate authority setup: <https://support.mozilla.org/en-US/kb/setting-certificate-authorities-firefox>
+- Mozilla enterprise policy templates: <https://mozilla.github.io/policy-templates/>
+- Apple manually installed certificate trust: <https://support.apple.com/en-us/102390>
+- Android network security configuration: <https://developer.android.com/privacy-and-security/security-config>

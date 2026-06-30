@@ -1,0 +1,23 @@
+#requires -RunAsAdministrator
+
+$ErrorActionPreference = 'Stop'
+$Bootstrap = 'http://192.168.1.51:8095/downloads'
+$ExpectedThumbprint = '__ROOT_THUMBPRINT__'
+$Target = Join-Path $env:TEMP 'sovereign-root-ca.crt'
+
+Invoke-WebRequest -UseBasicParsing -Uri "$Bootstrap/sovereign-root-ca.crt" -OutFile $Target
+$Certificate = [System.Security.Cryptography.X509Certificates.X509Certificate2]::new($Target)
+
+if ($Certificate.Thumbprint -ne $ExpectedThumbprint) {
+    throw "Root CA fingerprint mismatch. Expected $ExpectedThumbprint, received $($Certificate.Thumbprint)."
+}
+
+Write-Host "Verified Sovereign Homelab root CA: $($Certificate.Thumbprint)" -ForegroundColor Green
+Import-Certificate -FilePath $Target -CertStoreLocation 'Cert:\LocalMachine\Root' | Out-Null
+
+$FirefoxPolicy = 'HKLM:\SOFTWARE\Policies\Mozilla\Firefox\Certificates'
+New-Item -Path $FirefoxPolicy -Force | Out-Null
+New-ItemProperty -Path $FirefoxPolicy -Name ImportEnterpriseRoots -PropertyType DWord -Value 1 -Force | Out-Null
+
+Remove-Item -LiteralPath $Target -Force
+Write-Host 'Root CA installed. Restart browsers, then open https://proxmox.internal.' -ForegroundColor Green

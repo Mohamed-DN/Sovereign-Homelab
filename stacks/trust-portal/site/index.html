@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sovereign Trust Portal</title>
+  <style>
+    :root { color-scheme: dark; --bg:#0d1117; --panel:#161b22; --line:#30363d; --text:#f0f6fc; --muted:#9da7b3; --green:#3fb950; --blue:#58a6ff; --amber:#d29922; }
+    * { box-sizing: border-box; }
+    body { margin:0; font:16px/1.55 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:var(--bg); color:var(--text); letter-spacing:0; }
+    main { width:min(1040px,calc(100% - 32px)); margin:0 auto; padding:44px 0 64px; }
+    header { display:grid; gap:10px; margin-bottom:28px; }
+    h1 { margin:0; font-size:clamp(2rem,5vw,3.2rem); letter-spacing:0; }
+    h2 { margin:0 0 10px; font-size:1.1rem; }
+    p { margin:0; color:var(--muted); }
+    .status { display:inline-flex; align-items:center; gap:8px; width:max-content; padding:6px 10px; border:1px solid rgba(63,185,80,.45); border-radius:7px; background:rgba(63,185,80,.08); color:#7ee787; font-weight:700; }
+    .status::before { content:""; width:9px; height:9px; border-radius:50%; background:var(--green); box-shadow:0 0 16px rgba(63,185,80,.75); }
+    .grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px; }
+    article { min-height:190px; padding:20px; border:1px solid var(--line); border-radius:8px; background:var(--panel); box-shadow:0 14px 34px rgba(0,0,0,.2); }
+    article strong { color:var(--text); }
+    ol { margin:12px 0 0; padding-left:21px; color:var(--muted); }
+    li + li { margin-top:8px; }
+    a.button { display:inline-flex; align-items:center; justify-content:center; margin-top:16px; min-height:42px; padding:9px 14px; border-radius:7px; background:var(--blue); color:#07111f; font-weight:800; text-decoration:none; }
+    a.button.secondary { background:transparent; border:1px solid var(--line); color:var(--text); }
+    code { overflow-wrap:anywhere; color:#f2cc60; }
+    .fingerprint { margin-top:14px; padding:12px; border-left:3px solid var(--amber); background:rgba(210,153,34,.08); }
+    footer { margin-top:24px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); }
+    @media (prefers-reduced-motion:no-preference) { article,a.button { transition:transform .16s ease,border-color .16s ease; } article:hover { transform:translateY(-2px); border-color:#4b5563; } a.button:hover { transform:translateY(-1px); } }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="status">Private CA onboarding</span>
+    <h1>Trust your homelab HTTPS</h1>
+    <p>Install only the public Sovereign Homelab root certificate. This portal never contains a CA private key, application password, or API token.</p>
+    <div class="fingerprint"><strong>Verify first:</strong> compare the SHA-256 value in <a href="/downloads/fingerprint.txt">fingerprint.txt</a> with the value shown in the Proxmox root-only CA inventory.</div>
+  </header>
+
+  <section class="grid">
+    <article>
+      <h2>Windows and Firefox</h2>
+      <ol><li>Download the certificate and installer.</li><li>Open PowerShell as Administrator.</li><li>Run the installer from the download directory.</li><li>Restart Firefox and test the four critical aliases.</li></ol>
+      <a class="button" href="/downloads/install-windows.ps1">Windows installer</a>
+      <a class="button secondary" href="/downloads/sovereign-root-ca.crt">Root certificate</a>
+    </article>
+
+    <article>
+      <h2>iPhone and iPad</h2>
+      <ol><li>Open this page while connected to LAN or VPN.</li><li>Install the downloaded profile in Settings.</li><li>Go to Settings &gt; General &gt; About &gt; Certificate Trust Settings.</li><li>Enable full trust for the Sovereign Homelab root.</li></ol>
+      <a class="button" href="/downloads/sovereign-homelab-ca.mobileconfig">Apple profile</a>
+    </article>
+
+    <article>
+      <h2>macOS</h2>
+      <ol><li>Download the root certificate.</li><li>Import it into the System keychain with Keychain Access.</li><li>Open its Trust section and set SSL trust to Always Trust.</li><li>Restart the browser.</li></ol>
+      <a class="button" href="/downloads/sovereign-root-ca.crt">Root certificate</a>
+    </article>
+
+    <article>
+      <h2>Android</h2>
+      <ol><li>Download the root certificate.</li><li>Use Security &gt; Encryption and credentials &gt; Install a certificate &gt; CA certificate.</li><li>Confirm the fingerprint before accepting.</li><li>Some Android apps ignore user-installed CAs; browsers normally support them.</li></ol>
+      <a class="button" href="/downloads/sovereign-root-ca.cer">DER certificate</a>
+    </article>
+  </section>
+
+  <footer>Acceptance targets: <code>proxmox.internal</code>, <code>pbs.internal</code>, <code>dash.internal</code>, and <code>foto.internal</code>. Keep HSTS disabled until every personal client trusts the CA.</footer>
+</main>
+</body>
+</html>

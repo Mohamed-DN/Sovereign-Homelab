@@ -37,7 +37,7 @@ docker compose ps
 ```
 
 ## 4. Nginx Proxy Manager (NPM) Setup
-Log into NPM at `http://npm.internal` and create a Proxy Host:
+Log into NPM at `https://npm.internal` and create a Proxy Host:
 - **Domain Names**: `rss.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8087`
 - **Websockets Support**: disabled; FreshRSS does not need it.

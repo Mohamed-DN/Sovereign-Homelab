@@ -46,7 +46,7 @@ Last checked: 2026-06-23.
 | VM 140 | running as `pbs`, `192.168.1.20`, PBS 4.2.2 |
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
 | Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle running on LXC 101 |
-| Internal CA | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; Proxmox/PBS HTTPS aliases are live; deploy client trust before moving the remaining private aliases to HTTPS |
+| Internal CA | Smallstep `step-ca` and `trust.internal` onboarding portal run on LXC 101; all private aliases are HTTPS; each personal client still requires one-time root trust |
 | Apps-light stack | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI running on LXC 102 |
 | Ops-extension stack | NetAlertX, Scrutiny, and ntfy running on LXC 103 |
 | Immich stack | Immich server, machine learning, PostgreSQL, and Valkey running on VM 110 |
@@ -93,6 +93,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | `beszel` | LXC 101 | 8090 | `monitor.internal` | VPN/Auth | app volume | Metrics hub; platform agent enrolled |
 | `dozzle` | LXC 101 | 8088 | `logs.internal` | VPN/Auth admin | no critical data | Live logs |
 | `step-ca` | LXC 101 | 9002 | `ca.internal:9002` | VPN/admin | CA volume + fingerprint + secret backup | Private `.internal` TLS; root trust rollout still required for clean browser trust |
+| Trust portal | LXC 101 | 8095 | `trust.internal` | LAN/VPN onboarding | stack config; regenerate public artifacts from protected CA root | Direct HTTP is bootstrap only; NPM alias is normal HTTPS path |
 | `crowdsec` | LXC 100 | 8089 | none | LAN/local only | config + DB | Detection; live placement follows NPM logs |
 | `netalertx` | LXC 103 | 20211 | `netalert.internal` | VPN/Auth | config + DB | Optional network asset visibility |
 | `scrutiny` | LXC 103 | 8085 | `disks.internal` | VPN/admin | config + InfluxDB data | SMART UI live; Proxmox host-side collector active |

@@ -72,10 +72,10 @@ Create the proxy hosts documented in [Runbook 03](../02_network_vpn/doc_03_nginx
 Validate:
 
 ```bash
-curl -I http://dash.internal
-curl -I http://status.internal
-curl -I http://monitor.internal
-curl -I http://logs.internal
+curl -I https://dash.internal
+curl -I https://status.internal
+curl -I https://monitor.internal
+curl -I https://logs.internal
 ```
 
 Bootstrap note: until the internal CA is deployed, internal aliases use HTTP over LAN/VPN. Keep the services VPN-only and move to trusted private HTTPS later.
@@ -101,8 +101,9 @@ Required groups:
 | Group | Purpose |
 |---|---|
 | Network | DNS, VPN, proxy |
-| Admin | Proxmox and PBS |
+| Admin | Proxmox infrastructure control |
 | Identity | Authentik |
+| Recovery | PBS and client HTTPS trust onboarding |
 | Monitoring | Uptime Kuma, Beszel, Dozzle |
 | Operations Extensions | NetAlertX, Scrutiny, ntfy |
 | Critical Data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
@@ -139,33 +140,34 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `Headscale public VPN` | HTTP(s) | `https://vpn.yourdomain.duckdns.org` | 60s | HTTP 200 |
 | `AdGuard resolves dash.internal` | DNS | query `dash.internal` through `192.168.1.50:53` | 60s | A record `192.168.1.50` |
 | `AdGuard DNS TCP` | TCP Port | `192.168.1.50:53` | 60s | open TCP port |
-| `AdGuard UI` | HTTP | `http://adguard.internal` | 60s | HTTP 200/302 |
-| `Nginx Proxy Manager UI` | HTTP | `http://npm.internal` | 60s | HTTP 200 |
-| `Headscale UI` | HTTP | `http://headscale.internal/web` | 60s | HTTP 200/302 |
+| `AdGuard UI` | HTTP | `https://adguard.internal` | 60s | HTTP 200/302 |
+| `Nginx Proxy Manager UI` | HTTP | `https://npm.internal` | 60s | HTTP 200 |
+| `Headscale UI` | HTTP | `https://headscale.internal/web` | 60s | HTTP 200/302 |
 | `Proxmox VE` | HTTPS alias | `https://proxmox.internal` | 60s | HTTP 200 through NPM with the Smallstep internal certificate |
 | `Proxmox Backup Server` | HTTPS alias | `https://pbs.internal` | 60s | HTTP 200 through NPM with the Smallstep internal certificate |
-| `Authentik` | HTTP | `http://auth.internal/if/user/` | 60s | HTTP 200/302 after setup is completed |
-| `Homepage` | HTTP | `http://dash.internal` | 60s | HTTP 200 |
-| `Uptime Kuma` | HTTP | `http://status.internal` | 60s | HTTP 200/302 |
-| `Beszel Hub` | HTTP | `http://monitor.internal` | 60s | HTTP 200 |
-| `Dozzle` | HTTP | `http://logs.internal` | 60s | HTTP 200 |
+| `Internal CA Trust Portal` | HTTPS alias | `https://trust.internal/healthz` | 60s | HTTP 200 with private-CA validation enabled |
+| `Authentik` | HTTP | `https://auth.internal/if/user/` | 60s | HTTP 200/302 after setup is completed |
+| `Homepage` | HTTP | `https://dash.internal` | 60s | HTTP 200 |
+| `Uptime Kuma` | HTTP | `https://status.internal` | 60s | HTTP 200/302 |
+| `Beszel Hub` | HTTP | `https://monitor.internal` | 60s | HTTP 200 |
+| `Dozzle` | HTTP | `https://logs.internal` | 60s | HTTP 200 |
 | `PBS API TCP` | TCP Port | `PBS_IP:8007` | 60s | open TCP port |
 | `Headscale API TCP` | TCP Port | `LXC100_IP:8080` | 60s | open TCP port |
-| `ops-netalertx` | HTTP | `http://netalert.internal` | 60s | HTTP response after deployment |
-| `ops-scrutiny` | HTTP | `http://disks.internal` | 60s | HTTP response after deployment |
-| `ops-ntfy` | HTTP | `http://alerts.internal` | 60s | HTTP response after deployment |
-| `app-vaultwarden` | HTTP | `http://pwd.internal` | 60s | HTTP response |
-| `app-immich` | HTTP | `http://foto.internal/api/server/ping` | 60s | JSON ping response |
+| `ops-netalertx` | HTTP | `https://netalert.internal` | 60s | HTTP response after deployment |
+| `ops-scrutiny` | HTTP | `https://disks.internal` | 60s | HTTP response after deployment |
+| `ops-ntfy` | HTTP | `https://alerts.internal` | 60s | HTTP response after deployment |
+| `app-vaultwarden` | HTTP | `https://pwd.internal` | 60s | HTTP response |
+| `app-immich` | HTTP | `https://foto.internal/api/server/ping` | 60s | JSON ping response |
 | `app-nextcloud` | HTTP(s) | `https://files.internal` | 60s | enable after AIO Apache is healthy; allow internal certificate until the private CA is trusted |
-| `app-syncthing-ui` | HTTP | `http://sync.internal` | 60s | HTTP response |
-| `app-paperless` | HTTP | `http://paper.internal` | 60s | HTTP response |
-| `app-home-assistant` | HTTP | `http://ha.internal` | 60s | HTTP response after deployment |
-| `app-jellyfin` | HTTP | `http://media.internal` | 60s | live on LXC 102 |
-| `app-freshrss` | HTTP | `http://rss.internal` | 60s | HTTP response |
-| `app-karakeep` | HTTP | `http://bookmarks.internal` | 60s | HTTP response |
-| `app-searxng` | HTTP | `http://search.internal` | 60s | HTTP response |
-| `app-forgejo` | HTTP | `http://git.internal` | 60s | HTTP response |
-| `app-open-webui` | HTTP | `http://ai.internal` | 60s | live on LXC 102 |
+| `app-syncthing-ui` | HTTP | `https://sync.internal` | 60s | HTTP response |
+| `app-paperless` | HTTP | `https://paper.internal` | 60s | HTTP response |
+| `app-home-assistant` | HTTP | `https://ha.internal` | 60s | HTTP response after deployment |
+| `app-jellyfin` | HTTP | `https://media.internal` | 60s | live on LXC 102 |
+| `app-freshrss` | HTTP | `https://rss.internal` | 60s | HTTP response |
+| `app-karakeep` | HTTP | `https://bookmarks.internal` | 60s | HTTP response |
+| `app-searxng` | HTTP | `https://search.internal` | 60s | HTTP response |
+| `app-forgejo` | HTTP | `https://git.internal` | 60s | HTTP response |
+| `app-open-webui` | HTTP | `https://ai.internal` | 60s | live on LXC 102 |
 | `tcp-syncthing-sync` | TCP Port | `LXC102_IP:22000` | 60s | open TCP port |
 | `tcp-forgejo-ssh` | TCP Port | `LXC102_IP:2222` | 60s | open TCP port |
 | `tcp-rustdesk-hbbs-nat` | TCP Port | `rustdesk.internal:21115` | 60s | open TCP port |
@@ -176,15 +178,26 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-24: 37 monitors exist in Uptime Kuma and all had fresh UP heartbeats during the live audit. They cover VPN, DNS, core aliases, platform aliases, deployed LXC102 apps, Immich, Nextcloud, Home Assistant, operations extensions, Forgejo SSH, Syncthing sync TCP, RustDesk TCP endpoints, Ollama API, CrowdSec LAPI, and the internal CA health endpoint. Proxmox VE and PBS monitors now use the `https://proxmox.internal` and `https://pbs.internal` aliases. Uptime Kuma uses SQLite in the current bootstrap deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-06-30: 38 monitors exist in Uptime Kuma after adding the trust portal monitor. They cover VPN, DNS, 26 NPM-managed private aliases, deployed apps, operations extensions, protocol ports, and the direct internal CA health endpoint. Uptime Kuma uses SQLite in the current deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
-Because the Proxmox/PBS aliases use the internal Smallstep CA, the live Kuma container mounts the CA root and starts with:
+Because every private alias uses the internal Smallstep CA, the live Kuma and Homepage containers mount the CA root and start with `NODE_EXTRA_CA_CERTS`. Kuma uses:
 
 ```text
 NODE_EXTRA_CA_CERTS=/app/data/ca/sovereign-root-ca.crt
 ```
 
 Do not replace this with `ignore TLS` unless the CA trust path is broken and you are using it as a temporary incident workaround.
+
+### Read-Only Monitoring Identities
+
+Homepage does not use `root@pam`, PBS root, or a human password for infrastructure widgets:
+
+| Target | Identity | Role | Token |
+|---|---|---|---|
+| Proxmox VE | `sole_monitor@pve` | `PVEAuditor` on `/` | `sole_monitor@pve!homepage` |
+| Proxmox Backup Server | `sole_monitor@pbs` | `Audit` on `/` | `sole_monitor@pbs!homepage` |
+
+The real token values exist only in `/root/sovereign-secrets/homepage-monitoring.env` on LXC 101 with mode `0600`. `services.yaml` contains only `{{HOMEPAGE_VAR_*}}` references. The tokens do not expire automatically, but they remain revocable and must be audited quarterly. Rotate one token at a time, update the root-only env file, recreate Homepage, and validate both widgets before deleting the old token.
 
 RustDesk is a documented exception: the OSS server has no web dashboard card. Track it with DNS plus TCP monitors and verify UDP `21116` with a real client connection test.
 
@@ -205,7 +218,7 @@ Alert rules:
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
 - ntfy is deployed, but protect topics and authentication before sending sensitive alert payloads.
-- The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py` and runs in the live lab on LXC 101 at `127.0.0.1:8099`.
+- The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py` and listens on LXC 101 port `8099`. The port is LAN/VPN-only and every POST requires the bearer token; it is not an NPM web application.
 - SMTP credentials and the relay bearer token must exist only under `/root/sovereign-secrets`; never store them in Compose files, Markdown, Git, or Uptime Kuma notes.
 
 Required email behavior:
@@ -218,7 +231,28 @@ Required email behavior:
 | Still DOWN after reminder | send no more DOWN spam for that incident |
 | Recovery | send one `RESOLVED` email |
 
-Live state: the relay is connected to P0/P1 Uptime Kuma monitors as `Sovereign Email Relay` and has passed SMTP send, alert, reminder, no-spam, and recovery tests. Repeat a safe temporary-monitor test after changing Gmail credentials, the relay token, Uptime Kuma notification settings, or the relay service.
+Live state: the relay is connected to P0/P1 Uptime Kuma monitors as `Sovereign Email Relay` and has passed SMTP send, alert, reminder, no-spam, and recovery tests. On 2026-06-29 it was upgraded from raw JSON bodies to Gmail-compatible HTML with a plain-text fallback, incident ID, priority, impact, actions, commands, and an internal console link. Repeat a safe temporary-monitor test after changing Gmail credentials, the relay token, templates, Uptime Kuma notification settings, or the relay service.
+
+## Phase I: Weekly Operations Report
+
+The Proxmox host runs `sovereign-weekly-report.timer` every Monday at 09:00 Europe/Rome. The report:
+
+- queries Proxmox and PBS with the `sole_monitor` read-only API tokens;
+- queries Uptime Kuma for current failures, weekly incident count, and downtime;
+- checks guest state, PBS snapshot coverage, ZFS, storage usage, SMART, failed systemd units, Headscale routes, certificate expiry, root-account aging, `sole_monitor` token expiry, Headscale node expiry, and alert-relay health;
+- renders HTML and plain text locally under `/root/sovereign-secrets/reports`;
+- delegates SMTP delivery to the existing relay on LXC 101, so the Gmail app password is not copied to the Proxmox host.
+
+Commands:
+
+```bash
+/usr/local/sbin/sovereign-weekly-report.py
+/usr/local/sbin/sovereign-weekly-report.py --send
+systemctl list-timers sovereign-weekly-report.timer --no-pager
+journalctl -u sovereign-weekly-report.service -n 50 --no-pager
+```
+
+The dry run must complete before enabling the timer. A report with `WARNING` can be valid after planned maintenance because it summarizes incidents from the previous seven days even when all current monitors are green.
 
 ## Phase F: Beszel Usage
 
@@ -232,7 +266,7 @@ Use Beszel to watch:
 
 Setup:
 
-1. Open `http://monitor.internal`.
+1. Open `https://monitor.internal`.
 2. Create the admin account.
 3. Add Proxmox and each Docker host.
 4. Use hub/WebSocket enrollment for agents when inbound agent ports are not wanted.
@@ -259,7 +293,7 @@ docker logs --tail=100 SERVICE_CONTAINER
 Dozzle gives the same visibility through:
 
 ```text
-http://logs.internal
+https://logs.internal
 ```
 
 ## Phase H: Optional Operations Extensions
@@ -279,7 +313,7 @@ Operational rules:
 - Scrutiny needs a collector where the disks are physically visible. The live P710 build keeps the web/API in LXC 103 and runs the official collector on the Proxmox host.
 - NetAlertX scans can be noisy. Start with the main LAN only, then add VLANs or site-to-site networks later.
 
-## Phase I: Backup and Restore
+## Phase J: Backup and Restore
 
 Back up:
 

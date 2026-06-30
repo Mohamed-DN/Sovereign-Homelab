@@ -1,0 +1,11 @@
+[Unit]
+Description=Quarterly Immich full SHA-256 manifest
+
+[Timer]
+OnCalendar=*-01,04,07,10-07 04:15:00
+Persistent=true
+RandomizedDelaySec=15m
+Unit=sovereign-immich-protection@quarterly.service
+
+[Install]
+WantedBy=timers.target

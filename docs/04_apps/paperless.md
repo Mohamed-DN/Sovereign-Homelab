@@ -76,7 +76,7 @@ docker compose exec paperless manage.py createsuperuser
 
 ## 5. Reverse Proxy Configuration (NPM)
 
-Access Nginx Proxy Manager (NPM) at `http://npm.internal` and create a Proxy Host.
+Access Nginx Proxy Manager (NPM) at `https://npm.internal` and create a Proxy Host.
 
 - **Domain Names**: `paper.internal`
 - **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8010`

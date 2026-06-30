@@ -68,48 +68,50 @@ Design references:
 | Beszel | `monitor.internal` | 8090 | VPN/Auth | Metrics |
 | Dozzle | `logs.internal` | 8088 | VPN/Auth admin | Docker logs |
 | Smallstep CA | `ca.internal` | 9002 | VPN/admin | Private CA for trusted `.internal` TLS |
+| CA Trust Portal | `trust.internal` | 8095 | LAN/VPN onboarding | NPM HTTPS alias plus deliberate direct HTTP bootstrap |
 | CrowdSec LAPI | none | 8089 | localhost/LAN only | Detection API |
 
-Live bootstrap state as of 2026-06-24:
+Live access state as of 2026-06-30:
 
 | Alias | Client-side URL | Upstream |
 |---|---|---|
-| `adguard.internal` | `http://adguard.internal` | `http://192.168.1.50:3000` |
-| `npm.internal` | `http://npm.internal` | `http://192.168.1.50:81` |
-| `headscale.internal/web` | `http://headscale.internal/web` | `http://192.168.1.50:8081` |
+| `adguard.internal` | `https://adguard.internal` | `http://192.168.1.50:3000` |
+| `npm.internal` | `https://npm.internal` | `http://192.168.1.50:81` |
+| `headscale.internal/web` | `https://headscale.internal/web` | `http://192.168.1.50:8081`; private admin UI only |
 | `proxmox.internal` | `https://proxmox.internal` | client-side HTTPS on NPM with Smallstep CA certificate, upstream `https://192.168.1.150:8006` |
 | `pbs.internal` | `https://pbs.internal` | client-side HTTPS on NPM with Smallstep CA certificate, upstream `https://192.168.1.20:8007` |
-| `auth.internal` | `http://auth.internal` | `http://192.168.1.51:9000` |
+| `auth.internal` | `https://auth.internal` | `http://192.168.1.51:9000` |
 | `ldap.internal` | `ldaps://ldap.internal:636` | direct to `192.168.1.51:636` after LDAP outpost deployment; no NPM proxy |
-| `dash.internal` | `http://dash.internal` | `http://192.168.1.51:3002` |
-| `status.internal` | `http://status.internal` | `http://192.168.1.51:3001` |
-| `monitor.internal` | `http://monitor.internal` | `http://192.168.1.51:8090` |
-| `logs.internal` | `http://logs.internal` | `http://192.168.1.51:8088` |
-| `pwd.internal` | `http://pwd.internal` | `http://192.168.1.52:8082` |
-| `sync.internal` | `http://sync.internal` | `http://192.168.1.52:8384` |
-| `paper.internal` | `http://paper.internal` | `http://192.168.1.52:8010` |
-| `rss.internal` | `http://rss.internal` | `http://192.168.1.52:8087` |
-| `bookmarks.internal` | `http://bookmarks.internal` | `http://192.168.1.52:3010` |
-| `search.internal` | `http://search.internal` | `http://192.168.1.52:8084` |
-| `git.internal` | `http://git.internal` | `http://192.168.1.52:3003` |
-| `foto.internal` | `http://foto.internal` | `http://192.168.1.110:2283` |
-| `media.internal` | `http://media.internal` | `http://192.168.1.52:8096` |
-| `ai.internal` | `http://ai.internal` | `http://192.168.1.52:3004` |
-| `ha.internal` | `http://ha.internal` | `http://192.168.1.130:8123` |
-| `netalert.internal` | `http://netalert.internal` | `http://192.168.1.53:20211` |
-| `disks.internal` | `http://disks.internal` | `http://192.168.1.53:8085` |
-| `alerts.internal` | `http://alerts.internal` | `http://192.168.1.53:8093` |
+| `dash.internal` | `https://dash.internal` | `http://192.168.1.51:3002` |
+| `status.internal` | `https://status.internal` | `http://192.168.1.51:3001` |
+| `monitor.internal` | `https://monitor.internal` | `http://192.168.1.51:8090` |
+| `logs.internal` | `https://logs.internal` | `http://192.168.1.51:8088` |
+| `trust.internal` | `https://trust.internal` | `http://192.168.1.51:8095`; direct HTTP is pre-trust bootstrap only |
+| `pwd.internal` | `https://pwd.internal` | `http://192.168.1.52:8082` |
+| `sync.internal` | `https://sync.internal` | `http://192.168.1.52:8384` |
+| `paper.internal` | `https://paper.internal` | `http://192.168.1.52:8010` |
+| `rss.internal` | `https://rss.internal` | `http://192.168.1.52:8087` |
+| `bookmarks.internal` | `https://bookmarks.internal` | `http://192.168.1.52:3010` |
+| `search.internal` | `https://search.internal` | `http://192.168.1.52:8084` |
+| `git.internal` | `https://git.internal` | `http://192.168.1.52:3003` |
+| `foto.internal` | `https://foto.internal` | `http://192.168.1.110:2283` |
+| `media.internal` | `https://media.internal` | `http://192.168.1.52:8096` |
+| `ai.internal` | `https://ai.internal` | `http://192.168.1.52:3004` |
+| `ha.internal` | `https://ha.internal` | `http://192.168.1.130:8123` |
+| `netalert.internal` | `https://netalert.internal` | `http://192.168.1.53:20211` |
+| `disks.internal` | `https://disks.internal` | `http://192.168.1.53:8085` |
+| `alerts.internal` | `https://alerts.internal` | `http://192.168.1.53:8093` |
 | `files.internal` | `https://files.internal` | client-side HTTPS on NPM, upstream `http://192.168.1.120:11000`; live Nextcloud AIO |
 | `ca.internal` | `https://ca.internal:9002` | optional direct/API access to Smallstep on LXC 101 after deployment |
 
-Most aliases are still acceptable as HTTP during the VPN-only bootstrap phase. Proxmox VE, PBS, and Nextcloud now use client-side HTTPS on NPM. Proxmox/PBS use Smallstep-issued host certificates; Nextcloud uses the existing internal certificate path until it is migrated. Move the remaining private aliases to trusted private HTTPS one service at a time after validating the CA root trust and renewal path.
+All private web aliases terminate HTTPS at NPM and redirect client-side HTTP to HTTPS. Their upstream service ports may remain HTTP inside the trusted LAN because NPM is the TLS boundary. One Smallstep-issued certificate contains `*.internal` plus every explicit web alias SAN for Node.js compatibility. The certificate is renewed by `sovereign-renew-npm-internal-certs.timer` before expiry and audited daily. `ca.internal:9002`, LDAP, DNS, SSH, sync, and similar non-HTTP protocols remain direct documented exceptions. Direct `http://LXC101_IP:8095` is the one browser-facing bootstrap exception and must remain LAN/VPN-only.
 
 ## Live Apps
 
 | Service | Hostname | Template port | Access | Backup |
 |---|---:|---:|---|---|
 | Vaultwarden | `pwd.internal` | 8082 | VPN-first | volume + export; SQLite baseline passed |
-| Immich | `foto.internal` | 2283 | VPN-first | uploads + DB; app-aware baseline passed |
+| Immich | `foto.internal` | 2283 | VPN-first | DB + upload tree + daily metadata + weekly capacity + quarterly SHA-256 + PBS; separate local/offsite copies pending |
 | Syncthing UI | `sync.internal` | 8384 | VPN/Auth admin | config + folders |
 | Syncthing sync | none | 22000/tcp+udp | LAN/VPN/device | data folders |
 | Syncthing discovery | none | 21027/udp | LAN | local discovery |
@@ -144,7 +146,7 @@ These panels improve visibility but are not mandatory day-one services. Deploy t
 | NetAlertX | `netalert.internal` | LXC 103 `ops-extensions` | 20211 | VPN/Auth | LAN device inventory, asset discovery, change awareness |
 | Scrutiny | `disks.internal` | LXC 103 `ops-extensions` + Proxmox host collector | 8085 | VPN/admin | SMART disk health; host collector posts to Scrutiny API |
 | ntfy | `alerts.internal` | LXC 103 `ops-extensions` | 8093 | VPN/Auth | Self-hosted notifications for Kuma, PBS, CrowdSec, scripts |
-| Alert relay | none by default | LXC 101 or LXC 103 | 8099 | localhost/internal only | Optional Kuma webhook-to-email relay; no NPM proxy and no public DNS |
+| Alert relay | none by default | LXC 101 | 8099 | token-authenticated LAN/VPN API | Kuma and VM110 backup webhook relay; no NPM proxy and no public DNS |
 
 ## Recommended DNS Rewrites
 
@@ -179,6 +181,7 @@ In AdGuard:
 | `netalert.internal` | NPM IP when NetAlertX is ready |
 | `disks.internal` | NPM IP when Scrutiny is ready |
 | `alerts.internal` | NPM IP when ntfy is ready |
+| `trust.internal` | NPM IP; direct `LXC101_IP:8095` is used only before CA trust |
 | `ca.internal` | NPM IP if proxied, otherwise LXC 101 IP for direct CA API access |
 
 If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, update this matrix before changing AdGuard.
@@ -187,7 +190,7 @@ If NPM runs on `192.168.1.50`, use `192.168.1.50`. If you move it to LXC 101, up
 
 - Required public exposure: `vpn.yourdomain.duckdns.org`.
 - Private service namespace: `.internal`.
-- Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay, NetAlertX, Scrutiny, ntfy.
-- The alert relay is localhost/internal only. Do not expose it through NPM.
+- Never public by default: Dozzle, NPM UI, Headscale metrics, CrowdSec LAPI, Syncthing UI, RustDesk relay, NetAlertX, Scrutiny, ntfy, and the CA trust bootstrap.
+- The alert relay is token-authenticated and private. Do not expose it through NPM or router forwarding.
 
 Public exceptions require a separate written decision, a rollback plan, TLS, MFA where possible, and monitoring before exposure.

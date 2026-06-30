@@ -29,7 +29,7 @@ Last checked: 2026-06-22.
 | State | Services |
 |---|---|
 | Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
-| Gated on VM 110 `immich` | Immich: VM exists, containers are healthy, `foto.internal` returns the API ping, PBS boot/service restore passed, and app-aware database/library baseline passed; offsite backup and representative restore rehearsal are still required before importing the full library |
+| Gated on VM 110 `immich` | Immich: VM, alias, scheduled app-aware jobs, PBS checkpoint, SHA-256 baseline, isolated DB restore, and PBS sample-asset restore are healthy; separate encrypted local and offsite copies are still required before deleting phone originals |
 | Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, AIO containers are healthy, `https://files.internal` returns the real login redirect, and restore drill passed; internal certificate trust and offsite backup are still required before irreplaceable files |
 | Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, native HA backup exists, and full boot/service restore drill passed |
 | Planned | optional dedicated Jellyfin VM, optional dedicated AI host |

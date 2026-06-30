@@ -1,0 +1,11 @@
+[Unit]
+Description=Generate and email the Sovereign Homelab weekly operations report
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sovereign-weekly-report.py --send
+User=root
+Group=root
+UMask=0077

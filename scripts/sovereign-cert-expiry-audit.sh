@@ -63,9 +63,11 @@ check_endpoint() {
 }
 
 check_endpoint "public-headscale" "$PUBLIC_VPN_HOST" 443 "$PUBLIC_VPN_HOST" false
-check_endpoint "proxmox-internal" "$NPM_IP" 443 "proxmox.internal" true
-check_endpoint "pbs-internal" "$NPM_IP" 443 "pbs.internal" true
+check_endpoint "internal-edge" "$NPM_IP" 443 "dash.internal" true
+check_endpoint "proxmox-internal" "$NPM_IP" 443 "proxmox.internal" false
+check_endpoint "pbs-internal" "$NPM_IP" 443 "pbs.internal" false
 check_endpoint "nextcloud-internal" "$NPM_IP" 443 "files.internal" false
+check_endpoint "trust-portal-internal" "$NPM_IP" 443 "trust.internal" false
 
 if [[ "$failures" -gt 0 ]]; then
   log "RESULT failed=${failures}"

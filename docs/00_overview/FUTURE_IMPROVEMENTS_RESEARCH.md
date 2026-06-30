@@ -40,7 +40,7 @@ Improvements to avoid for now:
 |---|---|---|---|---|---|---|
 | P0 | Offsite backup | protects photos/passwords/files from host loss | recurring cost, secret handling | low to medium | medium | before importing irreplaceable data |
 | P0 | Alert coverage expansion | actionable incident awareness beyond web uptime | alert noise and ownership | low | medium | after the base relay stays stable |
-| P0 | Internal CA trust rollout | trusted HTTPS for `.internal` apps | client trust mistakes can break access | low | medium | one alias at a time |
+| P0 | Complete internal CA client rollout | trusted HTTPS is live and `trust.internal` provides onboarding | clients without the root still see issuer errors | low | medium | onboard and validate one personal client at a time |
 | P1 | Authentik MFA and proxy providers | reduces admin/UI account risk | lockout if recovery is weak | low | medium | after local credential file is complete |
 | P1 | Second PBS or remote PBS sync | stronger disaster recovery | bandwidth/storage cost | medium | medium | after local restore drills stay green |
 | P1 | Ansible rebuild automation | repeatable rebuilds and fewer manual steps | automation can repeat mistakes | low | medium | after current manual state is stable |

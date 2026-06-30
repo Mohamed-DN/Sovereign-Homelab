@@ -27,27 +27,27 @@ The repository is written in English and is designed to be used like an infrastr
 
 ## Live Foundation Status
 
-Last live build log: [2026-06-24](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md).
+Last live build log: [2026-06-30](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md).
 
 | Area | Current state |
 |---|---|
 | VPN | public Headscale endpoint online; DuckDNS public A record updater active on LXC 100; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
 | DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
-| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; Homepage uses tabs, icons, and safe visual `siteMonitor` checks |
+| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; every web card uses HTTPS and the Proxmox/PBS widgets use dedicated `sole_monitor` read-only API tokens |
 | Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
 | Identity | Authentik is live and remains the source for users, groups, MFA, and app access policy; LDAP/LDAPS is planned only as a compatibility outpost for services such as Proxmox or Linux/SSSD that need directory login |
 | Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
-| Immich | VM 110 `immich` deployed at `192.168.1.110` with a 120 GB OS disk and 500 GB photo-library data disk; PBS boot/service restore drill passed; baseline app-aware DB restore and library manifest drill passed |
+| Immich | VM 110 `immich` deployed at `192.168.1.110`; the current 95.36 GB library has a fresh PBS checkpoint, root-only DB/metadata/SHA-256 safety bundle, scheduled app-aware protection, and isolated restore validation; separate local and offsite copies remain required |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
-| Monitoring | Uptime Kuma initialized with 37 live monitors; all were UP during the 2026-06-24 audit across VPN, DNS, critical alias fingerprints, apps including Nextcloud, operations extensions, Home Assistant, internal CA, and protocol checks |
+| Monitoring | Uptime Kuma has 38 live monitors covering VPN, DNS, all private aliases, apps, operations extensions, CA health, trust onboarding, and protocol checks |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
-| Internal TLS | Smallstep `step-ca` deployed on LXC 101 at `ca.internal:9002`; `proxmox.internal` and `pbs.internal` now use client-side HTTPS through NPM with Smallstep certificates and a renewal timer; client root trust rollout and wider alias migration remain gates |
-| Local credentials | root-only `/root/sovereign-secrets/HOMELAB_CREDENTIALS.md`, `/root/sovereign-secrets/HOMELAB_ACCESS_INVENTORY.md`, and `/root/sovereign-secrets/HOMELAB_PASSWORD_INDEX.md` exist on the Proxmox host; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
-| Alerting | Uptime Kuma and ntfy are live; the local anti-spam email relay is installed on LXC 101, uses Gmail SMTP credentials stored only under `/root/sovereign-secrets`, and passed live alert/reminder/no-spam/recovery tests |
+| Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 26 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
+| Local credentials | root-only credential inventories exist on the Proxmox host; the 2026-06-29 app-login rotation was verified for PBS root and every initialized supported web account except the explicitly excluded AdGuard login; Proxmox and PBS monitoring use non-expiring, revocable `sole_monitor` API tokens with read-only roles, never human/root passwords; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
+| Alerting and reports | The LXC 101 relay sends Gmail-compatible HTML plus plain-text alerts with one alert, one reminder, and one recovery per incident; a Proxmox timer sends a complete weekly operations report every Monday at 09:00 Europe/Rome and checks certificate, root-account, monitoring-token, and Headscale-node expiration state |
 | Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
 | Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
-| Open gates | Internal CA root trust distribution, offsite backup, Authentik MFA/app protection policy, ntfy auth/topic policy, and production-data restore rehearsals before importing large critical datasets |
+| Open gates | Complete CA onboarding on every personal client, add encrypted separate-local and offsite photo copies, finish Authentik MFA/app protection policy, protect ntfy topics, and repeat production-data restore rehearsals |
 
 ## Network and Access Model
 
@@ -65,6 +65,7 @@ flowchart TD
     Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
     Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]
     CA["Internal CA\nSmallstep step-ca\nca.internal"]
+    Trust["CA Trust Portal\ntrust.internal\nprivate bootstrap on :8095"]
     Apps["Internal apps\n*.internal"]
     Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]
     PBS["Proxmox Backup Server"]
@@ -80,8 +81,11 @@ flowchart TD
     AGH -->|.internal to NPM IP| NPM
     NPM --> Platform
     NPM --> Ops
-    LAN -->|trust bootstrap| CA
-    Remote -->|trust bootstrap after VPN| CA
+    LAN -->|CA API| CA
+    Remote -->|CA API after VPN| CA
+    LAN -->|untrusted HTTP bootstrap| Trust
+    Remote -->|untrusted HTTP bootstrap after VPN| Trust
+    NPM --> Trust
     NPM --> Apps
     Smart -->|disk metrics API| Ops
     Platform --> PBS
@@ -107,7 +111,7 @@ The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VIS
 | Core network | AdGuard, Headscale, Headscale-UI, NPM |
 | Admin | Proxmox, PBS |
 | Platform | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
-| Internal TLS | Smallstep `step-ca` for private `.internal` certificates |
+| Internal TLS | Smallstep `step-ca` plus `trust.internal` client onboarding for private certificates |
 | Operations extensions | NetAlertX, Scrutiny, ntfy |
 | Critical data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | High-value apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI |
@@ -139,7 +143,8 @@ High-signal reference files:
 | [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) | safe public template for the root-only local credentials file |
 | [ADMIN_ACCESS_RECOVERY.md](docs/06_operations_security/ADMIN_ACCESS_RECOVERY.md) | safe admin-access recovery runbook for Proxmox, PBS, platform services, Beszel, and apps |
 | [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md) | researched future ideas, benefits, risks, and priorities; no live changes |
-| [LIVE_BUILD_LOG_2026-06-24.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-24.md) | latest live audit, Beszel admin-access recovery, local credential audit, and remaining gates |
+| [LIVE_BUILD_LOG_2026-06-29.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-29.md) | internal HTTPS/NPM migration, `sole_monitor`, HTML alerts, weekly report, and live validation |
+| [LIVE_BUILD_LOG_2026-06-30.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md) | CA onboarding portal, modern Recovery dashboard, and current Immich data-protection checkpoint |
 
 ## Deployment Workflow
 
