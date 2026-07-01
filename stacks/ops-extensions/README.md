@@ -21,6 +21,32 @@ docker compose --env-file .env up -d
 docker compose --env-file .env ps
 ```
 
+Create the bind-mounted data directories before the first start:
+
+```bash
+install -d -m 0750 ntfy scrutiny/config scrutiny/influxdb
+```
+
+The template enables ntfy authentication and denies anonymous topic access. Create one human administrator and separate service identities after the first container start:
+
+```bash
+NTFY_PASSWORD='<ADMIN_PASSWORD>' docker exec -e NTFY_PASSWORD ntfy \
+  ntfy user add --role=admin homelab-admin
+
+NTFY_PASSWORD='<RANDOM_READER_PASSWORD>' docker exec -e NTFY_PASSWORD ntfy \
+  ntfy user add homepage-reader
+
+NTFY_PASSWORD='<RANDOM_PUBLISHER_PASSWORD>' docker exec -e NTFY_PASSWORD ntfy \
+  ntfy user add sovereign-publisher
+
+docker exec ntfy ntfy access homepage-reader sovereign-alerts ro
+docker exec ntfy ntfy access sovereign-publisher sovereign-alerts wo
+docker exec ntfy ntfy token add --label homepage homepage-reader
+docker exec ntfy ntfy token add --label alert-publisher sovereign-publisher
+```
+
+Store the resulting tokens only under `/root/sovereign-secrets`. The Homepage reader token does not expire automatically, but remains revocable. Never place it in `.env.example`, Markdown, or Git.
+
 ## NPM Aliases
 
 | Alias | Upstream | WebSocket | Access |
@@ -37,15 +63,15 @@ Create HTTP monitors:
 |---|---|---|
 | `ops-netalertx` | `https://netalert.internal` | 2xx/3xx |
 | `ops-scrutiny` | `https://disks.internal` | 2xx/3xx |
-| `ops-ntfy` | `https://alerts.internal` | 2xx/3xx |
+| `ops-ntfy` | `https://alerts.internal/v1/health` | HTTP 200 |
 
 ## Backup
 
 Back up LXC 103 with PBS. Also keep app-aware notes:
 
 - NetAlertX persistent data lives under the `netalertx_data` volume mounted at `/data`.
-- ntfy cache/config lives in `ntfy_cache` and `ntfy_config`; attachments matter only if you enable them.
-- Scrutiny config and InfluxDB history live in `scrutiny_config` and `scrutiny_influxdb`.
+- ntfy cache, attachments, users, ACLs, and tokens live under the root-only-managed `NTFY_DATA_PATH` bind mount.
+- Scrutiny config and InfluxDB history live under `SCRUTINY_CONFIG_PATH` and `SCRUTINY_INFLUX_PATH`.
 
 ## Scrutiny Disk Access
 

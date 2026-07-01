@@ -1,20 +1,24 @@
 - Network:
     - AdGuard Home:
+        id: network-adguard
         icon: adguard-home.png
         href: https://adguard.internal
         siteMonitor: https://adguard.internal
         description: LXC100 192.168.1.50:3000, DNS filtering, DHCP, and .internal rewrites
     - Headscale Public Health:
+        id: network-headscale-public
         icon: headscale.png
         href: https://vpn.yourdomain.duckdns.org/health
         siteMonitor: https://vpn.yourdomain.duckdns.org/health
         description: Public VPN control plane for 4G and travel clients
     - Headscale UI:
+        id: network-headscale-ui
         icon: headscale.png
         href: https://headscale.internal
         siteMonitor: https://headscale.internal
         description: LXC100 192.168.1.50:8081, users, devices, routes, and exit-node approvals
     - Nginx Proxy Manager:
+        id: network-npm
         icon: nginx-proxy-manager.png
         href: https://npm.internal
         siteMonitor: https://npm.internal
@@ -22,6 +26,7 @@
 
 - Admin:
     - Proxmox VE:
+        id: admin-proxmox
         icon: proxmox.png
         href: https://proxmox.internal
         siteMonitor: https://proxmox.internal
@@ -34,11 +39,13 @@
           node: pve
 - Identity:
     - Authentik:
+        id: identity-authentik
         icon: authentik.png
         href: https://auth.internal/if/user/
         siteMonitor: https://auth.internal/if/user/
         description: LXC101 192.168.1.51:9000, SSO, MFA, proxy providers, and OIDC
     - Internal CA Health:
+        id: identity-internal-ca
         icon: sh-small-step.png
         href: https://ca.internal:9002/health
         siteMonitor: https://ca.internal:9002/health
@@ -46,6 +53,7 @@
 
 - Recovery:
     - Proxmox Backup Server:
+        id: recovery-pbs
         icon: proxmox.png
         href: https://pbs.internal
         siteMonitor: https://pbs.internal
@@ -57,71 +65,118 @@
           password: "{{HOMEPAGE_VAR_PBS_TOKEN_SECRET}}"
           datastore: p710-local
     - HTTPS Trust Portal:
+        id: recovery-trust
         icon: sh-small-step.png
         href: https://trust.internal
         siteMonitor: https://trust.internal/healthz
         description: RECOVERY - install and verify private CA trust on personal clients
 
+- At a Glance:
+    - Fleet Health:
+        id: glance-fleet-health
+        icon: uptime-kuma.png
+        href: https://status.internal/status/sovereign-ops
+        siteMonitor: https://status.internal/api/status-page/sovereign-ops
+        description: Live rollup of all LAN, VPN, platform, data, and application monitors
+        widget:
+          type: uptimekuma
+          url: http://uptime-kuma:3001
+          slug: sovereign-ops
+          fields: ["up", "down", "uptime", "incident"]
+    - Network Inventory:
+        id: glance-netalertx
+        icon: netalertx.png
+        href: https://netalert.internal
+        siteMonitor: https://netalert.internal
+        description: Connected, new, and unavailable LAN devices
+        widget:
+          type: netalertx
+          url: http://192.168.1.53:20212
+          key: "{{HOMEPAGE_VAR_NETALERTX_API_TOKEN}}"
+          version: 2
+          fields: ["total", "connected", "new_devices", "down_alerts"]
+    - Disk Health:
+        id: glance-scrutiny
+        icon: scrutiny.png
+        href: https://disks.internal
+        siteMonitor: https://disks.internal/api/summary
+        description: SMART results collected from the physical Proxmox disks
+        widget:
+          type: scrutiny
+          url: http://192.168.1.53:8085
+          fields: ["passed", "failed", "unknown"]
+    - Recent Alerts:
+        id: glance-ntfy
+        icon: ntfy.png
+        href: https://alerts.internal
+        siteMonitor: https://alerts.internal/v1/health
+        description: Latest protected notification on the sovereign operations topic
+        widget:
+          type: ntfy
+          url: http://192.168.1.53:8093
+          topic: sovereign-alerts
+          key: "{{HOMEPAGE_VAR_NTFY_READER_TOKEN}}"
+          fields: ["title", "message", "priority", "lastReceived"]
+
 - Monitoring:
     - Homepage:
+        id: monitoring-homepage
         icon: homepage.png
         href: https://dash.internal
         siteMonitor: https://dash.internal
         description: Clean launchpad for every deployed service
     - Uptime Kuma:
+        id: monitoring-kuma
         icon: uptime-kuma.png
         href: https://status.internal
         siteMonitor: https://status.internal
         description: Health checks, alerting, and restore confidence
     - Beszel:
+        id: monitoring-beszel
         icon: beszel.png
         href: https://monitor.internal
         siteMonitor: https://monitor.internal
         description: Host, VM, LXC, and container metrics
     - Dozzle:
+        id: monitoring-dozzle
         icon: dozzle.png
         href: https://logs.internal
         siteMonitor: https://logs.internal
         description: Docker live logs for admin troubleshooting
 
-- Operations Extensions:
-    - NetAlertX:
-        icon: netalertx.png
-        href: https://netalert.internal
-        siteMonitor: https://netalert.internal
-        description: LAN inventory, device changes, and IP drift
-    - Scrutiny:
-        icon: scrutiny.png
-        href: https://disks.internal
-        siteMonitor: https://disks.internal
-        description: SMART disk health and failure trend dashboard
-    - ntfy:
-        icon: ntfy.png
-        href: https://alerts.internal
-        siteMonitor: https://alerts.internal
-        description: Self-hosted notifications for alerts and jobs
-
 - Critical Data:
     - Vaultwarden:
+        id: data-vaultwarden
         icon: vaultwarden.png
         href: https://pwd.internal
         siteMonitor: https://pwd.internal
         description: CRITICAL DATA - password vault with backup and restore proof
     - Immich:
+        id: data-immich
         icon: immich.png
         href: https://foto.internal
         siteMonitor: https://foto.internal/api/server/ping
         description: CRITICAL DATA - photos protected by DB, library, PBS, and integrity checks
+        widget:
+          type: immich
+          url: http://192.168.1.110:2283
+          key: "{{HOMEPAGE_VAR_IMMICH_API_KEY}}"
+          version: 2
+          fields: ["photos", "videos", "storage", "users"]
     - Nextcloud:
+        id: data-nextcloud
         icon: nextcloud.png
         href: https://files.internal
+        siteMonitor: https://files.internal
         description: CRITICAL DATA - personal cloud with app-aware and PBS recovery
     - Syncthing:
+        id: data-syncthing
         icon: syncthing.png
         href: https://sync.internal
         siteMonitor: https://sync.internal
         description: CRITICAL DATA - peer-to-peer file sync UI and device identity
     - Paperless-ngx:
+        id: data-paperless
         icon: paperless-ngx.png
         href: https://paper.internal
         siteMonitor: https://paper.internal
@@ -129,31 +184,37 @@
 
 - Apps:
     - Home Assistant:
+        id: app-home-assistant
         icon: home-assistant.png
         href: https://ha.internal
         siteMonitor: https://ha.internal
         description: Home automation VM and integrations
     - Jellyfin:
+        id: app-jellyfin
         icon: jellyfin.png
         href: https://media.internal
         siteMonitor: https://media.internal
         description: Private media server
     - FreshRSS:
+        id: app-freshrss
         icon: freshrss.png
         href: https://rss.internal
         siteMonitor: https://rss.internal
         description: RSS reader
     - Karakeep:
+        id: app-karakeep
         icon: karakeep.png
         href: https://bookmarks.internal
         siteMonitor: https://bookmarks.internal
         description: Bookmarks and web archive
     - SearXNG:
+        id: app-searxng
         icon: searxng.png
         href: https://search.internal
         siteMonitor: https://search.internal
         description: Private metasearch
     - Forgejo:
+        id: app-forgejo
         icon: forgejo.png
         href: https://git.internal
         siteMonitor: https://git.internal
@@ -161,6 +222,7 @@
 
 - Advanced Future:
     - Open WebUI:
+        id: app-open-webui
         icon: open-webui.png
         href: https://ai.internal
         siteMonitor: https://ai.internal

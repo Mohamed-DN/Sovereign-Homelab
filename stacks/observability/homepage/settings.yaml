@@ -8,6 +8,7 @@ statusStyle: dot
 fullWidth: true
 useEqualHeights: true
 target: _self
+disableIndexing: true
 quicklaunch:
   searchDescriptions: true
   hideInternetSearch: false
@@ -34,16 +35,16 @@ layout:
     icon: proxmox.png
     style: row
     columns: 2
+  At a Glance:
+    tab: Operations
+    icon: uptime-kuma.png
+    style: row
+    columns: 4
   Monitoring:
     tab: Operations
     icon: uptime-kuma.png
     style: row
     columns: 4
-  Operations Extensions:
-    tab: Operations
-    icon: scrutiny.png
-    style: row
-    columns: 3
   Critical Data:
     tab: Data
     icon: vaultwarden.png
