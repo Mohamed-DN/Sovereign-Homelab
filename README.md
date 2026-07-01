@@ -27,7 +27,7 @@ The repository is written in English and is designed to be used like an infrastr
 
 ## Live Foundation Status
 
-Last live build log: [2026-06-30](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md).
+Last live build log: [2026-07-01](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-01.md).
 
 | Area | Current state |
 |---|---|
@@ -145,6 +145,7 @@ High-signal reference files:
 | [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md) | researched future ideas, benefits, risks, and priorities; no live changes |
 | [LIVE_BUILD_LOG_2026-06-29.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-29.md) | internal HTTPS/NPM migration, `sole_monitor`, HTML alerts, weekly report, and live validation |
 | [LIVE_BUILD_LOG_2026-06-30.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md) | CA onboarding portal, modern Recovery dashboard, and current Immich data-protection checkpoint |
+| [LIVE_BUILD_LOG_2026-07-01.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-01.md) | interactive operations dashboard, private Kuma status rollup, scoped widgets, and firewall/VPN architecture decisions |
 
 ## Deployment Workflow
 

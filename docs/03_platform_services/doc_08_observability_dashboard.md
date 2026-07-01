@@ -105,7 +105,7 @@ Required groups:
 | Identity | Authentik |
 | Recovery | PBS and client HTTPS trust onboarding |
 | Monitoring | Uptime Kuma, Beszel, Dozzle |
-| Operations Extensions | NetAlertX, Scrutiny, ntfy |
+| At a Glance | Fleet-wide Kuma state, network inventory, SMART health, and recent protected alerts |
 | Critical Data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | Apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
 | Advanced Future | Open WebUI and future higher-risk tools |
@@ -129,7 +129,57 @@ Recommended files:
 | `settings.yaml` | tabs, layout, equal card height, icon style, and status style |
 | `services.yaml` | service cards, aliases, icons, and optional `siteMonitor` |
 | `bookmarks.yaml` | repo and upstream documentation shortcuts |
-| `custom.css` | small visual polish only; do not rely on CSS for operational state |
+| `custom.css` | presentation of native Homepage monitor state; Kuma remains authoritative |
+
+### Interactive Operations View
+
+The Operations tab starts with an `At a Glance` group. It uses read-only or narrowly scoped interfaces and does not reuse human administrator credentials:
+
+| Card | Data source | Credential rule |
+|---|---|---|
+| Fleet Health | private Kuma status page `sovereign-ops` | no token; page is reachable only from LAN/VPN |
+| Network Inventory | NetAlertX API on `LXC103_IP:20212` | dedicated API token in the root-only Homepage env |
+| Disk Health | Scrutiny `/api/summary` | no credential; API stays on the trusted LAN |
+| Recent Alerts | ntfy topic `sovereign-alerts` | read-only topic token |
+| Immich | `/api/server/statistics` | API key with only `server.statistics` |
+
+The PVE and PBS cards continue to use the existing `sole_monitor` identities. AdGuard is intentionally not given a widget because its Homepage integration requires the human web password. Beszel is intentionally link-and-health-only because its current Homepage widget requires a Beszel superuser. Headscale is also link-and-health-only because a Headscale API key is broader than the information required by the launchpad.
+
+Real values belong only in:
+
+```text
+/root/sovereign-secrets/homepage-monitoring.env
+```
+
+Required variable names:
+
+```text
+HOMEPAGE_VAR_PVE_TOKEN_ID
+HOMEPAGE_VAR_PVE_TOKEN_SECRET
+HOMEPAGE_VAR_PBS_TOKEN_ID
+HOMEPAGE_VAR_PBS_TOKEN_SECRET
+HOMEPAGE_VAR_IMMICH_API_KEY
+HOMEPAGE_VAR_NETALERTX_API_TOKEN
+HOMEPAGE_VAR_NTFY_READER_TOKEN
+```
+
+Every service has a stable `id`. The CSS health rail reads Homepage's native `siteMonitor` state: emerald means the card's HTTP check is healthy, rose means it failed, and gray means the result is not available yet. The rail is a presentation aid; investigate and alert from Kuma.
+
+### Private Kuma Status Page
+
+Create a status page with slug `sovereign-ops`. Keep it private by network placement: `status.internal` resolves only through AdGuard and is reachable only from the home LAN or Headscale VPN.
+
+Use these groups and include every active monitor exactly once:
+
+| Group | Contents |
+|---|---|
+| Access and VPN | public Headscale, AdGuard DNS/UI, NPM, Headscale UI/API, CrowdSec LAPI |
+| Platform and Recovery | PVE, PBS, Authentik, Homepage, Kuma, Beszel, Dozzle, CA and trust portal |
+| Critical Data | Vaultwarden, Syncthing, Paperless, Immich, Nextcloud |
+| Applications | RSS, bookmarks, search, Git, RustDesk, Jellyfin, Open WebUI/Ollama, Home Assistant |
+| Operations Extensions | NetAlertX, Scrutiny, ntfy |
+
+The Homepage Kuma widget reads `http://uptime-kuma:3001` on the private Compose network and displays `up`, `down`, `uptime`, and `incident`. Do not expose the status page through a public DNS name.
 
 ## Phase D: Uptime Kuma Monitor Catalog
 
@@ -155,7 +205,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `Headscale API TCP` | TCP Port | `LXC100_IP:8080` | 60s | open TCP port |
 | `ops-netalertx` | HTTP | `https://netalert.internal` | 60s | HTTP response after deployment |
 | `ops-scrutiny` | HTTP | `https://disks.internal` | 60s | HTTP response after deployment |
-| `ops-ntfy` | HTTP | `https://alerts.internal` | 60s | HTTP response after deployment |
+| `ops-ntfy` | HTTP | `https://alerts.internal/v1/health` | 60s | HTTP 200 without exposing a protected topic |
 | `app-vaultwarden` | HTTP | `https://pwd.internal` | 60s | HTTP response |
 | `app-immich` | HTTP | `https://foto.internal/api/server/ping` | 60s | JSON ping response |
 | `app-nextcloud` | HTTP(s) | `https://files.internal` | 60s | enable after AIO Apache is healthy; allow internal certificate until the private CA is trusted |
@@ -178,7 +228,7 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 
 Do not add monitors for empty planned aliases. Add them when the service is installed.
 
-Live state as of 2026-06-30: 38 monitors exist in Uptime Kuma after adding the trust portal monitor. They cover VPN, DNS, 26 NPM-managed private aliases, deployed apps, operations extensions, protocol ports, and the direct internal CA health endpoint. Uptime Kuma uses SQLite in the current deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
+Live state as of 2026-07-01: 38 monitors exist in Uptime Kuma and all are grouped on the private `sovereign-ops` status page. They cover VPN, DNS, 26 NPM-managed private aliases, deployed apps, operations extensions, protocol ports, and the direct internal CA health endpoint. Uptime Kuma uses SQLite in the current deployment; the generated admin bootstrap is stored only on LXC 101 under `/root/sovereign-secrets`.
 
 Because every private alias uses the internal Smallstep CA, the live Kuma and Homepage containers mount the CA root and start with `NODE_EXTRA_CA_CERTS`. Kuma uses:
 
@@ -218,6 +268,7 @@ Alert rules:
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
 - ntfy is deployed, but protect topics and authentication before sending sensitive alert payloads.
+- The live ntfy service uses deny-by-default access. Homepage reads only `sovereign-alerts`; publishers use a separate write-only identity.
 - The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py` and listens on LXC 101 port `8099`. The port is LAN/VPN-only and every POST requires the bearer token; it is not an NPM web application.
 - SMTP credentials and the relay bearer token must exist only under `/root/sovereign-secrets`; never store them in Compose files, Markdown, Git, or Uptime Kuma notes.
 
@@ -367,6 +418,14 @@ Check in this order:
 3. Upstream: `curl -I http://UPSTREAM_IP:PORT`.
 4. Container/VM: service is running.
 5. Backup: verify backup exists before destructive repair.
+
+### At-a-Glance Widget Shows an API Error
+
+1. Confirm the application itself remains reachable from its normal card.
+2. Check the upstream API from LXC 101, not from the browser.
+3. Confirm the variable name exists in `/root/sovereign-secrets/homepage-monitoring.env` without printing its value.
+4. Recreate only Homepage after changing its env file.
+5. Revoke and replace one token at a time; never substitute a human password.
 
 ## Sources
 

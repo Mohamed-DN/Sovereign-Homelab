@@ -64,11 +64,29 @@ The current live build already includes Paperless-ngx, Home Assistant OS, Jellyf
 | GitOps | Ansible + Compose | before Kubernetes |
 | Firewall/router | OPNsense | if you want serious VLAN separation |
 
+## Firewall Decision
+
+The current edge remains the TIM router. The P710 exposes only one physical Ethernet interface, so a pfSense or OPNsense VM would not provide a clean dedicated WAN/LAN boundary without either a second physical NIC or a correctly designed managed-switch VLAN trunk.
+
+When segmentation becomes a real requirement, use a dedicated appliance with at least two supported Ethernet interfaces. OPNsense is the preferred all-open-source direction for this repository because its API and ACL model support read-only operational integration. pfSense CE remains a valid alternative; pfSense Plus is not the default for an all-open-source build. Do not insert either firewall into the production path until its configuration backup, console recovery, rollback cabling, and VLAN test plan are complete.
+
+## Headscale and NetBird Decision
+
+| Area | Headscale/Tailscale today | NetBird self-hosted | Decision |
+|---|---|---|---|
+| Current remote access | proven from 4G with subnet and exit routes | would require client migration | keep Headscale |
+| Components | Headscale plus existing Tailscale clients | Management, Signal, Relay/STUN, dashboard, identity | avoid added day-one dependencies |
+| Policy | Headscale grants/tags and route approval | integrated network/access policies | Headscale is sufficient now |
+| Observability | Kuma, Homepage, logs, and route audits | native service metrics and Grafana dashboards | evaluate only if current visibility becomes insufficient |
+| Migration risk | none | route, DNS, client, and mobile cutover | no production migration |
+
+NetBird may be tested later on isolated peers. A pilot must not advertise the same LAN subnet or default route as the production Headscale routers, because overlapping control planes make routing and rollback ambiguous.
+
 ## Excluded for Now
 
 - Kubernetes: too much overhead for this phase.
 - Traefik migration: useful, but NPM is already operational.
-- NetBird migration: interesting, but Headscale is already the core.
+- NetBird migration: no current operational benefit justifies replacing the proven Headscale 4G, subnet-router, DNS, and exit-node path.
 - Wazuh immediately: too heavy without a log strategy.
 - Full media automation: storage and security first.
 

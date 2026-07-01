@@ -148,6 +148,22 @@ function Get-PublicARecords {
         }
     }
 
+    if ($records.Count -eq 0) {
+        try {
+            $dohUrl = "https://cloudflare-dns.com/dns-query?name=$Name&type=A"
+            $dohRaw = (& curl.exe -fsS --max-time 15 -H 'accept: application/dns-json' $dohUrl | Out-String)
+            $doh = $dohRaw | ConvertFrom-Json
+            foreach ($answer in @($doh.Answer | Where-Object { [int]$_.type -eq 1 })) {
+                $ip = [string]$answer.data
+                if ($ip -match '^\d+\.\d+\.\d+\.\d+$' -and -not $records.Contains($ip)) {
+                    $records.Add($ip) | Out-Null
+                }
+            }
+        } catch {
+            Add-Warn "public DNS-over-HTTPS fallback failed: $($_.Exception.Message)"
+        }
+    }
+
     return @($records)
 }
 
@@ -301,6 +317,8 @@ try {
     $tokenExpiryBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($tokenExpirySource))
     Test-RemoteCondition 'PVE and PBS sole_monitor tokens have no automatic expiry' "echo $tokenExpiryBase64 | base64 -d | python3 -"
     Test-RemoteCondition 'monitoring token files are root-only' 'test "$(stat -c %a /root/sovereign-secrets/monitoring/pve-api-token.env)" = 600 && test "$(stat -c %a /root/sovereign-secrets/monitoring/pbs-api-token.env)" = 600 && pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/homepage-monitoring.env)" = 600'''
+    Test-RemoteCondition 'dashboard widget credentials are root-only' 'for f in /root/sovereign-secrets/monitoring/immich-homepage-api-key /root/sovereign-secrets/monitoring/netalertx-homepage-api-token /root/sovereign-secrets/monitoring/ntfy-homepage-reader-token /root/sovereign-secrets/monitoring/ntfy-alert-publisher-token; do test "$(stat -c %a "$f")" = 600 || exit 1; done'
+    Test-RemoteCondition 'ntfy topic access is deny-by-default with separated identities' 'pct exec 103 -- docker exec ntfy ntfy user list 2>/dev/null | grep -q homelab-admin && pct exec 103 -- docker exec ntfy ntfy user list 2>/dev/null | grep -q homepage-reader && pct exec 103 -- docker exec ntfy ntfy user list 2>/dev/null | grep -q sovereign-publisher && test "$(pct exec 103 -- curl -sS -o /dev/null -w "%{http_code}" "http://127.0.0.1:8093/sovereign-alerts/json?poll=1")" = 403'
 
     Write-Section 'Public VPN Edge'
     Test-HttpStatus "https://$PublicVpnHost/health" 'Headscale public health'
@@ -477,7 +495,7 @@ PY
     Test-ResolvedHttpStatus 'AdGuard API alias' 'https://adguard.internal/control/status' '^401$'
     Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'https://npm.internal' 'Nginx Proxy Manager'
     Test-ResolvedHttpContent 'Authentik alias' 'https://auth.internal/if/user/' 'authentik'
-    Test-ResolvedHttpContent 'Homepage alias' 'https://dash.internal' '<title[^>]*>Homepage</title>'
+    Test-ResolvedHttpContent 'Homepage alias' 'https://dash.internal' '<title[^>]*>Sovereign Homelab</title>'
     Test-ResolvedHttpContent 'Uptime Kuma alias' 'https://status.internal' 'Uptime Kuma'
     Test-ResolvedHttpContent 'Beszel alias' 'https://monitor.internal' 'Beszel'
     Test-ResolvedHttpContent 'Dozzle alias' 'https://logs.internal' 'Dozzle'
@@ -509,6 +527,36 @@ PY
         }
     }
     Write-Host "Homepage cards checked: $cardCount"
+    if ($cardCount -eq 29) {
+        Add-Pass 'Homepage contains the expected 29 interactive cards'
+    } else {
+        Add-Failure "Homepage contains $cardCount cards, expected 29"
+    }
+
+    $glance = $services | Where-Object { $_.name -eq 'At a Glance' } | Select-Object -First 1
+    $glanceWidgetTypes = @($glance.services | ForEach-Object { $_.widgets.type })
+    if ($glance.services.Count -eq 4 -and
+        $glanceWidgetTypes -contains 'uptimekuma' -and
+        $glanceWidgetTypes -contains 'netalertx' -and
+        $glanceWidgetTypes -contains 'scrutiny' -and
+        $glanceWidgetTypes -contains 'ntfy') {
+        Add-Pass 'Homepage At a Glance contains the four expected read-only widgets'
+    } else {
+        Add-Failure 'Homepage At a Glance widget inventory is incomplete'
+    }
+
+    try {
+        $statusPageRaw = (& curl.exe -k -fsS --max-time 20 --resolve "status.internal:443:$NpmIp" 'https://status.internal/api/status-page/sovereign-ops' | Out-String)
+        $statusPage = $statusPageRaw | ConvertFrom-Json
+        $statusMonitorCount = @($statusPage.publicGroupList | ForEach-Object { $_.monitorList }).Count
+        if ($statusPage.publicGroupList.Count -eq 5 -and $statusMonitorCount -eq 38) {
+            Add-Pass 'private Kuma status page contains five groups and all 38 monitors'
+        } else {
+            Add-Failure "private Kuma status page has $($statusPage.publicGroupList.Count) groups and $statusMonitorCount monitors"
+        }
+    } catch {
+        Add-Failure "private Kuma status page validation failed: $($_.Exception.Message)"
+    }
 
     Write-Section 'Proxmox Baseline'
     Invoke-Ssh "hostname; pveversion; systemctl --failed --no-pager; pvesm status; zpool status -x; pct list; qm list"

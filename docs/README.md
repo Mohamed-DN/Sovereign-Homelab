@@ -24,3 +24,4 @@ Current high-signal files:
 - [Future Improvements Research](00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md)
 - [Live Build Log: 2026-06-29](06_operations_security/LIVE_BUILD_LOG_2026-06-29.md)
 - [Live Build Log: 2026-06-30](06_operations_security/LIVE_BUILD_LOG_2026-06-30.md)
+- [Live Build Log: 2026-07-01](06_operations_security/LIVE_BUILD_LOG_2026-07-01.md)

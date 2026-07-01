@@ -154,7 +154,7 @@ The latest live audit passed these checks:
 - NPM recovery admin credential was validated and stored only in the root-only local vault;
 - Authentik `akadmin` recovery credential was validated and stored only in the root-only local vault;
 - critical alias fingerprints match the expected services;
-- all 27 Homepage cards return `2xx` or expected login/redirect status;
+- all 29 Homepage cards return `2xx` or expected login/redirect status;
 - 37 Uptime Kuma monitors are active and UP;
 - Uptime Kuma recovery admin credential was validated and stored only in the root-only local vault;
 - Beszel recovery admin credential was validated and stored only in the root-only local vault;
