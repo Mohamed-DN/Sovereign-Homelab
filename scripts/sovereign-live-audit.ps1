@@ -281,6 +281,30 @@ try {
     Test-RemoteCondition 'alert relay environment file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/alert-relay.env)" = 600'''
     Test-RemoteCondition 'alert relay token file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/alert-relay-token)" = 600'''
     Test-RemoteCondition 'SMTP password file is root-only' 'pct exec 101 -- bash -lc ''test "$(stat -c %a /root/sovereign-secrets/smtp-password)" = 600'''
+    $kumaAlertCoverageSource = @'
+import sqlite3
+import sys
+
+path = "/var/lib/docker/volumes/sovereign-observability_uptime_kuma_data/_data/kuma.db"
+required = {
+    "Headscale public VPN", "AdGuard resolves dash.internal", "AdGuard DNS TCP",
+    "Nginx Proxy Manager UI", "Proxmox VE", "Proxmox Backup Server",
+    "Authentik", "Homepage", "Uptime Kuma", "Beszel Hub", "Vaultwarden",
+    "Syncthing UI", "Paperless-ngx", "Forgejo", "Immich", "Nextcloud",
+    "ops-scrutiny", "ops-ntfy", "app-home-assistant", "Internal CA health",
+}
+con = sqlite3.connect(path)
+rows = con.execute(
+    "select m.name from monitor m "
+    "join monitor_notification mn on mn.monitor_id=m.id "
+    "join notification n on n.id=mn.notification_id "
+    "where m.active=1 and n.active=1 and n.name='Sovereign Email Relay'"
+).fetchall()
+linked = {row[0] for row in rows}
+sys.exit(0 if required <= linked else 1)
+'@
+    $kumaAlertCoverageBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($kumaAlertCoverageSource))
+    Test-RemoteCondition 'P0 and P1 Kuma monitors are linked to the active email relay' "echo $kumaAlertCoverageBase64 | base64 -d | pct exec 101 -- python3 -"
 
     $weeklyReportScript = Join-Path $RepoRoot 'scripts/sovereign-weekly-report.py'
     if (Invoke-LocalPython -Arguments @('-m', 'py_compile', $weeklyReportScript)) {
@@ -337,6 +361,11 @@ try {
     Test-RemoteCondition 'Headscale MagicDNS is enabled' "pct exec 100 -- grep -F -x '  magic_dns: true' $headscaleConfig"
     Test-RemoteCondition 'Headscale forces clients to use tailnet DNS settings' "pct exec 100 -- grep -F -x '  override_local_dns: true' $headscaleConfig"
     Test-RemoteCondition 'Headscale global DNS points clients to AdGuard' "pct exec 100 -- grep -F -x '      - 192.168.1.50' $headscaleConfig"
+    Test-RemoteCondition 'Headscale configuration and active ACL policy parse successfully' 'pct exec 100 -- docker exec headscale headscale configtest >/dev/null && pct exec 100 -- grep -q ''"acls"'' /opt/core-network/headscale/policy/policy.hujson && test "$(pct exec 100 -- stat -c %s /opt/core-network/headscale/policy/policy.hujson)" -gt 10'
+    $headscaleTagSource = 'import json,subprocess,sys;n=json.loads(subprocess.check_output(["docker","exec","headscale","headscale","-o","json","nodes","list"],text=True));m={x.get("name"):set(x.get("tags",[])) for x in n};sys.exit(0 if "tag:exit" in m.get("proxmox-p710",set()) and "tag:router" in m.get("core-network",set()) else 1)'
+    $headscaleTagBase64 = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($headscaleTagSource))
+    Test-RemoteCondition 'Headscale infrastructure nodes carry the required router and exit tags' "pct exec 100 -- bash -lc 'echo $headscaleTagBase64 | base64 -d | python3 -'"
+    Test-RemoteCondition 'Headscale tagged router and exit node can health-check each other' 'tailscale ping -c 1 100.64.0.5 >/dev/null && pct exec 100 -- tailscale ping -c 1 100.64.0.4 >/dev/null'
 
     $npmVpnEdgeCheck = @'
 pct exec 100 -- python3 - <<'PY'
@@ -495,7 +524,7 @@ PY
     Test-ResolvedHttpStatus 'AdGuard API alias' 'https://adguard.internal/control/status' '^401$'
     Test-ResolvedHttpContent 'Nginx Proxy Manager alias' 'https://npm.internal' 'Nginx Proxy Manager'
     Test-ResolvedHttpContent 'Authentik alias' 'https://auth.internal/if/user/' 'authentik'
-    Test-ResolvedHttpContent 'Homepage alias' 'https://dash.internal' '<title[^>]*>Sovereign Homelab</title>'
+    Test-ResolvedHttpContent 'Homepage alias' 'https://dash.internal' '<title[^>]*>Sovereign Operations</title>'
     Test-ResolvedHttpContent 'Uptime Kuma alias' 'https://status.internal' 'Uptime Kuma'
     Test-ResolvedHttpContent 'Beszel alias' 'https://monitor.internal' 'Beszel'
     Test-ResolvedHttpContent 'Dozzle alias' 'https://logs.internal' 'Dozzle'

@@ -1,6 +1,6 @@
 # Runbook 06: Headscale Hardening
 
-This runbook takes the VPN from "it works" to "it is governed": policy, tags, route approval, controlled exit node, audit, and rollback.
+This runbook takes the VPN from "it works" to "it is governed": policy, tags, route approval, controlled exit node, audit, and rollback. The live v0.28 release uses ACL syntax. Do not copy a `grants` example from newer documentation until `headscale configtest` on the pinned stable release accepts it.
 
 Expected result:
 
@@ -20,8 +20,8 @@ Logical model:
 
 | Role | Example | Policy identity |
 |---|---|---|
-| Personal admin | admin laptop, workstation | `group:admin` |
-| Personal devices | smartphone, laptop | `group:users` |
+| Current owner | admin laptop, workstation, personal phone | `group:owners` |
+| Future normal users | family phones and laptops enrolled under a separate user | `group:members` |
 | Subnet router | LXC 100 | `tag:router` |
 | Exit node | Proxmox P710 | `tag:exit` |
 | Web services | apps behind NPM | `tag:service` |
@@ -33,7 +33,7 @@ Security rules:
 - Only admins can tag routers, exit nodes, and services.
 - Only nodes with `tag:router` can auto-approve `192.168.1.0/24`.
 - Only nodes with `tag:exit` can auto-approve exit-node routes.
-- Internet access through the exit node goes through `autogroup:internet` and `via`.
+- Internet access through approved exit nodes is restricted through `autogroup:internet`.
 
 ---
 
@@ -78,20 +78,18 @@ Replace `mohamed@` with the real user shown by:
 docker exec headscale headscale users list
 ```
 
-Initial policy:
+Initial single-owner policy:
 
 ```json
 {
   "groups": {
-    "group:admin": ["mohamed@"],
-    "group:users": ["mohamed@"]
+    "group:owners": ["mohamed@"]
   },
 
   "tagOwners": {
-    "tag:router": ["group:admin"],
-    "tag:exit": ["group:admin"],
-    "tag:service": ["group:admin"],
-    "tag:admin": ["group:admin"]
+    "tag:router": ["group:owners"],
+    "tag:exit": ["group:owners"],
+    "tag:service": ["group:owners"]
   },
 
   "autoApprovers": {
@@ -101,27 +99,31 @@ Initial policy:
     "exitNode": ["tag:exit"]
   },
 
-  "grants": [
+  "acls": [
     {
-      "src": ["group:admin"],
-      "dst": ["*"],
-      "ip": ["*"]
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["autogroup:self:*"]
     },
     {
-      "src": ["group:users"],
-      "dst": ["192.168.1.50/32"],
-      "ip": ["udp:53", "tcp:53", "tcp:80", "tcp:443", "tcp:3000", "icmp:*"]
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["tag:router:*", "tag:exit:*"]
     },
     {
-      "src": ["group:users"],
-      "dst": ["tag:service"],
-      "ip": ["tcp:80", "tcp:443"]
+      "action": "accept",
+      "src": ["tag:router", "tag:exit"],
+      "dst": ["tag:router:*", "tag:exit:*"]
     },
     {
-      "src": ["group:users"],
-      "dst": ["autogroup:internet"],
-      "via": ["tag:exit"],
-      "ip": ["*"]
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["192.168.1.0/24:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["autogroup:internet:*"]
     }
   ]
 }
@@ -129,11 +131,15 @@ Initial policy:
 
 Explanation:
 
-- `group:admin` has full management access.
-- `group:users` can use DNS/HTTPS toward AdGuard and services.
-- `autogroup:internet` allows full tunnel only through nodes tagged `tag:exit`.
+- `group:owners` can reach owned personal nodes, tagged infrastructure nodes, and the private LAN.
+- `tag:router` and `tag:exit` can health-check each other without gaining access to arbitrary personal devices.
+- `autogroup:internet` allows owner devices to select an approved exit node. The current deployment approves only the node tagged `tag:exit`.
 - `autoApprovers.routes` auto-approves only `192.168.1.0/24` from nodes tagged `tag:router`.
 - `autoApprovers.exitNode` auto-approves exit nodes tagged `tag:exit`.
+
+Do not put future family or guest identities in `group:owners`. Enroll them under separate Headscale users and add narrow `group:members` ACL rules for DNS, NPM HTTPS, and explicitly approved LAN targets. A policy that places the same user in both an unrestricted owner group and a restricted member group is not least privilege because accept rules are additive.
+
+When a later stable Headscale release supports grants in the live binary, migrate this policy in an isolated test first. ACLs and grants are different schemas; a successful parse in online documentation is not evidence that the pinned server accepts it.
 
 ---
 
@@ -150,6 +156,7 @@ Validate the configuration:
 
 ```bash
 docker exec headscale headscale configtest
+test "$(tr -d '[:space:]' < /opt/core-network/headscale/policy/policy.hujson)" != '{}'
 ```
 
 If the container does not see the policy volume yet, restart only after updating `docker-compose.yml`:

@@ -2,6 +2,10 @@
 
 Immich is the private photo and video library. It is a P0 critical service because the source assets are irreplaceable and the database contains the metadata that makes those assets usable. A database dump without the files is incomplete; a file copy without the matching database is also incomplete.
 
+## Purpose and Architecture
+
+Immich provides mobile backup, timeline browsing, albums, search, and metadata management for personal photos and videos. The browser and mobile clients reach `foto.internal` through NPM, while the application, PostgreSQL, Valkey, and machine-learning containers remain inside VM 110. The upload tree is mounted from the dedicated data disk; PostgreSQL data and every original asset are part of the recovery contract.
+
 ## Target and Sizing
 
 | Field | Live value |
@@ -134,6 +138,17 @@ The isolated database test creates a temporary database in the existing PostgreS
 For a consistent external copy, stop `immich-server` while copying the database and asset filesystem. If downtime is not possible, capture the database first and the filesystem second. This ordering can leave harmless extra files, while the reverse order can leave database rows pointing at missing assets.
 
 Do not stop containers during the normal PBS snapshot unless a separate maintenance window is approved. Use the app-aware dump as the consistency anchor and PBS as the guest-level recovery layer.
+
+## External SSD Recovery
+
+The planned 2 TB external SSD uses two recovery formats:
+
+- a PBS removable datastore containing full VM 110 snapshots;
+- an encrypted restic repository containing the Immich database, complete upload tree, and stack configuration.
+
+The live server is not modified until the SSD is attached and its model, serial, capacity, and `/dev/disk/by-id` identity have been reviewed. Follow [Immich External SSD Recovery](../05_backup_dr/IMMICH_EXTERNAL_SSD_RECOVERY.md) for initialization, backup, verification, unmount, and isolated restore procedures.
+
+Do not treat the SSD as protection while it remains permanently attached. After a verified run, unmount it through PBS and store it disconnected from the P710.
 
 ## Restore Drills
 

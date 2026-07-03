@@ -2,6 +2,20 @@
 
 These scripts are reusable helpers for live operations. They must not contain real tokens, passwords, private keys, or environment-specific secrets.
 
+## Repository Validation
+
+File:
+
+- `validate-repository.ps1`
+
+Run before every commit and deployment:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate-repository.ps1
+```
+
+It checks local Markdown links, DNS policy, secret-like strings, Compose variable coverage, pinned image policy, the application-runbook contract, Homepage aliases and IDs, and every Compose template. `-SkipCompose` is permitted only on a workstation without Docker; CI or another machine must still run full Compose rendering before publication.
+
 ## Live Audit
 
 File:
@@ -97,6 +111,18 @@ Files:
 The VM110 job stores all artifacts root-only. It creates daily PostgreSQL dumps and metadata inventories, weekly count/size comparisons, quarterly full SHA-256 manifests, and an isolated temporary-database restore test. Failures are sent through the existing token-authenticated alert relay. The script never edits the Immich asset tree.
 
 See [Immich Critical-Data Runbook](../docs/04_apps/immich.md) for deployment, retention, restore, and 3-2-1 gates.
+
+## Immich External SSD Recovery
+
+Files:
+
+- `sovereign-immich-offline-pbs.sh`
+- `sovereign-immich-external-restic.sh`
+- `systemd/sovereign-immich-external-restic.service`
+
+The Proxmox helper creates a full VM 110 backup only when the dedicated external PBS storage is active. The VM110 helper creates an encrypted portable restic snapshot after a live pre-copy and a short write-free final pass. Both helpers refuse unsafe defaults and never initialize or format a disk.
+
+Do not install or schedule these helpers until the 2 TB SSD is attached and commissioned through [Immich External SSD Recovery](../docs/05_backup_dr/IMMICH_EXTERNAL_SSD_RECOVERY.md).
 
 ## Alert Email Relay
 

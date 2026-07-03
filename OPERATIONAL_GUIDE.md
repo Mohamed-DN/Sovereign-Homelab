@@ -1,361 +1,171 @@
-# Sovereign Homelab Operational Procedures and Recovery Plan
+# Sovereign Homelab Operator Guide
 
-This guide is the consolidated operating procedure for the repository. It describes the final architecture, the deployment order, the service interconnections, and the recovery model.
+This is the short day-2 entry point for an already installed Sovereign Homelab. It does not duplicate installation runbooks.
 
-## 1. ITERATION LOG (Traceability)
+- Build from zero: [START_HERE.md](START_HERE.md)
+- Understand dependencies and sensitive flows: [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md)
+- Run detailed operations: [Operations Manual](docs/06_operations_security/OPERATIONS_MANUAL.md)
+- Diagnose a failure: [Troubleshooting Matrix](docs/06_operations_security/TROUBLESHOOTING_MATRIX.md)
+- Recover services: [PBS Critical Operations](docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md)
 
-- **Round 1:** Reloaded the GitHub state, mapped Proxmox/LXC/VM targets, Docker micro-stacks, `.internal` service aliases, and the public Headscale edge.
-- **Round 2:** Removed generated agent scratch material, identified unsafe maintenance behavior, and corrected the workflow so updates require validation before mutation.
-- **Round 3:** Reconciled service runbooks with official upstream guidance for Immich, Nextcloud AIO, Paperless-ngx, Homepage, RustDesk, Forgejo, and the other defined stacks.
-- **Round 4:** Re-audited service visibility, recovery paths, DNS/proxy flow, and data protection rules so every service is either reachable through the documented path or listed as an exception.
-- **Round 5:** Re-ran the live audit, created the root-only local credentials file on the Proxmox host, added a public safe credentials template, added an optional anti-spam email alert relay, and documented future improvements as research only.
-- **Round 6:** Re-ran the live audit, recovered Beszel admin access through the supported PocketBase path, stored the recovery credential only in the root-only local vault, and added the public admin-access recovery runbook.
-- **Round 7:** Added a local alert-relay self-test and dry-run mode so the anti-spam state machine can be validated before SMTP secrets are available.
-- **Round 8:** Added the Authentik hybrid identity design: OIDC/proxy-provider by default, LDAPS only for compatibility, standard homelab groups, and service-by-service break-glass rules.
-- **Round 9:** Added live-audit gates for VPN control-plane invariants, public NPM edge flags, infrastructure Tailscale DNS posture, IP forwarding, and PBS backup coverage.
-- **Round 10:** Migrated every private web alias to GUI-managed NPM HTTPS, separated Homepage PVE/PBS widgets onto read-only `sole_monitor` identities, synchronized supported initialized admin logins after app-aware backups, and added HTML alert plus weekly credential-lifecycle reporting.
+## Non-Negotiable Invariants
 
-## 2. COMPLETE AND DETAILED PROCEDURES (Step-by-Step Guide)
+1. Only `vpn.yourdomain.duckdns.org` is public by default.
+2. Private services use HTTPS aliases under `.internal` and remain LAN/VPN-only.
+3. Remote clients contact Headscale for coordination, AdGuard for DNS, the subnet router for LAN routes, and the selected exit node only for default internet traffic.
+4. NPM is the browser-facing reverse-proxy authority.
+5. Uptime Kuma is the availability authority; Homepage is the presentation layer.
+6. Human passwords are never used by monitoring widgets.
+7. A green backup job is not proof of recovery; isolated restores are required.
+8. Backup scripts never edit Immich originals.
+9. Secrets remain under `/root/sovereign-secrets`, not in Git or NPM.
+10. One service changes at a time.
 
-### Layer 0: Repository and Safety Baseline
+## Start an Operations Session
 
-**Action/Command**
+From the workstation:
 
-```bash
+```powershell
+cd C:\DBA\Sovereign-Homelab
 git status --short --branch
 git pull --ff-only origin main
+powershell -ExecutionPolicy Bypass -File .\scripts\validate-repository.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
+```
+
+Stop before changing anything if storage, PBS coverage, DNS, public Headscale health, active routes, certificate expiry, or Immich protection fails.
+
+## Daily Check
+
+Open `https://dash.internal` and review:
+
+- Operations -> Fleet Health for current Kuma state;
+- Operations -> Disk Health for SMART failures;
+- Operations -> Recent Alerts for unresolved notifications;
+- Data -> Immich for API health;
+- Recovery -> PBS for the latest critical snapshots.
+
+Do not diagnose from Homepage color alone. Open Uptime Kuma, then the owning service logs and metrics.
+
+## Weekly Check
+
+The Monday report must confirm:
+
+- all P0/P1 monitors are UP;
+- `ssd_pool` and the PBS datastore have safe free capacity;
+- each required guest has a recent PBS snapshot;
+- certificate renewal timers and DuckDNS update timers are active;
+- Headscale subnet and exit routes are approved, available, and serving;
+- Immich database dump and inventory are recent;
+- monitoring and root-account expiration state is expected.
+
+If the report email is missing, follow the alert-relay section in the [Operations Manual](docs/06_operations_security/OPERATIONS_MANUAL.md). Do not paste SMTP credentials into commands or tickets.
+
+## Monthly Check
+
+1. Review upstream security and stable release notes.
+2. Update one pinned service only after a backup.
+3. Run one application-aware restore test.
+4. Test a real phone connection from 4G/5G.
+5. Confirm the exit node changes public IP while AdGuard still records DNS queries.
+6. Audit Headscale nodes, reusable pre-auth keys, API keys, NPM hosts, and Authentik recovery access.
+7. Review disk wear and backup capacity trends.
+
+## Safe Change Workflow
+
+```text
+identify dependency
+  -> confirm current backup
+  -> record rollback
+  -> validate configuration offline
+  -> change one component
+  -> test direct upstream
+  -> test .internal alias
+  -> verify Kuma and Homepage
+  -> test the real user workflow
+  -> run repository and live audits
+  -> document observed state
+```
+
+Use [Deployment Workflow](docs/06_operations_security/DEPLOYMENT_WORKFLOW.md) for a new service and [Pre-Deploy Checklist](docs/06_operations_security/CHECKLIST_PRE_DEPLOY.md) for acceptance.
+
+## Incident Order
+
+When several services fail, restore dependencies in this order:
+
+1. Proxmox host, bridge, and storage.
+2. AdGuard DNS.
+3. Headscale public control plane and LXC 100 subnet router.
+4. NPM private aliases.
+5. PBS visibility and restore access.
+6. Internal CA trust and certificates.
+7. Authentik and platform services.
+8. P0 data applications.
+9. P1/P2 applications and presentation services.
+
+Do not restore Homepage first when DNS or storage is broken.
+
+## VPN Acceptance
+
+From a phone with Wi-Fi disabled:
+
+1. Connect to `https://vpn.yourdomain.duckdns.org` through the Tailscale client.
+2. Confirm the phone appears in `headscale nodes list`.
+3. Reach `192.168.1.50` and resolve `dash.internal` through AdGuard.
+4. Confirm the query appears in the AdGuard log.
+5. Select `proxmox-p710` as exit node.
+6. Confirm the public IP changes.
+7. Repeat the DNS test and confirm AdGuard still receives it.
+
+The current Headscale v0.28 deployment uses an explicit ACL policy with `tag:router` and `tag:exit`. An empty `{}` file is an allow-all state and fails the live audit.
+
+## Immich Recovery Gate
+
+The current VM 110 has local PBS and application-aware protection, but PBS still shares the P710 failure domain.
+
+Before deleting phone originals:
+
+1. Commission the 2 TB removable SSD using [Immich External SSD Recovery](docs/05_backup_dr/IMMICH_EXTERNAL_SSD_RECOVERY.md).
+2. Store a complete VM 110 snapshot in the removable PBS datastore.
+3. Store an encrypted portable Immich snapshot with database, upload tree, and stack configuration.
+4. Verify both repositories.
+5. Restore both formats into isolated targets.
+6. Disconnect and store the SSD away from the P710.
+7. Add a later encrypted offsite copy.
+
+No script in this repository formats a disk automatically.
+
+## Dashboard and Alerts
+
+Homepage uses the tabs `Core`, `Operations`, `Data`, `Apps`, and `Recovery`. The control-room theme is CSS-only; it never fetches credentials in client-side code. All API values remain server-side and root-only.
+
+Alert flow:
+
+```text
+Uptime Kuma -> token-authenticated relay -> Gmail SMTP
+            -> private ntfy topic
+```
+
+Test alerts with a harmless temporary monitor or the relay self-test. Never break production DNS, VPN, or Immich to prove alerting.
+
+## Update Policy
+
+- Keep explicit stable image tags.
+- Read every intervening major release note.
+- Take an app-aware backup plus PBS snapshot for stateful services.
+- Test discontinued software upgrades in an isolated restore first.
+- Do not move Headscale to a beta release only to obtain newer policy syntax.
+- Do not use automatic update tools on critical data applications.
+
+The current Forgejo v9 live deployment is an explicit upgrade gate because it is discontinued. The repository default points to the current LTS, but production must follow the staged Forgejo runbook before changing the live tag.
+
+## Publish Changes
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\validate-repository.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\sovereign-live-audit.ps1
 git diff --check
+git status --short
 ```
 
-**Clear Explanation**
-
-Start every operational session from a clean repository. The repository is the source of truth for stack templates, hostnames, ports, recovery procedures, and validation commands. Fast-forward-only pulls prevent accidental merge commits from hiding operational drift.
-
-**Success Verification**
-
-```bash
-git status --short --branch
-```
-
-Expected: clean working tree on `main`, aligned with `origin/main`.
-
-### Layer 1: Proxmox Foundation
-
-**Action/Command**
-
-```bash
-# Read and apply the sizing plan before creating guests.
-less docs/01_proxmox_foundation/HARDWARE_AND_RESOURCE_PLAN.md
-less docs/01_proxmox_foundation/CREATE_LXC_RUNBOOK.md
-less docs/01_proxmox_foundation/CREATE_VM_RUNBOOK.md
-```
-
-**Clear Explanation**
-
-The target host is the P710 with 20 physical CPU cores / 40 logical threads, 64 GB RAM, and 2 TB usable mirrored storage. LXC is preferred for lightweight Docker services. VMs are used for appliance-style or critical workloads such as Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, and Wazuh.
-
-**Success Verification**
-
-```bash
-pvesh get /nodes
-pvesm status
-qm list
-pct list
-```
-
-Expected: PVE host reachable, storage online, and planned VM/LXC IDs available or already created.
-
-### Layer 2: Backup Before Production
-
-**Action/Command**
-
-```bash
-less docs/05_backup_dr/PBS_CRITICAL_OPERATIONS.md
-proxmox-backup-manager datastore list
-proxmox-backup-manager verify-job list
-proxmox-backup-manager prune-job list
-```
-
-**Clear Explanation**
-
-PBS is the recovery backbone. Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, and Home Assistant must not hold real data until backup and restore have been tested. If PBS runs on the same P710 mirror, it is local recovery only; add restic/offsite for disaster recovery.
-
-**Success Verification**
-
-```bash
-pvesm status
-# Then restore one non-critical guest to a temporary ID and verify it boots.
-```
-
-Expected: PBS datastore visible in Proxmox, backup jobs scheduled, verify jobs configured, and at least one restore drill documented.
-
-Live state: PBS VM 140 is deployed at `192.168.1.20`, Proxmox storage `pbs-p710` is active, job `sovereign-core-nightly` backs up guests `100,101,102,103,110,120,130` daily, and LXC 101, LXC 102, LXC 103, VM110, VM120, and VM130 have completed restore drills. VM110 Immich was restored to temporary VM `910`, booted on temporary IP `192.168.1.241`, mounted `/mnt/immich-library`, started healthy Immich containers, returned API `pong`, and was destroyed. A follow-up app-aware drill also restored the Immich PostgreSQL dump into a temporary database, counted 61 public tables, and created manifests for `/mnt/immich-library` and `/opt/sovereign-homelab`. LXC102 passed app-aware baseline checks for Vaultwarden SQLite integrity, Paperless PostgreSQL restore, Forgejo PostgreSQL restore, and critical volume manifests. This is still local recovery because PBS is on the same P710; add offsite backup before relying on it for disaster recovery. `ssd_pool` now uses sparse ZFS allocation and the thick zvol reservations were cleared after validation, dropping reported usage from about 93% to about 15%. Keep the capacity gate in `scripts/sovereign-live-audit.ps1` active before expanding photo, media, or file datasets.
-
-### Layer 3: Core Network
-
-**Action/Command**
-
-```bash
-cd /opt/core-network
-docker compose ps
-docker exec headscale headscale configtest
-docker exec headscale headscale nodes list
-docker exec headscale headscale nodes list-routes
-```
-
-**Clear Explanation**
-
-LXC 100 `core-network` runs the core DNS/VPN control plane. AdGuard provides DNS filtering and `.internal` rewrites. Headscale provides the mesh VPN control server. The LXC subnet router advertises `192.168.1.0/24`, and the Proxmox host can act as the full-tunnel exit node.
-
-**Success Verification**
-
-```bash
-nslookup dash.internal 192.168.1.50
-nslookup vpn.yourdomain.duckdns.org 192.168.1.50
-tailscale status
-ping 192.168.1.50
-```
-
-Expected: `.internal` resolves to NPM, the public VPN name split-resolves to the local endpoint on LAN/VPN, and remote clients can reach the LAN route.
-
-### Layer 4: Public Edge and Internal Aliases
-
-**Action/Command**
-
-```bash
-less docs/02_network_vpn/doc_03_nginx_proxy_manager.md
-curl -I https://vpn.yourdomain.duckdns.org
-curl -I https://dash.internal
-```
-
-**Clear Explanation**
-
-Only `vpn.yourdomain.duckdns.org` is public by default. Every web UI uses `.internal` through AdGuard and Nginx Proxy Manager. This model keeps the lab VPN-first while preserving clean service names.
-
-Run the public Headscale check from cellular data or another non-home network. A LAN-only success does not prove that a phone can join from 4G.
-
-**Success Verification**
-
-```bash
-curl -I https://vpn.yourdomain.duckdns.org
-curl -I https://auth.internal/if/user/
-curl -I https://status.internal
-curl -I https://dash.internal
-```
-
-Expected: public Headscale responds through NPM, and internal aliases respond only from LAN/VPN. All private web aliases redirect HTTP to HTTPS and use the Smallstep-issued NPM internal-edge certificate. Upstream services may remain HTTP on their private ports because NPM is the client TLS boundary.
-
-### Layer 4.5: Internal CA for Private HTTPS
-
-**Action/Command**
-
-```bash
-less docs/03_platform_services/doc_12_internal_ca_smallstep.md
-cd /opt/sovereign-homelab/stacks/internal-ca
-cp .env.example .env
-chmod 600 .env
-nano .env
-docker compose --env-file .env config --quiet
-docker compose --env-file .env up -d
-```
-
-**Clear Explanation**
-
-Smallstep `step-ca` is the production path for trusted `.internal` HTTPS. The live build runs it on LXC 101 at `ca.internal:9002`. The CA remains VPN/admin only and is never exposed through DuckDNS. NPM manages one 365-day certificate with a wildcard plus explicit SANs for all 26 private web aliases; weekly renewal and daily expiry auditing are active. `trust.internal` provides Windows, Firefox, Apple, Android, and macOS onboarding, while `http://LXC101_IP:8095` remains the deliberate LAN/VPN-only pre-trust bootstrap.
-
-**Success Verification**
-
-```bash
-curl -k https://ca.internal:9002/health
-curl -fsS http://LXC101_IP:8095/healthz
-curl -fsS https://trust.internal/healthz
-```
-
-Expected: the CA health endpoint returns `ok`, the CA volume is backed up, and at least one trusted client can open a migrated test alias over HTTPS without a browser warning.
-
-### Layer 5: Platform Services
-
-**Action/Command**
-
-```bash
-cd /opt/sovereign-homelab/stacks/identity
-cp .env.example .env
-nano .env
-docker compose --env-file .env config --quiet
-docker compose --env-file .env up -d
-
-cd /opt/sovereign-homelab/stacks/observability
-cp .env.example .env
-nano .env
-docker compose --env-file .env config --quiet
-docker compose --env-file .env up -d
-```
-
-**Clear Explanation**
-
-LXC 101 `platform-services` hosts Authentik, Homepage, Uptime Kuma, Beszel, and Dozzle. CrowdSec should run where it can read the live NPM logs; in the current build it runs on LXC 100 with NPM. This layer makes the lab operable: identity, service launchpad, health checks, metrics, logs, and security detection.
-
-**Success Verification**
-
-```bash
-curl -I https://auth.internal/if/user/
-curl -I https://dash.internal
-curl -I https://status.internal
-curl -I https://monitor.internal
-curl -I https://logs.internal
-```
-
-Expected: all platform UIs load through `.internal`, Homepage shows all planned services, and Uptime Kuma monitors are green for deployed services.
-
-Live state: LXC 101 runs Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle, Smallstep CA, and the CA trust portal. Uptime Kuma has 38 live monitors covering VPN, DNS, private aliases, apps, operations extensions, internal CA health, trust onboarding, and key protocol checks. Authentik MFA, recovery policy, and application protection are still deliberate hardening gates. The planned identity model is Authentik-first: use OIDC/OAuth or proxy-provider SSO for web apps, and add an Authentik LDAP/LDAPS outpost only for services that require directory compatibility. The service-by-service source of truth is [IDENTITY_ACCESS_MATRIX.md](docs/99_reference/IDENTITY_ACCESS_MATRIX.md).
-
-Optional operations extensions belong after this layer, not before it:
-
-| Extension | Alias | Purpose | Deploy gate |
-|---|---|---|---|
-| NetAlertX | `netalert.internal` | device inventory and LAN change visibility | live on LXC 103; tune scan scope before alerting |
-| Scrutiny | `disks.internal` | SMART disk health visibility | live web/API on LXC 103; Proxmox host collector publishes disk metrics daily |
-| ntfy | `alerts.internal` | self-hosted alert delivery | live on LXC 103; add auth/topics before sensitive alerts |
-
-Alert email state: the repository includes `scripts/sovereign-alert-relay.py`, HTML/plain-text templates, and `scripts/systemd/sovereign-alert-relay.service`. The live relay listens on LXC 101 port `8099` for localhost, Kuma, and VM110; POST requests require its bearer token, and the port is never proxied or public. Gmail SMTP credentials and relay secrets stay under `/root/sovereign-secrets`. Messages contain incident context instead of raw JSON. Proxmox also runs `sovereign-weekly-report.timer` every Monday at 09:00 Europe/Rome and includes Immich backup age, capacity, timer state, and restore evidence.
-
-Local credentials gate: the private credentials file, access inventory, password index, and shared initialized-app password source exist only under `/root/sovereign-secrets` with root-only permissions. The 2026-06-29 rotation was verified for PBS root, NPM, Authentik, Kuma, Beszel, Syncthing, Paperless, Forgejo, Jellyfin, Immich, and Nextcloud. AdGuard remained unchanged; apps without an initialized owner remain onboarding gates. The public repo contains only [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md).
-
-### Layer 6: Application Micro-Stacks
-
-**Action/Command**
-
-```bash
-./deploy.sh vaultwarden --pull
-./deploy.sh syncthing --pull
-./deploy.sh paperless --pull
-```
-
-For high-complexity apps, follow the official-first runbooks:
-
-```bash
-less docs/04_apps/immich.md
-less docs/04_apps/nextcloud.md
-less docs/04_apps/home_assistant.md
-```
-
-**Clear Explanation**
-
-Each application is isolated in its own `stacks/<service>` directory. This reduces blast radius: updating FreshRSS should not affect Vaultwarden, Immich, or Paperless. Critical apps require app-aware backups in addition to VM/LXC backups.
-
-**Success Verification**
-
-```bash
-docker compose --env-file stacks/vaultwarden/.env.example -f stacks/vaultwarden/docker-compose.yml config --quiet
-curl -I https://pwd.internal
-curl -I https://paper.internal
-curl -I https://git.internal
-```
-
-Expected: Compose validates, NPM aliases route correctly, Homepage contains the card, and Uptime Kuma has a matching monitor. In the current live build, LXC 102 serves Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI; VM 110 serves Immich; VM 120 serves healthy Nextcloud AIO through `files.internal` with client-side HTTPS and an upstream AIO Apache port on `11000`; VM 130 serves Home Assistant OS through `ha.internal`. LXC102 app-aware baseline validation completed on 2026-06-23: Vaultwarden SQLite integrity returned `ok`, Paperless restored 72 public tables into a temporary PostgreSQL database, Forgejo restored 121 public tables into a temporary PostgreSQL database, and volume manifests were captured.
-
-### Layer 7: Maintenance and Updates
-
-**Action/Command**
-
-```bash
-./maintenance.sh
-ZFS_DATASET=<your_dataset> ./maintenance.sh --apply
-```
-
-**Clear Explanation**
-
-Default maintenance is check-only. `--apply` validates every stack with a real `.env`, optionally snapshots an explicitly configured ZFS dataset, pulls images, and restarts stacks. It never prunes volumes and never deletes application data.
-
-**Success Verification**
-
-```bash
-docker ps
-docker compose --env-file stacks/observability/.env -f stacks/observability/docker-compose.yml ps
-git status --short --branch
-```
-
-Expected: containers are healthy or clearly failed in one stack only; repository state remains clean; no anonymous volumes are deleted automatically.
-
-## 3. RECOVERY PLAN & CONNECTION ARCHITECTURE
-
-### Connection Architecture
-
-```mermaid
-flowchart TD
-    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
-    LAN["LAN clients"]
-    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
-    RouterNAT["Home router/NAT\nTCP 443 to NPM"]
-    HS["Headscale\nidentity, keys, routes, DNS settings"]
-    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
-    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
-    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
-    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
-    Platform["Platform Services\nLXC101"]
-    CA["Internal CA\nca.internal"]
-    Trust["CA client onboarding\ntrust.internal / LXC101:8095"]
-    Apps["Internal apps\n*.internal"]
-    PBS["Proxmox Backup Server\nVM140"]
-    Offsite["restic/offsite copy"]
-    Internet(("Internet"))
-
-    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
-    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
-    Remote -->|LAN access 192.168.1.0/24| Subnet
-    Remote -->|optional default route| Exit --> Internet
-
-    LAN -->|DNS| AGH
-    AGH -->|filtered upstream DNS| Internet
-    AGH -->|.internal to NPM IP| NPM
-    NPM --> Platform
-    LAN -->|CA API| CA
-    Remote -->|CA API after VPN| CA
-    LAN -->|untrusted HTTP bootstrap| Trust
-    Remote -->|untrusted HTTP bootstrap after VPN| Trust
-    NPM --> Trust
-    NPM --> Apps
-    Platform --> PBS
-    Apps --> PBS
-    PBS --> Offsite
-```
-
-The operational invariant is simple: Headscale is public only for device login and coordination, AdGuard is authoritative for LAN/VPN DNS, NPM receives only resolved HTTP/S aliases, and an exit node is only the default route to the internet. A phone on 4G must be able to reach `vpn.yourdomain.duckdns.org` through the home router/NAT and NPM before the lab is considered remotely usable. A client may use the Proxmox exit node, but `nslookup example.com 192.168.1.50` and `nslookup dash.internal 192.168.1.50` must still work and appear in the AdGuard query log.
-
-Live 4G note: the public DuckDNS A record must resolve to the home public IP from external DNS-over-HTTPS resolvers, while AdGuard split DNS must resolve the same name to `192.168.1.50` for LAN/VPN clients. LXC 100 runs `sovereign-duckdns-update.timer` every 5 minutes to keep the public record current without exposing the token.
-
-### Recovery Model
-
-| Failure | Recovery path | Verification |
-|---|---|---|
-| Bad container update | Restore stack files and volumes from PBS/restic; restart only the affected stack | `docker compose ps`, app login, Uptime Kuma green |
-| Broken NPM proxy | Test upstream directly, restore NPM `/data` and `/letsencrypt` if needed | `curl -I https://service.internal` |
-| DNS failure | Restore AdGuard config; verify rewrites and DHCP state | `nslookup dash.internal 192.168.1.50` |
-| VPN control-plane failure | Restore Headscale config/database; confirm routes and clients | `headscale nodes list`, `headscale nodes list-routes` |
-| Immich data loss | Restore `UPLOAD_LOCATION` and database from the same timestamp | login, thumbnails, original download, integrity check |
-| Vaultwarden data loss | Restore `vaultwarden_data` and offline export if needed | login, attachment test, export test |
-| Full host loss | Reinstall Proxmox, restore PBS/offsite copies, restore guests in dependency order | DNS, VPN, NPM, PBS, apps all green |
-
-### Restore Order
-
-1. Proxmox host baseline.
-2. PBS or offsite restore access.
-3. LXC 100 core-network: AdGuard, Headscale, subnet router.
-4. NPM and `.internal` alias routing.
-5. LXC 101 platform-services: Authentik, Homepage, Uptime Kuma, Beszel, Dozzle.
-6. LXC 103 ops-extensions: NetAlertX, Scrutiny, ntfy.
-7. Critical data apps: Vaultwarden, Immich, Nextcloud, Syncthing, Paperless.
-8. High-value apps: Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI.
-9. Advanced/security services: CrowdSec, Wazuh, RustDesk.
-
-### Authoritative References
-
-- Immich Docker Compose and backup: <https://docs.immich.app/install/docker-compose/>
-- Nextcloud AIO reverse proxy: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>
-- Paperless-ngx setup: <https://docs.paperless-ngx.com/setup/>
-- Homepage Docker: <https://gethomepage.dev/installation/docker/>
-- RustDesk self-host Docker: <https://rustdesk.com/docs/en/self-host/rustdesk-server-oss/docker/>
-
-Current compact live-state reference: [LIVE_SERVICE_COVERAGE.md](docs/99_reference/LIVE_SERVICE_COVERAGE.md).
-
-Future ideas and source links: [FUTURE_IMPROVEMENTS_RESEARCH.md](docs/00_overview/FUTURE_IMPROVEMENTS_RESEARCH.md).
+Review the diff, commit intentionally, pull with `--ff-only`, push, and verify that remote `main` matches the local commit. Never force-push operational history.

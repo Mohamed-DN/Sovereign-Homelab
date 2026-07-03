@@ -15,7 +15,7 @@
 | Exit node works but ads are not filtered | AdGuard query log and `nslookup example.com 192.168.1.50` | fix client DNS acceptance or the subnet route; do not create private DuckDNS app names |
 | DNS is unstable on servers | `tailscale debug prefs` | run `tailscale set --accept-dns=false` on infrastructure nodes |
 | Workstation Tailscale is registered to a LAN-only control URL | `tailscale debug prefs` shows `ControlURL` as `http://192.168.1.50:8080` | re-enroll the workstation against `https://vpn.yourdomain.duckdns.org`; do not use the LXC IP as the control URL for laptops or phones |
-| Tailnet ping works but TCP services fail | `Test-NetConnection 100.64.0.X -Port 22`, Headscale policy, Windows firewall | check Headscale grants/policy, service bind address, node firewall, and whether the local workstation firewall/security profile blocks outbound TCP through Tailscale |
+| Tailnet ping works but TCP services fail | `Test-NetConnection 100.64.0.X -Port 22`, Headscale policy, Windows firewall | check the version-compatible Headscale ACL policy, service bind address, node firewall, and whether the local workstation firewall/security profile blocks outbound TCP through Tailscale |
 | Tailscale does not start | `ls -l /dev/net/tun` | load the `tun` module, enable TUN for LXC |
 | Policy breaks access | `headscale configtest` | roll back the policy or comment out `policy.path` |
 

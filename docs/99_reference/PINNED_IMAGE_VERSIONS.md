@@ -4,7 +4,7 @@ This file is the version inventory for Docker Compose templates in `stacks/`. De
 
 Review this file before every planned update. Update one stack at a time, validate Compose, take or confirm backups, deploy, check Homepage and Uptime Kuma, and document any rollback.
 
-Last checked: 2026-06-30.
+Last checked: 2026-07-03.
 
 ## Stack Image Inventory
 
@@ -33,7 +33,7 @@ Last checked: 2026-06-30.
 | `freshrss` | `freshrss/freshrss` | `FRESHRSS_TAG` | `1.29.1` | Docker Hub tag check | SQLite/data volume restore matters more than OPML. |
 | `karakeep` | `ghcr.io/karakeep-app/karakeep` | `KARAKEEP_TAG` | `0.32.0` | Karakeep release tag and manifest check | Back up data and Meilisearch index. |
 | `searxng` | `searxng/searxng` | `SEARXNG_TAG` | `2026.6.20-fd42d4fda` | SearXNG Docker docs and Docker Hub tag check | SearXNG publishes frequent dated commit tags; update deliberately. |
-| `forgejo` | `codeberg.org/forgejo/forgejo` | `FORGEJO_TAG` | `9` | Forgejo Docker docs and manifest check | Major-channel pin. Review release notes before moving to the next major. |
+| `forgejo` | `codeberg.org/forgejo/forgejo` | `FORGEJO_TAG` | `15.0.3` | Forgejo releases and Docker documentation | Current LTS default. The live v9 deployment must use the staged backup, migration, and clone/push checks in the Forgejo runbook before adopting this tag. |
 | `jellyfin` | `jellyfin/jellyfin` | `JELLYFIN_TAG` | `10.11.11` | Docker Hub tag check and Jellyfin release tag | Back up config, not cache. Media has its own backup plan. |
 | `ai-ollama` | `ollama/ollama` | `OLLAMA_TAG` | `0.30.10` | Docker Hub tag check and Ollama release tag | Large model data lives in the Ollama volume. |
 | `ai-ollama` | `ghcr.io/open-webui/open-webui` | `OPEN_WEBUI_TAG` | `v0.9.6` | Open WebUI release tag and manifest check | Back up WebUI data before update. |

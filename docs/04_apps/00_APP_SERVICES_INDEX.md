@@ -24,12 +24,12 @@ This index is the entry point for the application layer. Deploy one app at a tim
 
 ## Current Live App State
 
-Last checked: 2026-06-22.
+Last checked: 2026-07-03.
 
 | State | Services |
 |---|---|
 | Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
-| Gated on VM 110 `immich` | Immich: VM, alias, scheduled app-aware jobs, PBS checkpoint, SHA-256 baseline, isolated DB restore, and PBS sample-asset restore are healthy; separate encrypted local and offsite copies are still required before deleting phone originals |
+| Gated on VM 110 `immich` | Immich: VM, alias, scheduled app-aware jobs, PBS checkpoint, SHA-256 baseline, isolated DB restore, and PBS sample-asset restore are healthy; the planned 2 TB removable SSD and a later offsite copy are still required before deleting phone originals |
 | Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, AIO containers are healthy, `https://files.internal` returns the real login redirect, and restore drill passed; internal certificate trust and offsite backup are still required before irreplaceable files |
 | Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, native HA backup exists, and full boot/service restore drill passed |
 | Planned | optional dedicated Jellyfin VM, optional dedicated AI host |
@@ -55,7 +55,6 @@ Live means the service has an alias or documented protocol endpoint, NPM rule wh
 | RustDesk OSS Server | [rustdesk.md](rustdesk.md) | `stacks/rustdesk` | `rustdesk.internal` protocol endpoint |
 | Common Docker pattern | [common_docker_app_pattern.md](common_docker_app_pattern.md) | all Compose apps | not applicable |
 | Acceptance checklist | [production_acceptance_checklist.md](production_acceptance_checklist.md) | all apps | required before real data |
-| Official sources | [official_sources.md](official_sources.md) | all apps | upstream docs |
 
 ## Production Acceptance
 
