@@ -96,6 +96,8 @@ Paperless exposes a web interface that can be used for monitoring. Set up an HTT
 - **Check URL**: `http://<docker-host-ip>:8010` or the configured `PAPERLESS_URL` (`https://paper.internal`).
 - **Expected Response**: HTTP 200 OK or 302 Found (redirecting to login).
 
+Homepage must contain the `data-paperless` card pointing to `https://paper.internal`. The card is a launch surface; Uptime Kuma remains the availability authority.
+
 ## 7. Comprehensive Disaster Recovery (DR)
 
 A multi-layered backup strategy is required since losing tax or legal documents is catastrophic.
@@ -141,7 +143,21 @@ docker compose restart paperless-redis paperless
 docker compose logs -f paperless paperless-redis
 ```
 
-*Source: [Paperless-ngx Setup Docs](https://docs.paperless-ngx.com/setup/)*
+## 9. Rollback
+
+1. Stop ingestion and move files out of the `consume` directory.
+2. Stop the stack.
+3. Restore PostgreSQL, `paperless_data`, and `paperless_media` from one checkpoint.
+4. Restore the previous pinned application tag and `.env`.
+5. Start the stack and verify document count, OCR search, tags, correspondents, and PDF downloads.
+
+Do not combine a newer database with older media or run migrations repeatedly while diagnosing a failed update.
+
+## 10. Official Sources
+
+- [Paperless-ngx setup](https://docs.paperless-ngx.com/setup/)
+- [Paperless-ngx administration](https://docs.paperless-ngx.com/administration/)
+- [Paperless-ngx backup and restore](https://docs.paperless-ngx.com/administration/#backup)
 
 ---
 

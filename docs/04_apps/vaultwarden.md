@@ -59,6 +59,8 @@ docker logs -f vaultwarden
 ```
 
 ## 4. Reverse Proxy & Monitoring (NPM & Uptime Kuma)
+
+AdGuard resolves `pwd.internal` to NPM through the private wildcard rewrite. No public DuckDNS application hostname or router port forward is created for Vaultwarden.
 ### 4.1 Nginx Proxy Manager (NPM)
 1. Add a Proxy Host in NPM targeting `LXC102_IP` on port `8082`.
 2. **Websockets Support**: must be enabled for live synchronization across apps.

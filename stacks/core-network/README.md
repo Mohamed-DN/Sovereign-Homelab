@@ -39,6 +39,17 @@ mkdir -p adguard/work adguard/conf
 mkdir -p npm/data npm/letsencrypt
 ```
 
+Copy and customize the explicit policy before production use:
+
+```bash
+cp headscale/policy/policy.hujson.example headscale/policy/policy.hujson
+docker exec headscale headscale users list
+nano headscale/policy/policy.hujson
+docker exec headscale headscale configtest
+```
+
+An empty `{}` policy is not hardened. Headscale permits traffic when no effective policy is loaded. The template grants the owner access to owned nodes, the private LAN, and the tagged exit node while default-denying users that are not assigned to a group.
+
 ## Required NPM Rules
 
 | Hostname | Upstream | Public | Notes |
@@ -68,6 +79,7 @@ The DuckDNS rewrite is split DNS for LAN/VPN clients. Public clients on 4G must 
 ```bash
 docker compose ps
 docker exec headscale headscale configtest
+test "$(tr -d '[:space:]' < headscale/policy/policy.hujson)" != '{}'
 docker exec headscale headscale nodes list-routes
 curl -fsS http://127.0.0.1:8080/health
 nslookup dash.internal 192.168.1.50

@@ -99,7 +99,19 @@ Data integrity for Karakeep relies on SQLite and Meilisearch. **Live backups can
   - Verify `MEILI_MASTER_KEY` matches between the app and meilisearch service.
   - If the index is hopelessly corrupted, stop the stack, delete the `karakeep_meili` volume, start the stack, and trigger a full re-index from the Karakeep settings menu.
 
-*Source: [Karakeep Docker Docs](https://docs.karakeep.app/installation/docker/)*
+## 9. Rollback
+
+1. Stop the stack and prevent new bookmark imports.
+2. Restore `karakeep_data`, `.env`, and the pinned Karakeep tag from the same checkpoint.
+3. Restore Meilisearch only if a matching backup exists; otherwise start it empty and trigger a supported re-index from Karakeep.
+4. Start the stack and verify login, bookmark content, archived pages, and search.
+
+Do not delete `karakeep_data` while troubleshooting search. Meilisearch is a derived index; the application data is authoritative.
+
+## 10. Official Sources
+
+- [Karakeep Docker installation](https://docs.karakeep.app/installation/docker/)
+- [Karakeep documentation](https://docs.karakeep.app/)
 
 ---
 

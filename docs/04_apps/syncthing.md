@@ -55,11 +55,11 @@ services:
 ## 5. Nginx Proxy Manager (NPM) Setup
 Log into NPM at `https://npm.internal` to expose the Administrative Web UI securely:
 - **Domain Names**: `sync.internal`
-- **Scheme / Forward IP / Port**: `http` / `<LXC_IP>` / `8384`
+- **Scheme / Forward IP / Port**: `http` / `LXC102_IP` / `8384`
 - **Websockets Support**: enabled
 - **SSL**: use the current internal TLS approach and enable Force SSL when HTTPS is configured.
 
-*Note: Port 22000 (Sync) bypasses NPM and is reached directly via the VPN IP. Ensure global discovery is disabled and hardcode the server IP (`tcp://<LXC_IP>:22000`) in the clients to enforce LAN/VPN-only traffic.*
+*Note: Port 22000 (Sync) bypasses NPM and is reached directly via the VPN IP. Ensure global discovery is disabled and hardcode the server IP (`tcp://LXC102_IP:22000`) in the clients to enforce LAN/VPN-only traffic.*
 
 ## 6. Backup & Disaster Recovery
 **What to Backup**: 
@@ -82,7 +82,7 @@ If the database is corrupted, use the `syncthing -reset-database` command (or de
 - **Homepage.dev**: Widget config pointing to the API. Add to `services.yaml` under "Critical Data" pointing to `https://sync.internal`.
 - **Uptime Kuma**: 
   - Add an `HTTP(s)` monitor targeting `https://sync.internal` for the UI, with authentication if necessary.
-  - Add a `TCP` monitor targeting `<LXC_IP>:22000` to verify the sync engine is listening.
+  - Add a `TCP` monitor targeting `LXC102_IP:22000` to verify the sync engine is listening.
 
 ## 8. Rollback
 
@@ -94,7 +94,17 @@ If a Syncthing update breaks synchronization:
 4. Start the stack and confirm the Device ID did not change.
 5. Resume one folder at a time and watch for unexpected deletes before enabling all peers.
 
-## 9. Sources
+## 9. Troubleshooting
+
+| Symptom | Check | Safe response |
+|---|---|---|
+| Device ID changed | restored `cert.pem` and `key.pem` | stop synchronization and restore the previous identity before reconnecting peers |
+| Files disappear on every peer | folder type, versioning, recent events | pause the folder on all peers; restore from an independent backup, not from another actively syncing peer |
+| UI works but transfers do not | TCP/UDP 22000, configured device address | test the direct LAN/VPN address; NPM proxies only the UI |
+| Folder reports out of sync | permissions, free space, ignore patterns | fix the underlying condition before using override or revert-local-changes |
+| Database/index is corrupt | logs and identity files | preserve identity, stop the stack, rebuild only the index, then rescan |
+
+## 10. Sources
 
 - Syncthing documentation: <https://docs.syncthing.net/>
 - Syncthing Docker image: <https://hub.docker.com/r/syncthing/syncthing>

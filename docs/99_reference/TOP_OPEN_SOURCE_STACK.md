@@ -76,7 +76,7 @@ When segmentation becomes a real requirement, use a dedicated appliance with at 
 |---|---|---|---|
 | Current remote access | proven from 4G with subnet and exit routes | would require client migration | keep Headscale |
 | Components | Headscale plus existing Tailscale clients | Management, Signal, Relay/STUN, dashboard, identity | avoid added day-one dependencies |
-| Policy | Headscale grants/tags and route approval | integrated network/access policies | Headscale is sufficient now |
+| Policy | Headscale ACLs/tags and route approval on v0.28; grants after a compatible stable release | integrated network/access policies | Headscale is sufficient now |
 | Observability | Kuma, Homepage, logs, and route audits | native service metrics and Grafana dashboards | evaluate only if current visibility becomes insufficient |
 | Migration risk | none | route, DNS, client, and mobile cutover | no production migration |
 

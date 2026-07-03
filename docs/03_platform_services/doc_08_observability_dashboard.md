@@ -165,6 +165,28 @@ HOMEPAGE_VAR_NTFY_READER_TOKEN
 
 Every service has a stable `id`. The CSS health rail reads Homepage's native `siteMonitor` state: emerald means the card's HTTP check is healthy, rose means it failed, and gray means the result is not available yet. The rail is a presentation aid; investigate and alert from Kuma.
 
+### Control-Room Theme
+
+The live presentation uses a graphite control-room layout rather than Homepage's default cards:
+
+- tabs are ordered `Core`, `Operations`, `Data`, `Apps`, `Recovery`;
+- a subtle fixed grid and high-contrast section rails create the visual hierarchy without decorative images;
+- cyan identifies network and identity, blue identifies operations, amber identifies critical data, violet identifies applications, and green identifies recovery;
+- every monitored card has a four-pixel native health rail: green when `siteMonitor` succeeds, red when it fails, and gray while unknown;
+- hover scan and elevation effects provide feedback without changing card dimensions;
+- mobile layouts keep fixed readable type and collapse cards without clipping;
+- `prefers-reduced-motion` disables all nonessential animation.
+
+The implementation is CSS-only in `homepage/custom.css`. Do not add client-side code that fetches APIs or embeds credentials. Homepage server-side widgets and Uptime Kuma remain the only telemetry paths.
+
+After changing `settings.yaml`, regenerate Homepage's static page from the private host and then verify the title. A container restart alone does not update static metadata:
+
+```bash
+curl -fsS -H 'Host: dash.internal' http://127.0.0.1:3002/api/revalidate
+curl -fsS -H 'Host: dash.internal' http://127.0.0.1:3002 \
+  | grep -F '<title data-next-head="">Sovereign Operations</title>'
+```
+
 ### Private Kuma Status Page
 
 Create a status page with slug `sovereign-ops`. Keep it private by network placement: `status.internal` resolves only through AdGuard and is reachable only from the home LAN or Headscale VPN.
@@ -267,7 +289,7 @@ Alert rules:
 - Headscale down means new VPN sessions may fail.
 - PBS down means the lab is not safe for changes.
 - Immich/Vaultwarden down requires checking backup status before repair.
-- ntfy is deployed, but protect topics and authentication before sending sensitive alert payloads.
+- ntfy uses deny-by-default topic access with separate admin, read-only Homepage, and write-only publisher identities.
 - The live ntfy service uses deny-by-default access. Homepage reads only `sovereign-alerts`; publishers use a separate write-only identity.
 - The email alert relay is present in the repository as `scripts/sovereign-alert-relay.py` and listens on LXC 101 port `8099`. The port is LAN/VPN-only and every POST requires the bearer token; it is not an NPM web application.
 - SMTP credentials and the relay bearer token must exist only under `/root/sovereign-secrets`; never store them in Compose files, Markdown, Git, or Uptime Kuma notes.

@@ -1,14 +1,15 @@
-title: Sovereign Homelab
-description: VPN-first private operations dashboard
+title: Sovereign Operations
+description: Private infrastructure control plane
 theme: dark
 color: zinc
-headerStyle: boxedWidgets
+headerStyle: clean
 iconStyle: theme
 statusStyle: dot
 fullWidth: true
 useEqualHeights: true
 target: _self
 disableIndexing: true
+hideVersion: true
 quicklaunch:
   searchDescriptions: true
   hideInternetSearch: false
@@ -28,11 +29,6 @@ layout:
   Identity:
     tab: Core
     icon: authentik.png
-    style: row
-    columns: 2
-  Recovery:
-    tab: Recovery
-    icon: proxmox.png
     style: row
     columns: 2
   At a Glance:
@@ -60,3 +56,8 @@ layout:
     icon: open-webui.png
     style: row
     columns: 3
+  Recovery:
+    tab: Recovery
+    icon: proxmox.png
+    style: row
+    columns: 2

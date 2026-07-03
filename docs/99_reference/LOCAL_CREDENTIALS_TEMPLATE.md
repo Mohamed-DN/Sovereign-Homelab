@@ -165,7 +165,7 @@ Repository rules:
 |---|---|---|---|
 | NetAlertX | `https://netalert.internal` | `<NETALERTX_SECRET_PATH>` | tune scan scope |
 | Scrutiny | `https://disks.internal` | `<SCRUTINY_SECRET_PATH>` | collector runs where disks are visible |
-| ntfy | `https://alerts.internal` | `<NTFY_SECRET_PATH>` | protect topics before sensitive alerts |
+| ntfy | `https://alerts.internal` | `<NTFY_SECRET_PATH>` | keep separate admin, read-only Homepage, and write-only publisher identities |
 
 ## Email Alerting
 

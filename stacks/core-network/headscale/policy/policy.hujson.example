@@ -1,0 +1,51 @@
+{
+  // Replace OWNER_USER@ with the exact username shown by `headscale users list`.
+  // Add separate member/family users only after their clients are enrolled under
+  // those identities. Do not place all people in group:owners.
+  "groups": {
+    "group:owners": ["OWNER_USER@"]
+  },
+
+  "tagOwners": {
+    "tag:router": ["group:owners"],
+    "tag:exit": ["group:owners"],
+    "tag:service": ["group:owners"]
+  },
+
+  "autoApprovers": {
+    "routes": {
+      "192.168.1.0/24": ["tag:router"]
+    },
+    "exitNode": ["tag:exit"]
+  },
+
+  // Headscale v0.28 uses ACL syntax. Move to grants only after a tested stable
+  // Headscale release supports them in `headscale configtest`.
+  "acls": [
+    {
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["autogroup:self:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["tag:router:*", "tag:exit:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["tag:router", "tag:exit"],
+      "dst": ["tag:router:*", "tag:exit:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["192.168.1.0/24:*"]
+    },
+    {
+      "action": "accept",
+      "src": ["group:owners"],
+      "dst": ["autogroup:internet:*"]
+    }
+  ]
+}

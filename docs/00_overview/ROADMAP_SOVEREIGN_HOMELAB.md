@@ -26,11 +26,12 @@ The final result must provide:
 | Exit node | In use | Proxmox host advertises and serves `0.0.0.0/0` |
 | Identity | Live / hardening pending | Authentik is deployed; MFA, recovery policy, and proxy-provider enforcement remain the next gate |
 | Observability | Live | Homepage, Uptime Kuma, Beszel, Dozzle, NetAlertX, Scrutiny, and ntfy are deployed |
-| Backup DR | Live local recovery / offsite pending | PBS is deployed with restore drills; offsite disaster recovery is still required |
+| Backup DR | Live local recovery / removable SSD pending | PBS is deployed with restore drills; the 2 TB external Immich SSD is designed but cannot be commissioned until attached; later offsite recovery is still required |
 | Core apps | Live / data gates pending | Vaultwarden, Immich, Syncthing, Nextcloud AIO, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, Jellyfin, RustDesk, Ollama, and Open WebUI are deployed |
 | Operations manual | Documented and live-audited | Routines, inventory, deployment workflow, and live audit script |
 | Local credentials | Live local-only | Root-only file exists on the Proxmox host; public repo has only a placeholder template |
 | Alert email | Live / tested | Uptime Kuma and ntfy are live; anti-spam email relay is installed on LXC 101, connected to P0/P1 Kuma monitors, and tested with SMTP alert/reminder/no-spam/recovery behavior |
+| VPN policy | Live / explicit | Headscale v0.28 uses a non-empty ACL policy; LXC100 is `tag:router`, Proxmox is `tag:exit`, and the live audit rejects allow-all `{}` drift |
 
 ## Phase 1: Network and VPN - Live
 

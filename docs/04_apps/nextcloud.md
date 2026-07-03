@@ -133,7 +133,7 @@ Live 2026-06-22 note:
 - VM120 is included in PBS and has a successful manual backup.
 - The AIO boot/service restore drill has passed. Treat Nextcloud as gated for irreplaceable files until client trust for the internal certificate path and offsite backup are handled.
 
-Sources:
+## 8. Official Sources
 
 - Nextcloud AIO reverse proxy docs: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>
 - Nextcloud AIO repository: <https://github.com/nextcloud/all-in-one>
