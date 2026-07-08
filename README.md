@@ -151,6 +151,7 @@ High-signal reference files:
 | [LIVE_BUILD_LOG_2026-06-30.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-06-30.md) | CA onboarding portal, modern Recovery dashboard, and current Immich data-protection checkpoint |
 | [LIVE_BUILD_LOG_2026-07-01.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-01.md) | interactive operations dashboard, private Kuma status rollup, scoped widgets, and firewall/VPN architecture decisions |
 | [LIVE_BUILD_LOG_2026-07-03.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-03.md) | repository refactor, explicit Headscale ACLs, alert coverage, control-room dashboard, and external Immich SSD recovery design |
+| [LIVE_BUILD_LOG_2026-07-08.md](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-08.md) | Immich v3.0.1 upgrade, app-aware validation, and post-upgrade PBS checkpoint |
 
 ## Deployment Workflow
 

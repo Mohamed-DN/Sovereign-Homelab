@@ -13,42 +13,24 @@ This file is the handoff list for the next implementation pass. It exists becaus
   - LXC 100 as subnet router: `192.168.1.0/24`.
 - Uptime Kuma's public Headscale monitor recovered to `200 - OK`.
 
-## P0: Immich Upgrade to v3
+## Completed: Immich Upgrade to v3
 
-Do not start this while any P0 monitor is down. Immich contains real personal photos.
+Completed on 2026-07-08. Immich is now running `v3.0.1` on VM 110.
 
-1. Run the full live audit and confirm no critical failures.
-2. On VM 110, record:
-   - current Immich version;
-   - container image digests;
-   - file count and total bytes under `/mnt/immich-library/upload`;
-   - latest app-aware dump age;
-   - latest PBS snapshot for VM 110.
-3. Run the app-aware protection job:
-   - daily dump;
-   - isolated database restore test;
-   - metadata inventory.
-4. Trigger a fresh VM 110 PBS backup and verify it is visible in `pbs-p710`.
-5. Compare the local Compose file with the current official Immich Docker Compose example.
-6. Update the live `IMMICH_VERSION` from `v2.7.5` to the current stable v3 channel. As of the last tag check, the newest stable tag was `v3.0.1`.
-7. Run:
-   - `docker compose pull`;
-   - `docker compose up -d`;
-   - `docker compose ps`;
-   - `curl -fsS http://127.0.0.1:2283/api/server/ping`.
-8. Validate:
-   - `https://foto.internal/api/server/ping`;
-   - Uptime Kuma `Immich`;
-   - mobile upload from phone;
-   - database restore test after migration;
-   - new PBS snapshot after migration.
-9. Update:
-   - `stacks/immich/.env.example`;
-   - `docs/99_reference/PINNED_IMAGE_VERSIONS.md`;
-   - `docs/04_apps/immich.md`;
-   - live build log.
+Validation completed:
 
-Rollback rule: after a database migration, do not assume changing the image tag back is safe. Restore VM 110 into an isolated target first. Production rollback means a verified PBS/app-aware restore.
+- pre-upgrade app-aware dump, metadata inventory, isolated database restore test, and PBS snapshot;
+- live Compose update to `IMMICH_VERSION=v3.0.1`;
+- media mount updated to the Immich v3 `/data` container path;
+- Valkey updated to the official v9 digest used by the current Immich Compose example;
+- all Immich containers healthy after upgrade;
+- `https://foto.internal/api/server/ping` returned `{"res":"pong"}`;
+- `/api/server/version` reported `3.0.1`;
+- post-upgrade app-aware protection recorded `33306` files and `101349483683` bytes;
+- post-upgrade isolated database restore test restored `66` public tables;
+- post-upgrade PBS snapshot created at `vm/110/2026-07-08T04:57:19Z`.
+
+Do not repeat this task unless planning a future Immich release. Future rollback must use an isolated VM restore first; do not assume changing the image tag back is safe after a database migration.
 
 ## P0: Temporary Windows Immich Mirror
 
@@ -171,4 +153,3 @@ Required manual checks:
 - `https://foto.internal/api/server/ping` returns a healthy Immich response.
 - Uptime Kuma has no unexpected P0/P1 failures.
 - Windows mirror restore test can recover at least one sample asset and the latest database dump into a temporary folder.
-

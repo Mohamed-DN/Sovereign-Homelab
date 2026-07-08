@@ -38,9 +38,10 @@ chmod 600 .env
 Required values:
 
 ```text
-UPLOAD_LOCATION=/mnt/immich-library/upload
-DB_DATA_LOCATION=/mnt/immich-library/postgres
-DB_PASSWORD=<RANDOM_DATABASE_PASSWORD>
+IMMICH_UPLOAD_LOCATION=/mnt/immich-library/upload
+IMMICH_DB_DATA_LOCATION=/mnt/immich-library/postgres
+IMMICH_DB_PASSWORD=<RANDOM_DATABASE_PASSWORD>
+IMMICH_VERSION=v3.0.1
 ```
 
 Validate mounts before starting Immich:
@@ -55,6 +56,25 @@ curl -fsS http://127.0.0.1:2283/api/server/ping
 ```
 
 The machine-learning container can take longer to become healthy on its first start while it downloads models. Do not change ownership or manually edit files inside the Immich upload tree.
+
+## Current Live Version
+
+Immich was upgraded to `v3.0.1` on 2026-07-08.
+
+The upgrade was performed after a fresh app-aware dump, metadata inventory, isolated database restore test, and PBS snapshot. The pre-upgrade PBS restore point is `vm/110/2026-07-08T04:50:57Z`; the post-upgrade restore point is `vm/110/2026-07-08T04:57:19Z`.
+
+The live Compose stack now follows the current Immich v3 volume contract by mounting the media directory at `/data` inside `immich-server`. The real host path remains `IMMICH_UPLOAD_LOCATION=/mnt/immich-library/upload`. Valkey was moved from the previous `8-alpine` image to the official v9 digest used by Immich's current Compose example.
+
+Post-upgrade validation passed:
+
+- all four Immich containers were healthy;
+- `http://127.0.0.1:2283/api/server/ping` returned `{"res":"pong"}`;
+- `https://foto.internal/api/server/ping` returned `{"res":"pong"}` through NPM;
+- `/api/server/version` reported `3.0.1`;
+- the app-aware job recorded `33306` files and `101349483683` bytes;
+- the isolated database restore test restored `66` public tables.
+
+Keep phone originals until the temporary Windows mirror, separate local SSD, and later offsite restore tests pass. The live upgrade does not change the 3-2-1 status.
 
 ## DNS, NPM, Homepage, and Kuma
 
@@ -174,7 +194,7 @@ Use Proxmox file restore against the newest VM110 snapshot, browse the data disk
 
 ## Current Live Safety State
 
-On 2026-06-30, the live library baseline contained 31,367 files totaling about 95.36 GB. A fresh PBS snapshot, compressed database dump, metadata inventory, and full SHA-256 manifest were created before this runbook update. The bundle is held root-only on VM110 and duplicated into the Proxmox backup vault with checksum verification.
+On 2026-07-08 after the Immich v3 upgrade, the app-aware protection job recorded `33306` files totaling `101349483683` bytes. Fresh pre-upgrade and post-upgrade PBS snapshots, compressed database dumps, metadata inventories, and isolated database restore tests were completed. Root-only protection artifacts remain on VM110 and must not be copied into Git.
 
 This is still not full 3-2-1 protection because PBS and VM110 share the P710. Do not delete the phone originals until an encrypted separate local copy, encrypted offsite copy, and restores from both have passed.
 

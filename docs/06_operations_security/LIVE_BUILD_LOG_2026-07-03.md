@@ -88,4 +88,4 @@ No disk initialization or live timer was installed because the SSD is not attach
 
 **Previous:** [Live Build Log: 2026-07-01](LIVE_BUILD_LOG_2026-07-01.md)
 
-**Next:** [Operations Manual](OPERATIONS_MANUAL.md)
+**Next:** [Live Build Log: 2026-07-08](LIVE_BUILD_LOG_2026-07-08.md)

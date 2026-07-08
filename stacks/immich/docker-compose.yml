@@ -18,7 +18,7 @@ services:
     ports:
     - "${IMMICH_PORT}:2283"
     volumes:
-    - ${IMMICH_UPLOAD_LOCATION}:/usr/src/app/upload
+    - ${IMMICH_UPLOAD_LOCATION}:/data
     - /etc/localtime:/etc/localtime:ro
 
   immich-machine-learning:
@@ -29,7 +29,7 @@ services:
     - immich_model_cache:/cache
 
   immich-redis:
-    image: docker.io/valkey/valkey:8-alpine
+    image: docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
     container_name: immich-redis
     restart: unless-stopped
 
