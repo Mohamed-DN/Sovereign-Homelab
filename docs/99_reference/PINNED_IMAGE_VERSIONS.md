@@ -4,7 +4,7 @@ This file is the version inventory for Docker Compose templates in `stacks/`. De
 
 Review this file before every planned update. Update one stack at a time, validate Compose, take or confirm backups, deploy, check Homepage and Uptime Kuma, and document any rollback.
 
-Last checked: 2026-07-03.
+Last checked: 2026-07-08.
 
 ## Stack Image Inventory
 
@@ -25,8 +25,9 @@ Last checked: 2026-07-03.
 | `ops-extensions` | `ghcr.io/analogj/scrutiny` | `SCRUTINY_IMAGE` | `v0.9.2-omnibus` | Scrutiny README and GHCR package tags | Omnibus web/API image. Live SMART collection runs from the Proxmox host with the official `scrutiny-collector-metrics-linux-amd64` binary. |
 | `security` | `crowdsecurity/crowdsec` | `CROWDSEC_TAG` | `v1.7.8` | Docker Hub tag check and CrowdSec release tag | Detection only unless a bouncer/remediation component is installed. |
 | `vaultwarden` | `vaultwarden/server` | `VAULTWARDEN_TAG` | `1.36.0` | Docker Hub tag check and Vaultwarden release tag | Critical data. Export and back up volume before update. |
-| `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Server and machine-learning must match. Offsite backup and app-aware sample restore are required before importing a full library. |
-| `immich` | `ghcr.io/immich-app/immich-machine-learning` | `IMMICH_VERSION` | `v2.7.5` | Immich Docker Compose docs and release tag | Same tag as server. |
+| `immich` | `ghcr.io/immich-app/immich-server` | `IMMICH_VERSION` | `v3.0.1` | Immich Docker Compose docs and release tag | Live upgrade completed on 2026-07-08 after app-aware dump, isolated DB restore test, and PBS snapshots before and after the change. Server and machine-learning must match. |
+| `immich` | `ghcr.io/immich-app/immich-machine-learning` | `IMMICH_VERSION` | `v3.0.1` | Immich Docker Compose docs and release tag | Same tag as server. |
+| `immich` | `docker.io/valkey/valkey` | hardcoded image digest | `9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9` | Immich official Docker Compose example | Valkey replaces the older Redis-compatible cache image used by earlier Immich templates. |
 | `nextcloud` | `ghcr.io/nextcloud-releases/all-in-one` | `NEXTCLOUD_AIO_IMAGE` | `latest` | Official Nextcloud AIO Compose uses the release mastercontainer channel | Explicit exception. The AIO mastercontainer manages its own child container channel; VM120 is covered by PBS and has a successful AIO restore drill. |
 | `syncthing` | `syncthing/syncthing` | `SYNCTHING_TAG` | `2.1.1` | Docker Hub tag check and Syncthing release tag | Back up config identity keys before update. |
 | `paperless` | `ghcr.io/paperless-ngx/paperless-ngx` | `PAPERLESS_TAG` | `2.20.15` | Paperless-ngx setup docs and release tag | Back up DB, media, and export directory. |

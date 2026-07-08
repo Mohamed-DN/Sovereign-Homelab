@@ -28,3 +28,4 @@ Current high-signal files:
 - [Live Build Log: 2026-06-30](06_operations_security/LIVE_BUILD_LOG_2026-06-30.md)
 - [Live Build Log: 2026-07-01](06_operations_security/LIVE_BUILD_LOG_2026-07-01.md)
 - [Live Build Log: 2026-07-03](06_operations_security/LIVE_BUILD_LOG_2026-07-03.md)
+- [Live Build Log: 2026-07-08](06_operations_security/LIVE_BUILD_LOG_2026-07-08.md)

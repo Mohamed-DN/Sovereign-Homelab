@@ -40,4 +40,4 @@ This log records the interactive operations-dashboard rollout. It contains no pa
 
 **Previous:** [Live Build Log: 2026-06-30](LIVE_BUILD_LOG_2026-06-30.md)
 
-**Next:** [Operations Manual](OPERATIONS_MANUAL.md)
+**Next:** [Live Build Log: 2026-07-03](LIVE_BUILD_LOG_2026-07-03.md)
