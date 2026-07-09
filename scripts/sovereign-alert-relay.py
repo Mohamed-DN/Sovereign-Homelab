@@ -196,17 +196,18 @@ def render_incident(event: str, incident: dict[str, Any], now: int) -> tuple[str
     priority = priority_for(name)
     impact, actions, commands, link = guidance_for(name)
     labels = {
-        "down": ("DOWN", "#dc2626", f"ALERT: {name} is DOWN"),
-        "reminder": ("STILL DOWN", "#d97706", f"REMINDER: {name} is still DOWN"),
-        "resolved": ("RESOLVED", "#059669", f"RESOLVED: {name} returned UP"),
-        "warning": ("WARNING", "#d97706", f"WARNING: {name}"),
-        "test": ("TEST", "#2563eb", f"TEST: {name}"),
+        "down": ("DOWN", "#dc2626", "\U0001F534", f"ALERT: {name} is DOWN"),
+        "reminder": ("STILL DOWN", "#d97706", "\U0001F7E0", f"REMINDER: {name} is still DOWN"),
+        "resolved": ("RESOLVED", "#059669", "\U0001F7E2", f"RESOLVED: {name} returned UP"),
+        "warning": ("WARNING", "#d97706", "⚠️", f"WARNING: {name}"),
+        "test": ("TEST", "#2563eb", "\U0001F535", f"TEST: {name}"),
     }
-    label, color, subject = labels[event]
+    label, color, glyph, subject = labels[event]
     context = {
         "event": event,
         "status": label,
         "status_color": color,
+        "status_glyph": glyph,
         "priority": priority,
         "service": html.escape(name),
         "service_text": name,
