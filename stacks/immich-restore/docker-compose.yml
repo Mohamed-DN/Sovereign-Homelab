@@ -1,0 +1,60 @@
+name: immich-restore
+
+# Temporary EMERGENCY Immich stack for restoring the Windows mirror on a
+# Windows PC (Docker Desktop / WSL2). It is NOT production. It brings up just
+# enough of Immich to import the database dump, browse restored assets, and
+# validate a sample photo. Machine learning is intentionally omitted to keep
+# the emergency footprint small; existing assets are still served without it.
+#
+# Images are pinned to the production versions so a restore matches the dump.
+# The postgres data directory is a FRESH empty named volume; the SQL dump is
+# imported into it after the containers are healthy (see the runbook). Never
+# point IMMICH_DB_DATA at a directory that already contains a database.
+
+services:
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:${IMMICH_VERSION}
+    container_name: immich-restore-server
+    restart: unless-stopped
+    depends_on:
+    - immich-redis
+    - immich-database
+    environment:
+      DB_HOSTNAME: immich-database
+      DB_USERNAME: ${IMMICH_DB_USERNAME}
+      DB_PASSWORD: ${IMMICH_DB_PASSWORD}
+      DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME}
+      REDIS_HOSTNAME: immich-redis
+      TZ: ${TZ}
+    ports:
+    - "${IMMICH_PORT}:2283"
+    volumes:
+    - ${IMMICH_UPLOAD_LOCATION}:/data
+
+  immich-redis:
+    image: docker.io/valkey/valkey:9@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
+    container_name: immich-restore-redis
+    restart: unless-stopped
+    healthcheck:
+      test:
+      - CMD
+      - redis-cli
+      - ping
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  immich-database:
+    image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0
+    container_name: immich-restore-database
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${IMMICH_DB_PASSWORD}
+      POSTGRES_USER: ${IMMICH_DB_USERNAME}
+      POSTGRES_DB: ${IMMICH_DB_DATABASE_NAME}
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    volumes:
+    - immich_restore_pgdata:/var/lib/postgresql/data
+
+volumes:
+  immich_restore_pgdata:

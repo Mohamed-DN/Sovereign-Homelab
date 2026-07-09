@@ -14,6 +14,9 @@ $backup_text
 IMMICH DATA PROTECTION
 $immich_protection_text
 
+TEMPORARY WINDOWS IMMICH MIRROR
+$windows_mirror_text
+
 GUEST INVENTORY
 $guest_text
 
