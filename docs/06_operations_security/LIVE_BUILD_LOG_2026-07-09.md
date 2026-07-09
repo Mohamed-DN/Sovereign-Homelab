@@ -118,6 +118,38 @@ Changes:
   needs Administrator rights, which the agent does not have, so this single
   elevated run is the only remaining step to make the mirror live.
 
+## Master Dashboard v2 and Full Backup Controls (Authorized Live Pass, continued)
+
+After owner feedback ("non mi sta piacendo... voglio una master dashboard con
+tutto"), the separate console was retired and the unified **Sovereign Master
+Dashboard** was rebuilt and repointed at `dash.internal` (Homepage moved to
+`homepage.internal` as rollback):
+
+- **UI v2**: tabs (Overview / Servizi / Dati & Backup / Apps), dark+light theme
+  toggle, glass header, animated count-up tiles, host CPU/RAM sparklines with
+  crosshair tooltips (palette validated with the dataviz six-checks in both
+  modes), animated storage donuts, per-guest CPU/RAM bars, full launchpad of
+  `.internal` links with live status dots from Kuma, responsive layout and
+  reduced-motion support.
+- **Force backup for everything**: per-guest PBS buttons (VMIDs 100-130
+  allowlist) and the Windows mirror. Jobs run in background threads with
+  single-flight per target and an "in corso" state in the UI.
+- **Outcome emails**: on completion the dashboard emails the result through the
+  alert relay - PBS success/failure with duration and retention note; mirror
+  success (snapshot + check), "no new snapshot" (PC offline), or failure.
+  Verified live by forcing a PBS backup of LXC 103 from the dashboard API.
+- **Retention confirmed already-safe**: the PBS storage was already configured
+  with `prune-backups keep-daily=7,keep-weekly=4,keep-monthly=6`, so old
+  snapshots are automatically deleted after each successful backup (dedup makes
+  extras cheap); the restic mirror keeps last 3 / daily 7 / weekly 8 /
+  monthly 12. No retention change was needed - documented and surfaced in the
+  UI instead.
+- The Windows Immich mirror went fully live earlier in this pass: first full
+  backup (snapshot `c2cf7eb5`, 110 GiB, 38,791 files, check clean), hardened
+  SFTP-only key, incremental logon auto-trigger, restic on Windows for restore.
+- Safe app controls live: allowlist-only agent on LXC 102 with audit log and
+  per-action emails; master dashboard forwards the real actor.
+
 ## Data Safety
 
 Immich production data was not touched in either pass. The mirror scripts only
