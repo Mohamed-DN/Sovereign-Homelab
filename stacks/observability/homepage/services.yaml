@@ -88,13 +88,7 @@
         icon: netalertx.png
         href: https://netalert.internal
         siteMonitor: https://netalert.internal
-        description: Connected, new, and unavailable LAN devices
-        widget:
-          type: netalertx
-          url: http://192.168.1.53:20212
-          key: "{{HOMEPAGE_VAR_NETALERTX_API_TOKEN}}"
-          version: 2
-          fields: ["total", "connected", "new_devices", "down_alerts"]
+        description: Connected, new, and unavailable LAN devices (open for the live inventory)
     - Disk Health:
         id: glance-scrutiny
         icon: scrutiny.png

@@ -104,9 +104,17 @@ $authKeys = Join-Path $sshDir "authorized_keys"
 if (-not (Test-Path $authKeys) -or -not (Select-String -Path $authKeys -SimpleMatch $Vm110PublicKey -Quiet)) {
     Add-Content -Path $authKeys -Value $Vm110PublicKey -Encoding ascii
 }
-# OpenSSH requires strict ACLs on authorized_keys.
-icacls $authKeys /inheritance:r | Out-Null
-icacls $authKeys /grant "${BackupUser}:R" "SYSTEM:F" "Administrators:F" | Out-Null
+# OpenSSH (StrictModes) requires the .ssh folder and authorized_keys to be owned
+# by the account and writable only by the user, SYSTEM, and Administrators.
+& icacls $userHome /setowner $BackupUser /C /Q | Out-Null
+& icacls $sshDir /reset /T /C /Q | Out-Null
+& icacls $sshDir /inheritance:r | Out-Null
+& icacls $sshDir /setowner $BackupUser | Out-Null
+& icacls $sshDir /grant:r "${BackupUser}:(OI)(CI)F" "SYSTEM:(OI)(CI)F" "Administrators:(OI)(CI)F" | Out-Null
+& icacls $authKeys /inheritance:r | Out-Null
+& icacls $authKeys /setowner $BackupUser | Out-Null
+& icacls $authKeys /grant:r "${BackupUser}:F" "SYSTEM:F" "Administrators:F" | Out-Null
+Restart-Service sshd
 
 Write-Host ""
 Write-Host "Windows mirror host setup complete." -ForegroundColor Green
