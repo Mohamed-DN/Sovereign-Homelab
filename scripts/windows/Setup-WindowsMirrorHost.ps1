@@ -25,6 +25,16 @@
 
 .NOTES
     Full procedure: docs/05_backup_dr/IMMICH_WINDOWS_MIRROR.md
+
+    IMPORTANT (2026-07-09): the dedicated non-admin "immich_backup" account this
+    script creates could NOT authenticate on this host - Windows OpenSSH failed
+    to build a logon token for a service account whose profile/SID was never
+    materialized. The reliable, working method (now live) is a hardened SFTP-only
+    key in C:\ProgramData\ssh\administrators_authorized_keys:
+      restrict,command="internal-sftp" ssh-ed25519 <VM110-mirror-pubkey> immich-windows-mirror
+    See the runbook "Working authentication method" note. This script still
+    enables OpenSSH Server, the LAN firewall rule, restic, and the folders, which
+    remain useful; only the account-based key step was superseded.
 #>
 [CmdletBinding()]
 param(

@@ -8,16 +8,34 @@ This is **not** a full 3-2-1 backup. It is temporary risk reduction. Keep the
 phone originals until at least two independent restores have passed (this
 mirror and either the external SSD or an offsite target).
 
-> **Status for this lab (2026-07-09):** the VM 110 side is already prepared —
-> secret directory, mirror keypair, restic password, and config files under
-> `/root/sovereign-secrets/immich-windows`, targeting the Windows PC at
-> `192.168.1.100`. Remaining to go live: run
-> [`scripts/windows/Setup-WindowsMirrorHost.ps1`](../../scripts/windows/Setup-WindowsMirrorHost.ps1)
-> **once as Administrator** on the Windows PC (it enables OpenSSH Server LAN-only,
-> installs restic, creates the folders and the `immich_backup` account, and
-> authorizes the VM 110 key), then run the VM 110 host-key/init/first-backup
-> steps in Phase 2 and Phase 4. This one elevated step is required because
-> enabling an SSH server needs Administrator rights.
+> **Status for this lab (2026-07-09): LIVE.** The mirror is initialized and the
+> first full backup has run. Windows PC `192.168.1.100` has OpenSSH Server
+> (LAN-only firewall), the folders, and the VM 110 key authorized. VM 110 has the
+> secrets/keypair/config under `/root/sovereign-secrets/immich-windows` and the
+> helper + unit installed.
+>
+> **Working authentication method (important).** The dedicated non-admin
+> `immich_backup` account could not authenticate because Windows OpenSSH could not
+> establish a logon token for a service account whose profile/SID was never
+> materialized (`get_passwd: lookup_sid() failed`), even with the key, ACLs, and
+> `AuthorizedKeysFile` all correct. The reliable, working method is instead a
+> **hardened, SFTP-only key** in `C:\ProgramData\ssh\administrators_authorized_keys`
+> for the existing admin account:
+>
+> ```text
+> restrict,command="internal-sftp" ssh-ed25519 <VM110-mirror-public-key> immich-windows-mirror
+> ```
+>
+> `restrict` disables shells, pty, and all forwarding; `command="internal-sftp"`
+> forces SFTP only. Verified: SFTP works, and a shell command returns
+> "This service allows sftp connections only." So even if VM 110 were
+> compromised, this key can only transfer files into the backup folder — it
+> cannot run commands on the Windows PC. The VM 110 `restic-repository` and
+> `restic-ssh-command` connect as the admin user with `IdentitiesOnly=yes`.
+>
+> Security note: this grants VM 110 SFTP (file-transfer only) to the Windows PC
+> over the LAN. It is acceptable for a temporary mirror; a future hardening is to
+> chroot the SFTP session to the backup folder with a `Match` block.
 
 ## Purpose
 
