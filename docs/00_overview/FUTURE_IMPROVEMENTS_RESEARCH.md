@@ -1,6 +1,47 @@
 # Future Improvements Research
 
-Last refreshed: 2026-06-24.
+Last refreshed: 2026-07-09.
+
+## Decisions Recorded 2026-07-09
+
+Research-backed decisions from the current pass. Each was checked against
+official docs and active projects before being written into canonical runbooks.
+
+### Temporary Windows Immich mirror (implemented, repo-side)
+
+- **What it solves:** a second, physically separate, encrypted copy of Immich
+  on an occasionally online Windows PC while the external SSD and offsite paths
+  are still being proven.
+- **Why this shape:** restic over the Windows OpenSSH SFTP server, pushed from
+  VM 110, event-triggered by the Windows PC at logon so VM 110 never polls a PC
+  that is usually off. Restore runs restic locally on Windows against the local
+  repo. This reuses the proven `sovereign-immich-external-restic` pattern (fresh
+  DB dump + upload tree + consistent snapshot, only `immich-server` briefly
+  stopped, trap-restart on failure).
+- **Risks/downsides:** restic over Windows SFTP has a drive-letter path edge
+  case (restic/restic#5155); mitigated with keepalive SSH options and a
+  documented chroot fallback. The PC is often offline, so the mirror is best
+  effort, not 3-2-1.
+- **Status:** implement now (repo scripts, restore kit, runbook, weekly-report
+  fields shipped); live execution is a next action.
+- **Sources:** [Immich backup/restore](https://docs.immich.app/administration/backup-and-restore/),
+  [restic SFTP prep](https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html),
+  [OpenSSH on Windows](https://learn.microsoft.com/en-us/windows-server/administration/openssh/openssh_install_firstuse).
+
+### Operations console vs Homepage (decision: additive, not replacement)
+
+- **What it solves:** a control surface (safe start/stop with identity, reason,
+  duration, audit) and aggregated live metrics that Homepage cannot provide.
+- **Why:** Homepage remains the strongest git-trackable launchpad and health
+  display and already implements the five-tab ops layout; Glance is lighter but
+  has fewer integrations. The genuine gap is acting and aggregating, so the
+  custom Sovereign Console is built additively while Homepage stays as fallback.
+- **Risks/downsides:** a custom app adds attack surface; contained by keeping
+  the frontend secret-free, gating actions behind Authentik, and confining the
+  control agent to an allowlist on the light-apps host only.
+- **Status:** design + phased plan + prototype now; live build gated per phase.
+- **Sources:** [Homepage](https://gethomepage.dev/), [Glance](https://github.com/glanceapp/glance),
+  [Authentik proxy provider](https://docs.goauthentik.io/add-secure-apps/providers/proxy/).
 
 ## Scope
 

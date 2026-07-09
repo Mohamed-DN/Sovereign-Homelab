@@ -205,6 +205,49 @@ print(json.dumps({
         return {"healthy": False, "error": "VM110 protection status could not be parsed"}
 
 
+def immich_windows_mirror() -> dict[str, Any]:
+    """Read the temporary Windows mirror status from VM110 without exposing filenames.
+
+    The mirror is an occasionally online, temporary copy. A missing state file
+    means it has not been configured yet, which is a pending enhancement rather
+    than a failure, so it must not raise an alert on its own.
+    """
+    guest_script = r'''
+import json
+import os
+from datetime import datetime, timezone
+
+state = "/root/sovereign-secrets/immich-windows/state/last-mirror.json"
+if not os.path.exists(state):
+    print(json.dumps({"configured": False}))
+else:
+    data = json.load(open(state))
+    created = data.get("created_utc")
+    age_hours = None
+    if created:
+        try:
+            when = datetime.strptime(created, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+            age_hours = round((datetime.now(timezone.utc) - when).total_seconds() / 3600, 1)
+        except ValueError:
+            age_hours = None
+    print(json.dumps({
+        "configured": True,
+        "age_hours": age_hours,
+        "snapshot_id": data.get("snapshot_id"),
+        "snapshot_time": data.get("snapshot_time"),
+        "check_result": data.get("check_result"),
+    }))
+'''
+    status, output = run(["qm", "guest", "exec", "110", "--", "python3", "-c", guest_script], timeout=60)
+    if status:
+        return {"configured": False, "error": output[:300]}
+    try:
+        wrapper = json.loads(output)
+        return json.loads(wrapper.get("out-data", "{}"))
+    except (json.JSONDecodeError, TypeError):
+        return {"configured": False, "error": "VM110 Windows mirror status could not be parsed"}
+
+
 def disk_usage() -> list[dict[str, Any]]:
     status, output = run(["df", "-P", "-x", "tmpfs", "-x", "devtmpfs"], timeout=20)
     if status:
@@ -264,6 +307,7 @@ def build_report() -> dict[str, str]:
     kuma = kuma_summary()
     backups = latest_backups()
     immich = immich_protection()
+    windows_mirror = immich_windows_mirror()
     disks = disk_usage()
     smart = smart_health()
     _, failed_units = run(["systemctl", "--failed", "--no-legend", "--plain"])
@@ -299,6 +343,30 @@ def build_report() -> dict[str, str]:
     if not immich.get("healthy"):
         actions.append({"severity": "P0", "problem": "Immich app-aware protection is incomplete or stale", "impact": str(immich)[:500], "action": "Check VM110 protection timers, rerun the daily job, and repeat the isolated database restore test before changing photo data."})
 
+    # Temporary Windows Immich mirror. Occasionally online by design, so a stale
+    # mirror is a soft warning (P1 at 14 days), never a P0, and a missing mirror
+    # is treated as "not configured" without any alert.
+    mirror_age = windows_mirror.get("age_hours")
+    if not windows_mirror.get("configured"):
+        mirror_label, mirror_color, mirror_age_label = "not set", "#6b7280", "-"
+    else:
+        mirror_age_label = f"{mirror_age / 24:.1f} d" if isinstance(mirror_age, (int, float)) else "unknown"
+        mirror_stale = isinstance(mirror_age, (int, float)) and mirror_age > 24 * 7
+        mirror_critical = isinstance(mirror_age, (int, float)) and mirror_age > 24 * 14
+        mirror_check_failed = windows_mirror.get("check_result") == "failed"
+        if mirror_check_failed:
+            mirror_label, mirror_color = "CHECK", "#dc2626"
+        elif mirror_critical:
+            mirror_label, mirror_color = f"STALE {mirror_age_label}", "#dc2626"
+        elif mirror_stale:
+            mirror_label, mirror_color = f"AGING {mirror_age_label}", "#d97706"
+        else:
+            mirror_label, mirror_color = "OK", "#059669"
+        if mirror_check_failed:
+            actions.append({"severity": "P1", "problem": "Windows Immich mirror integrity check failed", "impact": str(windows_mirror)[:400], "action": "Bring the Windows PC online and rerun the mirror check; keep the previous copy until it passes."})
+        elif mirror_critical:
+            actions.append({"severity": "P1", "problem": "Windows Immich mirror is older than 14 days", "impact": f"Newest mirror snapshot age is {mirror_age_label}. This is a temporary copy; PBS remains the primary backup.", "action": "Bring the Windows PC online so the logon trigger refreshes the mirror, or run the mirror manually."})
+
     severity = "HEALTHY"
     color = "#059669"
     if any(item["severity"] == "P0" for item in actions):
@@ -324,7 +392,7 @@ def build_report() -> dict[str, str]:
         "status": severity,
         "status_color": color,
         "generated": datetime.now().astimezone().isoformat(timespec="seconds"),
-        "summary_cards": "<table width=\"100%\"><tr>" + card("Kuma monitors", str(kuma["active"]), color) + card("Active failures", str(len(down)), "#dc2626" if down else "#059669") + "</tr><tr>" + card("Weekly incidents", str(weekly_incidents), "#d97706" if weekly_incidents else "#059669") + card("Running guests", f"{running_guests}/{total_guests}", "#2563eb") + "</tr><tr>" + card("Immich protection", "OK" if immich.get("healthy") else "CHECK", "#059669" if immich.get("healthy") else "#dc2626") + card("Immich data disk", f"{immich.get('data_used_percent', '?')}% used", "#2563eb") + "</tr></table>",
+        "summary_cards": "<table width=\"100%\"><tr>" + card("Kuma monitors", str(kuma["active"]), color) + card("Active failures", str(len(down)), "#dc2626" if down else "#059669") + "</tr><tr>" + card("Weekly incidents", str(weekly_incidents), "#d97706" if weekly_incidents else "#059669") + card("Running guests", f"{running_guests}/{total_guests}", "#2563eb") + "</tr><tr>" + card("Immich protection", "OK" if immich.get("healthy") else "CHECK", "#059669" if immich.get("healthy") else "#dc2626") + card("Immich data disk", f"{immich.get('data_used_percent', '?')}% used", "#2563eb") + "</tr><tr>" + card("Windows mirror", mirror_label, mirror_color) + card("Mirror age", mirror_age_label, "#2563eb") + "</tr></table>",
         "actions_html": action_html,
         "actions_text": action_text,
         "monitor_table": table(["Monitor", "Current", "Incidents", "Down seconds"], monitor_rows),
@@ -340,6 +408,8 @@ def build_report() -> dict[str, str]:
         "credential_lifecycle_text": lifecycle,
         "immich_protection": html.escape(json.dumps(immich, indent=2, sort_keys=True)),
         "immich_protection_text": json.dumps(immich, indent=2, sort_keys=True),
+        "windows_mirror": html.escape(json.dumps(windows_mirror, indent=2, sort_keys=True)),
+        "windows_mirror_text": json.dumps(windows_mirror, indent=2, sort_keys=True),
         "failed_units": html.escape(failed_units or "none"),
         "monitor_text": "\n".join(" | ".join(row) for row in monitor_rows),
         "backup_text": "\n".join(" | ".join(row) for row in backup_rows),

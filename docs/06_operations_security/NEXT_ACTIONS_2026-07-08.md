@@ -1,5 +1,7 @@
 # Next Actions - 2026-07-08
 
+> Superseded by [NEXT_ACTIONS_2026-07-09.md](NEXT_ACTIONS_2026-07-09.md). The Windows mirror is now implemented repo-side, and the dashboard/safe-controls work has a design and phased plan. This file is kept for history.
+
 This file is the handoff list for the next implementation pass. It exists because the live VPN had to be repaired first and the remaining work touches critical photo data.
 
 ## Live Fix Completed

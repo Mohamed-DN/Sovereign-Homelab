@@ -1,0 +1,21 @@
+[Unit]
+Description=Create a consistent temporary Immich mirror on the Windows PC over SFTP
+Documentation=file:///opt/sovereign-homelab/docs/05_backup_dr/IMMICH_WINDOWS_MIRROR.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+# This unit is intentionally NOT paired with a timer. VM 110 must not poll the
+# Windows PC. The mirror is triggered from the Windows side at logon/startup
+# (Task Scheduler -> SSH to VM 110 -> systemctl start this unit) or run
+# manually. If the Windows PC is offline the helper exits cleanly.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sovereign-immich-windows-restic backup
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+NoNewPrivileges=true
+PrivateTmp=true
+TimeoutStartSec=12h

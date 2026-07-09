@@ -1,0 +1,269 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sovereign Console - Design Prototype</title>
+<style>
+  /* Palette matches the live Homepage ops theme (stacks/observability/homepage/custom.css). */
+  :root {
+    --ops-bg: #06080b;
+    --ops-surface: #0d1218;
+    --ops-surface-raised: #121922;
+    --ops-line: rgba(148, 163, 184, 0.2);
+    --ops-line-strong: rgba(148, 163, 184, 0.36);
+    --ops-text: #f4f7fb;
+    --ops-muted: #9aa8b8;
+    --ops-cyan: #22d3ee;
+    --ops-green: #2dd4a7;
+    --ops-blue: #60a5fa;
+    --ops-amber: #fbbf24;
+    --ops-red: #fb7185;
+    --ops-violet: #a78bfa;
+  }
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; background: var(--ops-bg); }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ops-text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--ops-bg);
+    background-image:
+      linear-gradient(rgba(34, 211, 238, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34, 211, 238, 0.035) 1px, transparent 1px);
+    background-size: 32px 32px;
+    background-attachment: fixed;
+  }
+  a { color: var(--ops-cyan); text-decoration: none; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 20px; }
+
+  header.top {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(34, 211, 238, 0.22);
+    background: rgba(6, 8, 11, 0.94);
+    backdrop-filter: blur(16px);
+  }
+  header.top h1 { margin: 0; font-size: 1.1rem; letter-spacing: 0.02em; }
+  header.top .sub { color: var(--ops-muted); font-size: 0.8rem; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid color-mix(in srgb, var(--ops-green) 40%, transparent);
+    background: color-mix(in srgb, var(--ops-green) 12%, transparent);
+    color: var(--ops-green); font-weight: 700; font-size: 0.8rem;
+  }
+  .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ops-green); box-shadow: 0 0 10px var(--ops-green); }
+
+  .proto-banner {
+    margin: 16px 0; padding: 10px 14px; border-radius: 6px;
+    border: 1px dashed color-mix(in srgb, var(--ops-amber) 55%, transparent);
+    background: color-mix(in srgb, var(--ops-amber) 10%, transparent);
+    color: var(--ops-amber); font-size: 0.82rem;
+  }
+
+  nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0; }
+  nav.tabs a {
+    padding: 9px 16px; border-radius: 4px; font-weight: 700; font-size: 0.85rem;
+    color: var(--ops-muted); border: 1px solid var(--ops-line-strong);
+    background: rgba(7, 11, 15, 0.9);
+  }
+  nav.tabs a:focus-visible, nav.tabs a:hover { color: #fff; background: rgba(34, 211, 238, 0.08); }
+
+  section { margin: 26px 0; scroll-margin-top: 84px; }
+  section > h2 {
+    display: flex; align-items: center; gap: 10px;
+    margin: 0 0 14px; min-height: 38px; padding: 0 12px;
+    border: 1px solid var(--ops-line); border-left: 3px solid var(--accent, var(--ops-cyan));
+    border-radius: 3px; background: rgba(10, 15, 21, 0.92);
+    font-size: 0.85rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  section > h2::after {
+    content: ""; margin-left: auto; width: 46px; height: 1px;
+    background: var(--accent, var(--ops-cyan)); opacity: 0.6;
+  }
+  #core { --accent: var(--ops-cyan); }
+  #operations { --accent: var(--ops-blue); }
+  #data { --accent: var(--ops-amber); }
+  #apps { --accent: var(--ops-violet); }
+  #recovery { --accent: var(--ops-green); }
+
+  /* Health rail */
+  .rail { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 14px; }
+  .chip {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    border: 1px solid var(--ops-line); border-radius: 6px; background: var(--ops-surface);
+  }
+  .chip .led { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 auto; }
+  .chip.up .led { background: var(--ops-green); box-shadow: 0 0 8px var(--ops-green); }
+  .chip.warn .led { background: var(--ops-amber); box-shadow: 0 0 8px var(--ops-amber); }
+  .chip.down .led { background: var(--ops-red); box-shadow: 0 0 8px var(--ops-red); }
+  .chip .name { font-size: 0.82rem; font-weight: 700; }
+  .chip .meta { color: var(--ops-muted); font-size: 0.72rem; }
+
+  /* Cards */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+  .card {
+    position: relative; overflow: clip; padding: 14px;
+    border: 1px solid var(--ops-line); border-left: 3px solid color-mix(in srgb, var(--accent, var(--ops-cyan)) 72%, #64748b);
+    border-radius: 6px; background: var(--ops-surface); box-shadow: 0 12px 28px rgba(0, 0, 0, 0.3);
+    transition: transform 170ms ease, border-color 170ms ease, box-shadow 170ms ease;
+  }
+  .card:hover { transform: translateY(-3px); border-color: color-mix(in srgb, var(--accent) 72%, #64748b); background: var(--ops-surface-raised); }
+  .card .k { color: var(--ops-muted); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .card .v { font-size: 1.5rem; font-weight: 800; margin-top: 6px; }
+  .card .foot { margin-top: 8px; color: var(--ops-muted); font-size: 0.76rem; }
+
+  /* Metric bars (CSS only, no charting library) */
+  .bars { display: flex; align-items: flex-end; gap: 5px; height: 46px; margin-top: 10px; }
+  .bars span { flex: 1; background: color-mix(in srgb, var(--accent, var(--ops-cyan)) 60%, transparent); border-radius: 2px 2px 0 0; }
+
+  /* App card with safe control */
+  .app { display: flex; flex-direction: column; gap: 10px; }
+  .app .row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .app .status { display: inline-flex; align-items: center; gap: 7px; font-size: 0.78rem; color: var(--ops-muted); }
+  .btn {
+    padding: 7px 12px; border-radius: 5px; font-weight: 700; font-size: 0.78rem; cursor: not-allowed;
+    border: 1px solid var(--ops-line-strong); background: rgba(7, 11, 15, 0.9); color: var(--ops-text);
+  }
+  .btn.stop { border-color: color-mix(in srgb, var(--ops-red) 55%, transparent); color: var(--ops-red); }
+  .btn:focus-visible { outline: 2px solid var(--ops-cyan); outline-offset: 3px; }
+  .lock { font-size: 0.72rem; color: var(--ops-amber); }
+
+  a:focus-visible, button:focus-visible { outline: 2px solid var(--ops-cyan); outline-offset: 3px; }
+
+  footer { margin: 30px 0 8px; color: var(--ops-muted); font-size: 0.75rem; text-align: center; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .chip.up .led { animation: pulse 2.6s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 0.7; } 50% { opacity: 1; } }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+  }
+  @media (max-width: 720px) {
+    .wrap { padding: 12px; }
+    body { background-size: 24px 24px; }
+    .card .v { font-size: 1.3rem; }
+  }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>SOVEREIGN CONSOLE</h1>
+    <div class="sub">Private infrastructure control plane &middot; VPN/LAN only</div>
+  </div>
+  <span class="pill"><span class="dot"></span> All systems nominal</span>
+</header>
+
+<div class="wrap">
+  <div class="proto-banner">
+    Design prototype only. No live data, no secrets, not deployed. See
+    <a href="../../../docs/03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md">SOVEREIGN_CONSOLE_DESIGN.md</a>.
+  </div>
+
+  <nav class="tabs" aria-label="Sections">
+    <a href="#core">Core</a>
+    <a href="#operations">Operations</a>
+    <a href="#data">Data</a>
+    <a href="#apps">Apps</a>
+    <a href="#recovery">Recovery</a>
+  </nav>
+
+  <section id="core">
+    <h2>Core</h2>
+    <div class="rail">
+      <div class="chip up"><span class="led"></span><div><div class="name">AdGuard DNS</div><div class="meta">192.168.1.50 &middot; 12ms</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Headscale VPN</div><div class="meta">control plane 200 OK</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Subnet router</div><div class="meta">192.168.1.0/24</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">NPM</div><div class="meta">443 healthy</div></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="k">Exit node</div><div class="v">Proxmox</div><div class="foot">0.0.0.0/0 advertised</div></div>
+      <div class="card"><div class="k">VPN nodes</div><div class="v">6</div><div class="foot">no expiring keys</div></div>
+      <div class="card"><div class="k">DNS queries / 24h</div><div class="v">48.2k</div><div class="bars"><span style="height:40%"></span><span style="height:60%"></span><span style="height:52%"></span><span style="height:80%"></span><span style="height:66%"></span><span style="height:90%"></span><span style="height:72%"></span></div></div>
+    </div>
+  </section>
+
+  <section id="operations">
+    <h2>Operations</h2>
+    <div class="rail">
+      <div class="chip up"><span class="led"></span><div><div class="name">Beszel</div><div class="meta">CPU 14% &middot; RAM 41%</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Scrutiny</div><div class="meta">4 disks PASSED</div></div></div>
+      <div class="chip warn"><span class="led"></span><div><div class="name">NetAlertX</div><div class="meta">1 new device</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Cert expiry</div><div class="meta">61 days</div></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="k">Kuma monitors</div><div class="v">37</div><div class="foot">0 active failures</div></div>
+      <div class="card"><div class="k">Weekly incidents</div><div class="v">1</div><div class="foot">resolved &middot; 4m downtime</div></div>
+      <div class="card"><div class="k">Recent alerts (ntfy)</div><div class="v">3</div><div class="foot">last 24h, all informational</div></div>
+      <div class="card"><div class="k">Host load</div><div class="v">0.42</div><div class="bars"><span style="height:30%"></span><span style="height:44%"></span><span style="height:38%"></span><span style="height:52%"></span><span style="height:34%"></span><span style="height:48%"></span></div></div>
+    </div>
+  </section>
+
+  <section id="data">
+    <h2>Data</h2>
+    <div class="rail">
+      <div class="chip up"><span class="led"></span><div><div class="name">Immich</div><div class="meta">foto.internal &middot; pong</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Vaultwarden</div><div class="meta">pwd.internal</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Nextcloud</div><div class="meta">files.internal</div></div></div>
+      <div class="chip warn"><span class="led"></span><div><div class="name">Windows mirror</div><div class="meta">aging 9.2 d</div></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="k">Immich protection</div><div class="v" style="color:var(--ops-green)">OK</div><div class="foot">DB + files + restore test</div></div>
+      <div class="card"><div class="k">Immich data disk</div><div class="v">38%</div><div class="foot">used</div></div>
+      <div class="card"><div class="k">PBS coverage</div><div class="v">7/7</div><div class="foot">required guests current</div></div>
+    </div>
+  </section>
+
+  <section id="apps">
+    <h2>Apps</h2>
+    <div class="grid">
+      <div class="card app">
+        <div class="row"><strong>Jellyfin</strong><span class="status"><span class="chip up" style="padding:0;border:0;background:transparent"><span class="led"></span></span> running</span></div>
+        <div class="row"><button class="btn stop" disabled aria-disabled="true">Stop</button><span class="lock">Authentik required</span></div>
+      </div>
+      <div class="card app">
+        <div class="row"><strong>FreshRSS</strong><span class="status"><span class="chip up" style="padding:0;border:0;background:transparent"><span class="led"></span></span> running</span></div>
+        <div class="row"><button class="btn stop" disabled aria-disabled="true">Stop</button><span class="lock">Authentik required</span></div>
+      </div>
+      <div class="card app">
+        <div class="row"><strong>SearXNG</strong><span class="status"><span class="chip down" style="padding:0;border:0;background:transparent"><span class="led"></span></span> stopped</span></div>
+        <div class="row"><button class="btn" disabled aria-disabled="true">Start</button><span class="lock">by admin &middot; 42m</span></div>
+      </div>
+      <div class="card app">
+        <div class="row"><strong>Karakeep</strong><span class="status"><span class="chip up" style="padding:0;border:0;background:transparent"><span class="led"></span></span> running</span></div>
+        <div class="row"><button class="btn stop" disabled aria-disabled="true">Stop</button><span class="lock">Authentik required</span></div>
+      </div>
+      <div class="card app">
+        <div class="row"><strong>Open WebUI</strong><span class="status"><span class="chip up" style="padding:0;border:0;background:transparent"><span class="led"></span></span> running</span></div>
+        <div class="row"><button class="btn stop" disabled aria-disabled="true">Stop</button><span class="lock">Authentik required</span></div>
+      </div>
+    </div>
+    <p class="foot" style="margin-top:12px;color:var(--ops-muted);font-size:0.78rem">
+      Only these five apps are controllable. Every action requires an Authentik identity, a reason, and a planned
+      duration, and is written to the append-only audit log with a Kuma maintenance window.
+    </p>
+  </section>
+
+  <section id="recovery">
+    <h2>Recovery</h2>
+    <div class="rail">
+      <div class="chip up"><span class="led"></span><div><div class="name">PBS</div><div class="meta">pbs.internal &middot; verified</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Trust portal</div><div class="meta">trust.internal</div></div></div>
+      <div class="chip up"><span class="led"></span><div><div class="name">Restore drill</div><div class="meta">passed 2026-07-08</div></div></div>
+    </div>
+    <div class="grid">
+      <div class="card"><div class="k">Latest VM 110 snapshot</div><div class="v">04:57Z</div><div class="foot">2026-07-08</div></div>
+      <div class="card"><div class="k">External SSD copy</div><div class="v">pending</div><div class="foot">gate not yet passed</div></div>
+      <div class="card"><div class="k">Windows mirror</div><div class="v" style="color:var(--ops-amber)">9.2 d</div><div class="foot">temporary risk reduction</div></div>
+    </div>
+  </section>
+
+  <footer>Sovereign Homelab &middot; generated locally, no tracking, no external assets.</footer>
+</div>
+</body>
+</html>

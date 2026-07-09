@@ -111,7 +111,7 @@ All private web aliases terminate HTTPS at NPM and redirect client-side HTTP to 
 | Service | Hostname | Template port | Access | Backup |
 |---|---:|---:|---|---|
 | Vaultwarden | `pwd.internal` | 8082 | VPN-first | volume + export; SQLite baseline passed |
-| Immich | `foto.internal` | 2283 | VPN-first | DB + upload tree + daily metadata + weekly capacity + quarterly SHA-256 + PBS; separate local/offsite copies pending |
+| Immich | `foto.internal` | 2283 | VPN-first | DB + upload tree + daily metadata + weekly capacity + quarterly SHA-256 + PBS + temporary encrypted Windows restic mirror (no alias, SFTP transport only); separate local/offsite copies pending |
 | Syncthing UI | `sync.internal` | 8384 | VPN/Auth admin | config + folders |
 | Syncthing sync | none | 22000/tcp+udp | LAN/VPN/device | data folders |
 | Syncthing discovery | none | 21027/udp | LAN | local discovery |
@@ -136,6 +136,10 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; boot/service restore drill passed; finish offsite and internal certificate trust before irreplaceable files |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | live as dedicated Proxmox VM 130 |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
+| Sovereign Console (staging) | `console.internal` | design stage | VPN/Auth | Additive control plane; build and validate here before cutover. See [Sovereign Console Design](../03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md) |
+| Homepage (rollback) | `homepage.internal` | 3002 | VPN/Auth | Reserved rollback alias for Homepage once `dash.internal` is repointed to the console |
+
+Dashboard cutover note: `dash.internal` currently serves Homepage and stays that way until the Sovereign Console passes its cutover gate. At cutover, `dash.internal` is repointed to the console and Homepage remains available at `homepage.internal` as rollback. No public DuckDNS name is created for either.
 
 ## Operations Extensions
 

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Windows Task Scheduler definition for the temporary Immich mirror trigger.
+
+  This task runs Trigger-ImmichWindowsBackup.ps1 shortly after logon. The
+  script itself enforces a once-per-day guard, so multiple logons in a day do
+  not cause multiple mirror runs. VM 110 is never polled; it only acts when
+  this PC reaches out.
+
+  Import with:
+    schtasks /Create /TN "Sovereign Immich Mirror" /XML `
+      "C:\DBA\Sovereign-Homelab\scripts\windows\SovereignImmichMirror.Task.xml"
+
+  Adjust <Command>/<Arguments> paths and the <UserId> before importing. Run the
+  task under your normal interactive account (not SYSTEM) so the OpenSSH client
+  and your user SSH key are available.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Trigger the temporary encrypted Immich restic mirror on VM 110 once per day when this PC is online.</Description>
+    <URI>\Sovereign Immich Mirror</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT2M</Delay>
+    </LogonTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <!-- Replace with your interactive account, e.g. DESKTOP\yourname -->
+      <UserId>REPLACE_WITH_YOUR_WINDOWS_ACCOUNT</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT4H</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\DBA\Sovereign-Homelab\scripts\windows\Trigger-ImmichWindowsBackup.ps1"</Arguments>
+    </Exec>
+  </Actions>
+</Task>
