@@ -100,15 +100,25 @@ a control agent.
 
 ### Allowlist
 
-Start/stop is offered **only** for:
+The owner wants to start/stop **all non-essential services** from the dashboard,
+keeping only truly critical ones untouchable. The agent therefore allows
+start/stop for this reasoned "safe to toggle" set (all optional, no unique data
+loss when stopped, no infrastructure dependency):
 
 - Jellyfin
 - FreshRSS
 - Karakeep
 - SearXNG
 - Open WebUI
+- Ollama (AI backend)
 
-These all run on LXC 102 `apps-light` (`192.168.1.52`).
+These run on LXC 102 `apps-light` (`192.168.1.52`) / LXC 102. New optional apps
+are added here only after a deliberate review.
+
+Home Assistant, Syncthing, and RustDesk are deliberately **excluded** even though
+they are "apps", because stopping them has real-world side effects (home
+automation, data sync, remote access). They can be added later if the owner
+confirms.
 
 ### Never controllable
 
@@ -137,13 +147,33 @@ Every action must capture and persist:
 
 1. Operator authenticates through Authentik and opens the Apps section.
 2. Operator selects service, action, reason, and planned duration.
-3. Backend re-validates the allowlist, creates a Kuma maintenance window for the
-   planned duration (so the stop does not page anyone), and appends an audit
-   entry with `result: pending`.
+3. Backend re-validates the allowlist, **pauses the service's Uptime Kuma
+   monitor** (maintenance window for the planned duration) so a deliberate stop
+   never raises a false DOWN alert, and appends an audit entry `result: pending`.
 4. Backend calls the control agent with the specific `{service, action}`.
 5. Agent runs the exact `docker compose start|stop` for that service only and
    returns the result.
-6. Backend updates the audit entry `result` and the Kuma maintenance id.
+6. Backend updates the audit entry `result`. On **start**, the backend
+   **resumes the Kuma monitor** immediately so health tracking returns to normal.
+
+This is the owner's requirement: stopping a service from the dashboard also
+stops its monitor, and starting it from the dashboard brings the monitor back.
+
+### Dashboard status cards (owner request)
+
+Beyond controls, the console must surface, as live cards:
+
+- **Windows Immich mirror**: last snapshot time and **how late it is** (age),
+  last check result, colour-coded (fresh / aging / stale).
+- **Immich protection**: newest DB dump age, file/byte counts, last restore-test
+  date, PBS snapshot age.
+- General health rails per section.
+
+Colours follow the ops palette (cyan/green/amber/red/violet). Avoid harsh raw
+error banners; a failed data source shows a calm amber "unavailable" state, not
+a saturated magenta block. Charts are lightweight and interactive
+(hover/tooltip), inspired by dense analytics consoles but kept legible and
+accessible (reduced-motion honoured).
 
 ### Audit log
 
