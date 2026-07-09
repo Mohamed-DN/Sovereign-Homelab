@@ -1,0 +1,18 @@
+[Unit]
+Description=Sovereign safe app-control agent (allowlist-only start/stop for optional apps)
+Documentation=file:///opt/sovereign-homelab/docs/03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+Environment=HOME=/root
+EnvironmentFile=-/root/sovereign-secrets/app-control-agent.env
+ExecStart=/usr/bin/python3 /opt/sovereign-app-control/sovereign-app-control-agent.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target
