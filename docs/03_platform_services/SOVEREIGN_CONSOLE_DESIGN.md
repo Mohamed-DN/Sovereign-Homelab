@@ -221,6 +221,24 @@ Cutover gate (all required):
 - Authentik protects every control action;
 - Homepage confirmed working at `homepage.internal` as rollback.
 
+## Build Status (2026-07-09)
+
+- **Control agent: LIVE on LXC 102** (`sovereign-app-control-agent`, port 8097,
+  token-auth). Allowlist: jellyfin, freshrss, searxng, karakeep, open-webui,
+  ollama. Verified: start/stop works; a stop request for `immich-server` is
+  hard-refused ("service not in allowlist"); every action is written to
+  `/root/sovereign-secrets/app-control-audit.jsonl` with actor + reason; and each
+  action sends an email through the alert relay (e.g. "App STOPPED: searxng by
+  mohamed"). The Docker socket is never exposed to a browser.
+- **Next**: a small console backend that serves the interactive UI, holds the
+  agent token (never sent to the browser), aggregates status (Kuma, Immich,
+  Windows mirror), pauses/resumes the Kuma monitor around a stop/start, and is
+  Authentik-gated at `console.internal`.
+- **Metrics**: Prometheus/Grafana intentionally deferred. Beszel already provides
+  host/container metrics; adding a full TSDB + Grafana duplicates that and adds
+  maintenance weight against the lab's lean, recoverable-first principle. Revisit
+  only if Beszel/Kuma become insufficient.
+
 ## Phased Implementation Plan
 
 1. **Backend read-only core.** FastAPI service aggregating Kuma + state files,
