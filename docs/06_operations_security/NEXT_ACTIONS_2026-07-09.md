@@ -5,6 +5,28 @@ records what was done on 2026-07-09 (a repo-side pass, then an authorized live
 pass) and proposes the work for the coming days. Immich production data was not
 modified.
 
+## RESUME HERE (next session, running as Administrator)
+
+The owner is reopening Claude Code **as Administrator** to let the agent finish
+Windows admin steps directly. On resume:
+
+1. **Finish the Windows Immich mirror** (the only blocker was OpenSSH StrictModes
+   ACLs on the `immich_backup` profile):
+   - Run `scripts/windows/Fix-WindowsMirrorKey.ps1` (now possible with elevation).
+   - From VM 110, retest SFTP auth:
+     `sftp -i /root/sovereign-secrets/immich-windows/id_ed25519 -o UserKnownHostsFile=/root/sovereign-secrets/immich-windows/known_hosts immich_backup@192.168.1.100`
+   - `restic init` (command in [Immich Windows Mirror](../05_backup_dr/IMMICH_WINDOWS_MIRROR.md) Phase 2), install the helper + unit, run the first `backup` (background; ~116 GB initial upload; briefly stops only immich-server).
+   - Optionally install restic on Windows for the restore drill (winget failed during setup): `winget install restic.restic`.
+2. **Build the Sovereign Console** (owner approved): interactive dashboard +
+   start/stop controls per [Sovereign Console Design](../03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md).
+   Keep Homepage live at `dash.internal`; stage the console at `console.internal`.
+   Controllable set: Jellyfin, FreshRSS, Karakeep, SearXNG, Open WebUI, Ollama.
+   Stopping from the dashboard pauses the Kuma monitor; starting resumes it.
+
+State already prepared: VM 110 mirror secrets/keypair/config under
+`/root/sovereign-secrets/immich-windows` targeting `192.168.1.100`; Windows host
+has sshd + `immich_backup` + folders + LAN-only firewall.
+
 ## Done 2026-07-09
 
 Repo-side:
