@@ -21,15 +21,15 @@ if (-not $principal.IsInRole([Security.Principal.WindowsBuiltinRole]::Administra
     throw "Run as Administrator."
 }
 
-$home = "C:\Users\$BackupUser"
-$ssh = Join-Path $home ".ssh"
+$userHome = "C:\Users\$BackupUser"
+$ssh = Join-Path $userHome ".ssh"
 $ak = Join-Path $ssh "authorized_keys"
 if (-not (Test-Path $ak)) { throw "authorized_keys not found at $ak - run Setup-WindowsMirrorHost.ps1 first." }
 
 Write-Host "==> Fixing ownership and ACLs for $BackupUser SSH key" -ForegroundColor Cyan
 
 # Own the profile chain, then lock the .ssh folder and key to user + SYSTEM + Administrators only.
-& icacls $home /setowner $BackupUser /C /Q | Out-Null
+& icacls $userHome /setowner $BackupUser /C /Q | Out-Null
 & icacls $ssh /reset /T /C /Q | Out-Null
 & icacls $ssh /inheritance:r | Out-Null
 & icacls $ssh /setowner $BackupUser | Out-Null
