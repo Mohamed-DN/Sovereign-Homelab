@@ -1,8 +1,9 @@
 # Live Build Log: 2026-07-09
 
-This log records a **repo-side** engineering pass. No live services were changed
-and no production data was modified. It contains no passwords, API keys, tokens,
-personal filenames, or database dumps.
+This log records two passes on 2026-07-09: a repo-side engineering pass, then an
+authorized live pass that fixed immediate alerting and refreshed the alert
+emails. **No Immich or other production application data was modified.** It
+contains no passwords, API keys, tokens, personal filenames, or database dumps.
 
 ## Scope
 
@@ -49,11 +50,50 @@ personal filenames, or database dumps.
 - PowerShell parser validated both Windows scripts.
 - `scripts/validate-repository.ps1` results recorded at commit time.
 
+## Live Alerting Fix (Authorized Live Pass)
+
+Problem reported: only the weekly report arrived; no immediate alert fired when
+a service went down.
+
+Root cause found by read-only recon:
+
+1. The Uptime Kuma "Sovereign Email Relay" webhook pointed at
+   `http://127.0.0.1:8099`. Kuma runs as a Docker container, so `127.0.0.1` is
+   the container loopback and the webhook silently failed. The relay actually
+   listens on the LXC 101 host at `192.168.1.51:8099`. The weekly report worked
+   only because it is delivered host-side via `pct exec`, not through this URL.
+2. 14 of 38 active monitors had no notification attached at all.
+
+Changes applied (LXC 101 / Kuma only; Immich untouched):
+
+- Backed up `kuma.db` to `/root/sovereign-secrets/kuma.db.bak-<ts>`.
+- Stopped Kuma, corrected the webhook URL to `http://192.168.1.51:8099/webhook`
+  (token unchanged), attached the relay notification to all 38 active monitors,
+  restarted Kuma. Verified 0 monitors remain unlinked.
+- Confirmed, by comparing SHA-256 hashes only, that the token stored in Kuma
+  matches the relay token, so webhooks authenticate.
+- Verified end to end with a synthetic monitor: the relay sent the DOWN email
+  after the 60s debounce (`emails_sent=1`) and a RESOLVED email on recovery,
+  with no send errors.
+- Redesigned the five alert email templates (dark ops palette, per-event status
+  glyph, severity badge, accent bars) and added a `status_glyph` context value
+  in the relay. Deployed the script and templates to
+  `/opt/sovereign-alert-relay`, ran the built-in self-test, restarted the relay,
+  and sent one demonstration email.
+- Backed up and deployed the updated weekly-report script and templates to the
+  Proxmox host; a no-send dry run generated cleanly and now includes the
+  Windows mirror section (currently "not configured", which raises no alert).
+
+Result: incidents now email within about one minute of a service going down,
+followed by one reminder at five minutes and one recovery message.
+
 ## Data Safety
 
-Immich production data was not touched. The mirror scripts only read the asset
-tree and only ever briefly stop `immich-server` during a live run, which was not
-executed in this pass. Keep phone originals until the mirror plus one other
+Immich production data was not touched in either pass. The mirror scripts only
+read the asset tree and only ever briefly stop `immich-server` during a live
+run, which was not executed. The alerting fix is confined to LXC 101 and Kuma.
+Immich remained healthy throughout (all four containers up, `/api/server/ping`
+returned `{"res":"pong"}`). Keep phone originals until the mirror plus one other
 independent copy have each passed a restore.
 
 ---
