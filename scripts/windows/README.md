@@ -12,9 +12,27 @@ phone originals until external SSD and offsite restore tests have passed.
 
 | File | Runs on | Purpose |
 |---|---|---|
+| `Setup-WindowsMirrorHost.ps1` | Windows (elevated, once) | Enables OpenSSH Server (LAN-only), installs restic, creates folders, creates the `immich_backup` account, and authorizes the VM 110 key. |
 | `Trigger-ImmichWindowsBackup.ps1` | Windows | At logon, SSH to VM 110 and run the mirror once (once-per-day guard). |
 | `Restore-ImmichLatest.ps1` | Windows | Emergency restore of the latest snapshot from the local repo. |
 | `SovereignImmichMirror.Task.xml` | Windows | Task Scheduler definition for the logon trigger. |
+
+## One-time bring-up (this lab)
+
+The VM 110 side is already prepared (keys and config under
+`/root/sovereign-secrets/immich-windows`, targeting this PC at `192.168.1.100`).
+To finish going live:
+
+1. On the Windows PC, open PowerShell **as Administrator** and run:
+
+   ```powershell
+   powershell -NoProfile -ExecutionPolicy Bypass `
+     -File C:\DBA\Sovereign-Homelab\scripts\windows\Setup-WindowsMirrorHost.ps1
+   ```
+
+2. On VM 110, record the host key, initialize, and take the first snapshot
+   (exact commands in [the runbook](../../docs/05_backup_dr/IMMICH_WINDOWS_MIRROR.md)).
+3. Import the scheduled logon trigger.
 
 ## Prerequisites
 
