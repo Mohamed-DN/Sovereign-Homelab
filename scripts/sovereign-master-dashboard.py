@@ -179,8 +179,8 @@ def audit(entry: dict[str, Any]) -> None:
         pass
 
 
-def do_app(service: str, action: str) -> tuple[bool, str]:
-    body = json.dumps({"service": service, "action": action, "actor": "master-dashboard", "reason": "via master dashboard"}).encode()
+def do_app(service: str, action: str, actor: str = "master-dashboard", reason: str = "via master dashboard") -> tuple[bool, str]:
+    body = json.dumps({"service": service, "action": action, "actor": actor, "reason": reason}).encode()
     req = urllib.request.Request(f"{AGENT_URL}/control", data=body, method="POST",
                                  headers={"Content-Type": "application/json", "Authorization": f"Bearer {agent_token()}"})
     try:
@@ -349,7 +349,7 @@ class Handler(BaseHTTPRequestHandler):
         reason = str(p.get("reason", ""))[:300]
         ok, detail = False, "unknown op"
         if op == "app":
-            ok, detail = do_app(str(p.get("service", "")), str(p.get("action", "")))
+            ok, detail = do_app(str(p.get("service", "")), str(p.get("action", "")), actor, reason)
         elif op == "mirror-backup":
             ok, detail = do_mirror_backup()
         elif op == "pbs-backup":
