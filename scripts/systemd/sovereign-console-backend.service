@@ -1,0 +1,17 @@
+[Unit]
+Description=Sovereign Console backend (serves the UI and proxies to the app-control agent)
+Documentation=file:///opt/sovereign-homelab/docs/03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md
+After=network-online.target sovereign-app-control-agent.service
+Wants=network-online.target
+Requires=sovereign-app-control-agent.service
+
+[Service]
+Type=simple
+Environment=HOME=/root
+ExecStart=/usr/bin/python3 /opt/sovereign-app-control/sovereign-console-backend.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+
+[Install]
+WantedBy=multi-user.target

@@ -230,10 +230,22 @@ Cutover gate (all required):
   `/root/sovereign-secrets/app-control-audit.jsonl` with actor + reason; and each
   action sends an email through the alert relay (e.g. "App STOPPED: searxng by
   mohamed"). The Docker socket is never exposed to a browser.
-- **Next**: a small console backend that serves the interactive UI, holds the
-  agent token (never sent to the browser), aggregates status (Kuma, Immich,
-  Windows mirror), pauses/resumes the Kuma monitor around a stop/start, and is
-  Authentik-gated at `console.internal`.
+- **Console backend + UI: LIVE on LXC 102** (`sovereign-console-backend`, port
+  8098). It serves an interactive dark-ops page (app cards with live status and
+  start/stop buttons that prompt for name + reason) and proxies to the agent. It
+  is the ONLY component that holds the agent token; the browser receives no
+  secrets (verified: zero token-like strings in the served page). Reachable now
+  at `http://192.168.1.52:8098` on LAN/VPN.
+- **Remaining wiring** (do in the NPM GUI, the authoritative proxy source):
+  1. AdGuard rewrite `console.internal` -> NPM IP.
+  2. NPM proxy host `console.internal` -> `http://192.168.1.52:8098` with the
+     internal certificate.
+  3. Authentik proxy-provider protection (currently the console is LAN/VPN-only
+     with a self-declared actor; Authentik adds real identity before the audit
+     entry). Until then, keep it LAN/VPN-only.
+- **Next**: aggregate the Windows-mirror age and Immich protection status into
+  console status cards (cross-host read), and pause/resume the Kuma monitor
+  around a stop/start.
 - **Metrics**: Prometheus/Grafana intentionally deferred. Beszel already provides
   host/container metrics; adding a full TSDB + Grafana duplicates that and adds
   maintenance weight against the lab's lean, recoverable-first principle. Revisit
