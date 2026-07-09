@@ -63,7 +63,8 @@ Design references:
 |---|---:|---:|---|---|
 | Authentik | `auth.internal` | 9000 | VPN/Auth by default | Identity provider |
 | Authentik LDAP outpost | `ldap.internal` | 636 | LAN/VPN service accounts | Direct LDAPS to LXC 101, no NPM, no public exposure |
-| Homepage | `dash.internal` | 3002 | VPN/Auth | Dashboard |
+| Sovereign Master Dashboard | `dash.internal` | Proxmox host 8095 | VPN/Auth | Unified status + force-backup + app start/stop |
+| Homepage | `homepage.internal` | 3002 | VPN/Auth | Launchpad; rollback for `dash.internal` |
 | Uptime Kuma | `status.internal` | 3001 | VPN/Auth | Monitoring |
 | Beszel | `monitor.internal` | 8090 | VPN/Auth | Metrics |
 | Dozzle | `logs.internal` | 8088 | VPN/Auth admin | Docker logs |
@@ -82,7 +83,8 @@ Live access state as of 2026-06-30:
 | `pbs.internal` | `https://pbs.internal` | client-side HTTPS on NPM with Smallstep CA certificate, upstream `https://192.168.1.20:8007` |
 | `auth.internal` | `https://auth.internal` | `http://192.168.1.51:9000` |
 | `ldap.internal` | `ldaps://ldap.internal:636` | direct to `192.168.1.51:636` after LDAP outpost deployment; no NPM proxy |
-| `dash.internal` | `https://dash.internal` | `http://192.168.1.51:3002` |
+| `dash.internal` | `https://dash.internal` | `http://192.168.1.150:8095`; Sovereign Master Dashboard on the Proxmox host |
+| `homepage.internal` | `https://homepage.internal` | `http://192.168.1.51:3002`; Homepage launchpad (rollback) |
 | `status.internal` | `https://status.internal` | `http://192.168.1.51:3001` |
 | `monitor.internal` | `https://monitor.internal` | `http://192.168.1.51:8090` |
 | `logs.internal` | `https://logs.internal` | `http://192.168.1.51:8088` |
@@ -136,10 +138,14 @@ These ports are recommended reservations. Do not open them in NPM until the serv
 | Nextcloud Apache | `files.internal` | 11000 | VPN-first | live alias returns real Nextcloud over HTTPS; boot/service restore drill passed; finish offsite and internal certificate trust before irreplaceable files |
 | Home Assistant OS | `ha.internal` | 8123 | VPN/Auth | live as dedicated Proxmox VM 130 |
 | Wazuh Manager API | none | 55000 | VPN/admin only | Optional advanced SIEM |
-| Sovereign Console (staging) | `console.internal` | design stage | VPN/Auth | Additive control plane; build and validate here before cutover. See [Sovereign Console Design](../03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md) |
-| Homepage (rollback) | `homepage.internal` | 3002 | VPN/Auth | Reserved rollback alias for Homepage once `dash.internal` is repointed to the console |
-
-Dashboard cutover note: `dash.internal` currently serves Homepage and stays that way until the Sovereign Console passes its cutover gate. At cutover, `dash.internal` is repointed to the console and Homepage remains available at `homepage.internal` as rollback. No public DuckDNS name is created for either.
+Dashboard cutover note (done 2026-07-09): `dash.internal` now serves the
+**Sovereign Master Dashboard** on the Proxmox host (`8095`) - one page with live
+status (guests, Kuma, Immich, Windows mirror, PBS), **force-backup** buttons
+(Windows mirror and PBS), and allowlist-only app start/stop through the control
+agent. Homepage remains the launchpad at `homepage.internal` as rollback. There
+is no separate `console.internal`. No public DuckDNS name is used for either.
+Harden next with Authentik in front of the master dashboard before treating the
+actor field as a real identity.
 
 ## Operations Extensions
 

@@ -1,5 +1,15 @@
 # Sovereign Console: Design and Implementation Plan
 
+> **LIVE UPDATE 2026-07-09.** The owner asked for one unified dashboard rather
+> than a separate console. This is implemented as the **Sovereign Master
+> Dashboard** on the Proxmox host, published at `dash.internal`: one page with
+> live status (guests, Kuma, Immich, Windows mirror, PBS), **force-backup**
+> buttons (Windows mirror and PBS), and allowlist-only app start/stop through the
+> control agent (`sovereign-master-dashboard` + `sovereign-app-control-agent`).
+> Homepage moved to `homepage.internal` (rollback). There is no separate
+> `console.internal`. The design below is retained for the security model and the
+> Authentik-hardening plan, which still applies to the master dashboard.
+
 This document is the design authority for the operations console and the safe
 optional-app controls. No live services are changed by this document. Homepage
 stays live at `dash.internal` until the console reaches parity and passes the
