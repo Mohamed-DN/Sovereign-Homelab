@@ -1,0 +1,20 @@
+[Unit]
+Description=Sovereign Master Dashboard (status + force-backup + app controls)
+Documentation=file:///opt/sovereign-homelab/docs/03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md
+After=network-online.target pve-guests.service
+Wants=network-online.target
+
+# Runs on the Proxmox host: it is the orchestration point (pct/qm/pvesm/vzdump)
+# and the only place that can aggregate every guest and force backups. Publish it
+# through NPM at dash.internal, LAN/VPN only, and add Authentik in front before
+# treating the actor field as a real identity.
+
+[Service]
+Type=simple
+Environment=HOME=/root
+ExecStart=/usr/bin/python3 /opt/sovereign-master-dashboard/sovereign-master-dashboard.py
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
