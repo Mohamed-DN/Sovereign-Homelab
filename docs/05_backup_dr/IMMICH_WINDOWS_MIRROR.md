@@ -8,6 +8,17 @@ This is **not** a full 3-2-1 backup. It is temporary risk reduction. Keep the
 phone originals until at least two independent restores have passed (this
 mirror and either the external SSD or an offsite target).
 
+> **Status for this lab (2026-07-09):** the VM 110 side is already prepared —
+> secret directory, mirror keypair, restic password, and config files under
+> `/root/sovereign-secrets/immich-windows`, targeting the Windows PC at
+> `192.168.1.100`. Remaining to go live: run
+> [`scripts/windows/Setup-WindowsMirrorHost.ps1`](../../scripts/windows/Setup-WindowsMirrorHost.ps1)
+> **once as Administrator** on the Windows PC (it enables OpenSSH Server LAN-only,
+> installs restic, creates the folders and the `immich_backup` account, and
+> authorizes the VM 110 key), then run the VM 110 host-key/init/first-backup
+> steps in Phase 2 and Phase 4. This one elevated step is required because
+> enabling an SSH server needs Administrator rights.
+
 ## Purpose
 
 - Add a second, physically separate, encrypted copy of the Immich database and

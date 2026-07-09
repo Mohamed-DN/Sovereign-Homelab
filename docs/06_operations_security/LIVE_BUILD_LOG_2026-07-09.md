@@ -87,6 +87,37 @@ Changes applied (LXC 101 / Kuma only; Immich untouched):
 Result: incidents now email within about one minute of a service going down,
 followed by one reminder at five minutes and one recovery message.
 
+## Recovery, Dashboard, and Mirror Prep (Authorized Live Pass, continued)
+
+After the alerting fix, and with explicit consent to proceed on Immich, a
+further pass focused on recoverability and the dashboard.
+
+Safety verification (read-only): confirmed the Immich safety net is healthy —
+12 daily app-aware DB dumps (newest ~13h old), latest isolated restore test
+2026-07-08 (66 tables), all three protection timers active, and a PBS snapshot
+of VM 110 from 2026-07-09. All required guests had a same-day PBS snapshot.
+
+Changes:
+
+- Added [Immich Recovery Runbook](../05_backup_dr/IMMICH_RECOVERY_RUNBOOK.md):
+  a single canonical guide covering full VM restore from PBS, application
+  restore from the upload tree plus a separate DB dump (the "files and dump on
+  the side" case), and restore from the Windows mirror, each with validation and
+  an isolated database-only test.
+- Live dashboard improvement: added a "Sovereign Operations" greeting and a host
+  resources bar (CPU/RAM/disk/uptime) to the top of Homepage. Backed up the live
+  `widgets.yaml`, deployed, restarted Homepage, and verified HTTP 200 with no
+  config error.
+- Windows mirror preparation on VM 110 (no Immich impact): created
+  `/root/sovereign-secrets/immich-windows` with a dedicated keypair, a random
+  restic password, and the repository/ssh-command/target-endpoint config files
+  targeting the Windows PC at `192.168.1.100`.
+- Added [`scripts/windows/Setup-WindowsMirrorHost.ps1`](../../scripts/windows/Setup-WindowsMirrorHost.ps1),
+  a one-time elevated Windows setup script (OpenSSH Server LAN-only, restic,
+  folders, `immich_backup` account, authorize the VM 110 key). The Windows side
+  needs Administrator rights, which the agent does not have, so this single
+  elevated run is the only remaining step to make the mirror live.
+
 ## Data Safety
 
 Immich production data was not touched in either pass. The mirror scripts only

@@ -1,3 +1,15 @@
+- greeting:
+    text_size: 4xl
+    text: Sovereign Operations
+- resources:
+    label: Platform host
+    expanded: true
+    cpu: true
+    memory: true
+    disk: /
+    uptime: true
+    tempmin: 0
+    tempmax: 90
 - search:
     provider: duckduckgo
     target: _blank
