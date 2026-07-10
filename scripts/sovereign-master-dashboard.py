@@ -285,6 +285,7 @@ def overview(force: bool = False) -> dict[str, Any]:
         "links": LINKS,
         "sample_every": SAMPLE_EVERY,
         "retention": RETENTION,
+        "guest_power": GUEST_POWER_ALLOW,
     }
     with _lock:
         _cache["data"] = data
@@ -473,6 +474,32 @@ def do_mirror_backup(actor: str, reason: str) -> tuple[bool, str]:
     return True, "avviato; riceverai una email con l'esito"
 
 
+# Whole-VM power control, owner-approved for these guests only. Immich (110) and
+# infrastructure guests are deliberately absent and can never be powered off here.
+GUEST_POWER_ALLOW = {"120": "Nextcloud", "130": "Home Assistant"}
+
+
+def do_guest_power(vmid: str, action: str, actor: str, reason: str) -> tuple[bool, str]:
+    if vmid not in GUEST_POWER_ALLOW:
+        return False, f"guest not allowed: {vmid}"
+    if action not in {"start", "stop"}:
+        return False, "action must be start or stop"
+    name = GUEST_POWER_ALLOW[vmid]
+    if action == "stop":
+        status, out = run(["qm", "shutdown", vmid, "--timeout", "180"], timeout=200)
+    else:
+        status, out = run(["qm", "start", vmid], timeout=90)
+    ok = status == 0
+    verb = "spento" if action == "stop" else "avviato"
+    notify_email(
+        f"{'⏹️' if action == 'stop' else '▶️'} {name} (VM{vmid}) {verb}" if ok else f"❌ {name} (VM{vmid}) {action} fallito",
+        f"Attore: {actor}\nMotivo: {reason}\nDettaglio: {out[:200] or 'ok'}",
+        "#059669" if ok else "#dc2626")
+    with _lock:
+        _cache["ts"] = 0
+    return ok, out[:200]
+
+
 def do_pbs_backup(vmid: str, actor: str, reason: str) -> tuple[bool, str]:
     if vmid not in PBS_BACKUP_ALLOW:
         return False, f"vmid not allowed: {vmid}"
@@ -521,7 +548,9 @@ nav.tabs{position:sticky;top:64px;z-index:30;display:flex;gap:6px;padding:10px 2
 .tab{padding:9px 18px;border-radius:9px;font-weight:700;font-size:.85rem;color:var(--muted);border:1px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:all .18s ease}
 .tab:hover{color:var(--ink);background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .tab.on{color:var(--ink);background:var(--surface);border-color:var(--line-strong);box-shadow:inset 0 -2px 0 var(--accent)}
-.wrap{max-width:1240px;margin:0 auto;padding:20px}
+.wrap{max-width:min(2280px,96vw);margin:0 auto;padding:20px clamp(16px,3vw,52px)}
+@media(min-width:1900px){.tiles{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}.charts{grid-template-columns:repeat(3,1fr)}}
+@media(min-width:2600px){.grid{grid-template-columns:repeat(auto-fill,minmax(290px,1fr))}}
 section.page{display:none;animation:fadein .35s ease}
 section.page.on{display:block}
 @keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -579,6 +608,29 @@ a.link .ic{font-size:1.45rem;width:40px;height:40px;display:grid;place-items:cen
 a.link .ln{font-weight:700;font-size:.88rem;display:flex;align-items:center;gap:7px}
 a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .note{color:var(--muted);font-size:.77rem;margin:6px 0 14px}
+/* Assistant: a faceless animated orb that speaks tips (toggle-able) */
+#asst{position:fixed;right:20px;bottom:20px;z-index:55;display:flex;align-items:flex-end;gap:12px;flex-direction:row-reverse}
+#orb{width:58px;height:58px;border-radius:50%;cursor:pointer;flex:0 0 auto;position:relative;border:none;
+ background:radial-gradient(circle at 32% 30%, #7ff0ff, var(--accent) 42%, #1b6ea3 78%);box-shadow:0 0 0 1px var(--line-strong),0 10px 30px rgba(0,0,0,.4),0 0 26px var(--glow)}
+#orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:.5}
+#orb .wv{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);display:flex;gap:2.5px;align-items:center}
+#orb .wv i{width:3px;background:#04222e;border-radius:3px;opacity:.85}
+#bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
+ padding:12px 14px;font-size:.83rem;line-height:1.5;box-shadow:var(--shadow);opacity:0;transform:translateY(10px) scale(.96);
+ transform-origin:bottom right;transition:all .28s cubic-bezier(.22,1,.36,1);pointer-events:none}
+#bubble.show{opacity:1;transform:none;pointer-events:auto}
+#bubble b{color:var(--accent)}
+#bubble .x{float:right;margin-left:10px;color:var(--muted);cursor:pointer;font-weight:800}
+#bubble .hint{display:block;margin-top:8px;color:var(--muted);font-size:.72rem}
+#asst.off #bubble{display:none}#asst.off #orb{opacity:.55;filter:grayscale(.5)}
+@media(prefers-reduced-motion:no-preference){
+ #orb::before{animation:ring 2.8s ease-out infinite}#orb::after{animation:ring 2.8s ease-out .9s infinite}
+ @keyframes ring{0%{transform:scale(1);opacity:.5}100%{transform:scale(1.7);opacity:0}}
+ #orb .wv i{animation:eq 1.1s ease-in-out infinite}
+ #orb .wv i:nth-child(2){animation-delay:.15s}#orb .wv i:nth-child(3){animation-delay:.3s}#orb .wv i:nth-child(4){animation-delay:.45s}
+ @keyframes eq{0%,100%{height:6px}50%{height:20px}}
+}
+@media(prefers-reduced-motion:reduce){#orb .wv i{height:12px}}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);padding:12px 18px;border-radius:10px;background:var(--raised);border:1px solid var(--line-strong);font-size:.85rem;opacity:0;transition:all .25s ease;pointer-events:none;max-width:92vw;box-shadow:var(--shadow);z-index:60}
 #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 @media(prefers-reduced-motion:no-preference){
@@ -633,11 +685,19 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 
 <section class="page" id="p-apps" style="--sec:#a78bfa">
  <h2 style="--sec:#a78bfa">Apps &mdash; start / stop</h2>
- <p class="note">Solo app opzionali. Ogni azione chiede nome + motivo, va nell'audit log e invia una email.</p>
+ <p class="note">Ogni azione chiede nome + motivo, va nell'audit log e invia una email. Le app con 💾 contengono dati e vengono fermate in modo pulito. <b>Immich, Vaultwarden, NPM, AdGuard, Headscale, PBS, Authentik</b> non sono mai arrestabili da qui.</p>
  <div class="grid" id="acards"></div>
+ <h2 style="--sec:#60a5fa">Guest interi (VM)</h2>
+ <p class="note">Spegnimento/accensione pulito (ACPI) delle VM approvate. Immich (VM110) e l'infrastruttura non sono qui.</p>
+ <div class="grid" id="vmcards"></div>
 </section>
 
-</div><div id="toast"></div>
+</div>
+<div id="asst">
+ <button id="orb" title="Assistente Sovereign" aria-label="Assistente"><span class="wv"><i></i><i></i><i></i><i></i></span></button>
+ <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Ciao! Sono l'assistente.</span><span class="hint">Clicca l'orb per un altro consiglio &middot; la &times; lo nasconde</span></div>
+</div>
+<div id="toast"></div>
 <script>
 const $=id=>document.getElementById(id),toast=$('toast');
 let D=null,first=true;
@@ -759,7 +819,7 @@ function render(){
    <div class="rows">File: <b>${d.immich.files??'-'}</b> · ${gb(d.immich.photos_bytes)}<br>Dump protezione: ${ago(d.immich.protection_dump_age_h)}<br><a class="ld" href="https://foto.internal" target="_blank" style="color:var(--accent)">foto.internal ↗</a></div></div>
   <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
    <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
-   ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA un backup del mirror Windows?')`,'⚡ Forza backup Windows')}</div>
+   ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
   <div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">💾 PBS · Immich VM110</span><span class="state up"><span class="led"></span>${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
    <div class="rows">Storage: __PBS__ <br>Retention: ${d.retention||''}</div>
    ${jobbtn('pbs-110',`act('pbs-backup','110',this,'Forzare ORA uno snapshot PBS di VM110?')`,'⚡ Forza backup PBS')}</div>`;
@@ -771,13 +831,47 @@ function render(){
  /* apps */
  $('acards').innerHTML='';
  for(const a of d.apps){const r=a.overall==='running';
-  const c=document.createElement('div');c.className='card';c.style.setProperty('--sec','#a78bfa');
-  c.innerHTML=`<div class="top"><span class="name">${a.name}</span><span class="state ${r?'up':'dn'}"><span class="led"></span>${a.overall}</span></div>
+  const c=document.createElement('div');c.className='card';c.style.setProperty('--sec',a.data?'var(--led-warn)':'#a78bfa');
+  c.innerHTML=`<div class="top"><span class="name">${a.data?'💾 ':''}${a.name}</span><span class="state ${r?'up':a.overall==='partial'?'wa':'dn'}"><span class="led"></span>${a.overall}</span></div>
    <div class="rows">${Object.entries(a.services).map(([k,v])=>k+': '+v).join('<br>')}</div>`;
   const b=document.createElement('button');b.className='btn '+(r?'stop':'start');b.textContent=r?'⏹ Stop':'▶ Start';
-  b.onclick=()=>act('app',{service:a.name,action:r?'stop':'start'},b,null);c.appendChild(b);$('acards').appendChild(c);}
- first=false;
+  const warn=a.data&&r?`⚠️ ${a.name} contiene DATI. Verrà fermato in modo pulito. Continuare?`:null;
+  b.onclick=()=>act('app',{service:a.name,action:r?'stop':'start'},b,warn);c.appendChild(b);$('acards').appendChild(c);}
+ /* whole-VM power */
+ $('vmcards').innerHTML='';
+ for(const [vmid,name] of Object.entries(d.guest_power||{})){
+  const g=d.guests.find(x=>String(x.vmid)===vmid);const r=g&&g.status==='running';
+  const c=document.createElement('div');c.className='card';c.style.setProperty('--sec','#60a5fa');
+  c.innerHTML=`<div class="top"><span class="name">🖥️ ${name}</span><span class="state ${r?'up':'dn'}"><span class="led"></span>${g?g.status:'?'} · VM${vmid}</span></div>
+   <div class="rows">${r?'CPU '+g.cpu.toFixed(1)+'% · RAM '+g.mem_pct.toFixed(1)+'%':'spenta'}</div>`;
+  const b=document.createElement('button');b.className='btn '+(r?'stop':'start');b.textContent=r?'⏹ Spegni VM':'▶ Avvia VM';
+  const warn=r?`⚠️ Spegnere l'intera VM ${name} (spegnimento pulito). Continuare?`:null;
+  b.onclick=()=>act('guest-power',{vmid,action:r?'stop':'start'},b,warn);c.appendChild(b);$('vmcards').appendChild(c);}
+ first=false;assistantTips();
 }
+/* ---------- assistant ---------- */
+const asst=$('asst'),bubble=$('bubble'),amsg=$('asstmsg');let tips=[],ti=0;
+if(localStorage.getItem('sov-asst')==='off')asst.classList.add('off');
+function assistantTips(){
+ const d=D;tips=[];
+ if(!d.immich.immich_ping)tips.push('<b>Attenzione:</b> Immich non risponde al ping. Controlla la tab Dati.');
+ else tips.push('<b>Immich</b> è sano e protetto da PBS, dump giornalieri e mirror Windows. 📷');
+ const m=d.immich.mirror||{};
+ if(m.configured)tips.push('Il <b>mirror Windows</b> è aggiornato '+ago(m.age_h)+'. Si aggiorna da solo quando il PC si collega.');
+ const down=d.kuma.down||0;
+ tips.push(down?('<b>'+down+' monitor</b> sono giù ora — apri Uptime Kuma dalla tab Servizi.'):'Tutti i <b>'+d.kuma.active+' monitor</b> sono verdi. ✅');
+ const hs=d.storages.find(s=>s.used_pct>=80);if(hs)tips.push('Lo storage <b>'+hs.name+'</b> è al '+hs.used_pct+'%. Valuta una pulizia.');
+ tips.push('Puoi <b>forzare un backup</b> dalla tab Dati & Backup: ti arriva una email con l\'esito.');
+ tips.push('Vuoi fermare un\'app? Tab <b>Apps</b>. Immich e i servizi critici non sono arrestabili.');
+ tips.push('Tema chiaro/scuro con la 🌙 in alto a destra. Tutto si adatta al tuo schermo.');
+}
+function speak(t){if(localStorage.getItem('sov-voice')!=='on')return;try{const u=new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g,''));u.lang='it-IT';u.rate=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+function showTip(){if(asst.classList.contains('off')||!tips.length)return;const t=tips[ti%tips.length];ti++;
+ amsg.innerHTML=t;bubble.classList.add('show');speak(t);clearTimeout(showTip._t);showTip._t=setTimeout(()=>bubble.classList.remove('show'),9000);}
+$('orb').onclick=()=>{if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}showTip();};
+$('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb per riattivarlo');};
+setTimeout(()=>{if(!asst.classList.contains('off'))showTip();},2500);
+setInterval(()=>{if(!asst.classList.contains('off')&&Math.random()<.5)showTip();},45000);
 async function load(){
  try{D=await(await fetch('api/overview')).json();render();}
  catch(e){$('statustxt').textContent='backend non raggiungibile';}
@@ -843,6 +937,8 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_mirror_backup(actor, reason)
         elif op == "pbs-backup":
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
+        elif op == "guest-power":
+            ok, detail = do_guest_power(str(p.get("vmid", "")), str(p.get("action", "")), actor, reason)
         audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
                "op": op, "target": p.get("service") or p.get("vmid") or "", "reason": reason,
                "result": "ok" if ok else "error", "detail": detail if not ok else ""})
