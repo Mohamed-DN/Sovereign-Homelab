@@ -257,6 +257,27 @@ def pbs_latest() -> dict[str, str]:
     return {k: v[1] for k, v in latest.items()}
 
 
+def scrutiny_disks() -> list[dict[str, Any]]:
+    """Read disk temperature + health from Scrutiny (no auth, read-only)."""
+    try:
+        req = urllib.request.Request("http://192.168.1.53:8085/api/summary")
+        with urllib.request.urlopen(req, timeout=12) as r:
+            summ = json.load(r).get("data", {}).get("summary", {})
+        out = []
+        for wwn, d in summ.items():
+            dev = d.get("device", {})
+            smart = d.get("smart", {})
+            out.append({
+                "name": dev.get("device_name") or wwn[-8:],
+                "model": (dev.get("model_name") or "")[:22],
+                "temp": smart.get("temp"),
+                "status": "passed" if dev.get("device_status", 0) == 0 else "failed",
+            })
+        return sorted(out, key=lambda x: str(x["name"]))
+    except Exception:
+        return []
+
+
 def app_status() -> list[dict[str, Any]]:
     try:
         req = urllib.request.Request(f"{AGENT_URL}/status", headers={"Authorization": f"Bearer {agent_token()}"})
@@ -282,6 +303,7 @@ def overview(force: bool = False) -> dict[str, Any]:
         "pbs": pbs_latest(),
         "apps": app_status(),
         "storages": storages(),
+        "disks": scrutiny_disks(),
         "links": LINKS,
         "sample_every": SAMPLE_EVERY,
         "retention": RETENTION,
@@ -658,12 +680,36 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 }
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media(max-width:720px){.wrap{padding:12px}nav.tabs{top:58px;padding:8px 12px}.tile .v{font-size:1.35rem}header{padding:11px 14px}}
+
+/* ============ CRT / PIXEL / HYPR SKIN (v4) ============ */
+:root{--hA:var(--accent);--hB:#a78bfa;--hC:#2dd4a7}
+body.crt::after{content:"";position:fixed;inset:0;z-index:120;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.17) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;opacity:.55}
+:root[data-theme="light"] body.crt::after{background:repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 1px,transparent 1px 3px);opacity:.6}
+body.crt::before{content:"";position:fixed;inset:0;z-index:119;pointer-events:none;background:radial-gradient(130% 90% at 50% -10%,transparent 58%,rgba(0,0,0,.5))}
+.brand h1,h2,.tab,.tile .k,.card .name,.donut .dl,.chart .t .n,.state{font-family:"Courier New",ui-monospace,monospace}
+.brand h1{text-shadow:0 0 9px var(--accent),0 0 2px var(--accent)}
+h2{text-shadow:0 0 7px color-mix(in srgb,var(--sec,var(--accent)) 75%,transparent)}
+.tile .v,.chart .now,.donut .dl{text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent)}
+.tile,.chart,.donut,a.link,.guest,.card{border:1.5px solid transparent!important;border-radius:12px!important;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(120deg,var(--hA),var(--hB),var(--hC),var(--hA)) border-box!important;background-size:100% 100%,320% 320%!important}
+.card:hover,.tile:hover,a.link:hover,.guest:hover{background:linear-gradient(var(--raised),var(--raised)) padding-box,linear-gradient(120deg,var(--hA),var(--hB),var(--hC),var(--hA)) border-box!important;background-size:100% 100%,320% 320%!important}
+.pill{box-shadow:0 0 14px var(--glow)!important}
+nav.tabs .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 0 14px var(--glow)}
+@media(prefers-reduced-motion:no-preference){
+ .tile,.chart,.donut,a.link,.guest,.card,.card:hover,.tile:hover,a.link:hover,.guest:hover{animation:hypr 9s linear infinite}
+ @keyframes hypr{0%{background-position:0 0,0% 50%}100%{background-position:0 0,320% 50%}}
+ body.crt{animation:flick 6s steps(50) infinite}
+ @keyframes flick{0%,96%,100%{opacity:1}97%{opacity:.93}98.5%{opacity:.99}}}
+#crtbtn.off{opacity:.5;filter:grayscale(.6)}
+#qa{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+#qa button{font:600 .72rem "Courier New",monospace;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+#qa button:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
 </style></head><body>
 <header>
  <div class="brand"><h1>SOVEREIGN DASHBOARD</h1><div class="sub">Proxmox &middot; VPN/LAN only</div></div>
  <div class="hright">
   <span id="clock"></span>
   <span class="pill" id="statuspill"><span class="led nn"></span><span id="statustxt">loading&hellip;</span></span>
+  <button class="iconbtn" id="crtbtn" title="Effetto CRT / pixel" aria-label="Toggle CRT">&#9612;&#9616;</button>
   <button class="iconbtn" id="themebtn" title="Tema chiaro/scuro" aria-label="Toggle theme">&#127769;</button>
  </div>
 </header>
@@ -684,6 +730,8 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  </div>
  <h2 style="--sec:var(--s1)">Storage</h2>
  <div class="donuts" id="donuts"></div>
+ <h2 style="--sec:#fbbf24">Temperatura dischi (SMART)</h2>
+ <div class="tiles" id="disks"></div>
  <h2 style="--sec:var(--s2)">Guest (VM &amp; LXC)</h2>
  <div class="guests" id="guests"></div>
 </section>
@@ -712,7 +760,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 </div>
 <div id="asst">
  <button id="orb" title="Assistente Sovereign" aria-label="Assistente"><span class="wv"><i></i><i></i><i></i><i></i></span></button>
- <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Ciao! Sono l'assistente.</span><span class="hint">Clicca l'orb per un altro consiglio &middot; la &times; lo nasconde</span></div>
+ <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Ciao! Chiedimi qualcosa 👇</span><div id="qa"></div><span class="hint">Scegli una domanda &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -723,6 +771,10 @@ const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
 setTheme(localStorage.getItem('sov-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));
 tbtn.onclick=()=>{setTheme(root.dataset.theme==='dark'?'light':'dark');if(D)render();};
+const cbtn=$('crtbtn');
+function setCrt(on){document.body.classList.toggle('crt',on);cbtn.classList.toggle('off',!on);localStorage.setItem('sov-crt',on?'on':'off');}
+setCrt(localStorage.getItem('sov-crt')!=='off');
+cbtn.onclick=()=>setCrt(!document.body.classList.contains('crt'));
 /* ---------- tabs ---------- */
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
@@ -817,6 +869,7 @@ function render(){
  if(d.mem_hist.length){$('mem-now').textContent=d.mem_hist[d.mem_hist.length-1].toFixed(0);spark($('c-mem'),d.mem_hist,css('--s2'));}
  /* donuts */
  $('donuts').innerHTML=d.storages.map(s=>donut(s.name,s.used_pct,gb(s.used)+' / '+gb(s.total))).join('');
+ $('disks').innerHTML=(d.disks||[]).map(x=>`<div class="tile" style="--tc:${x.status==='passed'?'var(--led-good)':'var(--led-bad)'}"><div class="k">${x.name}</div><div class="v">${x.temp?x.temp+'°C':'—'}</div><div class="f">${(x.model||'').slice(0,18)} · ${x.status}</div></div>`).join('')||'<div class="foot" style="color:var(--muted);padding:6px">Scrutiny non raggiungibile</div>';
  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.donut .arc').forEach(a=>a.style.strokeDashoffset=a.dataset.off);}));
  /* guests */
  $('guests').innerHTML=d.guests.map(g=>`<div class="guest ${g.status==='running'?'up':'dn'}">
@@ -866,29 +919,37 @@ function render(){
   b.onclick=()=>act('guest-power',{vmid,action:r?'stop':'start'},b,warn);c.appendChild(b);$('vmcards').appendChild(c);}
  first=false;assistantTips();
 }
-/* ---------- assistant ---------- */
-const asst=$('asst'),bubble=$('bubble'),amsg=$('asstmsg');let tips=[],ti=0;
+/* ---------- assistant (Q&A, no LLM) ---------- */
+const asst=$('asst'),bubble=$('bubble'),amsg=$('asstmsg'),qa=$('qa');
 if(localStorage.getItem('sov-asst')==='off')asst.classList.add('off');
-function assistantTips(){
- const d=D;tips=[];
- if(!d.immich.immich_ping)tips.push('<b>Attenzione:</b> Immich non risponde al ping. Controlla la tab Dati.');
- else tips.push('<b>Immich</b> è sano e protetto da PBS, dump giornalieri e mirror Windows. 📷');
- const m=d.immich.mirror||{};
- if(m.configured)tips.push('Il <b>mirror Windows</b> è aggiornato '+ago(m.age_h)+'. Si aggiorna da solo quando il PC si collega.');
- const down=d.kuma.down||0;
- tips.push(down?('<b>'+down+' monitor</b> sono giù ora — apri Uptime Kuma dalla tab Servizi.'):'Tutti i <b>'+d.kuma.active+' monitor</b> sono verdi. ✅');
- const hs=d.storages.find(s=>s.used_pct>=80);if(hs)tips.push('Lo storage <b>'+hs.name+'</b> è al '+hs.used_pct+'%. Valuta una pulizia.');
- tips.push('Puoi <b>forzare un backup</b> dalla tab Dati & Backup: ti arriva una email con l\'esito.');
- tips.push('Vuoi fermare un\'app? Tab <b>Apps</b>. Immich e i servizi critici non sono arrestabili.');
- tips.push('Tema chiaro/scuro con la 🌙 in alto a destra. Tutto si adatta al tuo schermo.');
+let voiceOn=localStorage.getItem('sov-voice')==='on';
+function speak(t){if(!voiceOn)return;try{const u=new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g,''));u.lang='it-IT';speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
+function QAset(){
+ const d=D;if(!d)return [];
+ const m=d.immich.mirror||{},down=d.kuma.down||0;
+ const hs=(d.storages||[]).slice().sort((a,b)=>b.used_pct-a.used_pct)[0];
+ const ht=(d.disks||[]).slice().sort((a,b)=>(b.temp||0)-(a.temp||0))[0];
+ return [
+  ['Le mie foto sono al sicuro?', d.immich.immich_ping?('Sì ✅ Immich risponde, protetto da <b>PBS</b> giornaliero, <b>dump</b> app-aware e <b>mirror Windows</b> ('+ago(m.age_h)+'). Restore test superato: 110 GiB.'):'<b>Attenzione:</b> Immich non risponde. Apri la tab Dati.'],
+  ['Cosa è giù adesso?', down?('<b>'+down+'</b> monitor giù. Apri Uptime Kuma (tab Servizi) per i dettagli.'):'Tutto verde ✅ ('+d.kuma.active+' monitor OK).'],
+  ['Quanto è pieno lo storage?', hs?('Più pieno: <b>'+hs.name+'</b> al <b>'+hs.used_pct+'%</b> ('+gb(hs.used)+'/'+gb(hs.total)+').'+(hs.used_pct>=85?' Valuta pulizia.':'')):'Dati storage non disponibili.'],
+  ['I dischi sono caldi?', ht&&ht.temp?('Il più caldo è <b>'+ht.name+'</b> a <b>'+ht.temp+'°C</b> (stato '+ht.status+').'):'Temperature dischi non disponibili (Scrutiny).'],
+  ['Il mirror Windows?', m.configured?('Ultimo snapshot <b>'+ago(m.age_h)+'</b> (check '+(m.check||'?')+'). Incrementale quando il PC si collega.'):'Mirror non ancora configurato.'],
+  ['Come fermo un servizio?', 'Tab <b>Apps</b> → Stop. Chiede nome+motivo, mette in pausa l\'allarme e invia email. Immich e i critici non sono arrestabili.'],
+  ['Come forzo un backup?', 'Tab <b>Dati & Backup</b> → "Forza backup". Ricevi una <b>email con l\'esito</b>; i vecchi backup si cancellano da soli.'],
+  ['Se casca il server?', 'Sul PC apri <b>C:\\Sovereign-Restore\\LEGGIMI-EMERGENZA-IMMICH.txt</b>: ricrei Immich dai dati del backup (restore già testato).'],
+ ];
 }
-function speak(t){if(localStorage.getItem('sov-voice')!=='on')return;try{const u=new SpeechSynthesisUtterance(t.replace(/<[^>]+>/g,''));u.lang='it-IT';u.rate=1;speechSynthesis.cancel();speechSynthesis.speak(u);}catch(e){}}
-function showTip(){if(asst.classList.contains('off')||!tips.length)return;const t=tips[ti%tips.length];ti++;
- amsg.innerHTML=t;bubble.classList.add('show');speak(t);clearTimeout(showTip._t);showTip._t=setTimeout(()=>bubble.classList.remove('show'),9000);}
-$('orb').onclick=()=>{if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}showTip();};
-$('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb per riattivarlo');};
-setTimeout(()=>{if(!asst.classList.contains('off'))showTip();},2500);
-setInterval(()=>{if(!asst.classList.contains('off')&&Math.random()<.5)showTip();},45000);
+function assistantTips(){
+ if(!qa)return;qa.innerHTML='';
+ QAset().forEach(([q,a])=>{const b=document.createElement('button');b.textContent=q;b.onclick=()=>{amsg.innerHTML='<b>'+q+'</b><br>'+a;speak(q+'. '+a);};qa.appendChild(b);});
+ const v=document.createElement('button');v.textContent=voiceOn?'🔊 voce':'🔇 voce';
+ v.onclick=()=>{voiceOn=!voiceOn;localStorage.setItem('sov-voice',voiceOn?'on':'off');v.textContent=voiceOn?'🔊 voce':'🔇 voce';};qa.appendChild(v);
+}
+function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Ciao! Chiedimi qualcosa 👇';bubble.classList.add('show');}
+$('orb').onclick=openAsst;
+$('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb');};
+setTimeout(()=>{if(!asst.classList.contains('off'))openAsst();},2500);
 async function load(){
  try{D=await(await fetch('api/overview')).json();render();}
  catch(e){$('statustxt').textContent='backend non raggiungibile';}
