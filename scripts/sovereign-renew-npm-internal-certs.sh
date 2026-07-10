@@ -12,7 +12,7 @@ WORKDIR="${WORKDIR:-/root/sovereign-secrets/tmp-npm-internal-cert-renewal}"
 LOGDIR="${LOGDIR:-/root/sovereign-secrets/logs}"
 
 aliases=(
-  adguard npm headscale proxmox pbs auth dash status monitor logs
+  adguard npm headscale proxmox pbs auth dash homepage status monitor logs
   pwd sync paper rss bookmarks search git foto media ai files
   netalert disks alerts ha trust
 )
