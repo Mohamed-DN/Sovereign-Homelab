@@ -1,5 +1,10 @@
 # Runbook 08: Observability, Homepage, Uptime Kuma, Beszel, and Logs
 
+> **Alias note (2026-07-09):** Homepage now lives at `homepage.internal` (kept as
+> the rollback launchpad). `dash.internal` serves the newer **Sovereign Master
+> Dashboard** ([runbook](SOVEREIGN_MASTER_DASHBOARD.md)). Where this document says
+> Homepage is at `dash.internal`, read `homepage.internal`.
+
 This runbook builds the operational dashboard layer. Its purpose is simple: you should know what exists, where it is, whether it is alive, and what to check when it fails.
 
 The service visibility rule is defined in [Service Visibility Matrix](../99_reference/SERVICE_VISIBILITY_MATRIX.md):
@@ -414,7 +419,7 @@ Check `HOMEPAGE_ALLOWED_HOSTS` in `.env`.
 Expected:
 
 ```text
-HOMEPAGE_ALLOWED_HOSTS=dash.internal,localhost
+HOMEPAGE_ALLOWED_HOSTS=homepage.internal,localhost
 ```
 
 ### Homepage Card Is Missing

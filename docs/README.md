@@ -19,6 +19,8 @@ Current high-signal files:
 
 - [Architecture and Data Flows](00_overview/ARCHITECTURE_AND_DATA_FLOWS.md)
 - [Live Service Coverage](99_reference/LIVE_SERVICE_COVERAGE.md)
+- [Sovereign Master Dashboard](03_platform_services/SOVEREIGN_MASTER_DASHBOARD.md)
+- [Future Ideas](00_overview/FUTURE_IDEAS.md)
 - [Immich Recovery Runbook](05_backup_dr/IMMICH_RECOVERY_RUNBOOK.md)
 - [Immich External SSD Recovery](05_backup_dr/IMMICH_EXTERNAL_SSD_RECOVERY.md)
 - [Immich Windows Mirror](05_backup_dr/IMMICH_WINDOWS_MIRROR.md)

@@ -17,11 +17,10 @@ Windows admin steps directly. On resume:
      `sftp -i /root/sovereign-secrets/immich-windows/id_ed25519 -o UserKnownHostsFile=/root/sovereign-secrets/immich-windows/known_hosts immich_backup@192.168.1.100`
    - `restic init` (command in [Immich Windows Mirror](../05_backup_dr/IMMICH_WINDOWS_MIRROR.md) Phase 2), install the helper + unit, run the first `backup` (background; ~116 GB initial upload; briefly stops only immich-server).
    - Optionally install restic on Windows for the restore drill (winget failed during setup): `winget install restic.restic`.
-2. **Build the Sovereign Console** (owner approved): interactive dashboard +
-   start/stop controls per [Sovereign Console Design](../03_platform_services/SOVEREIGN_CONSOLE_DESIGN.md).
-   Keep Homepage live at `dash.internal`; stage the console at `console.internal`.
-   Controllable set: Jellyfin, FreshRSS, Karakeep, SearXNG, Open WebUI, Ollama.
-   Stopping from the dashboard pauses the Kuma monitor; starting resumes it.
+2. **Sovereign Master Dashboard: DONE and live** at `dash.internal` (Homepage
+   moved to `homepage.internal`). See [Master Dashboard](../03_platform_services/SOVEREIGN_MASTER_DASHBOARD.md).
+   Remaining hardening: Authentik in front of `dash.internal`, and Kuma
+   monitor pause/resume around a stop/start.
 
 State already prepared: VM 110 mirror secrets/keypair/config under
 `/root/sovereign-secrets/immich-windows` targeting `192.168.1.100`; Windows host
