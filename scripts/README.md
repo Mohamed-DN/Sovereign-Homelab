@@ -182,3 +182,21 @@ The report runs on Proxmox, uses `sole_monitor` read-only API tokens for PVE/PBS
 /usr/local/sbin/sovereign-weekly-report.py --send
 systemctl list-timers sovereign-weekly-report.timer --no-pager
 ```
+
+## Sovereign Master Dashboard and controls
+
+Three cooperating pieces provide the live operations dashboard, safe app/VM
+controls, and force-backup with outcome emails. Full runbook:
+[Master Dashboard](../docs/03_platform_services/SOVEREIGN_MASTER_DASHBOARD.md).
+
+- `sovereign-master-dashboard.py` (Proxmox host, port 8095, `dash.internal`) -
+  serves the UI, aggregates status, runs backup/power jobs, emails outcomes. It
+  holds the agent token; the browser never receives secrets.
+- `sovereign-app-control-agent.py` (LXC 102, port 8097) - allowlist-only
+  `docker compose start/stop`; the only component that touches Docker. Immich,
+  Vaultwarden, NPM, AdGuard, Headscale, PBS, Authentik are never in the allowlist.
+- `sovereign-immich-windows-restic.sh` (VM 110) - the temporary encrypted Immich
+  mirror to the Windows PC; see the mirror runbook.
+
+Every control/backup action asks for an actor + reason, is written to a
+root-only audit log, and emails the result through the alert relay.

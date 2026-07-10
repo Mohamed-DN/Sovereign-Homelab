@@ -233,29 +233,25 @@ Cutover gate (all required):
 
 ## Build Status (2026-07-09)
 
+The live implementation is the **Sovereign Master Dashboard**, documented in full
+in [Master Dashboard deployment](SOVEREIGN_MASTER_DASHBOARD.md). Summary:
+
 - **Control agent: LIVE on LXC 102** (`sovereign-app-control-agent`, port 8097,
   token-auth). Allowlist: jellyfin, freshrss, searxng, karakeep, open-webui,
-  ollama. Verified: start/stop works; a stop request for `immich-server` is
-  hard-refused ("service not in allowlist"); every action is written to
-  `/root/sovereign-secrets/app-control-audit.jsonl` with actor + reason; and each
-  action sends an email through the alert relay (e.g. "App STOPPED: searxng by
-  mohamed"). The Docker socket is never exposed to a browser.
-- **Console backend + UI: LIVE on LXC 102** (`sovereign-console-backend`, port
-  8098). It serves an interactive dark-ops page (app cards with live status and
-  start/stop buttons that prompt for name + reason) and proxies to the agent. It
-  is the ONLY component that holds the agent token; the browser receives no
-  secrets (verified: zero token-like strings in the served page). Reachable now
-  at `http://192.168.1.52:8098` on LAN/VPN.
-- **Remaining wiring** (do in the NPM GUI, the authoritative proxy source):
-  1. AdGuard rewrite `console.internal` -> NPM IP.
-  2. NPM proxy host `console.internal` -> `http://192.168.1.52:8098` with the
-     internal certificate.
-  3. Authentik proxy-provider protection (currently the console is LAN/VPN-only
-     with a self-declared actor; Authentik adds real identity before the audit
-     entry). Until then, keep it LAN/VPN-only.
-- **Next**: aggregate the Windows-mirror age and Immich protection status into
-  console status cards (cross-host read), and pause/resume the Kuma monitor
-  around a stop/start.
+  ollama, and (owner-approved, data-bearing) syncthing, paperless, forgejo.
+  Verified: `immich-server` is hard-refused; every action is audited and emailed.
+  The Docker socket is never exposed to a browser.
+- **Master dashboard: LIVE at `dash.internal`** (`sovereign-master-dashboard` on
+  the Proxmox host, port 8095, HTTPS via NPM + internal CA). One page with tabs
+  (Overview / Servizi / Dati & Backup / Apps), dark/light theme, live host
+  charts, all `.internal` links with status dots, **force-backup** for the
+  Windows mirror and every allowlisted guest (outcome emails), app start/stop,
+  and whole-VM power for Nextcloud (120) and Home Assistant (130). It alone holds
+  the agent token; the browser receives no secrets. The retired
+  `sovereign-console-backend` was folded into this. There is no `console.internal`.
+- **Remaining hardening**: Authentik proxy-provider in front of `dash.internal`
+  (today it is LAN/VPN-only with a self-declared actor + audit); pause/resume the
+  Kuma monitor around a stop/start.
 - **Metrics**: Prometheus/Grafana intentionally deferred. Beszel already provides
   host/container metrics; adding a full TSDB + Grafana duplicates that and adds
   maintenance weight against the lab's lean, recoverable-first principle. Revisit
