@@ -277,6 +277,41 @@ def try_send_incident(event: str, incident: dict[str, Any], now: int) -> bool:
     return True
 
 
+def prune_suppressions(state: dict[str, Any], now: int) -> dict[str, int]:
+    supp = {k: int(v) for k, v in state.get("suppress", {}).items() if int(v) > now}
+    state["suppress"] = supp
+    return supp
+
+
+def is_suppressed(state: dict[str, Any], name: str, now: int) -> bool:
+    lowered = name.lower()
+    return any(match.lower() in lowered for match in prune_suppressions(state, now))
+
+
+def set_suppression(match: str, minutes: int) -> None:
+    """Suppress DOWN alerts for monitors whose name contains `match`.
+
+    minutes<=0 clears the suppression. Used when an app/VM is intentionally
+    stopped from the dashboard, so a deliberate stop never pages anyone.
+    """
+    now = int(time.time())
+    with LOCK:
+        state = load_state()
+        prune_suppressions(state, now)
+        supp = state.setdefault("suppress", {})
+        if minutes > 0:
+            supp[match] = now + minutes * 60
+            # a currently-open incident for this match should stop reminding
+            for k in list(state.get("incidents", {})):
+                if match.lower() in str(state["incidents"][k].get("name", "")).lower():
+                    state["incidents"].pop(k, None)
+        else:
+            for k in list(supp):
+                if k.lower() == match.lower():
+                    supp.pop(k, None)
+        save_state(state)
+
+
 def register_event(payload: dict[str, Any]) -> None:
     key = monitor_key(payload)
     name = monitor_name(payload)
@@ -285,6 +320,11 @@ def register_event(payload: dict[str, Any]) -> None:
         state = load_state()
         incidents = state.setdefault("incidents", {})
         incident = incidents.get(key)
+        if not is_up(payload) and is_suppressed(state, name, now):
+            # intentionally stopped: do not open/keep an incident
+            incidents.pop(key, None)
+            save_state(state)
+            return
         if is_up(payload):
             if incident and incident.get("emails_sent", 0) > 0:
                 incident["payload"] = payload
@@ -354,7 +394,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"ok\n")
 
     def do_POST(self) -> None:
-        if self.path not in {"/webhook", "/kuma", "/report"}:
+        if self.path not in {"/webhook", "/kuma", "/report", "/suppress"}:
             self.send_error(404)
             return
         if not authenticated(self.headers):
@@ -368,6 +408,8 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if self.path == "/report":
                 send_email(str(payload["subject"]), str(payload["text"]), str(payload["html"]))
+            elif self.path == "/suppress":
+                set_suppression(str(payload["match"]), int(payload.get("minutes", 0)))
             else:
                 register_event(payload)
         except Exception as exc:  # noqa: BLE001 - return a useful webhook failure

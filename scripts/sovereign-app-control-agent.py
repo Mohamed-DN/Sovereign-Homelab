@@ -39,7 +39,7 @@ ALLOWLIST: dict[str, dict[str, Any]] = {
     "freshrss": {"dir": "/opt/sovereign-homelab/stacks/freshrss", "services": ["freshrss"], "data": False},
     "searxng": {"dir": "/opt/sovereign-homelab/stacks/searxng", "services": ["searxng", "searxng-redis"], "data": False},
     "karakeep": {"dir": "/opt/sovereign-homelab/stacks/karakeep", "services": ["karakeep", "karakeep-chrome", "karakeep-meilisearch"], "data": False},
-    "open-webui": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["open-webui"], "data": False},
+    "open-webui": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["open-webui"], "data": False, "kuma": "webui"},
     "ollama": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["ollama"], "data": False},
     # Data-bearing apps added at the owner's explicit request. Stopped gracefully
     # (docker compose stop = SIGTERM). The UI marks these so the operator knows.
@@ -116,6 +116,29 @@ def run_compose(name: str, action: str) -> tuple[bool, str]:
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
     ok = result.returncode == 0
     return ok, (result.stderr or result.stdout).strip()[:400]
+
+
+SUPPRESS_URL = (RELAY_URL.rsplit("/", 1)[0] + "/suppress") if RELAY_URL else ""
+SUPPRESS_MINUTES = int(os.environ.get("APP_CONTROL_SUPPRESS_MINUTES", "720"))
+
+
+def suppress_monitor(service: str, action: str) -> None:
+    """Pause/resume the service's Kuma alert so a deliberate stop never pages.
+
+    On stop, suppress DOWN alerts for the matching monitor; on start, clear it.
+    Best-effort; never breaks a control action.
+    """
+    if not SUPPRESS_URL or not RELAY_TOKEN:
+        return
+    match = ALLOWLIST.get(service, {}).get("kuma", service)
+    minutes = SUPPRESS_MINUTES if action == "stop" else 0
+    payload = json.dumps({"match": match, "minutes": minutes}).encode()
+    req = urllib.request.Request(SUPPRESS_URL, data=payload, method="POST",
+                                 headers={"Content-Type": "application/json", "Authorization": f"Bearer {RELAY_TOKEN}"})
+    try:
+        urllib.request.urlopen(req, timeout=15).read()
+    except Exception as exc:  # noqa: BLE001
+        print(f"suppression call failed: {exc}")
 
 
 def notify_email(record: dict[str, Any]) -> None:
@@ -223,6 +246,8 @@ class Handler(BaseHTTPRequestHandler):
             return
 
         ok, message = run_compose(service, action)
+        if ok:
+            suppress_monitor(service, action)
         record = {
             "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "actor": actor,
