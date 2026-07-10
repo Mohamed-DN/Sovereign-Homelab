@@ -1,0 +1,10 @@
+[Unit]
+Description=Sovereign operational alerts (PBS jobs, ZFS, certs, DuckDNS)
+Documentation=file:///opt/sovereign-homelab/docs/06_operations_security/OPERATIONS_MANUAL.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/sovereign-ops-alerts.py
+Nice=10

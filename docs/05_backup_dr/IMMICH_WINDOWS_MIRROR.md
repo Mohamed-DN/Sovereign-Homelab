@@ -36,6 +36,16 @@ mirror and either the external SSD or an offsite target).
 > Security note: this grants VM 110 SFTP (file-transfer only) to the Windows PC
 > over the LAN. It is acceptable for a temporary mirror; a future hardening is to
 > chroot the SFTP session to the backup folder with a `Match` block.
+>
+> **Restore test passed (2026-07-10):** a real `restic restore latest` on the
+> Windows PC recovered **110.1 GiB / 65,555 files in ~4 minutes**, including the
+> database dump — proving the mirror is recoverable. The restic password is kept
+> on the PC at `C:\Sovereign-Restore\restic-password.txt` (admin-only ACL) plus
+> the password manager, so a restore works even if the server is gone. A plain
+> Italian emergency guide for the owner is written to
+> `C:\Sovereign-Restore\LEGGIMI-EMERGENZA-IMMICH.txt`. Bringing the full app up on
+> Windows Docker is the standard [recovery runbook](IMMICH_RECOVERY_RUNBOOK.md)
+> Path B (needs Docker Desktop running; a fresh install requires a reboot).
 
 ## Purpose
 
