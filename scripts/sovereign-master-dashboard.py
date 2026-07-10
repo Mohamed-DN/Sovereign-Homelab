@@ -339,6 +339,21 @@ def notify_email(subject: str, text: str, color: str = "#059669") -> None:
         print(f"outcome email failed: {exc}")
 
 
+def suppress_monitor(match: str, minutes: int) -> None:
+    """Pause/resume a Kuma alert around a deliberate VM stop/start (best-effort)."""
+    token = relay_token()
+    if not token or not RELAY_URL:
+        return
+    url = RELAY_URL.rsplit("/", 1)[0] + "/suppress"
+    data = json.dumps({"match": match, "minutes": minutes}).encode()
+    req = urllib.request.Request(url, data=data, method="POST",
+                                 headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    try:
+        urllib.request.urlopen(req, timeout=15).read()
+    except Exception as exc:  # noqa: BLE001
+        print(f"suppression call failed: {exc}")
+
+
 def job_start(key: str, label: str) -> bool:
     with _jobs_lock:
         job = _jobs.get(key)
@@ -486,9 +501,11 @@ def do_guest_power(vmid: str, action: str, actor: str, reason: str) -> tuple[boo
         return False, "action must be start or stop"
     name = GUEST_POWER_ALLOW[vmid]
     if action == "stop":
+        suppress_monitor(name, 1440)
         status, out = run(["qm", "shutdown", vmid, "--timeout", "180"], timeout=200)
     else:
         status, out = run(["qm", "start", vmid], timeout=90)
+        suppress_monitor(name, 0)
     ok = status == 0
     verb = "spento" if action == "stop" else "avviato"
     notify_email(
