@@ -30,14 +30,22 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
-# name -> compose project directory + the exact services to toggle together
+# name -> compose project directory + the exact services to toggle together.
+# NEVER add: Immich, Vaultwarden, AdGuard, NPM, Headscale, PBS, Authentik, the
+# CA, the alert relay, or this host's own databases-as-infrastructure. NPM is
+# excluded on purpose because much of the architecture depends on it.
 ALLOWLIST: dict[str, dict[str, Any]] = {
-    "jellyfin": {"dir": "/opt/sovereign-homelab/stacks/jellyfin", "services": ["jellyfin"]},
-    "freshrss": {"dir": "/opt/sovereign-homelab/stacks/freshrss", "services": ["freshrss"]},
-    "searxng": {"dir": "/opt/sovereign-homelab/stacks/searxng", "services": ["searxng", "searxng-redis"]},
-    "karakeep": {"dir": "/opt/sovereign-homelab/stacks/karakeep", "services": ["karakeep", "karakeep-chrome", "karakeep-meilisearch"]},
-    "open-webui": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["open-webui"]},
-    "ollama": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["ollama"]},
+    "jellyfin": {"dir": "/opt/sovereign-homelab/stacks/jellyfin", "services": ["jellyfin"], "data": False},
+    "freshrss": {"dir": "/opt/sovereign-homelab/stacks/freshrss", "services": ["freshrss"], "data": False},
+    "searxng": {"dir": "/opt/sovereign-homelab/stacks/searxng", "services": ["searxng", "searxng-redis"], "data": False},
+    "karakeep": {"dir": "/opt/sovereign-homelab/stacks/karakeep", "services": ["karakeep", "karakeep-chrome", "karakeep-meilisearch"], "data": False},
+    "open-webui": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["open-webui"], "data": False},
+    "ollama": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["ollama"], "data": False},
+    # Data-bearing apps added at the owner's explicit request. Stopped gracefully
+    # (docker compose stop = SIGTERM). The UI marks these so the operator knows.
+    "syncthing": {"dir": "/opt/sovereign-homelab/stacks/syncthing", "services": ["syncthing"], "data": True},
+    "paperless": {"dir": "/opt/sovereign-homelab/stacks/paperless", "services": ["paperless", "paperless-db", "paperless-redis"], "data": True},
+    "forgejo": {"dir": "/opt/sovereign-homelab/stacks/forgejo", "services": ["forgejo", "forgejo-db"], "data": True},
 }
 
 BIND = os.environ.get("APP_CONTROL_BIND", "0.0.0.0")
@@ -95,7 +103,7 @@ def app_status(name: str) -> dict[str, Any]:
         overall = "stopped"
     else:
         overall = "partial"
-    return {"name": name, "overall": overall, "services": states}
+    return {"name": name, "overall": overall, "services": states, "data": ALLOWLIST[name].get("data", False)}
 
 
 def all_status() -> dict[str, Any]:
