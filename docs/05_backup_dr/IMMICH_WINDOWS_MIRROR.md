@@ -39,13 +39,20 @@ mirror and either the external SSD or an offsite target).
 >
 > **Restore test passed (2026-07-10):** a real `restic restore latest` on the
 > Windows PC recovered **110.1 GiB / 65,555 files in ~4 minutes**, including the
-> database dump — proving the mirror is recoverable. The restic password is kept
-> on the PC at `C:\Sovereign-Restore\restic-password.txt` (admin-only ACL) plus
-> the password manager, so a restore works even if the server is gone. A plain
-> Italian emergency guide for the owner is written to
-> `C:\Sovereign-Restore\LEGGIMI-EMERGENZA-IMMICH.txt`. Bringing the full app up on
-> Windows Docker is the standard [recovery runbook](IMMICH_RECOVERY_RUNBOOK.md)
-> Path B (needs Docker Desktop running; a fresh install requires a reboot).
+> database dump. The restic password is kept on the PC at
+> `C:\Sovereign-Restore\restic-password.txt` (admin-only ACL) plus the password
+> manager, so a restore works even if the server is gone. A plain Italian
+> emergency guide for the owner is at `C:\Sovereign-Restore\LEGGIMI-EMERGENZA-IMMICH.txt`.
+>
+> **FULL emergency rebuild passed (2026-07-12):** the complete app was brought
+> back on the Windows PC alone using **Podman** (`emergency-test-podman.ps1`):
+> fresh postgres + valkey + immich-server v3.0.1, dump imported with the
+> search_path fix (**66 tables**), API answered `{"res":"pong"}` and the
+> restored database contained **15,030 assets**. The server-loss scenario is
+> therefore proven end to end. Note: Docker Desktop 4.81 suffered a backend
+> panic on this PC (nil pointer, `services: exit status 2`) even after a clean
+> reinstall + reboot; **Podman is the tested, working emergency path** and the
+> guide lists it first, with Docker Desktop as the alternative.
 
 ## Purpose
 

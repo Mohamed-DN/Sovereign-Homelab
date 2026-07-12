@@ -150,6 +150,27 @@ Dashboard** was rebuilt and repointed at `dash.internal` (Homepage moved to
 - Safe app controls live: allowlist-only agent on LXC 102 with audit log and
   per-action emails; master dashboard forwards the real actor.
 
+## Emergency Rebuild Proof and UI v5/v6 (2026-07-10 .. 2026-07-12)
+
+- **Windows mirror restore proven twice**: (1) file-level restore of 110.1 GiB
+  / 65,555 files in ~4 min; (2) **full app rebuild on the Windows PC alone**
+  with Podman - fresh postgres+valkey+immich-server v3.0.1, dump imported
+  (66 tables), API `{"res":"pong"}`, **15,030 assets** in the restored DB.
+  The "server completely lost" scenario is closed. An Italian emergency guide
+  lives on the PC (`C:\Sovereign-Restore\LEGGIMI-EMERGENZA-IMMICH.txt`).
+- Docker Desktop 4.81 backend panics on that PC even after clean reinstall +
+  reboot (`services: exit status 2`, nil pointer); com.docker.service was also
+  found stopped and set to Automatic. Podman (already present) is the tested
+  emergency path; guide updated accordingly.
+- Incremental mirror cycle proven: after the PC rebooted, the logon trigger
+  ran the VM 110 unit and an incremental snapshot completed in 2m54s.
+- Alert suppression (/suppress) live: deliberate app/VM stops no longer page.
+- Operational alerts timer live (PBS jobs, ZFS, cert expiry, DuckDNS).
+- Dashboard v5/v6 after owner feedback: launcher tiles with real favicons,
+  info modals, centered quick-launch, dark bento Servizi page with gradient
+  hero panel, instant first load via cache warmer (13 ms warm), CRT removed,
+  footer with repo + trust links.
+
 ## Data Safety
 
 Immich production data was not touched in either pass. The mirror scripts only
