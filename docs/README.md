@@ -19,6 +19,7 @@ Current high-signal files:
 
 - [Architecture and Data Flows](00_overview/ARCHITECTURE_AND_DATA_FLOWS.md)
 - [Live Service Coverage](99_reference/LIVE_SERVICE_COVERAGE.md)
+- [IAM / LDAP / SSO Plan](03_platform_services/IAM_LDAP_SSO_PLAN.md)
 - [Sovereign Master Dashboard](03_platform_services/SOVEREIGN_MASTER_DASHBOARD.md)
 - [Future Ideas](00_overview/FUTURE_IDEAS.md)
 - [Immich Recovery Runbook](05_backup_dr/IMMICH_RECOVERY_RUNBOOK.md)
