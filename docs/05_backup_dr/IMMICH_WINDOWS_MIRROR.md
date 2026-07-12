@@ -49,10 +49,13 @@ mirror and either the external SSD or an offsite target).
 > fresh postgres + valkey + immich-server v3.0.1, dump imported with the
 > search_path fix (**66 tables**), API answered `{"res":"pong"}` and the
 > restored database contained **15,030 assets**. The server-loss scenario is
-> therefore proven end to end. Note: Docker Desktop 4.81 suffered a backend
-> panic on this PC (nil pointer, `services: exit status 2`) even after a clean
-> reinstall + reboot; **Podman is the tested, working emergency path** and the
-> guide lists it first, with Docker Desktop as the alternative.
+> therefore proven end to end. Note: Docker Desktop **4.81.0** suffered a
+> backend panic on this PC (nil pointer, `services: exit status 2`) even after
+> a clean reinstall + reboot; the fix was a **downgrade to 4.78.0 with a
+> `winget pin`** so it cannot auto-upgrade into the broken release
+> (`winget pin remove Docker.DockerDesktop` once a fixed version ships).
+> **Podman remains the tested, working emergency path** and the on-PC guide
+> lists it first, with Docker Desktop as the alternative.
 
 ## Purpose
 
