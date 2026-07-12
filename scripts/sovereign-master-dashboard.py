@@ -288,8 +288,10 @@ def app_status() -> list[dict[str, Any]]:
 
 
 def overview(force: bool = False) -> dict[str, Any]:
+    # Serve-from-cache-first: a background warmer keeps the cache fresh, so the
+    # request path returns instantly (no 10s cold start on first page load).
     with _lock:
-        if not force and _cache["data"] and time.time() - _cache["ts"] < CACHE_TTL:
+        if not force and _cache["data"]:
             data = dict(_cache["data"])
             data["cpu_hist"] = list(_cpu_hist)
             data["mem_hist"] = list(_mem_hist)
@@ -681,27 +683,84 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 @media(prefers-reduced-motion:reduce){*{animation-duration:.01ms!important;transition-duration:.01ms!important}}
 @media(max-width:720px){.wrap{padding:12px}nav.tabs{top:58px;padding:8px 12px}.tile .v{font-size:1.35rem}header{padding:11px 14px}}
 
-/* ============ CRT / PIXEL / HYPR SKIN (v4) ============ */
+/* ============ v5 LAUNCHER ============ */
 :root{--hA:var(--accent);--hB:#a78bfa;--hC:#2dd4a7}
-body.crt::after{content:"";position:fixed;inset:0;z-index:120;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.17) 0 1px,transparent 1px 3px);mix-blend-mode:multiply;opacity:.55}
-:root[data-theme="light"] body.crt::after{background:repeating-linear-gradient(0deg,rgba(0,0,0,.06) 0 1px,transparent 1px 3px);opacity:.6}
-body.crt::before{content:"";position:fixed;inset:0;z-index:119;pointer-events:none;background:radial-gradient(130% 90% at 50% -10%,transparent 58%,rgba(0,0,0,.5))}
-.brand h1,h2,.tab,.tile .k,.card .name,.donut .dl,.chart .t .n,.state{font-family:"Courier New",ui-monospace,monospace}
-.brand h1{text-shadow:0 0 9px var(--accent),0 0 2px var(--accent)}
-h2{text-shadow:0 0 7px color-mix(in srgb,var(--sec,var(--accent)) 75%,transparent)}
-.tile .v,.chart .now,.donut .dl{text-shadow:0 0 8px color-mix(in srgb,var(--accent) 55%,transparent)}
-.tile,.chart,.donut,a.link,.guest,.card{border:1.5px solid transparent!important;border-radius:12px!important;background:linear-gradient(var(--surface),var(--surface)) padding-box,linear-gradient(120deg,var(--hA),var(--hB),var(--hC),var(--hA)) border-box!important;background-size:100% 100%,320% 320%!important}
-.card:hover,.tile:hover,a.link:hover,.guest:hover{background:linear-gradient(var(--raised),var(--raised)) padding-box,linear-gradient(120deg,var(--hA),var(--hB),var(--hC),var(--hA)) border-box!important;background-size:100% 100%,320% 320%!important}
-.pill{box-shadow:0 0 14px var(--glow)!important}
-nav.tabs .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 0 14px var(--glow)}
-@media(prefers-reduced-motion:no-preference){
- .tile,.chart,.donut,a.link,.guest,.card,.card:hover,.tile:hover,a.link:hover,.guest:hover{animation:hypr 9s linear infinite}
- @keyframes hypr{0%{background-position:0 0,0% 50%}100%{background-position:0 0,320% 50%}}
- body.crt{animation:flick 6s steps(50) infinite}
- @keyframes flick{0%,96%,100%{opacity:1}97%{opacity:.93}98.5%{opacity:.99}}}
-#crtbtn.off{opacity:.5;filter:grayscale(.6)}
+/* App-drawer launcher tiles */
+.lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
+.ltile{position:relative;display:flex;flex-direction:column;align-items:center;gap:9px;padding:18px 8px 13px;
+ border:1px solid var(--line);border-radius:16px;background:var(--surface);cursor:pointer;text-decoration:none;color:var(--ink);
+ transition:transform .16s ease,border-color .16s ease,box-shadow .16s ease}
+.ltile:hover{transform:translateY(-4px) scale(1.03);box-shadow:0 14px 30px rgba(0,0,0,.28);
+ border-color:transparent;background:linear-gradient(var(--raised),var(--raised)) padding-box,linear-gradient(120deg,var(--hA),var(--hB),var(--hC)) border-box}
+.ltile .lic{width:46px;height:46px;border-radius:12px;display:grid;place-items:center;font-size:1.7rem;overflow:hidden;
+ background:color-mix(in srgb,var(--accent) 7%,transparent)}
+.ltile .lic img{width:38px;height:38px;object-fit:contain}
+.ltile .lname{font-size:.76rem;font-weight:700;text-align:center;line-height:1.2;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.ltile .led{position:absolute;top:9px;right:9px}
+.ltile .inf{position:absolute;top:6px;left:6px;width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;
+ font:700 .7rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);opacity:0;transition:opacity .15s ease}
+.ltile:hover .inf{opacity:1}
+.ltile .inf:hover{color:var(--ink);background:color-mix(in srgb,var(--accent) 25%,transparent)}
+.lsec{margin:20px 0 10px;display:flex;align-items:center;gap:10px;color:var(--muted);font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.lsec::after{content:"";flex:1;height:1px;background:var(--line)}
+/* ===== bento services (v6) ===== */
+#linkgroups{display:grid;grid-template-columns:repeat(auto-fit,minmax(310px,1fr));gap:14px;align-items:start}
+.bento{position:relative;overflow:hidden;border-radius:22px;padding:18px 18px 16px;border:1px solid var(--line);
+ background:linear-gradient(165deg,color-mix(in srgb,var(--bc,#888) 9%,var(--surface)),var(--surface) 55%);box-shadow:var(--shadow)}
+.bento::before{content:"";position:absolute;top:-46%;right:-18%;width:65%;height:95%;border-radius:50%;
+ background:var(--bc,#888);filter:blur(70px);opacity:.16;pointer-events:none}
+.bento h3{display:flex;align-items:center;gap:9px;margin:0 0 13px;font-size:.74rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink2)}
+.bento h3 .cnt{margin-left:auto;font-size:.68rem;font-weight:800;padding:3px 10px;border-radius:999px;
+ background:color-mix(in srgb,var(--bc,#888) 18%,transparent);color:var(--bc,#888)}
+.bgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:9px;position:relative}
+.bapp{position:relative;display:flex;flex-direction:column;align-items:center;gap:7px;padding:13px 4px 10px;border-radius:15px;
+ background:color-mix(in srgb,var(--ink) 4.5%,transparent);border:1px solid transparent;text-decoration:none;color:var(--ink);
+ cursor:pointer;transition:transform .15s ease,border-color .15s ease,background .15s ease}
+.bapp:hover{transform:translateY(-3px);border-color:color-mix(in srgb,var(--bc,#888) 65%,transparent);background:color-mix(in srgb,var(--bc,#888) 10%,transparent)}
+.bapp .lic{width:40px;height:40px;border-radius:11px;display:grid;place-items:center;font-size:1.45rem;overflow:hidden;background:transparent}
+.bapp .lic img{width:34px;height:34px;object-fit:contain}
+.bapp .bn{font-size:.67rem;font-weight:700;text-align:center;line-height:1.15;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+.bapp .led{position:absolute;top:8px;right:8px;width:7px;height:7px}
+.bapp .inf{position:absolute;top:5px;left:5px;width:18px;height:18px;border-radius:50%;border:none;cursor:pointer;
+ font:700 .66rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);opacity:0;transition:opacity .15s ease}
+.bapp:hover .inf{opacity:1}
+.bento.hero{grid-row:span 2;background:linear-gradient(150deg,#5b48e8,#22a5d8 78%);border:none;color:#fff}
+:root[data-theme="light"] .bento.hero{background:linear-gradient(150deg,#6d5df6,#38bdf8 78%)}
+.bento.hero h3{color:rgba(255,255,255,.85)}
+.bento.hero .hnum{font-size:3.1rem;font-weight:800;line-height:1;margin:8px 0 2px;font-variant-numeric:tabular-nums}
+.bento.hero .hsub{color:rgba(255,255,255,.8);font-size:.82rem;margin-bottom:12px}
+.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;margin:3px 4px 0 0;padding:5px 11px;border-radius:999px;
+ background:rgba(255,255,255,.16);font-size:.74rem;font-weight:700;backdrop-filter:blur(4px)}
+.bento.hero .hbar{height:7px;border-radius:5px;background:rgba(0,0,0,.25);overflow:hidden;margin:10px 0 4px}
+.bento.hero .hbar i{display:block;height:100%;border-radius:5px;background:#fff;transition:width .9s cubic-bezier(.22,1,.36,1)}
+/* quick-launch strip on overview (dynamically centered) */
+#quick{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;justify-content:center;flex-wrap:wrap}
+#quick .ltile{min-width:96px;padding:12px 6px 10px}
+#quick .lic{width:38px;height:38px;font-size:1.4rem}#quick .lic img{width:30px;height:30px}
+/* modal */
+#mask{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none}
+#mask.show{display:block}
+#modal{position:fixed;z-index:81;top:50%;left:50%;transform:translate(-50%,-48%) scale(.97);opacity:0;pointer-events:none;
+ width:min(480px,92vw);max-height:80vh;overflow:auto;background:var(--raised);border:1px solid var(--line-strong);border-radius:16px;
+ box-shadow:0 30px 70px rgba(0,0,0,.5);transition:all .22s cubic-bezier(.22,1,.36,1)}
+#modal.show{opacity:1;transform:translate(-50%,-50%) scale(1);pointer-events:auto}
+#modal .mh{display:flex;align-items:center;gap:12px;padding:16px 18px;border-bottom:1px solid var(--line)}
+#modal .mh .lic{width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-size:1.6rem;background:color-mix(in srgb,var(--accent) 8%,transparent)}
+#modal .mh .lic img{width:34px;height:34px;object-fit:contain}
+#modal .mh b{font-size:1.05rem}
+#modal .mh .x{margin-left:auto;width:30px;height:30px;border-radius:8px;border:none;cursor:pointer;color:var(--muted);background:transparent;font-size:1.1rem}
+#modal .mh .x:hover{background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--ink)}
+#modal .mb{padding:14px 18px 18px;font-size:.86rem;line-height:1.65}
+#modal .mb .mrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
+#modal .mb .mrow span:first-child{color:var(--muted)}
+#modal .mb .btn{margin-top:14px}
+/* footer */
+footer{margin:34px 0 14px;text-align:center;color:var(--muted);font-size:.78rem;line-height:1.9}
+footer a{color:var(--accent);text-decoration:none;font-weight:700}
+footer a:hover{text-decoration:underline}
+/* assistant Q&A chips */
 #qa{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
-#qa button{font:600 .72rem "Courier New",monospace;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
+#qa button{font:600 .74rem system-ui;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
 #qa button:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
 </style></head><body>
 <header>
@@ -709,7 +768,6 @@ nav.tabs .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 0 14px var(--glow)}
  <div class="hright">
   <span id="clock"></span>
   <span class="pill" id="statuspill"><span class="led nn"></span><span id="statustxt">loading&hellip;</span></span>
-  <button class="iconbtn" id="crtbtn" title="Effetto CRT / pixel" aria-label="Toggle CRT">&#9612;&#9616;</button>
   <button class="iconbtn" id="themebtn" title="Tema chiaro/scuro" aria-label="Toggle theme">&#127769;</button>
  </div>
 </header>
@@ -722,6 +780,7 @@ nav.tabs .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 0 14px var(--glow)}
 <div class="wrap">
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
+ <div id="quick"></div>
  <h2>Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
@@ -757,6 +816,17 @@ nav.tabs .tab.on{box-shadow:inset 0 -2px 0 var(--accent),0 0 14px var(--glow)}
  <div class="grid" id="vmcards"></div>
 </section>
 
+<footer>
+ <b>Sovereign Homelab</b> · gestito da NPM + AdGuard + Headscale · nessun tracciamento<br>
+ <a href="https://github.com/Mohamed-DN/Sovereign-Homelab" target="_blank" rel="noopener">📦 Repository GitHub</a>
+ &nbsp;·&nbsp; <a href="https://trust.internal" target="_blank" rel="noopener">🔏 Il browser non si fida? Installa la CA (trust.internal)</a>
+ &nbsp;·&nbsp; <a href="https://homepage.internal" target="_blank" rel="noopener">🏠 Homepage classica</a>
+</footer>
+</div>
+<div id="mask"></div>
+<div id="modal" role="dialog" aria-modal="true">
+ <div class="mh"><span class="lic" id="m-ic"></span><b id="m-t"></b><button class="x" id="m-x">&times;</button></div>
+ <div class="mb" id="m-b"></div>
 </div>
 <div id="asst">
  <button id="orb" title="Assistente Sovereign" aria-label="Assistente"><span class="wv"><i></i><i></i><i></i><i></i></span></button>
@@ -771,10 +841,6 @@ const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
 setTheme(localStorage.getItem('sov-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));
 tbtn.onclick=()=>{setTheme(root.dataset.theme==='dark'?'light':'dark');if(D)render();};
-const cbtn=$('crtbtn');
-function setCrt(on){document.body.classList.toggle('crt',on);cbtn.classList.toggle('off',!on);localStorage.setItem('sov-crt',on?'on':'off');}
-setCrt(localStorage.getItem('sov-crt')!=='off');
-cbtn.onclick=()=>setCrt(!document.body.classList.contains('crt'));
 /* ---------- tabs ---------- */
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
@@ -833,6 +899,33 @@ function donut(name,pct,sub){
   <text x="31" y="35" text-anchor="middle" font-size="13" font-weight="800" fill="${css('--ink')}">${pct.toFixed(0)}%</text></svg>
   <div><div class="dl">${name}</div><div class="ds">${sub}</div></div></div>`;
 }
+/* ---------- modal ---------- */
+const mask=$('mask'),modal=$('modal');
+function openModal(icon,title,body){$('m-ic').innerHTML=icon;$('m-t').textContent=title;$('m-b').innerHTML=body;mask.classList.add('show');modal.classList.add('show');}
+function closeModal(){mask.classList.remove('show');modal.classList.remove('show');}
+mask.onclick=closeModal;$('m-x').onclick=closeModal;
+addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
+function mrow(k,v){return `<div class="mrow"><span>${k}</span><span>${v}</span></div>`;}
+function svcInfo(name){
+ const it=(D.links||[]).flatMap(g=>g.items.map(i=>({...i,group:g.group}))).find(x=>x.name===name);if(!it)return;
+ const mon=(D.kuma.monitors||[]).find(m=>m.name.toLowerCase().includes(it.kw));
+ const g=D.guests.find(x=>(x.name||'').toLowerCase().includes(it.kw))||null;
+ openModal(`<img src="${it.href.replace(/\/$/,'')}/favicon.ico" onerror="this.outerHTML='${it.icon}'">`,it.name,
+  `<p style="margin:0 0 10px;color:var(--ink2)">${it.desc}</p>`
+  +mrow('Categoria',it.group)+mrow('URL',`<a href="${it.href}" target="_blank" style="color:var(--accent)">${it.href.replace('https://','')}</a>`)
+  +mrow('Monitor',mon?(mon.up?'🟢 UP':'🔴 DOWN')+' · '+mon.name:'— non monitorato direttamente')
+  +(g?mrow('Guest',(g.type==='qemu'?'VM ':'LXC ')+g.vmid+' · CPU '+g.cpu.toFixed(1)+'% · RAM '+g.mem_pct.toFixed(1)+'%'):'')
+  +`<button class="btn act" onclick="window.open('${it.href}','_blank')">Apri ${it.name} ↗</button>`);
+}
+function appInfo(name){
+ const a=(D.apps||[]).find(x=>x.name===name);if(!a)return;
+ openModal('🧩',a.name,
+  `<p style="margin:0 0 10px;color:var(--ink2)">${a.data?'App con DATI: viene fermata in modo pulito e sicuro.':'App opzionale senza dati critici.'}</p>`
+  +Object.entries(a.services).map(([k,v])=>mrow(k,v==='running'?'🟢 running':'🔴 '+v)).join('')
+  +mrow('Stato complessivo',a.overall)
+  +mrow('Audit',"ogni start/stop chiede nome+motivo, va nell'audit log e invia email")
+  +mrow('Allarme Kuma','in pausa automatica durante uno stop voluto'));
+}
 /* ---------- job-aware button ---------- */
 function jobbtn(key,call,label){
  const j=(D&&D.jobs)?D.jobs[key]:null;
@@ -877,12 +970,32 @@ function render(){
   <div class="bar"><i style="width:0" data-w="${Math.min(100,g.cpu)}%"></i></div><div class="bl"><span>CPU</span><span>${g.cpu.toFixed(1)}%</span></div>
   <div class="bar m"><i style="width:0" data-w="${Math.min(100,g.mem_pct)}%"></i></div><div class="bl"><span>RAM</span><span>${g.mem_pct.toFixed(1)}%</span></div></div>`).join('');
  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.guest .bar i').forEach(b=>b.style.width=b.dataset.w);}));
- /* services links + status dots */
+ /* services: app-launcher grid with real favicons + info modals */
  const mons=(d.kuma.monitors||[]).map(x=>({n:x.name.toLowerCase(),up:x.up}));
  function dot(kw){const f=mons.find(x=>x.n.includes(kw));return f?(f.up?'up':'dn'):'nn';}
- $('linkgroups').innerHTML=d.links.map(g=>`<h2>${g.group}</h2><div class="grid">${g.items.map(it=>
-  `<a class="link" href="${it.href}" target="_blank" rel="noopener"><span class="ic">${it.icon}</span>
-   <span><span class="ln">${it.name} <span class="led ${dot(it.kw)}"></span></span><br><span class="ld">${it.desc}</span></span></a>`).join('')}</div>`).join('');
+ function favImg(it){return `<img src="${it.href.replace(/\/$/,'')}/favicon.ico" loading="lazy" alt="" onerror="this.outerHTML='${it.icon}'">`;}
+ function ltile(it,small){return `<a class="ltile" href="${it.href}" target="_blank" rel="noopener" data-app="${it.name}">
+   <button class="inf" title="Info" onclick="event.preventDefault();event.stopPropagation();svcInfo('${it.name.replace(/'/g,"\\'")}')">i</button>
+   <span class="led ${dot(it.kw)}"></span><span class="lic">${favImg(it)}</span><span class="lname">${it.name}</span></a>`;}
+ function bapp(it){return `<a class="bapp" href="${it.href}" target="_blank" rel="noopener">
+   <button class="inf" title="Info" onclick="event.preventDefault();event.stopPropagation();svcInfo('${it.name.replace(/'/g,"\\'")}')">i</button>
+   <span class="led ${dot(it.kw)}"></span><span class="lic">${favImg(it)}</span><span class="bn">${it.name}</span></a>`;}
+ const bAcc=['#22d3ee','#60a5fa','#a78bfa','#fbbf24','#2dd4a7','#fb7185'];
+ const upN=(d.kuma.active||0)-(d.kuma.down||0),totN=d.kuma.active||0;
+ const downMon=(d.kuma.monitors||[]).filter(x=>!x.up).map(x=>x.name);
+ const heroChips=downMon.length?downMon.slice(0,4).map(n=>`<span class="hchip">🔴 ${n}</span>`).join(''):'<span class="hchip">✅ tutto operativo</span>';
+ $('linkgroups').innerHTML=
+  `<div class="bento hero"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
+    <div class="hsub">servizi online adesso</div>
+    <div class="hbar"><i style="width:${totN?Math.round(100*upN/totN):0}%"></i></div>
+    <div>${heroChips}</div>
+    <div style="margin-top:14px;font-size:.76rem;color:rgba(255,255,255,.75)">CPU host ${d.cpu_hist.length?d.cpu_hist[d.cpu_hist.length-1].toFixed(0):'–'}% · RAM ${d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–'}% · ${d.guests.filter(g=>g.status==='running').length}/${d.guests.length} guest</div></div>`
+  +d.links.map((g,i)=>`<div class="bento" style="--bc:${bAcc[i%bAcc.length]}"><h3>${g.group}<span class="cnt">${g.items.length}</span></h3>
+    <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
+ /* quick-launch strip (most used) */
+ const quick=['Immich','Nextcloud','Vaultwarden','Jellyfin','Uptime Kuma','Proxmox VE','Home Assistant'];
+ const allItems=d.links.flatMap(g=>g.items);
+ $('quick').innerHTML=quick.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
  /* data & backup */
  $('dcards').innerHTML=`
   <div class="card" style="--sec:var(--led-warn)"><div class="top"><span class="name">📷 Immich</span><span class="state ${d.immich.immich_ping?'up':'dn'}"><span class="led"></span>${d.immich.immich_ping?'healthy':'CHECK'}</span></div>
@@ -902,7 +1015,9 @@ function render(){
  $('acards').innerHTML='';
  for(const a of d.apps){const r=a.overall==='running';
   const c=document.createElement('div');c.className='card';c.style.setProperty('--sec',a.data?'var(--led-warn)':'#a78bfa');
-  c.innerHTML=`<div class="top"><span class="name">${a.data?'💾 ':''}${a.name}</span><span class="state ${r?'up':a.overall==='partial'?'wa':'dn'}"><span class="led"></span>${a.overall}</span></div>
+  c.innerHTML=`<div class="top"><span class="name">${a.data?'💾 ':''}${a.name}
+    <button class="inf" style="position:static;opacity:1;width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;font:700 .7rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)" title="Info" onclick="appInfo('${a.name}')">i</button></span>
+   <span class="state ${r?'up':a.overall==='partial'?'wa':'dn'}"><span class="led"></span>${a.overall}</span></div>
    <div class="rows">${Object.entries(a.services).map(([k,v])=>k+': '+v).join('<br>')}</div>`;
   const b=document.createElement('button');b.className='btn '+(r?'stop':'start');b.textContent=r?'⏹ Stop':'▶ Start';
   const warn=a.data&&r?`⚠️ ${a.name} contiene DATI. Verrà fermato in modo pulito. Continuare?`:null;
@@ -1028,8 +1143,19 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {fmt % args}")
 
 
+def cache_warmer() -> None:
+    """Refresh the overview cache continuously so requests are always instant."""
+    while True:
+        try:
+            overview(force=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"cache warm failed: {exc}")
+        time.sleep(CACHE_TTL)
+
+
 def main() -> None:
     threading.Thread(target=sampler_loop, daemon=True).start()
+    threading.Thread(target=cache_warmer, daemon=True).start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
     print(f"sovereign-master-dashboard listening on {BIND}:{PORT}")
     server.serve_forever()
