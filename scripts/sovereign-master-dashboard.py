@@ -306,6 +306,7 @@ def overview(force: bool = False) -> dict[str, Any]:
         "apps": app_status(),
         "storages": storages(),
         "disks": scrutiny_disks(),
+        "audit": audit_tail(),
         "links": LINKS,
         "sample_every": SAMPLE_EVERY,
         "retention": RETENTION,
@@ -477,6 +478,33 @@ def _mirror_worker(actor: str, reason: str) -> None:
         notify_email("❌ Mirror Windows FALLITO",
                      f"Attore: {actor}\nMotivo: {reason}\nDurata: {dur}\nStato: {state}\nSnapshot: {snap} Check: {check}",
                      "#dc2626")
+
+
+def audit_tail(limit: int = 8) -> list[dict[str, Any]]:
+    """Last actions from the dashboard + agent audit logs (no secrets)."""
+    rows: list[dict[str, Any]] = []
+    try:
+        for line in AUDIT_LOG.read_text(encoding="utf-8").splitlines()[-limit:]:
+            try:
+                e = json.loads(line)
+                rows.append({k: e.get(k, "") for k in ("ts", "actor", "op", "target", "reason", "result")})
+            except json.JSONDecodeError:
+                continue
+    except OSError:
+        pass
+    return rows[::-1]
+
+
+def _weekly_report_worker(actor: str) -> None:
+    status, out = run(["/usr/local/sbin/sovereign-weekly-report.py", "--send"], timeout=600)
+    job_end("weekly-report", status == 0, out.strip().splitlines()[-1][:200] if out.strip() else "")
+
+
+def do_weekly_report(actor: str) -> tuple[bool, str]:
+    if not job_start("weekly-report", "Weekly report"):
+        return False, "un report è già in generazione"
+    threading.Thread(target=_weekly_report_worker, args=(actor,), daemon=True).start()
+    return True, "report in generazione; arriverà via email"
 
 
 def audit(entry: dict[str, Any]) -> None:
@@ -754,6 +782,20 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #modal .mb .mrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
 #modal .mb .mrow span:first-child{color:var(--muted)}
 #modal .mb .btn{margin-top:14px}
+/* bento-panelize every section on all tabs */
+#tiles,#dcards,#pbscards,#acards,#vmcards,#disks,#quick,.charts,.donuts,.guests,#audit{
+ border-radius:22px;border:1px solid var(--line);padding:16px;
+ background:linear-gradient(165deg,color-mix(in srgb,var(--sec,var(--accent)) 7%,var(--surface)),var(--surface) 60%);
+ box-shadow:var(--shadow)}
+.tile,.guest,.donut,.chart{box-shadow:none}
+section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px;box-shadow:none}
+/* monogram icon fallback (instead of emoji) */
+.mono{width:100%;height:100%;display:grid;place-items:center;border-radius:inherit;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:.02em}
+/* audit list */
+#audit{grid-column:1/-1}
+#audit .arow{display:flex;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px dashed var(--line);font-size:.8rem}
+#audit .arow:last-child{border-bottom:none}
+#audit .abadge{padding:3px 9px;border-radius:999px;font-size:.68rem;font-weight:800}
 /* footer */
 footer{margin:34px 0 14px;text-align:center;color:var(--muted);font-size:.78rem;line-height:1.9}
 footer a{color:var(--accent);text-decoration:none;font-weight:700}
@@ -805,6 +847,10 @@ footer a:hover{text-decoration:underline}
  <div class="grid" id="dcards"></div>
  <h2 style="--sec:var(--led-good)">Snapshot PBS</h2>
  <div class="grid" id="pbscards"></div>
+ <h2 style="--sec:var(--s1)">Operazioni &amp; audit</h2>
+ <div class="grid" style="grid-template-columns:1fr">
+  <div id="audit"></div>
+ </div>
 </section>
 
 <section class="page" id="p-apps" style="--sec:#a78bfa">
@@ -973,7 +1019,9 @@ function render(){
  /* services: app-launcher grid with real favicons + info modals */
  const mons=(d.kuma.monitors||[]).map(x=>({n:x.name.toLowerCase(),up:x.up}));
  function dot(kw){const f=mons.find(x=>x.n.includes(kw));return f?(f.up?'up':'dn'):'nn';}
- function favImg(it){return `<img src="${it.href.replace(/\/$/,'')}/favicon.ico" loading="lazy" alt="" onerror="this.outerHTML='${it.icon}'">`;}
+ function monoOf(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%360;const ini=n.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
+  return `<span class=&quot;mono&quot; style=&quot;background:linear-gradient(135deg,hsl(${h} 65% 52%),hsl(${(h+40)%360} 65% 42%))&quot;>${ini}</span>`;}
+ function favImg(it){return `<img src="${it.href.replace(/\/$/,'')}/favicon.ico" loading="lazy" alt="" onerror="this.outerHTML='${monoOf(it.name)}'">`;}
  function ltile(it,small){return `<a class="ltile" href="${it.href}" target="_blank" rel="noopener" data-app="${it.name}">
    <button class="inf" title="Info" onclick="event.preventDefault();event.stopPropagation();svcInfo('${it.name.replace(/'/g,"\\'")}')">i</button>
    <span class="led ${dot(it.kw)}"></span><span class="lic">${favImg(it)}</span><span class="lname">${it.name}</span></a>`;}
@@ -1006,6 +1054,18 @@ function render(){
   <div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">💾 PBS · Immich VM110</span><span class="state up"><span class="led"></span>${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
    <div class="rows">Storage: __PBS__ <br>Retention: ${d.retention||''}</div>
    ${jobbtn('pbs-110',`act('pbs-backup','110',this,'Forzare ORA uno snapshot PBS di VM110?')`,'⚡ Forza backup PBS')}</div>`;
+ /* audit + weekly report */
+ const abColor=r=>r==='ok'?'var(--led-good)':'var(--led-bad)';
+ $('audit').innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+   <b style="font-size:.85rem">🧾 Ultime azioni</b>
+   <span style="margin-left:auto">${jobbtn('weekly-report',`act('weekly-report',null,this,'Generare e inviare ORA il report settimanale via email?')`,'📧 Invia weekly report ora')}</span></div>`
+  +((d.audit||[]).map(a=>`<div class="arow">
+    <span class="abadge" style="background:color-mix(in srgb,${abColor(a.result)} 15%,transparent);color:${abColor(a.result)}">${a.result}</span>
+    <b>${a.op}${a.target?' · '+a.target:''}</b>
+    <span style="color:var(--muted)">${a.actor}</span>
+    <span style="color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34ch">${a.reason||''}</span>
+    <span style="margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums">${(a.ts||'').replace('T',' ').replace('Z','')}</span></div>`).join('')
+   ||'<div style="color:var(--muted);font-size:.8rem;padding:6px">nessuna azione registrata</div>');
  $('pbscards').innerHTML=Object.entries(d.pbs).sort().map(([id,ts])=>{
   const g=d.guests.find(x=>String(x.vmid)===id);
   return `<div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">${g?g.name:'VMID '+id}</span><span class="gid">${g?(g.type==='qemu'?'VM ':'LXC '):''}${id}</span></div>
@@ -1069,18 +1129,39 @@ async function load(){
  try{D=await(await fetch('api/overview')).json();render();}
  catch(e){$('statustxt').textContent='backend non raggiungibile';}
 }
-async function act(op,arg,btn,confirmMsg){
- if(confirmMsg&&!confirm(confirmMsg))return;
- const who=prompt('Il tuo nome (per l’audit log):');if(!who)return;
- const reason=prompt('Motivo:');if(reason===null)return;
- btn.disabled=true;const old=btn.textContent;btn.textContent='⏳ In corso…';
- const body={op,actor:who,reason};
- if(op==='app'){body.service=arg.service;body.action=arg.action;}
- if(op==='pbs-backup'){body.vmid=arg;}
- try{const d=await(await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
-  t(d.ok?'✅ Fatto — registrato'+(op!=='app'?' · in esecuzione in background':' · email inviata'):'❌ '+(d.detail||d.error||'errore'));}
- catch(e){t('❌ richiesta fallita');}
- btn.textContent=old;setTimeout(()=>{btn.disabled=false;load();},2200);
+/* ---------- beautiful action modal (replaces ugly prompt/confirm) ---------- */
+function act(op,arg,btn,confirmMsg){
+ const danger=/stop|spegn/i.test(btn.textContent)||/Spegnere/.test(confirmMsg||'');
+ const title=btn.textContent.replace(/^[⏹▶⚡🛑\s]+/,'').trim()||'Conferma azione';
+ const saved=localStorage.getItem('sov-actor')||'';
+ openModal(danger?'🛑':'⚡',title,
+  `${confirmMsg?`<div style="padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:.82rem;line-height:1.5;
+     background:color-mix(in srgb,${danger?'var(--led-bad)':'var(--led-warn)'} 12%,transparent);
+     border:1px solid color-mix(in srgb,${danger?'var(--led-bad)':'var(--led-warn)'} 35%,transparent)">${confirmMsg}</div>`:''}
+   <label style="display:block;font-size:.72rem;color:var(--muted);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.06em">Chi sei</label>
+   <input id="f-actor" value="${saved}" placeholder="es. sole" style="width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:.9rem">
+   <label style="display:block;font-size:.72rem;color:var(--muted);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.06em">Motivo</label>
+   <textarea id="f-reason" rows="2" placeholder="perché lo stai facendo…" style="width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:.9rem;resize:vertical"></textarea>
+   <div style="display:flex;gap:10px;margin-top:16px">
+     <button class="btn" style="flex:1" onclick="closeModal()">Annulla</button>
+     <button class="btn ${danger?'stop':'act'}" style="flex:2" id="f-go">${danger?'🛑 Conferma':'⚡ Esegui'}</button>
+   </div>`);
+ setTimeout(()=>$('f-actor').focus(),150);
+ $('f-go').onclick=async()=>{
+  const who=$('f-actor').value.trim(),reason=$('f-reason').value.trim();
+  if(!who){$('f-actor').style.borderColor='var(--led-bad)';return;}
+  if(!reason){$('f-reason').style.borderColor='var(--led-bad)';return;}
+  localStorage.setItem('sov-actor',who);closeModal();
+  btn.disabled=true;const old=btn.textContent;btn.textContent='⏳ In corso…';
+  const body={op,actor:who,reason};
+  if(op==='app'){body.service=arg.service;body.action=arg.action;}
+  if(op==='pbs-backup'){body.vmid=arg;}
+  if(op==='guest-power'){body.vmid=arg.vmid;body.action=arg.action;}
+  try{const d=await(await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();
+   t(d.ok?'✅ Fatto — registrato'+(/backup/.test(op)?' · email all\'esito':' · email inviata'):'❌ '+(d.detail||d.error||'errore'));}
+  catch(e){t('❌ richiesta fallita');}
+  btn.textContent=old;setTimeout(()=>{btn.disabled=false;load();},2200);
+ };
 }
 load();setInterval(load,15000);
 </script></body></html>""".replace("__PBS__", PBS_STORAGE)
@@ -1132,6 +1213,8 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
         elif op == "guest-power":
             ok, detail = do_guest_power(str(p.get("vmid", "")), str(p.get("action", "")), actor, reason)
+        elif op == "weekly-report":
+            ok, detail = do_weekly_report(actor)
         audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
                "op": op, "target": p.get("service") or p.get("vmid") or "", "reason": reason,
                "result": "ok" if ok else "error", "detail": detail if not ok else ""})
