@@ -39,6 +39,8 @@ BIND = os.environ.get("DASH_BIND", "0.0.0.0")
 PORT = int(os.environ.get("DASH_PORT", "8095"))
 AGENT_URL = os.environ.get("DASH_AGENT_URL", "http://192.168.1.52:8097")
 AGENT_TOKEN_FILE = os.environ.get("DASH_AGENT_TOKEN_FILE", "/root/sovereign-secrets/app-control-agent-token")
+AUTHENTIK_API = os.environ.get("DASH_AUTHENTIK_API", "http://192.168.1.51:9000/api/v3")
+AUTHENTIK_TOKEN_FILE = os.environ.get("DASH_AUTHENTIK_TOKEN_FILE", "/root/sovereign-secrets/dashboard/authentik-iam-token")
 AUDIT_LOG = Path(os.environ.get("DASH_AUDIT_LOG", "/root/sovereign-secrets/master-dashboard-audit.jsonl"))
 PBS_STORAGE = os.environ.get("DASH_PBS_STORAGE", "pbs-p710")
 PBS_BACKUP_ALLOW = {"100", "101", "102", "103", "110", "120", "130"}
@@ -101,6 +103,34 @@ def agent_token() -> str:
         return Path(AGENT_TOKEN_FILE).read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+def authentik_token() -> str:
+    try:
+        return Path(AUTHENTIK_TOKEN_FILE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def ak_api(path: str, method: str = "GET", body: dict[str, Any] | None = None) -> tuple[bool, Any]:
+    """Minimal client for the Authentik REST API using the scoped svc-dashboard-iam
+    token (view/add users, view/change groups, view apps, manage policy bindings
+    only — never a superuser token). Never exposed to the browser."""
+    data = json.dumps(body).encode("utf-8") if body is not None else None
+    req = urllib.request.Request(
+        f"{AUTHENTIK_API}{path}", data=data, method=method,
+        headers={"Authorization": f"Bearer {authentik_token()}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=15) as r:
+            raw = r.read()
+            return True, (json.loads(raw) if raw else {})
+    except urllib.error.HTTPError as e:
+        try:
+            return False, json.loads(e.read())
+        except Exception:
+            return False, str(e)
+    except Exception as e:  # noqa: BLE001
+        return False, str(e)
 
 
 def run(cmd: list[str], timeout: int = 30) -> tuple[int, str]:
@@ -322,6 +352,93 @@ def overview(force: bool = False) -> dict[str, Any]:
     return data
 
 
+# ------------------------------------------------------------ IAM console
+# Thin read/write layer over Authentik's own API (the real IAM/LDAP backend).
+# svc-dashboard-iam only has: view/add user, view/change group, view app,
+# add/view/change policybinding — never superuser, never a password reset on
+# an existing account, never delete.
+
+BREAK_GLASS_USERS = {"akadmin", "mohamed", "svc-ldap", "svc-dashboard-iam"}
+
+
+def iam_data() -> dict[str, Any]:
+    ok_u, users = ak_api("/core/users/?page_size=200&ordering=username")
+    ok_g, groups = ak_api("/core/groups/?page_size=200&ordering=name")
+    ok_a, apps = ak_api("/core/applications/?page_size=200&ordering=name")
+    ok_b, bindings = ak_api("/policies/bindings/?page_size=200")
+    if not (ok_u and ok_g and ok_a and ok_b):
+        return {"error": True, "users": [], "groups": [], "apps": []}
+    group_by_pk = {g["pk"]: g["name"] for g in groups.get("results", [])}
+    app_access: dict[str, list[str]] = {}
+    for b in bindings.get("results", []):
+        if b.get("target_type") != "application" or not b.get("group") or not b.get("enabled"):
+            continue
+        app_access.setdefault(b["target"], []).append(group_by_pk.get(b["group"], b["group"]))
+    return {
+        "users": [
+            {"username": u["username"], "name": u.get("name", ""), "email": u.get("email", ""),
+             "is_active": u.get("is_active", True), "groups": u.get("groups_obj") and
+             [g["name"] for g in u["groups_obj"]] or [],
+             "protected": u["username"] in BREAK_GLASS_USERS}
+            for u in users.get("results", [])
+        ],
+        "groups": [g["name"] for g in groups.get("results", [])],
+        "apps": [
+            {"name": a["name"], "slug": a["slug"], "access": app_access.get(a["pk"], [])}
+            for a in apps.get("results", [])
+        ],
+    }
+
+
+def do_iam_create_user(username: str, name: str, email: str, password: str,
+                        actor: str, reason: str) -> tuple[bool, str]:
+    username = re.sub(r"[^a-zA-Z0-9._-]", "", username)[:64]
+    if not username or not password or len(password) < 8:
+        return False, "username e password (min 8 caratteri) sono obbligatori"
+    ok, res = ak_api("/core/users/", "POST", {
+        "username": username, "name": name or username, "email": email,
+        "is_active": True, "path": "users",
+    })
+    if not ok:
+        return False, str(res.get("username") or res.get("email") or res)
+    pk = res["pk"]
+    ok2, res2 = ak_api(f"/core/users/{pk}/set_password/", "POST", {"password": password})
+    if not ok2:
+        return False, f"utenza creata ma password non impostata: {res2}"
+    print(f"[iam] utenza '{username}' creata da {actor}: {reason}")
+    return True, f"utenza '{username}' creata; stessa password valida su LDAP e ovunque sia collegato"
+
+
+def do_iam_grant_access(username: str, app_slug: str, actor: str, reason: str) -> tuple[bool, str]:
+    ok_u, u = ak_api(f"/core/users/?username={username}")
+    if not ok_u or not u.get("results"):
+        return False, "utente non trovato"
+    user_pk = u["results"][0]["pk"]
+    ok_a, a = ak_api(f"/core/applications/{app_slug}/")
+    if not ok_a:
+        return False, "app non trovata"
+    group_name = f"access-{app_slug}"
+    ok_g, g = ak_api(f"/core/groups/?name={group_name}")
+    if ok_g and g.get("results"):
+        group_pk = g["results"][0]["pk"]
+    else:
+        ok_gc, gc = ak_api("/core/groups/", "POST", {"name": group_name})
+        if not ok_gc:
+            return False, f"impossibile creare il gruppo di accesso: {gc}"
+        group_pk = gc["pk"]
+        ok_b, bindings = ak_api("/policies/bindings/?page_size=200")
+        already = any(b.get("target") == a["pk"] and b.get("group") == group_pk
+                      for b in (bindings.get("results", []) if ok_b else []))
+        if not already:
+            ak_api("/policies/bindings/", "POST",
+                   {"target": a["pk"], "group": group_pk, "enabled": True, "order": 0})
+    ok_add, _ = ak_api(f"/core/groups/{group_pk}/add_user/", "POST", {"pk": user_pk})
+    if not ok_add:
+        return False, "impossibile aggiungere l'utente al gruppo di accesso"
+    print(f"[iam] {actor} ha concesso a '{username}' accesso a '{app_slug}': {reason}")
+    return True, f"'{username}' ora ha accesso a '{a.get('name', app_slug)}' (stessa password LDAP)"
+
+
 # ---------------------------------------------------------------- actions
 
 RELAY_URL = os.environ.get("DASH_RELAY_URL", "http://192.168.1.51:8099/report")
@@ -541,6 +658,79 @@ def do_mirror_backup(actor: str, reason: str) -> tuple[bool, str]:
     return True, "avviato; riceverai una email con l'esito"
 
 
+# Dedicated, narrowly-scoped SSH key on VM110: the Windows PC's authorized_keys
+# forces this key to run ONLY Rebuild-ImmichFromBackup.ps1 (no shell). Separate
+# from the SFTP-only mirror key so neither can be used to do the other's job.
+REBUILD_SSH_KEY = "/root/sovereign-secrets/immich-windows/rebuild_id_ed25519"
+REBUILD_KNOWN_HOSTS = "/root/sovereign-secrets/immich-windows/known_hosts"
+REBUILD_LOG = "/root/sovereign-secrets/immich-windows/rebuild-run.log"
+REBUILD_HOST = "Mohamed@192.168.1.100"
+
+
+def _rebuild_windows_worker(actor: str, reason: str) -> None:
+    key = "rebuild-windows"
+    started = time.time()
+    # Step 1: fresh backup first (same wait-for-completion logic as the plain mirror button).
+    status, raw = run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+                       "systemctl start --no-block sovereign-immich-windows-restic.service && echo started"], timeout=30)
+    if "started" not in guest_out(raw):
+        job_end(key, False, "avvio backup fallito: " + guest_out(raw)[:200])
+        notify_email("❌ Backup+Rialza Windows: avvio backup fallito",
+                      f"Attore: {actor}\nMotivo: {reason}\nDettaglio: {guest_out(raw)[:200]}", "#dc2626")
+        return
+    deadline = time.time() + 3 * 3600
+    state = "activating"
+    while time.time() < deadline:
+        time.sleep(20)
+        s, raw = run(["qm", "guest", "exec", "110", "--", "systemctl", "is-active",
+                      "sovereign-immich-windows-restic"], timeout=25)
+        state = guest_out(raw).strip() or "unknown"
+        if state not in {"activating", "active", "reloading"}:
+            break
+    if state != "inactive":
+        job_end(key, False, f"backup non terminato: {state}")
+        notify_email("❌ Backup+Rialza Windows: il backup non è terminato",
+                      f"Attore: {actor}\nMotivo: {reason}\nStato: {state}", "#dc2626")
+        return
+    # Step 2: trigger the rebuild in the background on the Windows PC (forced
+    # command on the SSH key ignores whatever we send and runs the real script),
+    # then poll VM110 until that SSH session ends, since a rebuild takes minutes.
+    run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+         f"rm -f {REBUILD_LOG}; nohup ssh -o StrictHostKeyChecking=yes "
+         f"-o UserKnownHostsFile={REBUILD_KNOWN_HOSTS} -o IdentitiesOnly=yes "
+         f"-i {REBUILD_SSH_KEY} {REBUILD_HOST} trigger > {REBUILD_LOG} 2>&1 &"], timeout=15)
+    deadline = time.time() + 40 * 60
+    running = True
+    while time.time() < deadline:
+        time.sleep(15)
+        s, raw = run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+                      "pgrep -f '[r]ebuild_id_ed25519' >/dev/null && echo RUNNING || echo DONE"], timeout=20)
+        running = guest_out(raw).strip() != "DONE"
+        if not running:
+            break
+    s, raw = run(["qm", "guest", "exec", "110", "--", "tail", "-n", "6", REBUILD_LOG], timeout=20)
+    tail = guest_out(raw).strip()
+    dur = _fmt_dur(int(time.time() - started))
+    ok = (not running) and ("RIALZATO" in tail or "pong" in tail.lower())
+    job_end(key, ok, tail[-200:] if tail else ("timeout" if running else "nessun output"))
+    if ok:
+        notify_email("✅ Backup + Rialza Immich (Windows) completato",
+                      f"Attore: {actor}\nMotivo: {reason}\nDurata: {dur}\n\nBackup fresco eseguito, poi Immich "
+                      f"rialzato su questo PC dall'ultimo backup (Podman).\nUltimo output:\n{tail}",
+                      "#059669")
+    else:
+        notify_email("❌ Backup + Rialza Immich (Windows) FALLITO",
+                      f"Attore: {actor}\nMotivo: {reason}\nDurata: {dur}\n"
+                      f"In esecuzione ancora: {running}\nUltimo output:\n{tail}", "#dc2626")
+
+
+def do_rebuild_windows(actor: str, reason: str) -> tuple[bool, str]:
+    if not job_start("rebuild-windows", "Backup + Rialza Immich (Windows)"):
+        return False, "un backup+rialzo è già in corso"
+    threading.Thread(target=_rebuild_windows_worker, args=(actor, reason), daemon=True).start()
+    return True, "avviato: prima il backup, poi il rialzo da Podman; riceverai una email con l'esito"
+
+
 # Whole-VM power control, owner-approved for these guests only. Immich (110) and
 # infrastructure guests are deliberately absent and can never be powered off here.
 GUEST_POWER_ALLOW = {"120": "Nextcloud", "130": "Home Assistant"}
@@ -752,15 +942,23 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .bapp .inf{position:absolute;top:5px;left:5px;width:18px;height:18px;border-radius:50%;border:none;cursor:pointer;
  font:700 .66rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);opacity:0;transition:opacity .15s ease}
 .bapp:hover .inf{opacity:1}
-.bento.hero{grid-row:span 2;background:linear-gradient(150deg,#5b48e8,#22a5d8 78%);border:none;color:#fff}
-:root[data-theme="light"] .bento.hero{background:linear-gradient(150deg,#6d5df6,#38bdf8 78%)}
-.bento.hero h3{color:rgba(255,255,255,.85)}
-.bento.hero .hnum{font-size:3.1rem;font-weight:800;line-height:1;margin:8px 0 2px;font-variant-numeric:tabular-nums}
-.bento.hero .hsub{color:rgba(255,255,255,.8);font-size:.82rem;margin-bottom:12px}
-.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;margin:3px 4px 0 0;padding:5px 11px;border-radius:999px;
- background:rgba(255,255,255,.16);font-size:.74rem;font-weight:700;backdrop-filter:blur(4px)}
-.bento.hero .hbar{height:7px;border-radius:5px;background:rgba(0,0,0,.25);overflow:hidden;margin:10px 0 4px}
+/* full-width hero banner at the top */
+.bento.hero{grid-column:1/-1;background:linear-gradient(115deg,#5b48e8,#7b3fe4 40%,#22a5d8 100%);border:none;color:#fff;
+ display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;padding:20px 24px}
+:root[data-theme="light"] .bento.hero{background:linear-gradient(115deg,#6d5df6,#8b5cf6 40%,#38bdf8 100%)}
+.bento.hero::before{background:#fff;opacity:.10}
+.bento.hero .hleft{min-width:150px}
+.bento.hero h3{color:rgba(255,255,255,.82);margin:0 0 4px}
+.bento.hero .hnum{font-size:3rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.bento.hero .hsub{color:rgba(255,255,255,.82);font-size:.8rem;margin-top:2px}
+.bento.hero .hbar{height:7px;border-radius:5px;background:rgba(0,0,0,.22);overflow:hidden;margin:12px 0 0;max-width:260px}
 .bento.hero .hbar i{display:block;height:100%;border-radius:5px;background:#fff;transition:width .9s cubic-bezier(.22,1,.36,1)}
+.bento.hero .hchips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
+.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;
+ background:rgba(255,255,255,.16);font-size:.76rem;font-weight:700;backdrop-filter:blur(4px)}
+.bento.hero .hstats{text-align:right;font-size:.8rem;color:rgba(255,255,255,.82);line-height:1.8;white-space:nowrap}
+.bento.hero .hstats b{color:#fff;font-size:1.05rem}
+@media(max-width:900px){.bento.hero{grid-template-columns:1fr;gap:14px;text-align:center}.bento.hero .hstats{text-align:center}.bento.hero .hbar{margin-inline:auto}.bento.hero .hchips{justify-content:center}}
 /* quick-launch strip on overview (dynamically centered) */
 #quick{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;justify-content:center;flex-wrap:wrap}
 #quick .ltile{min-width:96px;padding:12px 6px 10px}
@@ -782,13 +980,27 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #modal .mb .mrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
 #modal .mb .mrow span:first-child{color:var(--muted)}
 #modal .mb .btn{margin-top:14px}
-/* bento-panelize every section on all tabs */
-#tiles,#dcards,#pbscards,#acards,#vmcards,#disks,#quick,.charts,.donuts,.guests,#audit{
+/* bento-ize every individual card/tile across all tabs (parity with Servizi) */
+#audit{
  border-radius:22px;border:1px solid var(--line);padding:16px;
  background:linear-gradient(165deg,color-mix(in srgb,var(--sec,var(--accent)) 7%,var(--surface)),var(--surface) 60%);
  box-shadow:var(--shadow)}
-.tile,.guest,.donut,.chart{box-shadow:none}
 section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px;box-shadow:none}
+.card,.tile,.donut,.guest,.chart{
+ position:relative;overflow:hidden;border-radius:20px;
+ background:linear-gradient(165deg,color-mix(in srgb,var(--sec,var(--tc,var(--bc,var(--accent)))) 11%,var(--surface)),var(--surface) 58%)}
+.card::after,.tile::after,.donut::after,.guest::after,.chart::after{
+ content:"";position:absolute;top:-55%;right:-20%;width:62%;height:100%;border-radius:50%;
+ background:var(--sec,var(--tc,var(--bc,var(--accent))));filter:blur(60px);opacity:.16;pointer-events:none;z-index:0}
+.card>*,.tile>*,.donut>*,.guest>*,.chart>*{position:relative;z-index:1}
+.tile::before{z-index:1}
+/* search bar (Servizi + Apps) */
+.svcbar{margin:0 0 14px}
+.svcbar input{width:100%;max-width:420px;padding:10px 15px;border-radius:12px;border:1px solid var(--line-strong);
+ background:var(--surface);color:var(--ink);font-size:.85rem;outline:none;transition:border-color .15s ease}
+.svcbar input:focus{border-color:var(--accent)}
+.svcbar input::placeholder{color:var(--muted)}
+#hero{margin:2px 0 20px}
 /* monogram icon fallback (instead of emoji) */
 .mono{width:100%;height:100%;display:grid;place-items:center;border-radius:inherit;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:.02em}
 /* audit list */
@@ -850,16 +1062,18 @@ footer a:hover{text-decoration:underline}
  <button class="tab" data-p="services">Servizi</button>
  <button class="tab" data-p="data">Dati &amp; Backup</button>
  <button class="tab" data-p="apps">Apps</button>
+ <button class="tab" data-p="iam">IAM</button>
 </nav>
 <div class="wrap">
+<div id="hero"></div>
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
  <div id="quick"></div>
  <h2>Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
-  <div class="chart" id="c-cpu"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
-  <div class="chart" id="c-mem"><div class="t"><span class="n">RAM host</span><span><span class="now" id="mem-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+  <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+  <div class="chart" id="c-mem" style="--sec:var(--s2)"><div class="t"><span class="n">RAM host</span><span><span class="now" id="mem-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
  </div>
  <h2 style="--sec:var(--s1)">Storage</h2>
  <div class="donuts" id="donuts"></div>
@@ -888,10 +1102,23 @@ footer a:hover{text-decoration:underline}
 <section class="page" id="p-apps" style="--sec:#a78bfa">
  <h2 style="--sec:#a78bfa">Apps &mdash; start / stop</h2>
  <p class="note">Ogni azione chiede nome + motivo, va nell'audit log e invia una email. Le app con 💾 contengono dati e vengono fermate in modo pulito. <b>Immich, Vaultwarden, NPM, AdGuard, Headscale, PBS, Authentik</b> non sono mai arrestabili da qui.</p>
+ <div class="svcbar"><input id="app-search" type="search" placeholder="🔎 Cerca un'app…" autocomplete="off"></div>
  <div class="grid" id="acards"></div>
  <h2 style="--sec:#60a5fa">Guest interi (VM)</h2>
  <p class="note">Spegnimento/accensione pulito (ACPI) delle VM approvate. Immich (VM110) e l'infrastruttura non sono qui.</p>
  <div class="grid" id="vmcards"></div>
+</section>
+
+<section class="page" id="p-iam" style="--sec:#2dd4a7">
+ <h2 style="--sec:#2dd4a7">Utenze (LDAP / Authentik) &mdash; una password ovunque</h2>
+ <p class="note">Crea un'utenza o concedi l'accesso a un'app da qui: con LDAP la stessa password vale su tutti i servizi collegati. <b>akadmin, mohamed, svc-ldap</b> non si toccano da qui.</p>
+ <div class="grid" style="grid-template-columns:1fr">
+  <div class="card" style="--sec:#2dd4a7"><div class="top"><span class="name">👤 Utenze</span>
+    <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="iamCreateUser()">➕ Nuova utenza</button></div>
+   <div class="rows" id="iam-users">caricamento…</div></div>
+ </div>
+ <h2 style="--sec:#a78bfa">App &amp; accessi</h2>
+ <div class="grid" id="iam-apps"></div>
 </section>
 
 <footer>
@@ -923,6 +1150,7 @@ tbtn.onclick=()=>{setTheme(root.dataset.theme==='dark'?'light':'dark');if(D)rend
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
  document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===b));
  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='p-'+b.dataset.p));
+ if(b.dataset.p==='iam')loadIam();
 });
 /* ---------- utils ---------- */
 function t(m){toast.textContent=m;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),3800);}
@@ -971,7 +1199,7 @@ function spark(card,data,color){
 function donut(name,pct,sub){
  const r=24,c=2*Math.PI*r,off=c*(1-pct/100);
  const col=pct>=90?css('--crit'):pct>=75?css('--warn'):css('--s1');
- return `<div class="donut"><svg viewBox="0 0 62 62">
+ return `<div class="donut" style="--sec:${col}"><svg viewBox="0 0 62 62">
   <circle class="ring" cx="31" cy="31" r="${r}"/>
   <circle class="arc" cx="31" cy="31" r="${r}" stroke="${col}" stroke-dasharray="${c}" stroke-dashoffset="${first?c:off}" data-off="${off}"/>
   <text x="31" y="35" text-anchor="middle" font-size="13" font-weight="800" fill="${css('--ink')}">${pct.toFixed(0)}%</text></svg>
@@ -994,6 +1222,70 @@ function svcInfo(name){
   +mrow('Monitor',mon?(mon.up?'🟢 UP':'🔴 DOWN')+' · '+mon.name:'— non monitorato direttamente')
   +(g?mrow('Guest',(g.type==='qemu'?'VM ':'LXC ')+g.vmid+' · CPU '+g.cpu.toFixed(1)+'% · RAM '+g.mem_pct.toFixed(1)+'%'):'')
   +`<button class="btn act" onclick="window.open('${it.href}','_blank')">Apri ${it.name} ↗</button>`);
+}
+function heroInfo(){
+ const d=D,down=(d.kuma.monitors||[]).filter(x=>!x.up);
+ const up=(d.kuma.active||0)-(d.kuma.down||0),tot=d.kuma.active||0;
+ openModal('📊','Panoramica del sistema',
+  mrow('Servizi online',`${up}/${tot}`)
+  +mrow('Guest attivi',`${d.guests.filter(g=>g.status==='running').length}/${d.guests.length}`)
+  +mrow('CPU host',(d.cpu_hist.length?d.cpu_hist[d.cpu_hist.length-1].toFixed(0):'–')+'%')
+  +mrow('RAM host',(d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–')+'%')
+  +mrow('Foto Immich protette',(d.immich.files??'-')+' · '+gb(d.immich.photos_bytes))
+  +(down.length?`<div style="margin-top:10px;font-weight:800;font-size:.78rem;color:var(--led-bad)">🔴 Monitor giù (${down.length})</div>`
+     +down.map(m=>mrow(m.name,'DOWN')).join('')
+   :`<div style="margin-top:10px;color:var(--led-good);font-weight:700">✅ Tutti i monitor sono su</div>`));
+}
+let IAM=null;
+async function loadIam(){
+ try{IAM=await(await fetch('api/iam')).json();}catch(e){IAM=null;}
+ if(!IAM||IAM.error){$('iam-users').innerHTML='<span style="color:var(--led-bad)">Authentik non raggiungibile</span>';$('iam-apps').innerHTML='';return;}
+ $('iam-users').innerHTML=IAM.users.map(u=>
+   `<div class="arow"><span class="abadge" style="background:color-mix(in srgb,${u.is_active?'var(--led-good)':'var(--led-bad)'} 15%,transparent);color:${u.is_active?'var(--led-good)':'var(--led-bad)'}">${u.is_active?'attivo':'disattivo'}</span>
+    <b>${u.username}</b><span style="color:var(--muted)">${u.name||''}${u.email?' · '+u.email:''}</span>
+    <span style="color:var(--muted);font-style:italic">${(u.groups||[]).join(', ')}</span>
+    ${u.protected?'<span style="margin-left:auto;color:var(--muted)" title="account di base, non modificabile da qui">🔒</span>':''}</div>`
+ ).join('')||'<div style="color:var(--muted)">nessuna utenza</div>';
+ $('iam-apps').innerHTML=IAM.apps.map(a=>
+   `<div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">${a.name}</span></div>
+    <div class="rows">Accesso: ${a.access.length?a.access.join(', '):'<i>nessun gruppo assegnato</i>'}</div>
+    <button class="btn act" onclick="iamGrantAccess('${a.slug}','${a.name.replace(/'/g,"\\'")}')">+ Concedi accesso</button></div>`
+ ).join('');
+}
+function iamCreateUser(){
+ openModal('➕','Nuova utenza',
+  `<div class="mrow"><label style="width:100%">Username<br><input id="f-username" style="width:100%;margin-top:4px" placeholder="es. giulia"></label></div>
+   <div class="mrow"><label style="width:100%">Nome completo<br><input id="f-name" style="width:100%;margin-top:4px"></label></div>
+   <div class="mrow"><label style="width:100%">Email<br><input id="f-email" type="email" style="width:100%;margin-top:4px"></label></div>
+   <div class="mrow"><label style="width:100%">Password (min 8 caratteri, usata ovunque via LDAP)<br><input id="f-password" type="password" style="width:100%;margin-top:4px"></label></div>
+   <button class="btn act" id="iam-go">Crea utenza</button>`);
+ $('iam-go').onclick=async()=>{
+  const body={op:'iam-create-user',actor:localStorage.getItem('sov-actor')||'dashboard',reason:'creazione da console IAM',
+   username:$('f-username').value.trim(),name:$('f-name').value.trim(),email:$('f-email').value.trim(),password:$('f-password').value};
+  const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();t(d.detail);if(d.ok){closeModal();loadIam();}
+ };
+}
+function iamGrantAccess(slug,appName){
+ openModal('🔑','Concedi accesso a '+appName,
+  `<div class="mrow"><label style="width:100%">Username esistente<br><input id="f-grantuser" style="width:100%;margin-top:4px" placeholder="es. giulia"></label></div>
+   <button class="btn act" id="iam-grant-go">Concedi accesso</button>`);
+ $('iam-grant-go').onclick=async()=>{
+  const body={op:'iam-grant-access',actor:localStorage.getItem('sov-actor')||'dashboard',reason:'accesso concesso da console IAM',
+   username:$('f-grantuser').value.trim(),app_slug:slug};
+  const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  const d=await r.json();t(d.detail);if(d.ok){closeModal();loadIam();}
+ };
+}
+function wireSearch(inputId,itemSel,nameSel){
+ const inp=$(inputId);if(!inp)return;
+ inp.oninput=()=>{
+  const q=inp.value.trim().toLowerCase();
+  document.querySelectorAll(itemSel).forEach(el=>{
+   const n=(el.querySelector(nameSel)?.textContent||el.dataset.name||'').toLowerCase();
+   el.style.display=(!q||n.includes(q))?'':'none';
+  });
+ };
 }
 function appInfo(name){
  const a=(D.apps||[]).find(x=>x.name===name);if(!a)return;
@@ -1043,7 +1335,7 @@ function render(){
  $('disks').innerHTML=(d.disks||[]).map(x=>`<div class="tile" style="--tc:${x.status==='passed'?'var(--led-good)':'var(--led-bad)'}"><div class="k">${x.name}</div><div class="v">${x.temp?x.temp+'°C':'—'}</div><div class="f">${(x.model||'').slice(0,18)} · ${x.status}</div></div>`).join('')||'<div class="foot" style="color:var(--muted);padding:6px">Scrutiny non raggiungibile</div>';
  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.donut .arc').forEach(a=>a.style.strokeDashoffset=a.dataset.off);}));
  /* guests */
- $('guests').innerHTML=d.guests.map(g=>`<div class="guest ${g.status==='running'?'up':'dn'}">
+ $('guests').innerHTML=d.guests.map(g=>`<div class="guest ${g.status==='running'?'up':'dn'}" style="--sec:${g.status==='running'?'var(--led-good)':'var(--led-bad)'}">
   <div class="gt"><span style="display:flex;align-items:center;gap:7px"><span class="led"></span>${g.name||g.vmid}</span><span class="gid">${g.type==='qemu'?'VM':'LXC'} ${g.vmid}</span></div>
   <div class="bar"><i style="width:0" data-w="${Math.min(100,g.cpu)}%"></i></div><div class="bl"><span>CPU</span><span>${g.cpu.toFixed(1)}%</span></div>
   <div class="bar m"><i style="width:0" data-w="${Math.min(100,g.mem_pct)}%"></i></div><div class="bl"><span>RAM</span><span>${g.mem_pct.toFixed(1)}%</span></div></div>`).join('');
@@ -1064,14 +1356,22 @@ function render(){
  const upN=(d.kuma.active||0)-(d.kuma.down||0),totN=d.kuma.active||0;
  const downMon=(d.kuma.monitors||[]).filter(x=>!x.up).map(x=>x.name);
  const heroChips=downMon.length?downMon.slice(0,4).map(n=>`<span class="hchip">🔴 ${n}</span>`).join(''):'<span class="hchip">✅ tutto operativo</span>';
+ const cpuNow=d.cpu_hist.length?d.cpu_hist[d.cpu_hist.length-1].toFixed(0):'–';
+ const ramNow=d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–';
+ const gRun=d.guests.filter(g=>g.status==='running').length;
+ $('hero').innerHTML=
+  `<div class="bento hero" id="herobox" title="Clicca per il dettaglio">
+     <div class="hleft"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
+       <div class="hsub">servizi online adesso</div><div class="hbar"><i style="width:${totN?Math.round(100*upN/totN):0}%"></i></div></div>
+     <div class="hchips">${heroChips}</div>
+     <div class="hstats"><b>${cpuNow}%</b> CPU host<br><b>${ramNow}%</b> RAM host<br><b>${gRun}/${d.guests.length}</b> guest attivi</div>
+   </div>`;
+ $('herobox').onclick=()=>heroInfo();
  $('linkgroups').innerHTML=
-  `<div class="bento hero"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
-    <div class="hsub">servizi online adesso</div>
-    <div class="hbar"><i style="width:${totN?Math.round(100*upN/totN):0}%"></i></div>
-    <div>${heroChips}</div>
-    <div style="margin-top:14px;font-size:.76rem;color:rgba(255,255,255,.75)">CPU host ${d.cpu_hist.length?d.cpu_hist[d.cpu_hist.length-1].toFixed(0):'–'}% · RAM ${d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–'}% · ${d.guests.filter(g=>g.status==='running').length}/${d.guests.length} guest</div></div>`
+  `<div class="svcbar"><input id="svc-search" type="search" placeholder="🔎 Cerca un servizio…" autocomplete="off"></div>`
   +d.links.map((g,i)=>`<div class="bento" style="--bc:${bAcc[i%bAcc.length]}"><h3>${g.group}<span class="cnt">${g.items.length}</span></h3>
     <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
+ wireSearch('svc-search','#linkgroups .bapp','.bn');
  /* quick-launch strip (most used) */
  const quick=['Immich','Nextcloud','Vaultwarden','Jellyfin','Uptime Kuma','Proxmox VE','Home Assistant'];
  const allItems=d.links.flatMap(g=>g.items);
@@ -1082,7 +1382,8 @@ function render(){
    <div class="rows">File: <b>${d.immich.files??'-'}</b> · ${gb(d.immich.photos_bytes)}<br>Dump protezione: ${ago(d.immich.protection_dump_age_h)}<br><a class="ld" href="https://foto.internal" target="_blank" style="color:var(--accent)">foto.internal ↗</a></div></div>
   <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
    <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
-   ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
+   ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}
+   ${jobbtn('rebuild-windows',`act('rebuild-windows',null,this,'Eseguire ORA un backup fresco e poi rialzare Immich sul PC Windows (Podman) con quel nuovo backup? Richiede diversi minuti; funziona anche se è già acceso (viene ricreato da zero).')`,'🚀 Backup + Rialza Immich (emergenza)')}</div>
   <div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">💾 PBS · Immich VM110</span><span class="state up"><span class="led"></span>${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
    <div class="rows">Storage: __PBS__ <br>Retention: ${d.retention||''}</div>
    ${jobbtn('pbs-110',`act('pbs-backup','110',this,'Forzare ORA uno snapshot PBS di VM110?')`,'⚡ Forza backup PBS')}</div>`;
@@ -1114,6 +1415,7 @@ function render(){
   const b=document.createElement('button');b.className='btn '+(r?'stop':'start');b.textContent=r?'⏹ Stop':'▶ Start';
   const warn=a.data&&r?`⚠️ ${a.name} contiene DATI. Verrà fermato in modo pulito. Continuare?`:null;
   b.onclick=()=>act('app',{service:a.name,action:r?'stop':'start'},b,warn);c.appendChild(b);$('acards').appendChild(c);}
+ wireSearch('app-search','#acards .card','.name');
  /* whole-VM power */
  $('vmcards').innerHTML='';
  for(const [vmid,name] of Object.entries(d.guest_power||{})){
@@ -1217,6 +1519,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps(overview()).encode("utf-8"), "application/json")
             except Exception as exc:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
+        elif self.path == "/api/iam":
+            try:
+                self._send(200, json.dumps(iam_data()).encode("utf-8"), "application/json")
+            except Exception as exc:  # noqa: BLE001
+                self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
         else:
             self._send(404, b'{"error":"not found"}', "application/json")
 
@@ -1241,15 +1548,22 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_app(str(p.get("service", "")), str(p.get("action", "")), actor, reason)
         elif op == "mirror-backup":
             ok, detail = do_mirror_backup(actor, reason)
+        elif op == "rebuild-windows":
+            ok, detail = do_rebuild_windows(actor, reason)
         elif op == "pbs-backup":
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
         elif op == "guest-power":
             ok, detail = do_guest_power(str(p.get("vmid", "")), str(p.get("action", "")), actor, reason)
         elif op == "weekly-report":
             ok, detail = do_weekly_report(actor)
+        elif op == "iam-create-user":
+            ok, detail = do_iam_create_user(str(p.get("username", "")), str(p.get("name", "")),
+                                             str(p.get("email", "")), str(p.get("password", "")), actor, reason)
+        elif op == "iam-grant-access":
+            ok, detail = do_iam_grant_access(str(p.get("username", "")), str(p.get("app_slug", "")), actor, reason)
         audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
-               "op": op, "target": p.get("service") or p.get("vmid") or "", "reason": reason,
-               "result": "ok" if ok else "error", "detail": detail if not ok else ""})
+               "op": op, "target": p.get("service") or p.get("vmid") or p.get("username") or p.get("app_slug") or "",
+               "reason": reason, "result": "ok" if ok else "error", "detail": detail if not ok else ""})
         with _lock:
             _cache["ts"] = 0
         self._send(200 if ok else 500, json.dumps({"ok": ok, "detail": detail}).encode("utf-8"), "application/json")

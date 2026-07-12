@@ -56,6 +56,34 @@ mirror and either the external SSD or an offsite target).
 > (`winget pin remove Docker.DockerDesktop` once a fixed version ships).
 > **Podman remains the tested, working emergency path** and the on-PC guide
 > lists it first, with Docker Desktop as the alternative.
+>
+> **Consolidated into ONE command (2026-07-13).** All the manual restore +
+> rebuild steps are now a single, idempotent script:
+> [scripts/windows/Rebuild-ImmichFromBackup.ps1](../../scripts/windows/Rebuild-ImmichFromBackup.ps1)
+> (also at `C:\Sovereign-Restore\Rebuild-ImmichFromBackup.ps1`). It always:
+> tears down any existing emergency containers first (even if already
+> running — this is intentional, not a bug), wipes and re-restores the
+> staging folder from the **latest** restic snapshot (never a stale one),
+> imports the dump, and waits for `pong`. Run it with:
+> `powershell -ExecutionPolicy Bypass -File C:\Sovereign-Restore\Rebuild-ImmichFromBackup.ps1`.
+> Live-tested **twice** end to end (66 tables, 15,000+ assets, `pong` both
+> times), including once triggered remotely (see next paragraph).
+>
+> **Dashboard button (2026-07-13).** `dash.internal` → Dati & Backup → "🚀
+> Backup + Rialza Immich (emergenza)" does exactly what was asked: it forces a
+> **fresh** mirror backup first, then triggers the rebuild above so it always
+> raises from the *new* backup, not an old one. The trigger path is a second,
+> narrowly-scoped SSH key on the Windows PC
+> (`administrators_authorized_keys`), separate from the SFTP-only mirror key,
+> forced to run **only**
+> `powershell ... -File C:\Sovereign-Restore\Rebuild-ImmichFromBackup.ps1` —
+> it cannot open a shell or run anything else, same hardening pattern as the
+> mirror key. The private half lives root-only on VM 110 at
+> `/root/sovereign-secrets/immich-windows/rebuild_id_ed25519`; the dashboard
+> reaches VM 110 only via the Proxmox `qm guest exec` channel (no network
+> credential to VM 110 itself), and VM 110 is the only thing that can reach
+> the Windows PC. Live-tested end to end through the real dashboard API:
+> fresh backup, then rebuild, `pong`, 15,419 assets.
 
 ## Purpose
 
@@ -102,7 +130,8 @@ backup transport, not a web service.
 | [scripts/sovereign-immich-windows-restic.sh](../../scripts/sovereign-immich-windows-restic.sh) | VM 110 | Preflight, backup, check, snapshots, restore-check. |
 | [scripts/systemd/sovereign-immich-windows-restic.service](../../scripts/systemd/sovereign-immich-windows-restic.service) | VM 110 | Oneshot unit (no timer; event triggered). |
 | [scripts/windows/Trigger-ImmichWindowsBackup.ps1](../../scripts/windows/Trigger-ImmichWindowsBackup.ps1) | Windows | Logon trigger with once-per-day guard. |
-| [scripts/windows/Restore-ImmichLatest.ps1](../../scripts/windows/Restore-ImmichLatest.ps1) | Windows | Emergency local restore. |
+| [scripts/windows/Restore-ImmichLatest.ps1](../../scripts/windows/Restore-ImmichLatest.ps1) | Windows | File-only emergency restore (no app rebuild). |
+| [scripts/windows/Rebuild-ImmichFromBackup.ps1](../../scripts/windows/Rebuild-ImmichFromBackup.ps1) | Windows | **The one command**: restore latest + full Podman app rebuild, idempotent. |
 | [scripts/windows/SovereignImmichMirror.Task.xml](../../scripts/windows/SovereignImmichMirror.Task.xml) | Windows | Task Scheduler definition. |
 | [stacks/immich-restore/](../../stacks/immich-restore/) | Windows | Emergency Immich stack for the restore drill. |
 
