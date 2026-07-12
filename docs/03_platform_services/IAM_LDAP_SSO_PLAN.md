@@ -67,11 +67,38 @@ available during testing so a misconfig cannot lock you out.
 
 ### Phase 2 — LDAP directory backbone (`ldap.internal`)
 
-1. Authentik: create an **LDAP Provider** (base DN e.g. `dc=internal`) + an
-   **LDAP Outpost**; publish it on `ldap.internal:636` (LDAPS) direct to LXC 101
-   (no NPM, per the ports matrix). Create a read-only **bind service account**.
-2. Validate with `ldapsearch` before touching any app.
-3. **Rollback:** stop the LDAP outpost; nothing else depends on it yet.
+**Status (2026-07-12): configured, container deployed, bind not yet validated.**
+
+Done:
+- Authentik **LDAP Provider** created, base DN `dc=sovereign,dc=internal`,
+  authorization flow `default-authentication-flow`; **Application** `LDAP
+  Directory`; **LDAP Outpost** created with its token stored root-only at
+  `/root/sovereign-secrets/ldap/outpost-token`.
+- Read-only bind account **`svc-ldap`** created (internal user, password
+  root-only at `/root/sovereign-secrets/ldap/svc-ldap-password`).
+- Outpost container **`authentik-ldap`** added to the identity stack
+  (`ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG}`, ports `389:3389` / `636:6636`)
+  and running on LXC 101.
+
+Open issue to finish before use: the outpost loops on
+`websocket: close 1012` against `authentik-server` (it does not stay synced, so
+binds return `Invalid credentials`). This is an Authentik outpost↔core sync
+problem, best resolved in the admin UI: confirm the outpost shows the LDAP
+provider and a green "last seen", set the provider's **Search group** (add
+`svc-ldap` to it), and if the loop persists, recreate the outpost token /
+restart `authentik-server` once so it re-registers the outpost. Then validate:
+
+```bash
+ldapsearch -x -H ldap://192.168.1.51:389 \
+  -D "cn=svc-ldap,ou=users,dc=sovereign,dc=internal" -w '<svc-ldap-password>' \
+  -b "dc=sovereign,dc=internal" "(cn=sole)"
+```
+
+Then add the AdGuard rewrite `ldap.internal -> 192.168.1.51` and switch services
+to LDAPS on `ldap.internal:636`.
+
+**Rollback:** `docker compose stop authentik-ldap` in the identity stack;
+nothing else depends on it yet.
 
 ### Phase 3 — Integrate services (prefer OIDC; LDAP where OIDC is absent)
 

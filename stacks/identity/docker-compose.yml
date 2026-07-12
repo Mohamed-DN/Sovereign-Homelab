@@ -88,6 +88,21 @@ services:
       - media_data:/media
       - custom_templates:/templates
 
+  authentik-ldap:
+    image: ghcr.io/goauthentik/ldap:${AUTHENTIK_TAG}
+    container_name: authentik-ldap
+    restart: unless-stopped
+    depends_on:
+      authentik-server:
+        condition: service_healthy
+    environment:
+      AUTHENTIK_HOST: http://authentik-server:9000
+      AUTHENTIK_INSECURE: "true"
+      AUTHENTIK_TOKEN: ${LDAP_OUTPOST_TOKEN}
+    ports:
+      - "389:3389"
+      - "636:6636"
+
 volumes:
   postgresql_data:
   redis_data:
