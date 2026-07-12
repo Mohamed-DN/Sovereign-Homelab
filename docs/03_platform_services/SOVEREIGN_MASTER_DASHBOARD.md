@@ -4,6 +4,26 @@ The single operations dashboard at `dash.internal`: live status, force-backup,
 safe app/VM controls, and a full service launchpad. It replaces the earlier
 split "console" idea. Homepage remains at `homepage.internal` as a rollback.
 
+## Recent additions (2026-07-13)
+
+- **UI**: the "Panoramica" hero is now a persistent, full-width banner at the
+  top of the page (visible on every tab, not buried inside Servizi), and every
+  card across all tabs (Overview tiles/guests/donuts/charts, Dati & Backup,
+  Apps) now uses the same colour-accented "bento" gradient+glow treatment
+  that Servizi already had, instead of the previous flat white cards. Added a
+  live search/filter box on Servizi and Apps, and a click-through detail modal
+  on the hero banner (full down-monitor list, not just the first 4).
+- **Backup + Rialza Immich (emergenza)** button (Dati & Backup tab): forces a
+  fresh Windows mirror backup, then triggers the one-command Podman rebuild
+  (`Rebuild-ImmichFromBackup.ps1`) on the Windows PC so it always raises from
+  the *new* backup — see
+  [Immich Windows Mirror](../05_backup_dr/IMMICH_WINDOWS_MIRROR.md) for the
+  full security model of the dedicated, forced-command SSH key this uses.
+- **IAM tab**: create Authentik/LDAP users and grant them app access without
+  leaving the dashboard — see
+  [IAM / LDAP / SSO Plan](IAM_LDAP_SSO_PLAN.md#dashboard-iam-console) for the
+  scoped service-account permissions behind it.
+
 ## Purpose
 
 - One page for daily operations: host CPU/RAM history, storage, per-guest load,
