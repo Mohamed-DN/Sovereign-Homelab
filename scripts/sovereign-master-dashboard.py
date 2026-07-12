@@ -797,6 +797,38 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 #audit .arow:last-child{border-bottom:none}
 #audit .abadge{padding:3px 9px;border-radius:999px;font-size:.68rem;font-weight:800}
 /* footer */
+/* ===== v8: symmetry + motion ===== */
+.tiles{grid-template-columns:repeat(6,1fr)}
+@media(max-width:1500px){.tiles{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.charts{grid-template-columns:1fr 1fr}
+@media(max-width:760px){.charts{grid-template-columns:1fr}}
+.disks .tile,#disks{}
+#disks{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+/* equal-height cards, action pinned to bottom -> symmetric rows */
+.grid{align-items:stretch}
+.grid>.card{display:flex;flex-direction:column}
+.grid>.card>.btn:last-child,.grid>.card .rows+*:last-child{margin-top:auto}
+.guests,.donuts{align-items:stretch}
+.guest{display:flex;flex-direction:column;justify-content:center}
+/* refined hover on everything interactive */
+.tile,.donut,.guest,.chart{transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease}
+.tile:hover,.donut:hover,.chart:hover{transform:translateY(-3px)}
+/* smooth entrance for panels + cards (calm, not flashy) */
+@media(prefers-reduced-motion:no-preference){
+ section.page.on .bento,section.page.on #tiles,section.page.on .charts,
+ section.page.on .donuts,section.page.on #disks,section.page.on .guests,
+ section.page.on #dcards,section.page.on #pbscards,section.page.on #acards,
+ section.page.on #vmcards,section.page.on #audit,section.page.on #quick{
+  animation:rise .45s cubic-bezier(.22,1,.36,1) both}
+ @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+ .bento .bapp,.lgrid .ltile{animation:pop .4s cubic-bezier(.22,1,.36,1) both}
+ @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
+}
+/* section headers: animated accent underline */
+section.page>h2{position:relative}
+section.page>h2::after{content:"";position:absolute;left:0;bottom:-3px;height:2px;width:38px;border-radius:2px;
+ background:linear-gradient(90deg,var(--sec,var(--accent)),transparent);opacity:.9}
 footer{margin:34px 0 14px;text-align:center;color:var(--muted);font-size:.78rem;line-height:1.9}
 footer a{color:var(--accent);text-decoration:none;font-weight:700}
 footer a:hover{text-decoration:underline}
