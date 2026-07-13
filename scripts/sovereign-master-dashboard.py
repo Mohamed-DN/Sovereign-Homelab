@@ -1340,10 +1340,42 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 #hero{margin:2px 0 20px}
 /* monogram icon fallback (instead of emoji) */
 .mono{width:100%;height:100%;display:grid;place-items:center;border-radius:inherit;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:.02em}
-/* role gating: normal users see only the hero on Overview (no host internals) */
+/* role gating: normal users see only their personal home on Overview */
 body.role-user #p-overview>h2,body.role-user #p-overview .tiles,body.role-user #p-overview .charts,
 body.role-user #p-overview .donuts,body.role-user #p-overview #disks,body.role-user #p-overview .guests,
 body.role-user .bento.hero .hstats{display:none}
+#userhome{display:none}
+body.role-user #userhome{display:block}
+/* personal user home: welcome + big pixel-neon app tiles */
+.uwelcome{text-align:center;margin:6px 0 26px}
+.uwelcome .uhi{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-weight:800;font-size:1.7rem;letter-spacing:.04em;
+ background:linear-gradient(120deg,#ff2fd0,#22d3ee 52%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+.uwelcome .usub{color:var(--muted);font-size:.9rem;margin-top:6px}
+.uhsec{display:flex;align-items:center;gap:10px;margin:6px 2px 14px;color:var(--muted);font-size:.72rem;
+ font-weight:800;text-transform:uppercase;letter-spacing:.12em}
+.uhsec::before{content:"";width:8px;height:8px;background:#22d3ee;box-shadow:0 0 8px #22d3ee;flex:0 0 auto;animation:pxblink 1.4s steps(2) infinite}
+.uhsec::after{content:"";flex:1;height:1px;background:var(--line)}
+@keyframes pxblink{50%{opacity:.25}}
+.ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px}
+.utile{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;padding:26px 12px 18px;
+ border:2px solid transparent;border-radius:0;text-decoration:none;color:var(--ink);image-rendering:pixelated;
+ clip-path:polygon(11px 0,calc(100% - 11px) 0,100% 11px,100% calc(100% - 11px),calc(100% - 11px) 100%,11px 100%,0 calc(100% - 11px),0 11px);
+ background:linear-gradient(165deg,color-mix(in srgb,#22d3ee 7%,var(--surface)),var(--surface) 60%) padding-box,
+   linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%) border-box;
+ box-shadow:0 0 0 1px rgba(0,0,0,.28),0 10px 24px rgba(0,0,0,.34);transition:transform .22s cubic-bezier(.22,1.4,.36,1),box-shadow .22s ease}
+.utile::after{content:"";position:absolute;inset:-4px;z-index:-1;clip-path:inherit;
+ background:linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%);filter:blur(13px);opacity:.28}
+.utile:nth-child(odd):hover{transform:translateY(-7px) scale(1.05) rotate(-1.5deg)}
+.utile:nth-child(even):hover{transform:translateY(-7px) scale(1.05) rotate(1.5deg)}
+.utile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 26px rgba(34,211,238,.6),0 16px 30px rgba(0,0,0,.42)}
+.utile .uic{width:58px;height:58px;display:grid;place-items:center;font-size:2rem;overflow:hidden;border-radius:0;
+ clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
+.utile .uic img{width:46px;height:46px;object-fit:contain}
+.utile .un{font-weight:800;font-size:.9rem;text-align:center;line-height:1.15}
+.utile .uled{position:absolute;top:11px;right:11px;width:8px;height:8px;border-radius:0}
+.uempty{text-align:center;color:var(--muted);padding:40px 20px;font-size:.95rem;line-height:1.7}
+.uacts{display:flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:26px}
+.uacts .btn{width:auto;padding:11px 20px}
 /* small icon buttons on IAM rows */
 .ibt{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);
  color:var(--ink);cursor:pointer;font-size:.8rem;display:inline-grid;place-items:center;transition:all .15s ease}
@@ -1428,7 +1460,8 @@ footer a:hover{text-decoration:underline}
 <div id="hero"></div>
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
- <h2>Stato del sistema</h2>
+ <div id="userhome"></div>
+ <h2 class="adminonly">Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
   <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div>
@@ -1870,10 +1903,29 @@ function render(){
  const ramNow=d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–';
  const gRun=d.guests.filter(g=>g.status==='running').length;
  /* the hero merges the status summary + the quick-launch shelf into one unit */
- const quickApps=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
-  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','PBS'];
+ const isAdmin=!(d.me&&d.me.is_admin===false);
  const allItems=d.links.flatMap(g=>g.items);
- const quickHtml=quickApps.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
+ const adminQuick=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
+  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','PBS'];
+ // admins get the curated shelf; a normal user gets their own granted apps
+ const quickHtml=(isAdmin
+   ?adminQuick.map(n=>allItems.find(x=>x.name===n||x.name.startsWith(n))).filter(Boolean)
+   :allItems).map(it=>ltile(it,1)).join('');
+ /* personal home for non-admin users: welcome + big pixel-neon app tiles */
+ if(!isAdmin){
+  const name=(d.me&&(d.me.username||''))||'';
+  const tiles=allItems.map(it=>`<a class="utile" href="${it.href}" target="_blank" rel="noopener">
+    <span class="uled ${dot(it.kw)}"></span>
+    <span class="uic">${favImg(it)}</span><span class="un">${it.name}</span></a>`).join('');
+  $('userhome').innerHTML=
+   `<div class="uwelcome"><div class="uhi">Ciao, ${name}</div>
+     <div class="usub">${allItems.length?'i tuoi servizi — clicca per entrare, sei gi&agrave; autenticato':'non hai ancora accessi assegnati'}</div></div>`
+   +(allItems.length?`<div class="uhsec">I tuoi servizi</div><div class="ugrid">${tiles}</div>`
+     :`<div class="uempty">Nessun servizio assegnato al tuo profilo.<br>Vai su <b>IAM</b> e usa &laquo;Chiedi accesso&raquo; per richiederne uno all'amministratore.</div>`)
+   +`<div class="uacts">
+      <button class="btn act" onclick="document.querySelector('.tab[data-p=iam]').click()">&#128273; Gestisci il mio profilo</button>
+     </div>`;
+ }
  $('hero').innerHTML=
   `<div class="bento hero${alert?' alert':''}" id="herobox" title="Clicca per il dettaglio">
      <div class="hleft"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
@@ -1977,10 +2029,18 @@ function applyRole(){
  const me=D&&D.me;if(!me)return;
  const adm=!!me.is_admin;
  document.body.classList.toggle('role-user',!adm);
+ // non-admins get a clean 2-tab view: their personal Home + their profile.
+ // (their apps live on the Home now, so the separate Servizi tab is redundant)
  document.querySelectorAll('.tab').forEach(b=>{
   const p=b.dataset.p;
-  b.style.display=(adm||p==='overview'||p==='services'||p==='iam')?'':'none';
+  b.style.display=(adm||p==='overview'||p==='iam')?'':'none';
+  if(p==='overview')b.textContent=adm?'Overview':'Home';
  });
+ if(!adm&&document.querySelector('.tab[data-p=overview]')){
+  // make sure a non-admin lands on their Home, not a hidden tab
+  const cur=document.querySelector('.tab.on');
+  if(cur&&cur.style.display==='none')document.querySelector('.tab[data-p=overview]').click();
+ }
  if(me.via==='sso'){
   $('userpill').style.display='';$('username').textContent=me.username;
   $('logoutbtn').style.display='';
