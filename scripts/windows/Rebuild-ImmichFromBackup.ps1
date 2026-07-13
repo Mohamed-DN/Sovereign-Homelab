@@ -39,7 +39,7 @@ param(
     [string]$RestoreTarget  = "C:\Sovereign-Restore\Immich",
     [string]$Tag            = "immich-windows-consistent",
     [string]$PasswordFile   = "C:\Sovereign-Restore\restic-password.txt",
-    [string]$ImmichVersion  = "v3.0.1",
+    [string]$ImmichVersion  = "v3.0.2",
     [int]   $Port           = 2283,
     [string]$DbPassword     = "emergency_local_only"
 )
