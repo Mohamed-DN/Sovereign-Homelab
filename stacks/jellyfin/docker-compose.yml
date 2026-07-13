@@ -13,6 +13,10 @@ services:
     - ${JELLYFIN_CONFIG_PATH}:/config
     - ${JELLYFIN_CACHE_PATH}:/cache
     - ${JELLYFIN_MEDIA_PATH}:/media:ro
+    # System CA bundle + the Sovereign internal root CA, so the SSO plugin can
+    # validate https://auth.internal for OIDC. Regenerate after image updates
+    # (container bundle + /root/sovereign-secrets/ca/sovereign-root-ca.crt).
+    - ./ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro
     healthcheck:
       test:
       - CMD
