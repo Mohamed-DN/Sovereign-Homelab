@@ -1034,39 +1034,36 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .bento.hero .hbar{height:8px;border-radius:0;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:12px 0 0;max-width:260px}
 .bento.hero .hbar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a78bfa,#ff2fd0);box-shadow:0 0 10px #22d3ee;
  transition:width .9s cubic-bezier(.22,1,.36,1)}
-.bento.hero .hchips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
-.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:0;
- clip-path:polygon(5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px),0 5px);
- background:color-mix(in srgb,var(--ink) 6%,transparent);border:1px solid color-mix(in srgb,#22d3ee 45%,var(--line-strong));
- font-size:.76rem;font-weight:700}
 .bento.hero .hstats{text-align:right;font-size:.8rem;color:var(--muted);line-height:1.8;white-space:nowrap}
 .bento.hero .hstats b{color:var(--ink);font-size:1.05rem}
-@media(max-width:900px){.bento.hero{grid-template-columns:1fr;gap:14px;text-align:center}.bento.hero .hstats{text-align:center}.bento.hero .hbar{margin-inline:auto}.bento.hero .hchips{justify-content:center}}
-/* quick-launch strip on overview: pixel-cyberpunk-cute favorites shelf */
-#quick-wrap{margin-bottom:6px}
-#quick-lbl{display:flex;align-items:center;gap:8px;font-size:.68rem;font-weight:800;letter-spacing:.12em;
- text-transform:uppercase;color:var(--muted);margin:0 2px 10px}
-#quick-lbl .px{width:7px;height:7px;background:#22d3ee;box-shadow:0 0 8px #22d3ee;flex:0 0 auto;
- animation:pxblink 1.4s steps(2) infinite}
-@keyframes pxblink{50%{opacity:.25}}
-#quick{display:flex;gap:16px 14px;overflow-x:auto;padding:8px 4px 12px;justify-content:center;flex-wrap:wrap}
+/* alert state: something is down -> the whole hero shifts to a red/amber warning glow */
+.bento.hero.alert{background:linear-gradient(165deg,color-mix(in srgb,#ef4444 12%,var(--surface)),color-mix(in srgb,#f59e0b 6%,var(--surface))) padding-box,
+   linear-gradient(115deg,#ef4444,#fb7185 50%,#f59e0b 100%) border-box}
+.bento.hero.alert::after{background:linear-gradient(115deg,#ef4444,#fb7185 50%,#f59e0b 100%)}
+.bento.hero.alert .hnum{background:linear-gradient(120deg,#fb7185,#ef4444 60%,#f59e0b);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bento.hero.alert .hbar i{background:linear-gradient(90deg,#f59e0b,#ef4444);box-shadow:0 0 10px #ef4444}
+/* middle column: merges the status summary with the quick-launch app shelf */
+.hmid{flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:10px}
+.halert{color:#fb7185;font-size:.76rem;font-weight:800;text-align:center;letter-spacing:.02em}
+#quick{display:flex;gap:10px;overflow-x:auto;padding:2px;justify-content:center;flex-wrap:wrap;max-width:100%}
 #quick .ltile{
- min-width:98px;padding:15px 8px 12px;border:2px solid transparent;border-radius:0;image-rendering:pixelated;
- clip-path:polygon(9px 0,calc(100% - 9px) 0,100% 9px,100% calc(100% - 9px),calc(100% - 9px) 100%,9px 100%,0 calc(100% - 9px),0 9px);
+ min-width:72px;padding:10px 6px 8px;border:2px solid transparent;border-radius:0;image-rendering:pixelated;
+ clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px),0 7px);
  background:linear-gradient(var(--surface),var(--surface)) padding-box,
    linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%) border-box;
  box-shadow:0 0 0 1px rgba(0,0,0,.28),0 8px 18px rgba(0,0,0,.32);
  transition:transform .22s cubic-bezier(.22,1.4,.36,1),box-shadow .22s ease}
 #quick .ltile::after{content:"";position:absolute;inset:-3px;z-index:-1;
  clip-path:inherit;background:linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%);filter:blur(9px);opacity:.3}
-#quick .ltile:nth-child(odd):hover{transform:translateY(-6px) scale(1.07) rotate(-2deg)}
-#quick .ltile:nth-child(even):hover{transform:translateY(-6px) scale(1.07) rotate(2deg)}
+#quick .ltile:nth-child(odd):hover{transform:translateY(-5px) scale(1.08) rotate(-2deg)}
+#quick .ltile:nth-child(even):hover{transform:translateY(-5px) scale(1.08) rotate(2deg)}
 #quick .ltile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 22px rgba(34,211,238,.6),0 14px 26px rgba(0,0,0,.4)}
-#quick .lic{width:38px;height:38px;font-size:1.4rem;border-radius:0;
- clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0 calc(100% - 6px),0 6px)}
-#quick .lic img{width:30px;height:30px}
-#quick .ltile .led{top:11px;right:11px;border-radius:0;width:8px;height:8px}
-#quick .ltile .lname{font-weight:800;letter-spacing:.02em}
+#quick .lic{width:30px;height:30px;font-size:1.1rem;border-radius:0;
+ clip-path:polygon(5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px),0 5px)}
+#quick .lic img{width:23px;height:23px}
+#quick .ltile .led{top:8px;right:8px;border-radius:0;width:7px;height:7px}
+#quick .ltile .lname{font-weight:800;letter-spacing:.02em;font-size:.66rem}
+@media(max-width:900px){.bento.hero{grid-template-columns:1fr;gap:16px;text-align:center}.bento.hero .hstats{text-align:center}.bento.hero .hbar{margin-inline:auto}}
 /* modal */
 #mask{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none}
 #mask.show{display:block}
@@ -1172,10 +1169,6 @@ footer a:hover{text-decoration:underline}
 <div id="hero"></div>
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
- <div id="quick-wrap">
-  <div id="quick-lbl"><span class="px"></span>Accesso rapido &mdash; le app pi&ugrave; importanti</div>
-  <div id="quick"></div>
- </div>
  <h2>Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
@@ -1505,28 +1498,31 @@ function render(){
  const bAcc=['#22d3ee','#60a5fa','#a78bfa','#fbbf24','#2dd4a7','#fb7185'];
  const upN=(d.kuma.active||0)-(d.kuma.down||0),totN=d.kuma.active||0;
  const downMon=(d.kuma.monitors||[]).filter(x=>!x.up).map(x=>x.name);
- const heroChips=downMon.length?downMon.slice(0,4).map(n=>`<span class="hchip">🔴 ${n}</span>`).join(''):'<span class="hchip">✅ tutto operativo</span>';
+ const alert=downMon.length>0;
  const cpuNow=d.cpu_hist.length?d.cpu_hist[d.cpu_hist.length-1].toFixed(0):'–';
  const ramNow=d.mem_hist.length?d.mem_hist[d.mem_hist.length-1].toFixed(0):'–';
  const gRun=d.guests.filter(g=>g.status==='running').length;
+ /* the hero merges the status summary + the quick-launch shelf into one unit */
+ const quickApps=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
+  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','Proxmox Backup Server'];
+ const allItems=d.links.flatMap(g=>g.items);
+ const quickHtml=quickApps.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
  $('hero').innerHTML=
-  `<div class="bento hero" id="herobox" title="Clicca per il dettaglio">
+  `<div class="bento hero${alert?' alert':''}" id="herobox" title="Clicca per il dettaglio">
      <div class="hleft"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
        <div class="hsub">servizi online adesso</div><div class="hbar"><i style="width:${totN?Math.round(100*upN/totN):0}%"></i></div></div>
-     <div class="hchips">${heroChips}</div>
+     <div class="hmid">
+      ${alert?`<div class="halert">🔴 ${downMon.length} giù: ${downMon.slice(0,3).join(', ')}${downMon.length>3?'…':''}</div>`:''}
+      <div id="quick">${quickHtml}</div>
+     </div>
      <div class="hstats"><b>${cpuNow}%</b> CPU host<br><b>${ramNow}%</b> RAM host<br><b>${gRun}/${d.guests.length}</b> guest attivi</div>
    </div>`;
- $('herobox').onclick=()=>heroInfo();
+ $('herobox').onclick=e=>{if(!e.target.closest('#quick'))heroInfo();};
  $('linkgroups').innerHTML=
   `<div class="svcbar"><input id="svc-search" type="search" placeholder="🔎 Cerca un servizio…" autocomplete="off"></div>`
   +d.links.map((g,i)=>`<div class="bento" style="--bc:${bAcc[i%bAcc.length]}"><h3>${g.group}<span class="cnt">${g.items.length}</span></h3>
     <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
  wireSearch('svc-search','#linkgroups .bapp','.bn');
- /* quick-launch strip (most used) */
- const quick=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
-  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','Proxmox Backup Server'];
- const allItems=d.links.flatMap(g=>g.items);
- $('quick').innerHTML=quick.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
  /* data & backup */
  $('dcards').innerHTML=`
   <div class="card" style="--sec:var(--led-warn)"><div class="top"><span class="name">📷 Immich</span><span class="state ${d.immich.immich_ping?'up':'dn'}"><span class="led"></span>${d.immich.immich_ping?'healthy':'CHECK'}</span></div>
