@@ -131,7 +131,7 @@ LINKS: list[dict[str, Any]] = [
     ]},
     {"group": "Admin", "items": [
         {"name": "Proxmox VE", "slug": "proxmox", "icon": "\U0001F5A5️", "href": "https://proxmox.internal", "desc": "VMs, LXCs, storage", "kw": "proxmox ve"},
-        {"name": "Proxmox Backup Server", "slug": "pbs", "icon": "\U0001F4BE", "href": "https://pbs.internal", "desc": "Datastore, verify, restore", "kw": "backup server"},
+        {"name": "PBS", "slug": "pbs", "icon": "\U0001F4BE", "href": "https://pbs.internal", "desc": "Proxmox Backup Server: datastore, verify, restore", "kw": "backup server"},
     ]},
     {"group": "Identity", "items": [
         {"name": "Authentik", "slug": "authentik", "icon": "\U0001FAAA", "href": "https://auth.internal", "desc": "SSO, MFA, proxy providers", "kw": "authentik"},
@@ -141,7 +141,6 @@ LINKS: list[dict[str, Any]] = [
         {"name": "Uptime Kuma", "slug": "uptime-kuma", "icon": "\U0001F4C8", "href": "https://status.internal", "desc": "Health checks and alerting", "kw": "kuma"},
         {"name": "Beszel", "slug": "beszel", "icon": "\U0001F4CA", "href": "https://monitor.internal", "desc": "Host and container metrics", "kw": "beszel"},
         {"name": "Dozzle", "slug": "dozzle", "icon": "\U0001F9FE", "href": "https://logs.internal", "desc": "Live Docker logs", "kw": "dozzle"},
-        {"name": "Homepage", "slug": "homepage", "icon": "\U0001F3E0", "href": "https://homepage.internal", "desc": "Classic launchpad (rollback)", "kw": "homepage"},
         {"name": "NetAlertX", "slug": "netalertx", "icon": "\U0001F4E1", "href": "https://netalert.internal", "desc": "LAN device inventory", "kw": "netalert"},
         {"name": "Scrutiny", "slug": "scrutiny", "icon": "\U0001F4BD", "href": "https://disks.internal", "desc": "SMART disk health", "kw": "scrutiny"},
         {"name": "ntfy", "slug": "ntfy", "icon": "\U0001F514", "href": "https://alerts.internal", "desc": "Push notifications", "kw": "ntfy"},
@@ -1087,10 +1086,22 @@ PAGE = r"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset=
 body{margin:0;min-height:100vh;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);
 background-image:radial-gradient(1200px 500px at 80% -10%, var(--glow), transparent 60%),linear-gradient(color-mix(in srgb,var(--accent) 4%,transparent) 1px,transparent 1px),linear-gradient(90deg,color-mix(in srgb,var(--accent) 4%,transparent) 1px,transparent 1px);
 background-size:auto,34px 34px,34px 34px;background-attachment:fixed;transition:background-color .3s ease,color .3s ease}
-header{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:13px 20px;
+header{position:sticky;top:0;z-index:40;display:grid;grid-template-columns:1fr auto 1fr;gap:10px;align-items:center;padding:12px 20px;
 border-bottom:1px solid var(--line-strong);background:var(--glass);backdrop-filter:blur(18px)}
-.brand h1{margin:0;font-size:1.02rem;letter-spacing:.05em}.brand .sub{color:var(--muted);font-size:.72rem;margin-top:2px}
-.hright{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hslot{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.hleft{justify-self:start}
+.hright{justify-self:end;justify-content:flex-end}
+.brand{justify-self:center;display:flex;align-items:center;gap:11px;text-align:left}
+.brand .crest{flex:0 0 auto;filter:drop-shadow(0 0 8px rgba(34,211,238,.4))}
+.brand h1{margin:0;font-family:ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;font-weight:800;font-size:1.15rem;
+ letter-spacing:.16em;line-height:1;background:linear-gradient(120deg,#ff2fd0,#22d3ee 52%,#a78bfa);
+ -webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
+.brand .sub{color:var(--muted);font-size:.68rem;margin-top:3px;letter-spacing:.08em;text-transform:uppercase}
+.uic{width:16px;height:16px;flex:0 0 auto;border-radius:50%;
+ background:radial-gradient(circle at 50% 38%,currentColor 0 34%,transparent 35%),
+ radial-gradient(circle at 50% 118%,currentColor 0 46%,transparent 47%);color:var(--accent)}
+@media(max-width:820px){header{grid-template-columns:1fr;justify-items:center;gap:8px}
+ .hleft{display:none}.hright{justify-self:center;justify-content:center}.brand{justify-self:center}}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;font-weight:700;font-size:.78rem;border:1px solid var(--line-strong);background:var(--surface)}
 #clock{color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
 .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:1.05rem;cursor:pointer;display:grid;place-items:center;transition:transform .15s ease}
@@ -1321,7 +1332,7 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 .card>*,.tile>*,.donut>*,.guest>*,.chart>*{position:relative;z-index:1}
 .tile::before{z-index:1}
 /* search bar (Servizi + Apps) */
-.svcbar{margin:0 0 14px}
+.svcbar{grid-column:1/-1;margin:0 0 4px}
 .svcbar input{width:100%;max-width:420px;padding:10px 15px;border-radius:12px;border:1px solid var(--line-strong);
  background:var(--surface);color:var(--ink);font-size:.85rem;outline:none;transition:border-color .15s ease}
 .svcbar input:focus{border-color:var(--accent)}
@@ -1385,12 +1396,24 @@ footer a:hover{text-decoration:underline}
 #qa button:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
 </style></head><body>
 <header>
- <div class="brand"><h1>SOVEREIGN DASHBOARD</h1><div class="sub">Proxmox &middot; VPN/LAN only</div></div>
- <div class="hright">
-  <span id="clock"></span>
+ <div class="hslot hleft"><span id="clock"></span></div>
+ <div class="brand">
+  <svg class="crest" viewBox="0 0 46 34" width="30" height="24" aria-hidden="true" shape-rendering="crispEdges">
+   <defs><linearGradient id="crn" x1="0" y1="0" x2="1" y2="1">
+     <stop offset="0%" stop-color="#ff2fd0"/><stop offset="50%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#a78bfa"/>
+   </linearGradient></defs>
+   <path fill="url(#crn)" d="M3 30 L3 14 L10 8 L16 18 L23 5 L30 18 L36 8 L43 14 L43 30 Z"/>
+   <rect x="7" y="5" width="6" height="6" fill="#ff2fd0"/>
+   <rect x="20" y="1" width="6" height="6" fill="#22d3ee"/>
+   <rect x="33" y="5" width="6" height="6" fill="#a78bfa"/>
+   <rect x="5" y="31" width="36" height="3" fill="url(#crn)"/>
+  </svg>
+  <div class="btxt"><h1>SOVEREIGN&nbsp;DASHBOARD</h1><div class="sub">Proxmox &middot; VPN/LAN only</div></div>
+ </div>
+ <div class="hslot hright">
   <span class="pill" id="statuspill"><span class="led nn"></span><span id="statustxt">loading&hellip;</span></span>
-  <span class="pill" id="userpill" style="display:none">👤 <b id="username"></b></span>
-  <button class="iconbtn" id="logoutbtn" title="Esci" aria-label="Logout" style="display:none">🚪</button>
+  <span class="pill" id="userpill" style="display:none"><span class="uic" aria-hidden="true"></span><b id="username"></b></span>
+  <button class="iconbtn" id="logoutbtn" title="Esci" aria-label="Logout" style="display:none">&#9099;</button>
   <button class="iconbtn" id="themebtn" title="Tema chiaro/scuro" aria-label="Toggle theme">&#127769;</button>
  </div>
 </header>
@@ -1463,9 +1486,8 @@ footer a:hover{text-decoration:underline}
 
 <footer>
  <b>Sovereign Homelab</b> · gestito da NPM + AdGuard + Headscale · nessun tracciamento<br>
- <a href="https://github.com/Mohamed-DN/Sovereign-Homelab" target="_blank" rel="noopener">📦 Repository GitHub</a>
- &nbsp;·&nbsp; <a href="https://trust.internal" target="_blank" rel="noopener">🔏 Il browser non si fida? Installa la CA (trust.internal)</a>
- &nbsp;·&nbsp; <a href="https://homepage.internal" target="_blank" rel="noopener">🏠 Homepage classica</a>
+ <a href="https://github.com/Mohamed-DN/Sovereign-Homelab" target="_blank" rel="noopener">Repository GitHub</a>
+ &nbsp;·&nbsp; <a href="https://trust.internal" target="_blank" rel="noopener">Il browser non si fida? Installa la CA (trust.internal)</a>
 </footer>
 </div>
 <div id="mask"></div>
@@ -1849,7 +1871,7 @@ function render(){
  const gRun=d.guests.filter(g=>g.status==='running').length;
  /* the hero merges the status summary + the quick-launch shelf into one unit */
  const quickApps=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
-  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','Proxmox Backup Server'];
+  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','PBS'];
  const allItems=d.links.flatMap(g=>g.items);
  const quickHtml=quickApps.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
  $('hero').innerHTML=
