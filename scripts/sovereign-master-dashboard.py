@@ -1261,22 +1261,27 @@ border-bottom:1px solid var(--line-strong);background:var(--glass);backdrop-filt
 .hleft{justify-self:start}
 .hright{justify-self:end;justify-content:flex-end}
 .brand{justify-self:center;display:flex;align-items:center;gap:11px;text-align:left}
-.brand .crest{flex:0 0 auto;filter:drop-shadow(0 0 8px rgba(34,211,238,.4))}
-.brand h1{margin:0;font-family:ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;font-weight:800;font-size:1.15rem;
- letter-spacing:.16em;line-height:1;background:linear-gradient(120deg,#ff2fd0,#22d3ee 52%,#a78bfa);
- -webkit-background-clip:text;background-clip:text;color:transparent;white-space:nowrap}
-.brand .sub{color:var(--muted);font-size:.68rem;margin-top:3px;letter-spacing:.08em;text-transform:uppercase}
+.brand .crest{flex:0 0 auto;filter:drop-shadow(0 0 7px rgba(34,211,238,.55))}
+@media(prefers-reduced-motion:no-preference){.brand .crest{animation:crestpulse 3.4s ease-in-out infinite}
+ @keyframes crestpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(34,211,238,.45))}50%{filter:drop-shadow(0 0 12px rgba(255,47,208,.6))}}}
+/* retro/pixel wordmark: chromatic-aberration glitch shadow (cyan+magenta) */
+.brand h1{margin:0;font-family:'Courier New',ui-monospace,Consolas,monospace;font-weight:800;font-size:1.22rem;
+ letter-spacing:.2em;line-height:1;white-space:nowrap;color:#eafcff;
+ text-shadow:2px 0 0 #ff2fd0,-2px 0 0 #22d3ee,0 0 14px rgba(34,211,238,.45)}
+.brand .sub{color:var(--muted);font-size:.66rem;margin-top:4px;letter-spacing:.24em;text-transform:uppercase;font-family:ui-monospace,monospace}
 .uic{width:16px;height:16px;flex:0 0 auto;border-radius:50%;
  background:radial-gradient(circle at 50% 38%,currentColor 0 34%,transparent 35%),
  radial-gradient(circle at 50% 118%,currentColor 0 46%,transparent 47%);color:var(--accent)}
 @media(max-width:820px){header{grid-template-columns:1fr;justify-items:center;gap:8px}
  .hleft{display:none}.hright{justify-self:center;justify-content:center}.brand{justify-self:center}}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;font-weight:700;font-size:.78rem;border:1px solid var(--line-strong);background:var(--surface)}
-#clock{color:var(--muted);font-size:.78rem;font-variant-numeric:tabular-nums}
+#clock{font-family:ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;font-size:.82rem;letter-spacing:.06em;
+ color:#22d3ee;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(34,211,238,.4);padding:4px 10px;border-radius:8px;
+ border:1px solid color-mix(in srgb,#22d3ee 28%,transparent);background:color-mix(in srgb,#22d3ee 7%,transparent)}
 .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:1.05rem;cursor:pointer;display:grid;place-items:center;transition:transform .15s ease}
 .iconbtn:hover{transform:translateY(-1px);border-color:var(--accent)}
 .iconbtn:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-nav.tabs{position:sticky;top:64px;z-index:30;display:flex;gap:6px;padding:10px 20px;overflow-x:auto;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+nav.tabs{position:sticky;top:64px;z-index:30;display:flex;justify-content:center;gap:8px;padding:10px 20px;overflow-x:auto;background:var(--glass);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
 .tab{padding:9px 18px;border-radius:9px;font-weight:700;font-size:.85rem;color:var(--muted);border:1px solid transparent;background:transparent;cursor:pointer;white-space:nowrap;transition:all .18s ease}
 .tab:hover{color:var(--ink);background:color-mix(in srgb,var(--accent) 9%,transparent)}
 .tab.on{color:var(--ink);background:var(--surface);border-color:var(--line-strong);box-shadow:inset 0 -2px 0 var(--accent)}
@@ -1599,15 +1604,22 @@ footer a:hover{text-decoration:underline}
 <header>
  <div class="hslot hleft"><span id="clock"></span></div>
  <div class="brand">
-  <svg class="crest" viewBox="0 0 46 34" width="30" height="24" aria-hidden="true" shape-rendering="crispEdges">
+  <svg class="crest" viewBox="0 0 48 52" width="34" height="37" aria-hidden="true">
    <defs><linearGradient id="crn" x1="0" y1="0" x2="1" y2="1">
      <stop offset="0%" stop-color="#ff2fd0"/><stop offset="50%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#a78bfa"/>
    </linearGradient></defs>
-   <path fill="url(#crn)" d="M3 30 L3 14 L10 8 L16 18 L23 5 L30 18 L36 8 L43 14 L43 30 Z"/>
-   <rect x="7" y="5" width="6" height="6" fill="#ff2fd0"/>
-   <rect x="20" y="1" width="6" height="6" fill="#22d3ee"/>
-   <rect x="33" y="5" width="6" height="6" fill="#a78bfa"/>
-   <rect x="5" y="31" width="36" height="3" fill="url(#crn)"/>
+   <!-- crest body: hexagonal shield with a faint fill + inner frame for depth -->
+   <path d="M24 12 L41 20 V34 L24 48 L7 34 V20 Z" fill="url(#crn)" opacity=".14"/>
+   <path d="M24 12 L41 20 V34 L24 48 L7 34 V20 Z" fill="none" stroke="url(#crn)" stroke-width="2.4" stroke-linejoin="round"/>
+   <path d="M24 16.5 L37 23 V32.5 L24 43 L11 32.5 V23 Z" fill="none" stroke="url(#crn)" stroke-width="1" opacity=".55"/>
+   <!-- sovereign crown resting on the crest, with three gems -->
+   <path d="M13 13 L17 6 L24 11 L31 6 L35 13 Z" fill="url(#crn)"/>
+   <rect x="22" y="2" width="4" height="4" fill="#22d3ee"/>
+   <rect x="14.5" y="6.5" width="3" height="3" fill="#ff2fd0"/>
+   <rect x="30.5" y="6.5" width="3" height="3" fill="#a78bfa"/>
+   <!-- arcane keyhole rune in the heart of the crest -->
+   <circle cx="24" cy="28" r="4.3" fill="url(#crn)"/>
+   <path d="M21.7 30.6 H26.3 L27.7 39 H20.3 Z" fill="url(#crn)"/>
   </svg>
   <div class="btxt"><h1>SOVEREIGN&nbsp;DASHBOARD</h1><div class="sub">Proxmox &middot; VPN/LAN only</div></div>
  </div>
