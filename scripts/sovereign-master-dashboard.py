@@ -1284,6 +1284,15 @@ async function setChartRange(key,r){
   if(!pts.length)t('Nessuno storico ancora per questo intervallo');
  }catch(e){t('Impossibile caricare lo storico');}
 }
+function fmtWhen(ts){
+ const secs=Math.max(0,(Date.now()/1000)-ts);
+ const rel=secs<5?'ora':secs<60?Math.round(secs)+'s fa':secs<3600?Math.round(secs/60)+'m fa':
+  secs<86400?(secs/3600).toFixed(1)+'h fa':(secs/86400).toFixed(1)+'g fa';
+ const dt=new Date(ts*1000);
+ const abs=dt.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'})+' '+
+  dt.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+ return rel+' · '+abs;
+}
 function spark(card,data,color,timestamps){
  const svg=card.querySelector('svg'),tip=card.querySelector('.tip');
  if(!data.length){svg.innerHTML='';return;}
@@ -1307,19 +1316,14 @@ function spark(card,data,color,timestamps){
   const i=Math.round((fx-P)/((W-2*P)/Math.max(1,n-1)));if(i<0||i>=n)return;
   dot.setAttribute('cx',X(i));dot.setAttribute('cy',Y(data[i]));dot.style.opacity=1;
   cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.style.opacity=1;
-  let when;
-  if(timestamps&&timestamps[i]!=null){
-   const secs=Math.max(0,(Date.now()/1000)-timestamps[i]);
-   when=secs<5?'ora':secs<60?Math.round(secs)+'s fa':secs<3600?Math.round(secs/60)+'m fa':
-    secs<86400?(secs/3600).toFixed(1)+'h fa':(secs/86400).toFixed(1)+'g fa';
-  }else{
-   const secs=(n-1-i)*(D?D.sample_every:10);
-   when=secs===0?'ora':secs<60?secs+'s fa':Math.round(secs/60)+'m fa';
-  }
-  tip.textContent=data[i].toFixed(1)+'%  ·  '+when;
-  // clamp so the tooltip never slides past the card edges or overlaps the header
-  tip.style.left=Math.max(10,Math.min(90,X(i)/W*100))+'%';
-  tip.style.top=Math.max(40,Y(data[i]))+'px';
+  const ts=(timestamps&&timestamps[i]!=null)?timestamps[i]:(Date.now()/1000-(n-1-i)*(D?D.sample_every:10));
+  tip.textContent=data[i].toFixed(1)+'%  ·  '+fmtWhen(ts);
+  // position relative to the CARD, not the svg (the svg is offset below the
+  // header + range buttons), and clamp so it never slides past the edges.
+  const cardTop=card.getBoundingClientRect().top;
+  const svgOffsetInCard=r.top-cardTop;
+  tip.style.left=Math.max(14,Math.min(86,X(i)/W*100))+'%';
+  tip.style.top=Math.max(8,svgOffsetInCard+Y(data[i])*(r.height/H)-8)+'px';
   tip.style.opacity=1;};
  svg.onmouseleave=()=>{dot.style.opacity=0;cross.style.opacity=0;tip.style.opacity=0;};
 }
