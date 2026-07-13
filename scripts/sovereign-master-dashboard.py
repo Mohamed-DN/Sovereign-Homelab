@@ -28,6 +28,7 @@ import re
 import subprocess
 import threading
 import time
+import urllib.parse
 import urllib.request
 from collections import deque
 from datetime import datetime, timezone
@@ -48,12 +49,71 @@ CACHE_TTL = int(os.environ.get("DASH_CACHE_TTL", "15"))
 SAMPLE_EVERY = 10          # seconds between host samples
 HISTORY = 120              # ring buffer length (120 x 10s = 20 min)
 MAX_BODY = 64 * 1024
+LONG_SAMPLE_EVERY = 60     # seconds between long-term (persisted) samples
+LONG_HISTORY_DAYS = 30
+LONG_HISTORY_MAX = LONG_HISTORY_DAYS * 24 * 60
+METRICS_LOG = Path(os.environ.get("DASH_METRICS_LOG", "/root/sovereign-secrets/dashboard/metrics-long.jsonl"))
 
 _cache: dict[str, Any] = {"ts": 0, "data": None}
 _lock = threading.Lock()
 _cpu_hist: deque[float] = deque(maxlen=HISTORY)
 _mem_hist: deque[float] = deque(maxlen=HISTORY)
 _prev_cpu: tuple[int, int] | None = None
+
+# Long-term (persisted, 1-sample-per-minute, up to 30 days) history so the
+# charts survive a dashboard restart and can show real multi-day trends.
+_long_ts: deque[float] = deque(maxlen=LONG_HISTORY_MAX)
+_long_cpu: deque[float] = deque(maxlen=LONG_HISTORY_MAX)
+_long_mem: deque[float] = deque(maxlen=LONG_HISTORY_MAX)
+_long_writes = 0
+
+
+def load_long_history() -> None:
+    try:
+        lines = METRICS_LOG.read_text(encoding="utf-8").splitlines()[-LONG_HISTORY_MAX:]
+    except OSError:
+        return
+    for line in lines:
+        try:
+            d = json.loads(line)
+            _long_ts.append(d["ts"])
+            _long_cpu.append(d["cpu"])
+            _long_mem.append(d["mem"])
+        except (json.JSONDecodeError, KeyError, TypeError):
+            continue
+
+
+def append_long_sample(cpu: float, mem: float) -> None:
+    global _long_writes
+    ts = time.time()
+    _long_ts.append(ts)
+    _long_cpu.append(cpu)
+    _long_mem.append(mem)
+    try:
+        METRICS_LOG.parent.mkdir(parents=True, exist_ok=True)
+        _long_writes += 1
+        # Rewrite trimmed every ~8h instead of appending forever unbounded.
+        if _long_writes % 500 == 0:
+            METRICS_LOG.write_text(
+                "\n".join(json.dumps({"ts": round(t), "cpu": c, "mem": m})
+                          for t, c, m in zip(_long_ts, _long_cpu, _long_mem)) + "\n",
+                encoding="utf-8")
+        else:
+            with METRICS_LOG.open("a", encoding="utf-8") as h:
+                h.write(json.dumps({"ts": round(ts), "cpu": cpu, "mem": mem}) + "\n")
+        METRICS_LOG.chmod(0o600)
+    except OSError:
+        pass
+
+
+def metrics_range(range_key: str) -> dict[str, Any]:
+    spans = {"20m": 20 * 60, "2h": 2 * 3600, "2d": 2 * 86400, "7d": 7 * 86400}
+    if range_key == "20m":
+        return {"points": [{"ts": time.time() - (len(_cpu_hist) - 1 - i) * SAMPLE_EVERY, "cpu": c, "mem": m}
+                            for i, (c, m) in enumerate(zip(_cpu_hist, _mem_hist))]}
+    cutoff = time.time() - spans.get(range_key, spans["2h"])
+    points = [{"ts": t, "cpu": c, "mem": m} for t, c, m in zip(_long_ts, _long_cpu, _long_mem) if t >= cutoff]
+    return {"points": points}
 
 # Launchpad links (mirrors the Homepage layout; .internal only, no public names).
 LINKS: list[dict[str, Any]] = [
@@ -178,6 +238,8 @@ def _sample_mem() -> float | None:
 
 
 def sampler_loop() -> None:
+    ticks_per_long = LONG_SAMPLE_EVERY // SAMPLE_EVERY
+    tick = 0
     while True:
         c = _sample_cpu()
         m = _sample_mem()
@@ -185,6 +247,9 @@ def sampler_loop() -> None:
             _cpu_hist.append(c)
         if m is not None:
             _mem_hist.append(m)
+        tick += 1
+        if tick % ticks_per_long == 0 and c is not None and m is not None:
+            append_long_sample(c, m)
         time.sleep(SAMPLE_EVERY)
 
 
@@ -217,6 +282,9 @@ def guests() -> list[dict[str, Any]]:
             "status": r.get("status"), "cpu": round(100 * float(r.get("cpu") or 0), 1),
             "mem_pct": round(100 * (r.get("mem") or 0) / (r.get("maxmem") or 1), 1),
             "uptime": r.get("uptime") or 0,
+            "node": r.get("node", ""), "maxcpu": r.get("maxcpu"),
+            "mem": r.get("mem"), "maxmem": r.get("maxmem"),
+            "disk": r.get("disk"), "maxdisk": r.get("maxdisk"),
         } for r in sorted(rows, key=lambda x: x.get("vmid", 0))]
     except (json.JSONDecodeError, TypeError, ValueError):
         return []
@@ -828,7 +896,12 @@ h2:first-child{margin-top:2px}
 .chart .t .now{font-weight:800;font-size:1.15rem;font-variant-numeric:tabular-nums}
 .chart .t .u{color:var(--muted);font-size:.72rem;margin-left:5px}
 .chart svg{width:100%;height:96px;display:block}
-.tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:5px 9px;font-size:.74rem;font-variant-numeric:tabular-nums;opacity:0;transform:translate(-50%,-115%);white-space:nowrap;box-shadow:var(--shadow);z-index:5}
+.rng{display:flex;gap:5px;margin-bottom:8px}
+.rngbtn{padding:3px 9px;border-radius:7px;font-size:.68rem;font-weight:800;cursor:pointer;
+ border:1px solid var(--line-strong);background:transparent;color:var(--muted);transition:all .15s ease}
+.rngbtn:hover{color:var(--ink);border-color:var(--sec,var(--accent))}
+.rngbtn.on{color:#fff;background:var(--sec,var(--accent));border-color:var(--sec,var(--accent))}
+.tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:5px 9px;font-size:.74rem;font-variant-numeric:tabular-nums;opacity:0;transform:translate(-50%,-100%);white-space:nowrap;box-shadow:var(--shadow);z-index:5;max-width:calc(100% - 12px)}
 .donuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
 .donut{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
 .donut svg{width:62px;height:62px;flex:0 0 auto}
@@ -942,27 +1015,58 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .bapp .inf{position:absolute;top:5px;left:5px;width:18px;height:18px;border-radius:50%;border:none;cursor:pointer;
  font:700 .66rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent);opacity:0;transition:opacity .15s ease}
 .bapp:hover .inf{opacity:1}
-/* full-width hero banner at the top */
-.bento.hero{grid-column:1/-1;background:linear-gradient(115deg,#5b48e8,#7b3fe4 40%,#22a5d8 100%);border:none;color:#fff;
- display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;padding:20px 24px}
-:root[data-theme="light"] .bento.hero{background:linear-gradient(115deg,#6d5df6,#8b5cf6 40%,#38bdf8 100%)}
-.bento.hero::before{background:#fff;opacity:.10}
+/* full-width hero banner at the top: pixel-cyberpunk-cute, same language as #quick */
+.bento.hero{grid-column:1/-1;border:none;color:var(--ink);cursor:pointer;
+ display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;padding:22px 26px;
+ border-radius:0;image-rendering:pixelated;
+ clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
+ background:linear-gradient(165deg,color-mix(in srgb,#22d3ee 8%,var(--surface)),color-mix(in srgb,#ff2fd0 5%,var(--surface))) padding-box,
+   linear-gradient(115deg,#ff2fd0,#22d3ee 45%,#a78bfa 100%) border-box;
+ border:3px solid transparent}
+.bento.hero::before{content:none}
+.bento.hero::after{content:"";position:absolute;inset:-8px;z-index:-1;clip-path:inherit;
+ background:linear-gradient(115deg,#ff2fd0,#22d3ee 45%,#a78bfa 100%);filter:blur(26px);opacity:.28}
 .bento.hero .hleft{min-width:150px}
-.bento.hero h3{color:rgba(255,255,255,.82);margin:0 0 4px}
-.bento.hero .hnum{font-size:3rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
-.bento.hero .hsub{color:rgba(255,255,255,.82);font-size:.8rem;margin-top:2px}
-.bento.hero .hbar{height:7px;border-radius:5px;background:rgba(0,0,0,.22);overflow:hidden;margin:12px 0 0;max-width:260px}
-.bento.hero .hbar i{display:block;height:100%;border-radius:5px;background:#fff;transition:width .9s cubic-bezier(.22,1,.36,1)}
-.bento.hero .hchips{display:flex;flex-wrap:wrap;gap:7px;justify-content:center}
-.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:999px;
- background:rgba(255,255,255,.16);font-size:.76rem;font-weight:700;backdrop-filter:blur(4px)}
-.bento.hero .hstats{text-align:right;font-size:.8rem;color:rgba(255,255,255,.82);line-height:1.8;white-space:nowrap}
-.bento.hero .hstats b{color:#fff;font-size:1.05rem}
+.bento.hero h3{color:var(--muted);margin:0 0 4px}
+.bento.hero .hnum{font-size:3rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
+ background:linear-gradient(120deg,#22d3ee,#a78bfa 60%,#ff2fd0);-webkit-background-clip:text;background-clip:text;color:transparent}
+.bento.hero .hsub{color:var(--muted);font-size:.8rem;margin-top:2px}
+.bento.hero .hbar{height:8px;border-radius:0;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:12px 0 0;max-width:260px}
+.bento.hero .hbar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a78bfa,#ff2fd0);box-shadow:0 0 10px #22d3ee;
+ transition:width .9s cubic-bezier(.22,1,.36,1)}
+.bento.hero .hchips{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.bento.hero .hchip{display:inline-flex;align-items:center;gap:7px;padding:6px 12px;border-radius:0;
+ clip-path:polygon(5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px),0 5px);
+ background:color-mix(in srgb,var(--ink) 6%,transparent);border:1px solid color-mix(in srgb,#22d3ee 45%,var(--line-strong));
+ font-size:.76rem;font-weight:700}
+.bento.hero .hstats{text-align:right;font-size:.8rem;color:var(--muted);line-height:1.8;white-space:nowrap}
+.bento.hero .hstats b{color:var(--ink);font-size:1.05rem}
 @media(max-width:900px){.bento.hero{grid-template-columns:1fr;gap:14px;text-align:center}.bento.hero .hstats{text-align:center}.bento.hero .hbar{margin-inline:auto}.bento.hero .hchips{justify-content:center}}
-/* quick-launch strip on overview (dynamically centered) */
-#quick{display:flex;gap:10px;overflow-x:auto;padding:2px 2px 8px;margin-bottom:6px;justify-content:center;flex-wrap:wrap}
-#quick .ltile{min-width:96px;padding:12px 6px 10px}
-#quick .lic{width:38px;height:38px;font-size:1.4rem}#quick .lic img{width:30px;height:30px}
+/* quick-launch strip on overview: pixel-cyberpunk-cute favorites shelf */
+#quick-wrap{margin-bottom:6px}
+#quick-lbl{display:flex;align-items:center;gap:8px;font-size:.68rem;font-weight:800;letter-spacing:.12em;
+ text-transform:uppercase;color:var(--muted);margin:0 2px 10px}
+#quick-lbl .px{width:7px;height:7px;background:#22d3ee;box-shadow:0 0 8px #22d3ee;flex:0 0 auto;
+ animation:pxblink 1.4s steps(2) infinite}
+@keyframes pxblink{50%{opacity:.25}}
+#quick{display:flex;gap:16px 14px;overflow-x:auto;padding:8px 4px 12px;justify-content:center;flex-wrap:wrap}
+#quick .ltile{
+ min-width:98px;padding:15px 8px 12px;border:2px solid transparent;border-radius:0;image-rendering:pixelated;
+ clip-path:polygon(9px 0,calc(100% - 9px) 0,100% 9px,100% calc(100% - 9px),calc(100% - 9px) 100%,9px 100%,0 calc(100% - 9px),0 9px);
+ background:linear-gradient(var(--surface),var(--surface)) padding-box,
+   linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%) border-box;
+ box-shadow:0 0 0 1px rgba(0,0,0,.28),0 8px 18px rgba(0,0,0,.32);
+ transition:transform .22s cubic-bezier(.22,1.4,.36,1),box-shadow .22s ease}
+#quick .ltile::after{content:"";position:absolute;inset:-3px;z-index:-1;
+ clip-path:inherit;background:linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%);filter:blur(9px);opacity:.3}
+#quick .ltile:nth-child(odd):hover{transform:translateY(-6px) scale(1.07) rotate(-2deg)}
+#quick .ltile:nth-child(even):hover{transform:translateY(-6px) scale(1.07) rotate(2deg)}
+#quick .ltile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 22px rgba(34,211,238,.6),0 14px 26px rgba(0,0,0,.4)}
+#quick .lic{width:38px;height:38px;font-size:1.4rem;border-radius:0;
+ clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 6px,100% calc(100% - 6px),calc(100% - 6px) 100%,6px 100%,0 calc(100% - 6px),0 6px)}
+#quick .lic img{width:30px;height:30px}
+#quick .ltile .led{top:11px;right:11px;border-radius:0;width:8px;height:8px}
+#quick .ltile .lname{font-weight:800;letter-spacing:.02em}
 /* modal */
 #mask{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);display:none}
 #mask.show{display:block}
@@ -1034,7 +1138,7 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
  section.page.on #vmcards,section.page.on #audit,section.page.on #quick{
   animation:rise .45s cubic-bezier(.22,1,.36,1) both}
  @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
- .bento .bapp,.lgrid .ltile{animation:pop .4s cubic-bezier(.22,1,.36,1) both}
+ .bento .bapp,.lgrid .ltile,#quick .ltile{animation:pop .4s cubic-bezier(.22,1,.36,1) both}
  @keyframes pop{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:none}}
 }
 /* section headers: animated accent underline */
@@ -1068,12 +1172,19 @@ footer a:hover{text-decoration:underline}
 <div id="hero"></div>
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
- <div id="quick"></div>
+ <div id="quick-wrap">
+  <div id="quick-lbl"><span class="px"></span>Accesso rapido &mdash; le app pi&ugrave; importanti</div>
+  <div id="quick"></div>
+ </div>
  <h2>Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
-  <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
-  <div class="chart" id="c-mem" style="--sec:var(--s2)"><div class="t"><span class="n">RAM host</span><span><span class="now" id="mem-now">-</span><span class="u">%</span></span></div><svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+  <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div>
+   <div class="rng"><button class="rngbtn on" data-r="20m" onclick="setChartRange('cpu','20m')">20m</button><button class="rngbtn" data-r="2h" onclick="setChartRange('cpu','2h')">2h</button><button class="rngbtn" data-r="2d" onclick="setChartRange('cpu','2d')">2g</button><button class="rngbtn" data-r="7d" onclick="setChartRange('cpu','7d')">7g</button></div>
+   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+  <div class="chart" id="c-mem" style="--sec:var(--s2)"><div class="t"><span class="n">RAM host</span><span><span class="now" id="mem-now">-</span><span class="u">%</span></span></div>
+   <div class="rng"><button class="rngbtn on" data-r="20m" onclick="setChartRange('mem','20m')">20m</button><button class="rngbtn" data-r="2h" onclick="setChartRange('mem','2h')">2h</button><button class="rngbtn" data-r="2d" onclick="setChartRange('mem','2d')">2g</button><button class="rngbtn" data-r="7d" onclick="setChartRange('mem','7d')">7g</button></div>
+   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
  </div>
  <h2 style="--sec:var(--s1)">Storage</h2>
  <div class="donuts" id="donuts"></div>
@@ -1167,7 +1278,20 @@ function countup(el,val,dec=0,suf=''){
 }
 /* ---------- sparkline ---------- */
 function css(v){return getComputedStyle(root).getPropertyValue(v).trim();}
-function spark(card,data,color){
+let chartRange={cpu:'20m',mem:'20m'};
+async function setChartRange(key,r){
+ chartRange[key]=r;
+ const card=$(key==='cpu'?'c-cpu':'c-mem');
+ card.querySelectorAll('.rngbtn').forEach(b=>b.classList.toggle('on',b.dataset.r===r));
+ if(r==='20m'){if(D)render();return;}
+ try{
+  const j=await(await fetch('api/metrics?range='+r)).json();
+  const pts=j.points||[];
+  spark(card,pts.map(p=>p[key]),css(key==='cpu'?'--s1':'--s2'),pts.map(p=>p.ts));
+  if(!pts.length)t('Nessuno storico ancora per questo intervallo');
+ }catch(e){t('Impossibile caricare lo storico');}
+}
+function spark(card,data,color,timestamps){
  const svg=card.querySelector('svg'),tip=card.querySelector('.tip');
  if(!data.length){svg.innerHTML='';return;}
  const W=600,H=96,P=6,n=data.length,max=Math.max(20,...data),min=0;
@@ -1190,9 +1314,20 @@ function spark(card,data,color){
   const i=Math.round((fx-P)/((W-2*P)/Math.max(1,n-1)));if(i<0||i>=n)return;
   dot.setAttribute('cx',X(i));dot.setAttribute('cy',Y(data[i]));dot.style.opacity=1;
   cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.style.opacity=1;
-  const secs=(n-1-i)*(D?D.sample_every:10);
-  tip.textContent=data[i].toFixed(1)+'%  ·  '+(secs===0?'ora':secs<60?secs+'s fa':Math.round(secs/60)+'m fa');
-  tip.style.left=(X(i)/W*100)+'%';tip.style.top='38px';tip.style.opacity=1;};
+  let when;
+  if(timestamps&&timestamps[i]!=null){
+   const secs=Math.max(0,(Date.now()/1000)-timestamps[i]);
+   when=secs<5?'ora':secs<60?Math.round(secs)+'s fa':secs<3600?Math.round(secs/60)+'m fa':
+    secs<86400?(secs/3600).toFixed(1)+'h fa':(secs/86400).toFixed(1)+'g fa';
+  }else{
+   const secs=(n-1-i)*(D?D.sample_every:10);
+   when=secs===0?'ora':secs<60?secs+'s fa':Math.round(secs/60)+'m fa';
+  }
+  tip.textContent=data[i].toFixed(1)+'%  ·  '+when;
+  // clamp so the tooltip never slides past the card edges or overlaps the header
+  tip.style.left=Math.max(10,Math.min(90,X(i)/W*100))+'%';
+  tip.style.top=Math.max(40,Y(data[i]))+'px';
+  tip.style.opacity=1;};
  svg.onmouseleave=()=>{dot.style.opacity=0;cross.style.opacity=0;tip.style.opacity=0;};
 }
 /* ---------- donut ---------- */
@@ -1287,6 +1422,19 @@ function wireSearch(inputId,itemSel,nameSel){
   });
  };
 }
+function fmtUptime(s){if(!s)return'spento';const d=Math.floor(s/86400),h=Math.floor((s%86400)/3600),m=Math.floor((s%3600)/60);
+ return(d?d+'g ':'')+(h?h+'h ':'')+m+'m';}
+function guestInfo(vmid){
+ const g=(D.guests||[]).find(x=>x.vmid===vmid);if(!g)return;
+ openModal(g.type==='qemu'?'\u{1F5A5}️':'\u{1F4E6}',(g.name||('vmid '+vmid))+' · '+(g.type==='qemu'?'VM':'LXC')+' '+vmid,
+  mrow('Stato',g.status==='running'?'🟢 in esecuzione':'🔴 fermo')
+  +mrow('Nodo',g.node||'-')
+  +mrow('CPU',g.cpu.toFixed(1)+'%'+(g.maxcpu?' · '+g.maxcpu+' vCPU':''))
+  +mrow('RAM',g.mem_pct.toFixed(1)+'%'+(g.maxmem?' · '+gb(g.mem)+' / '+gb(g.maxmem):''))
+  +(g.maxdisk?mrow('Disco',gb(g.disk)+' / '+gb(g.maxdisk)):'')
+  +mrow('Uptime',fmtUptime(g.uptime))
+  +`<button class="btn act" onclick="window.open('https://proxmox.internal','_blank')">Apri in Proxmox ↗</button>`);
+}
 function appInfo(name){
  const a=(D.apps||[]).find(x=>x.name===name);if(!a)return;
  openModal('🧩',a.name,
@@ -1328,14 +1476,16 @@ function render(){
  $('tiles').innerHTML=tiles.map((x,i)=>`<div class="tile" style="--tc:${x[3]}"><div class="k">${x[0]}</div><div class="v" id="tv${i}">${x[1]}</div><div class="f">${x[2]}</div></div>`).join('');
  tiles.forEach((x,i)=>{if(first&&x[4]!=null)countup($('tv'+i),x[4],x[5],x[6]);});
  /* charts */
- if(d.cpu_hist.length){$('cpu-now').textContent=d.cpu_hist[d.cpu_hist.length-1].toFixed(0);spark($('c-cpu'),d.cpu_hist,css('--s1'));}
- if(d.mem_hist.length){$('mem-now').textContent=d.mem_hist[d.mem_hist.length-1].toFixed(0);spark($('c-mem'),d.mem_hist,css('--s2'));}
+ if(d.cpu_hist.length){$('cpu-now').textContent=d.cpu_hist[d.cpu_hist.length-1].toFixed(0);
+  if(chartRange.cpu==='20m')spark($('c-cpu'),d.cpu_hist,css('--s1'));}
+ if(d.mem_hist.length){$('mem-now').textContent=d.mem_hist[d.mem_hist.length-1].toFixed(0);
+  if(chartRange.mem==='20m')spark($('c-mem'),d.mem_hist,css('--s2'));}
  /* donuts */
  $('donuts').innerHTML=d.storages.map(s=>donut(s.name,s.used_pct,gb(s.used)+' / '+gb(s.total))).join('');
  $('disks').innerHTML=(d.disks||[]).map(x=>`<div class="tile" style="--tc:${x.status==='passed'?'var(--led-good)':'var(--led-bad)'}"><div class="k">${x.name}</div><div class="v">${x.temp?x.temp+'°C':'—'}</div><div class="f">${(x.model||'').slice(0,18)} · ${x.status}</div></div>`).join('')||'<div class="foot" style="color:var(--muted);padding:6px">Scrutiny non raggiungibile</div>';
  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.donut .arc').forEach(a=>a.style.strokeDashoffset=a.dataset.off);}));
  /* guests */
- $('guests').innerHTML=d.guests.map(g=>`<div class="guest ${g.status==='running'?'up':'dn'}" style="--sec:${g.status==='running'?'var(--led-good)':'var(--led-bad)'}">
+ $('guests').innerHTML=d.guests.map(g=>`<div class="guest ${g.status==='running'?'up':'dn'}" style="--sec:${g.status==='running'?'var(--led-good)':'var(--led-bad)'};cursor:pointer" onclick="guestInfo(${g.vmid})">
   <div class="gt"><span style="display:flex;align-items:center;gap:7px"><span class="led"></span>${g.name||g.vmid}</span><span class="gid">${g.type==='qemu'?'VM':'LXC'} ${g.vmid}</span></div>
   <div class="bar"><i style="width:0" data-w="${Math.min(100,g.cpu)}%"></i></div><div class="bl"><span>CPU</span><span>${g.cpu.toFixed(1)}%</span></div>
   <div class="bar m"><i style="width:0" data-w="${Math.min(100,g.mem_pct)}%"></i></div><div class="bl"><span>RAM</span><span>${g.mem_pct.toFixed(1)}%</span></div></div>`).join('');
@@ -1373,7 +1523,8 @@ function render(){
     <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
  wireSearch('svc-search','#linkgroups .bapp','.bn');
  /* quick-launch strip (most used) */
- const quick=['Immich','Nextcloud','Vaultwarden','Jellyfin','Uptime Kuma','Proxmox VE','Home Assistant'];
+ const quick=['Immich','Vaultwarden','Nextcloud','Authentik','AdGuard Home','Syncthing','Paperless-ngx',
+  'Jellyfin','Home Assistant','Uptime Kuma','Proxmox VE','Proxmox Backup Server'];
  const allItems=d.links.flatMap(g=>g.items);
  $('quick').innerHTML=quick.map(n=>{const it=allItems.find(x=>x.name===n||x.name.startsWith(n));return it?ltile(it,1):'';}).join('');
  /* data & backup */
@@ -1524,6 +1675,15 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, json.dumps(iam_data()).encode("utf-8"), "application/json")
             except Exception as exc:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
+        elif self.path.startswith("/api/metrics"):
+            qs = urllib.parse.urlparse(self.path).query
+            range_key = urllib.parse.parse_qs(qs).get("range", ["20m"])[0]
+            if range_key not in {"20m", "2h", "2d", "7d"}:
+                range_key = "20m"
+            try:
+                self._send(200, json.dumps(metrics_range(range_key)).encode("utf-8"), "application/json")
+            except Exception as exc:  # noqa: BLE001
+                self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
         else:
             self._send(404, b'{"error":"not found"}', "application/json")
 
@@ -1583,6 +1743,7 @@ def cache_warmer() -> None:
 
 
 def main() -> None:
+    load_long_history()
     threading.Thread(target=sampler_loop, daemon=True).start()
     threading.Thread(target=cache_warmer, daemon=True).start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
