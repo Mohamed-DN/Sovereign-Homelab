@@ -1093,6 +1093,23 @@ REBUILD_KNOWN_HOSTS = "/root/sovereign-secrets/immich-windows/known_hosts"
 REBUILD_LOG = "/root/sovereign-secrets/immich-windows/rebuild-run.log"
 REBUILD_HOST = "Mohamed@192.168.1.100"
 
+# All Windows Immich actions touch the SAME Podman stack on the PC, so only one
+# may run at a time. Every do_*_windows claims through this shared guard (not the
+# per-key job_start) so e.g. a Stop can't fire while a Rebuild is mid-flight.
+WINDOWS_JOB_KEYS = ("rebuild-windows", "raise-windows", "teardown-windows",
+                    "start-windows", "stop-windows")
+
+
+def _windows_claim(key: str, label: str) -> bool:
+    """Claim exclusive Windows access. Refuses if ANY Windows job is running."""
+    with _jobs_lock:
+        for k in WINDOWS_JOB_KEYS:
+            j = _jobs.get(k)
+            if j and j.get("state") == "running":
+                return False
+        _jobs[key] = {"state": "running", "label": label, "started": time.time()}
+        return True
+
 
 def _fresh_windows_backup() -> tuple[bool, str]:
     """Run a fresh VM110->Windows mirror backup and wait for it. Returns (ok, state)."""
@@ -1171,25 +1188,55 @@ def _teardown_windows_worker(actor: str, reason: str) -> None:
                   "#059669" if ok else "#dc2626")
 
 
+def _startstop_windows_worker(actor: str, reason: str, action: str) -> None:
+    """action = 'start' | 'stop'. Quick Podman container control on the PC."""
+    key = f"{action}-windows"
+    started = time.time()
+    ran, tail = _ssh_trigger_windows(action, 6)
+    dur = _fmt_dur(int(time.time() - started))
+    marker = "IMMICH AVVIATO" if action == "start" else "IMMICH FERMATO"
+    ok = ran and marker in tail
+    job_end(key, ok, tail[-200:] if tail else ("timeout" if not ran else "nessun output"))
+    verb = "avviato" if action == "start" else "fermato"
+    notify_email(("✅ " if ok else "❌ ") + f"Immich Windows {verb if ok else 'NON ' + verb}",
+                  f"Attore: {actor}\nMotivo: {reason}\nDurata: {dur}\n\n"
+                  f"Azione: {action} (solo container Podman sul PC; il server e i backup non sono toccati).\n"
+                  f"Ultimo output:\n{tail}", "#059669" if ok else "#dc2626")
+
+
 def do_rebuild_windows(actor: str, reason: str) -> tuple[bool, str]:
-    if not job_start("rebuild-windows", "Backup + Rialza Immich (Windows)"):
+    if not _windows_claim("rebuild-windows", "Backup + Rialza Immich (Windows)"):
         return False, "un'operazione Windows è già in corso"
     threading.Thread(target=_rebuild_windows_worker, args=(actor, reason, True), daemon=True).start()
     return True, "avviato: prima il backup, poi il rialzo da Podman; riceverai una email con l'esito"
 
 
 def do_raise_windows(actor: str, reason: str) -> tuple[bool, str]:
-    if not job_start("raise-windows", "Rialza dal backup su Windows"):
+    if not _windows_claim("raise-windows", "Rialza dal backup su Windows"):
         return False, "un'operazione Windows è già in corso"
     threading.Thread(target=_rebuild_windows_worker, args=(actor, reason, False), daemon=True).start()
     return True, "avviato: rialzo dall'ultimo backup già presente su Windows; email all'esito"
 
 
 def do_teardown_windows(actor: str, reason: str) -> tuple[bool, str]:
-    if not job_start("teardown-windows", "Cancella servizio Immich Windows"):
+    if not _windows_claim("teardown-windows", "Cancella servizio Immich Windows"):
         return False, "un'operazione Windows è già in corso"
     threading.Thread(target=_teardown_windows_worker, args=(actor, reason), daemon=True).start()
     return True, "avviato: rimozione del servizio Windows (i backup non vengono toccati); email all'esito"
+
+
+def do_start_windows(actor: str, reason: str) -> tuple[bool, str]:
+    if not _windows_claim("start-windows", "Avvia Immich (Windows)"):
+        return False, "un'operazione Windows è già in corso"
+    threading.Thread(target=_startstop_windows_worker, args=(actor, reason, "start"), daemon=True).start()
+    return True, "avviato: accensione dei container Immich già presenti su Windows; email all'esito"
+
+
+def do_stop_windows(actor: str, reason: str) -> tuple[bool, str]:
+    if not _windows_claim("stop-windows", "Ferma Immich (Windows)"):
+        return False, "un'operazione Windows è già in corso"
+    threading.Thread(target=_startstop_windows_worker, args=(actor, reason, "stop"), daemon=True).start()
+    return True, "avviato: spegnimento dei container Immich su Windows (i backup non vengono toccati); email all'esito"
 
 
 # Whole-VM power control, owner-approved for these guests only. Immich (110) and
@@ -2211,10 +2258,12 @@ function render(){
   <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
    <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
    ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
-  <div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">🚑 Emergenza Immich su Windows</span></div>
-   <div class="rows">Rialza/spegni la copia d'emergenza sul PC Windows (Podman). I <b>backup non vengono mai toccati</b>. Podman si avvia da solo se serve.</div>
+  <div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">🚑 Emergenza Immich su Windows</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:#a78bfa">🖥️ solo PC Windows</span></div>
+   <div class="rows">Agisce <b>solo sul PC Windows</b> (Podman): il <b>server (VM110) e i backup non vengono mai toccati</b>. Podman si avvia da solo se serve.</div>
    ${jobbtn('rebuild-windows',`act('rebuild-windows',null,this,'BACKUP FRESCO + RIALZA: eseguo prima un nuovo backup dal server, poi rialzo Immich sul PC Windows con quel backup nuovo. Richiede diversi minuti; ricrea tutto da zero.')`,'🚀 Backup fresco + Rialza')}
    ${jobbtn('raise-windows',`act('raise-windows',null,this,'RIALZA DAL BACKUP SU WINDOWS: rialzo Immich usando il backup GIÀ presente su questo PC, senza farne uno nuovo. Più veloce.')`,'▶️ Rialza dal backup su Windows')}
+   ${jobbtn('start-windows',`act('start-windows',null,this,'AVVIA: accendo i container Immich di emergenza GIÀ presenti su questo PC, senza ricrearli. Veloce. Se non esistono ancora, usa prima Rialza.')`,'⏻ Avvia servizio Windows')}
+   ${jobbtn('stop-windows',`act('stop-windows',null,this,'FERMA: spengo i container Immich di emergenza SENZA rimuoverli, così liberi CPU/RAM e li riavvii in pochi secondi con Avvia. I backup non vengono toccati.')`,'⏸ Ferma servizio Windows')}
    ${jobbtn('teardown-windows',`act('teardown-windows',null,this,'CANCELLA IL SERVIZIO: spengo e rimuovo la copia d\\'emergenza di Immich dal PC Windows per liberarlo. I BACKUP NON VENGONO TOCCATI e puoi rialzarlo quando vuoi.')`,'🗑 Cancella servizio Windows')}</div>
   <div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">💾 PBS · Immich VM110</span><span class="state up"><span class="led"></span>${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
    <div class="rows">Storage: __PBS__ <br>Retention: ${d.retention||''}</div>
@@ -2465,6 +2514,10 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_raise_windows(actor, reason)
         elif op == "teardown-windows":
             ok, detail = do_teardown_windows(actor, reason)
+        elif op == "start-windows":
+            ok, detail = do_start_windows(actor, reason)
+        elif op == "stop-windows":
+            ok, detail = do_stop_windows(actor, reason)
         elif op == "pbs-backup":
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
         elif op == "guest-power":

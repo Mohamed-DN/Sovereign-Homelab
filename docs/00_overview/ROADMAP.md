@@ -158,7 +158,9 @@ household keeps core function during a server outage:
 
 ## 6. Network resilience — "se casca il server, casca il wifi?"
 
-🔴 Needs a decision. **Finding (2026-07-13):** AdGuard Home on LXC 100
+⚪ **Deferred** (owner's call, 2026-07-13): do this once a spare mini-PC is
+available — the robust fix (option 3) is a small always-on secondary box, so it
+waits for that hardware. **Finding (2026-07-13):** AdGuard Home on LXC 100
 (`core-network`) currently serves **both DNS (:53) and DHCP (:67)** for the LAN.
 So if the Proxmox host / LXC 100 goes down:
 - the wifi **radio** (router AP) keeps transmitting, BUT
