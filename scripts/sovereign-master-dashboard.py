@@ -48,6 +48,11 @@ AUTHENTIK_TOKEN_FILE = os.environ.get("DASH_AUTHENTIK_TOKEN_FILE", "/root/sovere
 TRUSTED_PROXIES = set(os.environ.get("DASH_TRUSTED_PROXIES", "192.168.1.50").split(","))
 ADMIN_GROUPS = {"dashboard-admins", "authentik Admins"}
 AUDIT_LOG = Path(os.environ.get("DASH_AUDIT_LOG", "/root/sovereign-secrets/master-dashboard-audit.jsonl"))
+# Deprovisioning: when an access grant is revoked, the account auto-created on
+# that service is scheduled for deletion after a grace period (re-granting
+# within the window cancels it). File is root-only JSONL, one pending row each.
+DEPROV_LOG = Path(os.environ.get("DASH_DEPROV_LOG", "/root/sovereign-secrets/dashboard/deprovision-pending.jsonl"))
+DEPROV_GRACE_DAYS = int(os.environ.get("DASH_DEPROV_GRACE_DAYS", "7"))
 PBS_STORAGE = os.environ.get("DASH_PBS_STORAGE", "pbs-p710")
 PBS_BACKUP_ALLOW = {"100", "101", "102", "103", "110", "120", "130"}
 CACHE_TTL = int(os.environ.get("DASH_CACHE_TTL", "15"))
@@ -561,7 +566,8 @@ def iam_data() -> dict[str, Any]:
     apps = [{"name": a["name"], "slug": a["slug"],
              "users": sorted(snap["group_members"].get(f"access-{a['slug']}", set()))}
             for a in snap["apps"] if a["slug"] != "sovereign-dashboard"]
-    return {"users": users, "groups": sorted(snap["group_members"]), "apps": apps}
+    return {"users": users, "groups": sorted(snap["group_members"]), "apps": apps,
+            "deprov": deprov_pending_public()}
 
 
 def iam_self(username: str) -> dict[str, Any]:
@@ -630,6 +636,7 @@ def do_iam_grant_access(username: str, app_slug: str, actor: str, reason: str) -
     if not ok_add:
         return False, "impossibile aggiungere l'utente al gruppo di accesso"
     authz_invalidate()
+    deprov_cancel(username, app_slug)  # re-granted within grace -> keep the account
     print(f"[iam] {actor} ha concesso a '{username}' accesso a '{app_slug}': {reason}")
     return True, f"'{username}' ora ha accesso a '{a.get('name', app_slug)}' (stessa password LDAP)"
 
@@ -649,12 +656,17 @@ def do_iam_revoke_access(username: str, app_slug: str, actor: str) -> tuple[bool
     if not ok:
         return False, f"revoca fallita: {res}"
     authz_invalidate()
-    return True, f"accesso a '{app_slug}' revocato per '{username}'"
+    deprov_schedule(username, app_slug, actor, "accesso revocato")
+    return True, (f"accesso a '{app_slug}' revocato per '{username}'; "
+                  f"l'account sul servizio verrà rimosso fra {DEPROV_GRACE_DAYS} giorni "
+                  f"(riassegna l'accesso per annullare)")
 
 
 def do_iam_delete_user(username: str, actor: str) -> tuple[bool, str]:
     if username in BREAK_GLASS_USERS or username.startswith(HIDDEN_USER_PREFIXES):
         return False, "account protetto: non eliminabile dalla dashboard"
+    snap = authz_snapshot(force=True)
+    slugs = sorted(user_app_slugs(username, snap)) if snap else []
     pk = _find_user_pk(username)
     if pk is None:
         return False, "utente non trovato"
@@ -662,7 +674,130 @@ def do_iam_delete_user(username: str, actor: str) -> tuple[bool, str]:
     if not ok:
         return False, f"eliminazione fallita: {res}"
     authz_invalidate()
-    return True, f"utenza '{username}' eliminata definitivamente"
+    # Deleting the identity also schedules cleanup of every service account it
+    # had, after the grace window (so files aren't yanked instantly).
+    for slug in slugs:
+        deprov_schedule(username, slug, actor, "utenza eliminata")
+    extra = f" · {len(slugs)} account su servizi pianificati per la rimozione fra {DEPROV_GRACE_DAYS}g" if slugs else ""
+    return True, f"utenza '{username}' eliminata definitivamente{extra}"
+
+
+# ------------------------------------------------------------ deprovisioning
+# On revoke/delete, the service account auto-created via OIDC is scheduled for
+# removal after DEPROV_GRACE_DAYS. Break-glass users are never scheduled. A
+# background worker performs the deletion once the grace window passes; a fresh
+# grant before then cancels the pending entry.
+
+def _deprov_read() -> list[dict[str, Any]]:
+    try:
+        return [json.loads(x) for x in DEPROV_LOG.read_text(encoding="utf-8").splitlines() if x.strip()]
+    except OSError:
+        return []
+
+
+def _deprov_write(rows: list[dict[str, Any]]) -> None:
+    DEPROV_LOG.parent.mkdir(parents=True, exist_ok=True)
+    DEPROV_LOG.write_text("".join(json.dumps(r, sort_keys=True) + "\n" for r in rows), encoding="utf-8")
+    try:
+        DEPROV_LOG.chmod(0o600)
+    except OSError:
+        pass
+
+
+def deprov_schedule(username: str, slug: str, actor: str, reason: str) -> None:
+    if username in BREAK_GLASS_USERS:
+        return
+    with _lock:
+        rows = [r for r in _deprov_read() if not (r["user"] == username and r["slug"] == slug)]
+        rows.append({"user": username, "slug": slug, "due": time.time() + DEPROV_GRACE_DAYS * 86400,
+                     "actor": actor, "reason": reason})
+        _deprov_write(rows)
+
+
+def deprov_cancel(username: str, slug: str) -> None:
+    with _lock:
+        rows = _deprov_read()
+        keep = [r for r in rows if not (r["user"] == username and r["slug"] == slug)]
+        if len(keep) != len(rows):
+            _deprov_write(keep)
+
+
+def deprov_pending_public() -> list[dict[str, Any]]:
+    now = time.time()
+    return [{"user": r["user"], "slug": r["slug"],
+             "days_left": max(0, round((r["due"] - now) / 86400, 1))}
+            for r in _deprov_read()]
+
+
+def _deprov_nextcloud(uid: str) -> tuple[bool, str]:
+    # Nextcloud uid == preferred_username for OIDC users; never the admin uid.
+    if uid == "admin":
+        return False, "salvato: 'admin' è l'account locale, non si elimina"
+    status, out = run(["qm", "guest", "exec", "120", "--", "bash", "-lc",
+                       f"docker exec -u www-data nextcloud-aio-nextcloud php occ user:delete {uid}"], timeout=60)
+    o = guest_out(out)
+    return ("deleted" in o.lower() or "the specified user was deleted" in o.lower()), o[:160]
+
+
+def _deprov_forgejo(uid: str) -> tuple[bool, str]:
+    status, out = run(["pct", "exec", "102", "--", "docker", "exec", "-u", "1000", "forgejo",
+                       "forgejo", "admin", "user", "delete", "--username", uid, "--purge"], timeout=60)
+    return (status == 0), (out or "")[:160]
+
+
+# For the sacred Immich (and any service without a safe CLI delete) we NEVER
+# script a deletion — we email the admin to remove the account by hand.
+DEPROV_HANDLERS = {"nextcloud": _deprov_nextcloud, "forgejo": _deprov_forgejo}
+
+
+def deprov_run_due() -> None:
+    """Process pending deprovisions whose grace window has elapsed. Re-checks
+    that access is still revoked before deleting (a re-grant cancels it)."""
+    now = time.time()
+    rows = _deprov_read()
+    due = [r for r in rows if r["due"] <= now]
+    if not due:
+        return
+    snap = authz_snapshot(force=True)
+    remaining = [r for r in rows if r["due"] > now]
+    for r in due:
+        user, slug = r["user"], r["slug"]
+        # Still revoked? If the user was re-granted (or deleted entirely and
+        # re-created with access), skip the deletion.
+        if snap and slug in user_app_slugs(user, snap):
+            continue
+        handler = DEPROV_HANDLERS.get(slug)
+        if handler is None:
+            notify_email(f"🧹 Deprovision manuale: {user} su {slug}",
+                          f"L'accesso di '{user}' a '{slug}' è stato revocato oltre {DEPROV_GRACE_DAYS}g fa.\n"
+                          f"Questo servizio non ha una cancellazione automatica sicura: rimuovi l'account "
+                          f"manualmente se presente. (Immich e simili non vengono mai toccati da script.)", "#d97706")
+            ok, detail = True, "manuale (email inviata)"
+        else:
+            ok, detail = handler(user)
+        audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": "deprovision",
+               "op": "deprovision", "target": f"{user}@{slug}", "reason": r.get("reason", ""),
+               "result": "ok" if ok else "error", "detail": detail if not ok else ""})
+        if ok:
+            notify_email(f"🧹 Account rimosso: {user} su {slug}",
+                          f"'{user}' non aveva più accesso a '{slug}' da oltre {DEPROV_GRACE_DAYS}g; "
+                          f"l'account è stato rimosso.\n{detail}", "#059669")
+        else:
+            # keep it for a retry next cycle
+            remaining.append(r)
+            notify_email(f"⚠️ Deprovision fallito: {user} su {slug}",
+                          f"Riproverò al prossimo ciclo.\nDettaglio: {detail}", "#dc2626")
+    with _lock:
+        _deprov_write(remaining)
+
+
+def deprovision_worker() -> None:
+    while True:
+        time.sleep(6 * 3600)
+        try:
+            deprov_run_due()
+        except Exception as exc:  # noqa: BLE001
+            print(f"deprovision worker error: {exc}")
 
 
 def do_iam_set_active(username: str, active: bool, actor: str) -> tuple[bool, str]:
@@ -1750,6 +1885,17 @@ async function loadIam(){
     <div class="rows">Chi ha accesso: ${members||'<i>nessuno</i>'}</div>
     <button class="btn act" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
  }).join('');
+ // pending deprovisions (revoked accounts awaiting deletion after the grace window)
+ const dp=IAM.deprov||[];
+ const note=$('iam-note');
+ const oldbanner=document.getElementById('deprov-banner'); if(oldbanner)oldbanner.remove();
+ if(dp.length){
+  const b=document.createElement('div'); b.id='deprov-banner'; b.className='note';
+  b.style.cssText='margin:14px 2px 0;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--led-warn) 40%,transparent);background:color-mix(in srgb,var(--led-warn) 10%,transparent)';
+  b.innerHTML='🧹 <b>Rimozioni programmate:</b> '+dp.map(x=>`${x.user}@${x.slug} (fra ${x.days_left}g)`).join(' · ')
+   +' — riassegna l\'accesso per annullare.';
+  note.parentNode.insertBefore(b,note.nextSibling);
+ }
 }
 function renderIamSelf(){
  $('iam-admin-head').style.display='none';
@@ -2287,6 +2433,7 @@ def main() -> None:
     load_long_history()
     threading.Thread(target=sampler_loop, daemon=True).start()
     threading.Thread(target=cache_warmer, daemon=True).start()
+    threading.Thread(target=deprovision_worker, daemon=True).start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
     print(f"sovereign-master-dashboard listening on {BIND}:{PORT}")
     server.serve_forever()
