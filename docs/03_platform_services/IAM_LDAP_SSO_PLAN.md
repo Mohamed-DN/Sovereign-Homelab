@@ -48,24 +48,64 @@ your Windows password keeps working exactly as today, before and after LDAP.
 
 ## Phased rollout (one phase at a time, each reversible)
 
-### Phase 1 — Login on the dashboard (SSO forward-auth)
+### Phase 1 — Login on the dashboard (SSO forward-auth) — **DONE 2026-07-13**
 
-Put `dash.internal` behind Authentik so the dashboard requires a login and the
-**real logged-in user becomes the actor** in the audit log.
+`dash.internal` is now behind Authentik: every visit requires a personal login
+(username + password checked against Authentik's PostgreSQL, argon2-hashed),
+and the **logged-in user is always the actor** in the audit log (whatever the
+client sends is ignored server-side).
 
-1. Authentik: create an **Application** "Sovereign Dashboard" + a **Proxy
-   Provider** (forward-auth, external host `https://dash.internal`), assign it to
-   the embedded outpost, and restrict access to the admin group (`mohamed`).
-2. NPM: on the `dash.internal` proxy host, add the Authentik **forward-auth**
-   snippet (`/outpost.goauthentik.io/auth/nginx` + `auth_request`), same pattern
-   already used for other protected UIs.
-3. The dashboard reads the `X-authentik-username` header the outpost injects and
-   uses it as the actor (falls back to the typed name if absent).
-4. **Rollback:** remove the forward-auth snippet in NPM — dashboard is reachable
-   again without SSO (LAN/VPN only, as today).
+What is live:
 
-Risk control: keep a second NPM host or the direct `http://<proxmox>:8095` path
-available during testing so a misconfig cannot lock you out.
+1. Authentik: Application "Sovereign Dashboard" (`sovereign-dashboard`) + Proxy
+   Provider (forward-auth single-app, external host `https://dash.internal`)
+   on the **embedded outpost**; the outpost's `authentik_host` is set to
+   `https://auth.internal` (it defaulted to blank → `http://localhost`
+   redirects until fixed).
+2. NPM (LXC 100): the `dash.internal` proxy host has the Authentik forward-auth
+   snippet in its Advanced config (`auth_request` to
+   `http://192.168.1.51:9000/outpost.goauthentik.io/auth/nginx`, signin 302,
+   `X-authentik-username/groups/email/name` pass-through, `location = /health`
+   left public for Uptime Kuma). Applied by editing `proxy_host.advanced_config`
+   in NPM's SQLite (backup: `database.sqlite.bak-dashauth-*`) and patching the
+   generated `7.conf` the way NPM's own template does (NPM does NOT regenerate
+   confs from DB on restart — only on API/GUI saves; the DB copy keeps future
+   GUI saves consistent).
+3. Dashboard RBAC (`sovereign-master-dashboard.py`):
+   - `who()` accepts an identity ONLY from localhost (break-glass
+     `root-console` admin — `ssh -L 8095:localhost:8095` always works even
+     with Authentik down) or from the trusted NPM IP (`192.168.1.50`) with
+     `X-authentik-username`. Spoofing the header from any other IP is
+     rejected (verified live).
+   - Roles are never read from headers: a 60s-cached Authentik snapshot
+     resolves groups. Admin = member of `dashboard-admins` or
+     `authentik Admins`. A user's services = their `access-<slug>` groups.
+   - Non-admin API surface: reduced overview (own links + own monitors only,
+     no guests/storage/backup/audit/jobs), self-only IAM, and exactly two
+     ops: `iam-change-my-password` (self only, username from the session) and
+     `iam-request-access` (email to the admin via the relay). Everything else
+     → 403, audited as `denied`.
+4. **Rollback:** clear the Advanced field on the `dash.internal` proxy host (or
+   restore the `.bak-dashauth` DB) and restart NPM.
+
+**Verified live:** unauthenticated → 302 to auth.internal; direct-LAN `:8095`
+API → 401 (with a friendly "vai su dash.internal" page on `/`); spoofed
+header → 401; localhost → full admin; real user `luna` (granted immich +
+jellyfin via the console) sees exactly those two services, gets 403 on admin
+ops, changed her own password through the console and the change was proven
+via LDAP bind (old password → `Invalid credentials`), and her access-request
+email reached the owner.
+
+### Dashboard roles (the `luna` model)
+
+| Role | Overview | Servizi | Dati & Backup | Apps (start/stop) | IAM |
+|---|---|---|---|---|---|
+| admin (`dashboard-admins` / `authentik Admins`) | full (host, storage, dischi, guest) | all services | yes | yes | full console: create/delete/activate/deactivate users, reset passwords, grant/revoke app access, promote/demote admin |
+| user (e.g. `luna`) | hero only (her quick apps + up/down state) | only granted services | hidden + 403 | hidden + 403 | own profile, change own password, request access/assistance (email to admin) |
+
+Break-glass accounts (`akadmin`, `mohamed`, `svc-ldap`, `svc-dashboard-iam`)
+are locked (🔒) in the console: no delete/deactivate/demote/reset from the
+dashboard, enforced server-side.
 
 ### Phase 2 — LDAP directory backbone (`ldap.internal`)
 
@@ -185,8 +225,35 @@ accesso"):
 
 ### Phase 3 — Integrate services (prefer OIDC; LDAP where OIDC is absent)
 
-Order by value and safety, one at a time, verifying login + break-glass after
-each:
+**First service DONE (2026-07-13): Forgejo (git.internal) via OIDC.**
+
+- Authentik: OAuth2/OIDC provider "Forgejo OIDC" (confidential, PKCE, scopes
+  openid/profile/email, strict redirect
+  `https://git.internal/user/oauth2/authentik/callback`) attached to the
+  `forgejo` Application, which is bound to the `access-forgejo` group — only
+  granted users get through. Client id/secret stored root-only
+  (`/root/sovereign-secrets/forgejo/oidc-creds` on the host and
+  `/root/sovereign-secrets/forgejo-oidc-creds` on LXC 102), never in Git.
+- Forgejo: auth source `authentik` (openidConnect, discovery over
+  `https://auth.internal/...well-known/openid-configuration`). The container
+  now trusts the internal CA via a mounted combined bundle
+  (`stacks/forgejo/ca-bundle.crt` → `/etc/ssl/certs/ca-certificates.crt`,
+  regenerate after image updates). Auto-provisioning on first SSO login is on
+  (`ENABLE_AUTO_REGISTRATION`, username from `nickname`, `ACCOUNT_LINKING:
+  auto`); local self-signup stays closed
+  (`ALLOW_ONLY_EXTERNAL_REGISTRATION: true`), and the local `forgejo` admin
+  password keeps working as break-glass.
+- Live .env on LXC 102 was missing `FORGEJO_ROOT_URL`/`FORGEJO_DOMAIN`
+  (the repo `.env.example` already had them) — fixed; without it the OAuth
+  redirect_uri was built as `http://localhost:3000` and could never match.
+- Verified: login page shows the authentik button; `/user/oauth2/authentik`
+  → 302 to `auth.internal/application/o/authorize` with the exact strict
+  redirect URI, `openid profile email`, PKCE S256.
+- **Rollback:** `forgejo admin auth delete --id 1` (or disable the source in
+  the Forgejo admin UI); local admin login is untouched.
+
+Order for the rest, by value and safety, one at a time, verifying login +
+break-glass after each:
 
 | Wave | Services | Method | Notes |
 |---|---|---|---|

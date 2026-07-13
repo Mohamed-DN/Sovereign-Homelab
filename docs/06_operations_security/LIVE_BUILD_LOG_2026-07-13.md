@@ -100,12 +100,51 @@ dumps.
 - Dashboard redeployed and confirmed live via `curl` (200, hero/IAM markup
   present, `/api/iam` returns real data).
 
+## Second pass (same day): dashboard login, per-user roles, IAM console v2, first SSO
+
+- **Authentik**: group `dashboard-admins` (mohamed member); Applications for
+  all 26 launcher services with `access-<slug>` groups + PolicyBindings
+  (mohamed in all — "tutti i ruoli"); Proxy Provider "Sovereign Dashboard
+  forward-auth" on the embedded outpost (whose `authentik_host` was blank →
+  set to `https://auth.internal`); `svc-dashboard-iam` role extended with
+  `delete_user` + `remove_user_from_group`.
+- **NPM (LXC 100, SQLite)**: forward-auth snippet on the `dash.internal`
+  proxy host via DB `advanced_config` (backup kept) + manual patch of the
+  generated `7.conf` (NPM does not regenerate confs from DB on restart — a
+  key operational finding), `nginx -t` + reload.
+- **Dashboard**: `who()` identity resolution (localhost break-glass / trusted
+  NPM header), 60s-cached Authentik authz snapshot, role-shaped
+  `/api/overview` + `/api/iam`, server-side op matrix (non-admin: only
+  change-own-password + request-access), spoof-proof audit actor, IAM console
+  v2 (delete/activate/deactivate/reset-password/revoke/admin-toggle with
+  typed-confirm modals, self-service view), role-gated tabs + user badge +
+  Authentik logout. Bug found and fixed: Authentik policy-filters the
+  applications LIST for non-superusers, so the service account saw zero apps
+  once every app got an access binding — the app catalog now comes from the
+  dashboard's own LINKS and grants are read as `access-<slug>` group
+  membership (also 2 fewer API calls per refresh).
+- **First SSO service — Forgejo**: OIDC provider (PKCE, strict redirect,
+  openid/profile/email) + `authentik` auth source; container now trusts the
+  internal CA via a mounted combined bundle; auto-provision on first login;
+  local self-signup closed; live `.env` was missing
+  `FORGEJO_ROOT_URL`/`FORGEJO_DOMAIN` (repo example had them) — fixed.
+- **Kuma**: old monitor 10 "Homepage" pointed at `https://dash.internal` and
+  broke on the new login redirect chain → renamed "Dashboard", repointed to
+  `http://192.168.1.150:8095/health` (public). All 38 monitors green.
+- **Live test matrix passed**: 302 login on dash.internal; spoofed header
+  rejected; localhost break-glass admin; real user `luna` created + granted
+  immich/jellyfin via the console → sees exactly those, 403 on admin ops,
+  changed her own password (proven via LDAP bind: old password rejected),
+  access-request email delivered.
+
 ## Next Actions
 
-- Phase 3 of the IAM plan: wire OIDC/LDAP into individual services one at a
-  time (see [IAM / LDAP / SSO Plan](../03_platform_services/IAM_LDAP_SSO_PLAN.md)).
+- Owner: first browser login on `https://dash.internal` as `mohamed`, and one
+  click on "Accedi con authentik" on `git.internal` to see the auto-provision.
+- Phase 3 continues: next OIDC candidates Paperless / FreshRSS / Jellyfin,
+  one at a time (see [IAM / LDAP / SSO Plan](../03_platform_services/IAM_LDAP_SSO_PLAN.md)).
 - Add the AdGuard rewrite `ldap.internal -> 192.168.1.51` and move services to
-  LDAPS once the first service is integrated.
+  LDAPS when the first LDAP-only consumer arrives.
 - Revisit `Rebuild-ImmichFromBackup.ps1`/Podman once Docker Desktop ships a
   fixed release, per the pinned-version note in
   [Immich Windows Mirror](../05_backup_dr/IMMICH_WINDOWS_MIRROR.md).

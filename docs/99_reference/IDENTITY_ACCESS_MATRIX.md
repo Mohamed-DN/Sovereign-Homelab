@@ -68,7 +68,8 @@ The tokens are used by Homepage and the weekly report. They have no interactive 
 | Proxmox Backup Server | `pbs.internal` | LDAPS realm candidate for humans; API token for monitoring | LDAP provider `homelab-directory` | `homelab-admins` | local PBS admin/root path | Keep recovery independent; `sole_monitor@pbs` is read-only automation. |
 | Nginx Proxy Manager | `npm.internal` | Proxy Provider / forward auth in front of UI | application `npm` | `homelab-admins` | local NPM admin | Never protect the public Headscale proxy host itself. |
 | AdGuard Home UI | `adguard.internal` | Proxy Provider / forward auth in front of UI | application `adguard` | `homelab-admins` | local AdGuard admin | DNS service on port 53 is not proxied or SSO-protected. |
-| Homepage | `dash.internal` | Proxy Provider / forward auth | application `homepage` | `homelab-users` | raw VPN/NPM rollback | Low-risk first pilot candidate after MFA is configured. |
+| Sovereign Master Dashboard | `dash.internal` | **LIVE (2026-07-13):** Authentik forward-auth via embedded outpost + NPM `auth_request` | application `sovereign-dashboard` + proxy provider | any authenticated user; admin role = `dashboard-admins` / `authentik Admins`; per-service visibility = `access-<slug>` groups | localhost `:8095` (`ssh -L`) + NPM advanced-config rollback | Per-user RBAC enforced server-side; see IAM/LDAP/SSO plan. |
+| Homepage | `homepage.internal` | Proxy Provider / forward auth candidate | application `homepage` | `access-homepage` | raw VPN/NPM rollback | Classic launchpad (rollback for the dashboard). |
 | Uptime Kuma | `status.internal` | Proxy Provider / forward auth | application `uptime-kuma` | `homelab-admins` | local Kuma admin | Keep monitors reachable through local admin recovery. |
 | Beszel | `monitor.internal` | Proxy Provider / forward auth | application `beszel` | `homelab-admins` | Beszel/PocketBase recovery | Protect after Hub login recovery is documented. |
 | Dozzle | `logs.internal` | Proxy Provider / forward auth | application `dozzle` | `homelab-admins` | raw VPN/NPM rollback | Logs can expose secrets; admin-only. |
@@ -85,7 +86,7 @@ The tokens are used by Homepage and the weekly report. They have no interactive 
 | FreshRSS | `rss.internal` | native login or Proxy Provider | application `freshrss` | `homelab-users` | local FreshRSS admin | Simple app; good low-risk proxy-provider pilot. |
 | Karakeep | `bookmarks.internal` | native login or OIDC if supported by deployed version | optional OAuth/OIDC app | `homelab-users` | local Karakeep admin | Validate version-specific auth support before enabling. |
 | SearXNG | `search.internal` | Proxy Provider / forward auth | application `searxng` | `homelab-users` | raw VPN/NPM rollback | Good proxy-provider candidate because the app usually has no per-user login. |
-| Forgejo | `git.internal` | native OAuth/OIDC preferred | OAuth/OIDC app | `homelab-users` | local Forgejo admin | Keep SSH Git access and recovery separate from web login. |
+| Forgejo | `git.internal` | **LIVE (2026-07-13):** OIDC source `authentik` (PKCE, auto-provision on first login) | OAuth2 provider "Forgejo OIDC" + application `forgejo` | `access-forgejo` | local Forgejo admin login | Local self-signup closed (`ALLOW_ONLY_EXTERNAL_REGISTRATION`); SSH Git keys unaffected. |
 | Open WebUI | `ai.internal` | native OAuth/OIDC preferred | OAuth/OIDC app | `homelab-users` | local Open WebUI admin | Keep Ollama API private and not proxied. |
 | Linux server login | none | SSSD + LDAPS candidate, later | LDAP provider `homelab-directory` | `homelab-admins` | local root | Do this only after Proxmox/PBS recovery is fully tested. |
 

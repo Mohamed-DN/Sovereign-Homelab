@@ -59,11 +59,19 @@ agent — without exposing any of those to a browser.
   gracefully with an extra confirm — syncthing, paperless, forgejo.
 - **Allowlisted whole-VM power** (`qm shutdown`/`start`): Nextcloud (120),
   Home Assistant (130) only.
-- Every action asks for an actor + reason, is appended to a root-only audit log
+- Every action asks for a reason, is appended to a root-only audit log
   (`/root/sovereign-secrets/master-dashboard-audit.jsonl` and the agent's own
-  log), and emails the result.
-- Access is LAN/VPN-only behind NPM today. **Next hardening: Authentik
-  proxy-provider** in front of `dash.internal` for real identity.
+  log), and emails the result. The **actor is always the authenticated
+  identity** — the client cannot choose it.
+- **Login + per-user roles (live 2026-07-13):** `dash.internal` sits behind
+  Authentik forward-auth (NPM `auth_request` → embedded outpost). The backend
+  accepts an identity only from localhost (break-glass `root-console` admin)
+  or from NPM's IP with `X-authentik-username`; roles come from a cached
+  Authentik lookup, never from headers. Admin = `dashboard-admins` /
+  `authentik Admins`; everyone else gets a reduced overview, only their
+  granted services (membership in `access-<slug>` groups), a self-service IAM
+  tab, and 403 on everything else — details and the role matrix in
+  [IAM / LDAP / SSO Plan](IAM_LDAP_SSO_PLAN.md).
 
 ## Backup retention (what happens to old backups)
 
