@@ -346,13 +346,23 @@ if os.path.exists(st):
     out["mirror"]={"configured":True,"age_h":age,"snapshot":d.get("snapshot_id"),"check":d.get("check_result")}
 else:
     out["mirror"]={"configured":False}
+try:
+    for line in open("/opt/sovereign-homelab/stacks/immich/.env"):
+        if line.startswith("IMMICH_VERSION="):
+            out["version"]=line.split("=",1)[1].strip(); break
+except Exception: pass
 print(json.dumps(out))
 '''
     status, raw = run(["qm", "guest", "exec", "110", "--", "python3", "-c", script], timeout=40)
     try:
-        return json.loads(guest_out(raw) or "{}")
+        data = json.loads(guest_out(raw) or "{}")
     except (json.JSONDecodeError, TypeError):
         return {"immich_ping": False, "mirror": {"configured": False}, "error": True}
+    try:
+        data["update"] = immich_update_public(data.get("version"))
+    except Exception:  # noqa: BLE001
+        pass
+    return data
 
 
 def pbs_latest() -> dict[str, str]:
@@ -1237,6 +1247,213 @@ def do_stop_windows(actor: str, reason: str) -> tuple[bool, str]:
         return False, "un'operazione Windows è già in corso"
     threading.Thread(target=_startstop_windows_worker, args=(actor, reason, "stop"), daemon=True).start()
     return True, "avviato: spegnimento dei container Immich su Windows (i backup non vengono toccati); email all'esito"
+
+
+# ===== Immich version auto-update (snapshot-first, 1-day rollback) =====
+# The dashboard runs on the Proxmox host as root, so it drives qm snapshot/
+# rollback and qm guest exec on VM110 directly. It NEVER touches the photo
+# library, the restic mirror or the PBS backups — only the container images and
+# a throwaway VM snapshot used purely as the rollback point.
+IMMICH_STACK_DIR = "/opt/sovereign-homelab/stacks/immich"           # on VM110
+IMMICH_UPDATE_STATE = Path("/root/sovereign-secrets/dashboard/immich-update.json")  # on pve
+IMMICH_ROLLBACK_HOURS = 24
+_immich_latest = {"tag": None, "ts": 0.0}
+_immich_latest_lock = threading.Lock()
+
+
+def _ver_tuple(tag: str) -> tuple[int, ...]:
+    return tuple(int(x) for x in re.findall(r"\d+", tag or "")[:3])
+
+
+def _immich_latest_version() -> str | None:
+    """Latest Immich release tag from GitHub, cached ~6h. Stale/None on failure."""
+    with _immich_latest_lock:
+        if _immich_latest["tag"] and time.time() - _immich_latest["ts"] < 6 * 3600:
+            return _immich_latest["tag"]
+    tag = None
+    try:
+        s, out = run(["curl", "-fsS", "--max-time", "8",
+                      "https://api.github.com/repos/immich-app/immich/releases/latest"], timeout=12)
+        tag = (json.loads(out) or {}).get("tag_name")
+    except Exception:  # noqa: BLE001
+        tag = None
+    with _immich_latest_lock:
+        if tag:
+            _immich_latest.update(tag=tag, ts=time.time())
+        return _immich_latest["tag"]
+
+
+def _immich_state_read() -> dict[str, Any]:
+    try:
+        return json.loads(IMMICH_UPDATE_STATE.read_text())
+    except Exception:  # noqa: BLE001
+        return {}
+
+
+def _immich_state_write(d: dict[str, Any]) -> None:
+    IMMICH_UPDATE_STATE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = IMMICH_UPDATE_STATE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d))
+    tmp.replace(IMMICH_UPDATE_STATE)
+
+
+def immich_update_public(current: str | None) -> dict[str, Any]:
+    latest = _immich_latest_version()
+    st = _immich_state_read()
+    with _jobs_lock:
+        busy = any(_jobs.get(k, {}).get("state") == "running"
+                   for k in ("immich-update", "immich-rollback"))
+    return {"current": current, "latest": latest,
+            "available": bool(current and latest and _ver_tuple(latest) > _ver_tuple(current)),
+            "busy": busy, "snapshot": st.get("snapshot"),
+            "rollback_until": st.get("rollback_until"), "prev_version": st.get("prev_version")}
+
+
+def _immich_current_version() -> str:
+    s, raw = run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+                  f"grep ^IMMICH_VERSION {IMMICH_STACK_DIR}/.env | cut -d= -f2"], timeout=30)
+    return guest_out(raw).strip()
+
+
+def _immich_assets() -> int | None:
+    s, raw = run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+                  "docker exec immich-database psql -U postgres -d immich -t -A -c "
+                  "'select count(*) from asset;'"], timeout=45)
+    try:
+        return int(guest_out(raw).strip())
+    except (ValueError, TypeError):
+        return None
+
+
+def _immich_ping() -> bool:
+    s, raw = run(["qm", "guest", "exec", "110", "--", "bash", "-lc",
+                  "curl -fsS --max-time 6 http://127.0.0.1:2283/api/server/ping"], timeout=15)
+    return '"res":"pong"' in guest_out(raw)
+
+
+def _immich_wait_pong(max_s: int = 360) -> bool:
+    deadline = time.time() + max_s
+    while time.time() < deadline:
+        if _immich_ping():
+            return True
+        time.sleep(6)
+    return False
+
+
+def _immich_rollback_to_snapshot(snap: str) -> bool:
+    """Restore VM110 to the snapshot (covers even DB migrations). We are
+    discarding the current state on purpose, so a hard stop is fine."""
+    run(["qm", "stop", "110", "--timeout", "90"], timeout=150)
+    s, out = run(["qm", "rollback", "110", snap], timeout=20 * 60)
+    run(["qm", "start", "110"], timeout=180)  # bring it back regardless of rollback rc
+    return s == 0 and _immich_wait_pong(480)
+
+
+def _immich_set_version_and_up(target: str) -> tuple[int, str]:
+    cmd = (f"cd {IMMICH_STACK_DIR} && cp .env .env.bak-$(date +%s) && "
+           f"sed -i 's/^IMMICH_VERSION=.*/IMMICH_VERSION={target}/' .env && "
+           f"docker compose pull -q && docker compose up -d 2>&1 | tail -15")
+    s, raw = run(["qm", "guest", "exec", "110", "--timeout", "1200", "--", "bash", "-lc", cmd],
+                 timeout=1300)
+    return s, guest_out(raw)[-400:]
+
+
+def _immich_update_worker(actor: str, reason: str, target: str) -> None:
+    cur = _immich_current_version() or "?"
+    assets_before = _immich_assets()
+    snap = f"preimmich_auto_{int(time.time())}"
+    ss, sout = run(["qm", "snapshot", "110", snap, "--description",
+                    f"Auto pre-update {cur}->{target} by {actor}"], timeout=180)
+    if ss != 0:
+        job_end("immich-update", False, f"snapshot fallito: {sout[-150:]}")
+        notify_email("❌ Aggiornamento Immich: snapshot fallito",
+                     f"Attore: {actor}\nMotivo: {reason}\nNon ho toccato nulla.\n{sout[-300:]}", "#dc2626")
+        return
+    rc, tail = _immich_set_version_and_up(target)
+    pong = _immich_wait_pong(420)
+    assets_after = _immich_assets()
+    ok = (rc == 0 and pong and assets_before is not None
+          and assets_after is not None and assets_after >= assets_before)
+    if ok:
+        st = _immich_state_read()
+        st.update(snapshot=snap, prev_version=cur, updated_to=target,
+                  rollback_until=int(time.time()) + IMMICH_ROLLBACK_HOURS * 3600)
+        _immich_state_write(st)
+        job_end("immich-update", True, f"{cur} → {target} · asset {assets_after}")
+        notify_email(f"✅ Immich aggiornato {cur} → {target}",
+                     f"Attore: {actor}\nMotivo: {reason}\n"
+                     f"Asset: {assets_before} → {assets_after} (invariati)\n"
+                     f"Snapshot di rollback '{snap}' tenuto {IMMICH_ROLLBACK_HOURS}h "
+                     f"(pulsante 'Torna indietro').", "#059669")
+    else:
+        detail = f"rc={rc} pong={pong} assets {assets_before}->{assets_after}"
+        rb = _immich_rollback_to_snapshot(snap)
+        run(["qm", "delsnapshot", "110", snap], timeout=180) if rb else None
+        job_end("immich-update", False, f"fallito ({detail}); rollback {'OK' if rb else 'FALLITO'}")
+        notify_email("❌ Aggiornamento Immich FALLITO — rollback " + ("eseguito" if rb else "FALLITO!"),
+                     f"Attore: {actor}\nMotivo: {reason}\nVerifica: {detail}\n"
+                     f"Ripristino snapshot '{snap}': {'ok' if rb else 'FALLITO, intervieni a mano'}\n"
+                     f"Output:\n{tail}", "#dc2626")
+
+
+def _immich_rollback_worker(actor: str, reason: str) -> None:
+    st = _immich_state_read()
+    snap = st.get("snapshot")
+    prev = st.get("prev_version")
+    if not snap:
+        job_end("immich-rollback", False, "nessuno snapshot di rollback disponibile")
+        return
+    ok = _immich_rollback_to_snapshot(snap)
+    if ok:
+        run(["qm", "delsnapshot", "110", snap], timeout=180)
+        st.update(snapshot=None, rollback_until=None)
+        _immich_state_write(st)
+        job_end("immich-rollback", True, f"ripristinato a {prev}")
+        notify_email(f"↩ Immich: rollback eseguito → {prev}",
+                     f"Attore: {actor}\nMotivo: {reason}\nRipristinato lo snapshot '{snap}'. "
+                     f"Immich risponde di nuovo.", "#059669")
+    else:
+        job_end("immich-rollback", False, f"rollback di '{snap}' fallito")
+        notify_email("❌ Immich: rollback FALLITO",
+                     f"Attore: {actor}\nMotivo: {reason}\nLo snapshot '{snap}' esiste ancora — "
+                     f"intervieni a mano: qm rollback 110 {snap}", "#dc2626")
+
+
+def do_immich_update(actor: str, reason: str) -> tuple[bool, str]:
+    latest = _immich_latest_version()
+    if not latest:
+        return False, "non riesco a leggere l'ultima versione da GitHub adesso"
+    cur = _immich_current_version()
+    if cur and _ver_tuple(latest) <= _ver_tuple(cur):
+        return False, f"Immich è già aggiornato ({cur})"
+    if not job_start("immich-update", f"Aggiornamento Immich → {latest}"):
+        return False, "un aggiornamento è già in corso"
+    threading.Thread(target=_immich_update_worker, args=(actor, reason, latest), daemon=True).start()
+    return True, f"avviato: snapshot di sicurezza + aggiornamento a {latest}; email all'esito"
+
+
+def do_immich_rollback(actor: str, reason: str) -> tuple[bool, str]:
+    if not _immich_state_read().get("snapshot"):
+        return False, "nessuno snapshot di rollback disponibile"
+    if not job_start("immich-rollback", "Rollback Immich"):
+        return False, "un'operazione è già in corso"
+    threading.Thread(target=_immich_rollback_worker, args=(actor, reason), daemon=True).start()
+    return True, "avviato: ripristino della versione precedente da snapshot; email all'esito"
+
+
+def immich_prune_worker() -> None:
+    """Delete the pre-update snapshot once its 1-day rollback window has passed."""
+    while True:
+        time.sleep(3600)
+        try:
+            st = _immich_state_read()
+            snap, until = st.get("snapshot"), st.get("rollback_until")
+            if snap and until and time.time() > until:
+                run(["qm", "delsnapshot", "110", snap], timeout=180)
+                st.update(snapshot=None, rollback_until=None)
+                _immich_state_write(st)
+        except Exception as exc:  # noqa: BLE001
+            print(f"immich prune worker error: {exc}")
 
 
 # Whole-VM power control, owner-approved for these guests only. Immich (110) and
@@ -2252,9 +2469,16 @@ function render(){
     <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
  wireSearch('svc-search','#linkgroups .bapp','.bn');
  /* data & backup */
+ const iu=d.immich.update||{};
  $('dcards').innerHTML=`
   <div class="card" style="--sec:var(--led-warn)"><div class="top"><span class="name">📷 Immich</span><span class="state ${d.immich.immich_ping?'up':'dn'}"><span class="led"></span>${d.immich.immich_ping?'healthy':'CHECK'}</span></div>
    <div class="rows">File: <b>${d.immich.files??'-'}</b> · ${gb(d.immich.photos_bytes)}<br>Dump protezione: ${ago(d.immich.protection_dump_age_h)}<br><a class="ld" href="https://foto.internal" target="_blank" style="color:var(--accent)">foto.internal ↗</a></div></div>
+  <div class="card" style="--sec:var(--s1)"><div class="top"><span class="name">⬆️ Aggiornamenti Immich</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:var(--s1)">🖧 server VM110</span></div>
+   <div class="rows">Attuale: <b>${iu.current||'?'}</b> · ultima: <b>${iu.latest||'?'}</b><br>
+    ${iu.available?'<span style="color:var(--led-warn);font-weight:700">🆕 aggiornamento disponibile</span>':(iu.current?'<span style="color:var(--led-good)">✅ aggiornato</span>':'stato sconosciuto')}
+    ${iu.snapshot?`<br><span style="color:var(--accent)">↩ rollback disponibile${iu.rollback_until?' · scade '+new Date(iu.rollback_until*1000).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span>`:''}</div>
+   ${iu.available?jobbtn('immich-update',`act('immich-update',null,this,'AGGIORNA IMMICH a ${iu.latest}: prima uno SNAPSHOT di sicurezza di VM110, poi l\\'aggiornamento. Verifico che le foto siano intatte e l\\'API risponda; se qualcosa va storto torno indietro DA SOLO. Lo snapshot resta 1 giorno per il rollback. Foto e backup non vengono mai toccati.')`,'⬆️ Aggiorna a '+(iu.latest||'')):''}
+   ${iu.snapshot?jobbtn('immich-rollback',`act('immich-rollback',null,this,'TORNA INDIETRO: ripristino lo snapshot di VM110 fatto PRIMA dell\\'aggiornamento (versione ${iu.prev_version||'precedente'}). ATTENZIONE: le foto/modifiche caricate DOPO l\\'aggiornamento andrebbero perse.')`,'↩ Torna alla versione precedente'):''}</div>
   <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
    <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
    ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
@@ -2518,6 +2742,10 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_start_windows(actor, reason)
         elif op == "stop-windows":
             ok, detail = do_stop_windows(actor, reason)
+        elif op == "immich-update":
+            ok, detail = do_immich_update(actor, reason)
+        elif op == "immich-rollback":
+            ok, detail = do_immich_rollback(actor, reason)
         elif op == "pbs-backup":
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
         elif op == "guest-power":
@@ -2569,6 +2797,7 @@ def main() -> None:
     threading.Thread(target=sampler_loop, daemon=True).start()
     threading.Thread(target=cache_warmer, daemon=True).start()
     threading.Thread(target=deprovision_worker, daemon=True).start()
+    threading.Thread(target=immich_prune_worker, daemon=True).start()
     server = ThreadingHTTPServer((BIND, PORT), Handler)
     print(f"sovereign-master-dashboard listening on {BIND}:{PORT}")
     server.serve_forever()
