@@ -43,7 +43,14 @@ Rules:
 
 - Put human admin accounts in `homelab-admins` only after MFA and recovery codes are configured.
 - Put service accounts in `homelab-service-accounts`, not in normal user groups.
-- Never rely on SSO as the only recovery path for Proxmox, NPM, AdGuard, Authentik, Uptime Kuma, Vaultwarden, Immich, Nextcloud, or PBS.
+- Never rely on SSO as the only recovery path for Proxmox, NPM, AdGuard, Authentik, Vaultwarden, Immich, Nextcloud, or PBS.
+- **Exception, owner-approved (2026-07-13): Uptime Kuma.** Kuma has no
+  OIDC/SSO support, so it cannot have a break-glass local login *and* true
+  single-password access at the same time. The owner chose to disable Kuma's
+  own login entirely (`UPTIME_KUMA_DISABLE_AUTH`) and rely solely on the
+  Authentik forward-auth gate on `status.internal` — see
+  [IAM / LDAP / SSO Plan](../03_platform_services/IAM_LDAP_SSO_PLAN.md) for
+  the residual-risk note (LAN-direct port 3001 stays unauthenticated).
 - Store break-glass credentials only in the server-local root-only vault. The public repository contains only the template.
 
 ## Monitoring Service Accounts
@@ -70,7 +77,7 @@ The tokens are used by Homepage and the weekly report. They have no interactive 
 | AdGuard Home UI | `adguard.internal` | Proxy Provider / forward auth in front of UI | application `adguard` | `homelab-admins` | local AdGuard admin | DNS service on port 53 is not proxied or SSO-protected. |
 | Sovereign Master Dashboard | `dash.internal` | **LIVE (2026-07-13):** Authentik forward-auth via embedded outpost + NPM `auth_request` | application `sovereign-dashboard` + proxy provider | any authenticated user; admin role = `dashboard-admins` / `authentik Admins`; per-service visibility = `access-<slug>` groups | localhost `:8095` (`ssh -L`) + NPM advanced-config rollback | Per-user RBAC enforced server-side; see IAM/LDAP/SSO plan. |
 | Homepage | `homepage.internal` | Proxy Provider / forward auth candidate | application `homepage` | `access-homepage` | raw VPN/NPM rollback | Classic launchpad (rollback for the dashboard). |
-| Uptime Kuma | `status.internal` | Proxy Provider / forward auth | application `uptime-kuma` | `homelab-admins` | local Kuma admin | Keep monitors reachable through local admin recovery. |
+| Uptime Kuma | `status.internal` | **LIVE (2026-07-13):** Proxy Provider / forward auth, Kuma's own login disabled (`UPTIME_KUMA_DISABLE_AUTH`) | application `uptime-kuma` + provider "Uptime Kuma forward-auth" | `access-uptime-kuma` | none — owner-approved exception, no local login left; see Identity Access Matrix rules above | LAN-direct `192.168.1.51:3001` stays unauthenticated (documented residual risk). Self-monitor repointed to the direct backend to avoid the redirect loop. |
 | Beszel | `monitor.internal` | Proxy Provider / forward auth | application `beszel` | `homelab-admins` | Beszel/PocketBase recovery | Protect after Hub login recovery is documented. |
 | Dozzle | `logs.internal` | Proxy Provider / forward auth | application `dozzle` | `homelab-admins` | raw VPN/NPM rollback | Logs can expose secrets; admin-only. |
 | NetAlertX | `netalert.internal` | Proxy Provider / forward auth | application `netalertx` | `homelab-admins` | local app/admin method | Operations extension, not mandatory day one. |

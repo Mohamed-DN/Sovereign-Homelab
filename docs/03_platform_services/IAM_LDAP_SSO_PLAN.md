@@ -101,12 +101,27 @@ URI must tolerate that query string). Verified with a full unauthenticated
 
 **Branding (2026-07-13):** the login page now matches the dashboard's
 dark/cyan palette instead of Authentik's default forest photo, via the
-default **Brand**'s `branding_title` ("Sovereign Dashboard"),
-`branding_custom_css` (overrides the documented `--ak-accent` /
-`--ak-dark-background*` / `--ak-global--background-*` CSS custom properties
-Authentik exposes for exactly this, plus a matching gradient-border login
-card), and `branding_default_flow_background` cleared; the
-`default-authentication-flow`'s own title was also renamed. Change it via
+default **Brand**'s `branding_title` ("Sovereign Dashboard"), a custom SVG
+logo (`branding_logo`/`branding_favicon`, a shield+keyhole emblem, inline
+`data:image/svg+xml;base64,...`, gradient magenta→cyan→purple), and
+`branding_default_flow_background` cleared; the `default-authentication-flow`
+title was also renamed.
+
+`branding_custom_css` went through two iterations — worth recording *why*:
+the first version styled generic Patternfly classes (`.pf-c-card`,
+`.pf-c-login__main`) with the full neon gradient as a **fill**, not just a
+border. Two problems: (1) `branding_custom_css` is injected on **every**
+Authentik-rendered page, including the **admin UI** — `.pf-c-card` is a
+generic component reused throughout the admin interface, so the loud
+gradient leaked into the whole admin panel, not just the login screen;
+(2) the padding-box/border-box double-background trick needs an explicit
+`padding` on the target element to clip correctly, which Patternfly's own
+elements don't reliably have, so the "border" gradient rendered across the
+*entire* surface instead of a thin ring. Fixed by reducing
+`branding_custom_css` to **only** the documented `--ak-accent` /
+`--ak-dark-background*` / `--ak-dark-foreground` CSS custom properties —
+first-class, global-safe theming hooks Authentik itself uses consistently on
+both the login and admin surfaces, no selector overrides. Change it via
 `ak shell`: `Brand.objects.filter(default=True).first()`.
 
 **Verified live:** unauthenticated → 302 to auth.internal; direct-LAN `:8095`
@@ -272,6 +287,61 @@ accesso"):
   redirect URI, `openid profile email`, PKCE S256.
 - **Rollback:** `forgejo admin auth delete --id 1` (or disable the source in
   the Forgejo admin UI); local admin login is untouched.
+
+**Second service DONE (2026-07-13): Uptime Kuma (status.internal) via
+forward-auth + local auth disabled — not OIDC.**
+
+Kuma has no OIDC/SSO support at all, so true "one password via LDAP" is not
+possible for it the way it is for Forgejo. The only real option (confirmed
+with the owner, who explicitly chose it over a double login) is to make Kuma
+trust the network layer entirely:
+
+- Authentik: Proxy Provider "Uptime Kuma forward-auth" (forward-auth
+  single-app, external host `https://status.internal`, REGEX redirect URI
+  same pattern as the dashboard's) on the embedded outpost, attached to the
+  existing `uptime-kuma` Application (bound to `access-uptime-kuma`).
+- NPM (LXC 100): same forward-auth snippet as `dash.internal`/`status.internal`
+  proxy host id 8, `auth_request` gate in front, patched both the DB
+  `advanced_config` and the generated `8.conf`.
+- Kuma (`stacks/observability/docker-compose.yml`): `UPTIME_KUMA_DISABLE_AUTH:
+  "true"` — Kuma serves `/dashboard` with no login screen at all once a
+  request reaches it; the Authentik gate is the *only* door on
+  `status.internal`.
+- **Verified live:** `status.internal` unauthenticated → 302 to Authentik
+  (gate intact); `http://localhost:3001/dashboard` inside LXC 101 → `200`
+  with no login form (auth genuinely disabled); `authentik-server` stayed at
+  `RestartCount=0` / idle CPU throughout (the earlier crash-loop bug did not
+  recur when a second provider was added to the embedded outpost).
+- Kuma's own self-monitor ("Uptime Kuma", id 11) initially went down with
+  "Maximum number of redirects exceeded" — an unauthenticated HTTP checker
+  following the 302 loop through the login gate forever. Fixed by repointing
+  that one monitor to the direct backend
+  (`http://192.168.1.51:3001/`, same pattern as the dashboard's own Kuma
+  monitor, which already checks `/health` directly) instead of the gated
+  public URL — monitoring should bypass auth gates, it only needs a
+  200/keyword, not the real page.
+- **Documented residual risk, accepted by the owner:** Kuma's port 3001 stays
+  published on `192.168.1.51` (NPM and Kuma run on different LXCs, so it
+  cannot be bound to loopback) and is therefore reachable **unauthenticated**
+  by anyone already on the LAN who knows the IP:port, bypassing the
+  `status.internal` gate entirely. No one outside the LAN/VPN can reach it.
+  If this becomes unacceptable later, the fix is an LXC 101 firewall rule
+  restricting 3001 to NPM's IP (192.168.1.50) only.
+- **Rollback:** unset `UPTIME_KUMA_DISABLE_AUTH` and recreate the container to
+  bring Kuma's own login back; clearing the NPM Advanced field removes the
+  outer gate independently.
+
+**A note on the broader ask ("auto-login everywhere" / syncing a shared
+password into every app's own login):** real cross-origin credential
+autofill from the dashboard is not something JavaScript can do — browsers
+block any page from reading or writing another origin's form fields, by
+design. The two paths that actually work are (a) native OIDC/LDAP, where the
+app never has its own password to sync (done: Forgejo; not possible: Kuma),
+or (b) forward-auth + disabling the app's own login, trusting the network
+gate entirely (done: Kuma). **Vaultwarden is deliberately excluded from both**
+and always will be: its master password encrypts the vault client-side, so
+centralizing or syncing it via Authentik would defeat the zero-knowledge
+guarantee that is the entire point of running a password manager.
 
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:

@@ -23,6 +23,14 @@ services:
     restart: unless-stopped
     environment:
       NODE_EXTRA_CA_CERTS: ${UPTIME_KUMA_NODE_EXTRA_CA_CERTS}
+      # Kuma has no OIDC support, so true "one password via LDAP" isn't
+      # possible for it. Instead it trusts the network layer entirely: its
+      # own login is disabled and the Authentik forward-auth gate on
+      # status.internal (access-uptime-kuma group) is the only door. The
+      # LAN-direct port below stays reachable host-to-host (NPM and Kuma run
+      # on different LXCs, so it can't be bound to loopback) -- documented
+      # residual risk, see IAM_LDAP_SSO_PLAN.md.
+      UPTIME_KUMA_DISABLE_AUTH: "true"
     ports:
     - "${UPTIME_KUMA_PORT}:3001"
     volumes:
