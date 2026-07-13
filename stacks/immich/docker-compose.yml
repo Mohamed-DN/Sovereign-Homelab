@@ -15,11 +15,21 @@ services:
       DB_DATABASE_NAME: ${IMMICH_DB_DATABASE_NAME}
       REDIS_HOSTNAME: immich-redis
       TZ: ${TZ}
+      # Trust the Sovereign internal CA so immich-server can reach
+      # https://auth.internal for OIDC (discovery + token exchange). The photo
+      # data volume below is untouched; this only adds outbound TLS trust.
+      NODE_EXTRA_CA_CERTS: /run/secrets/sovereign-root-ca.crt
+    # VM 110's systemd-resolved prefers the router's IPv6 DNS over AdGuard and
+    # can't resolve *.internal, so map auth.internal to NPM (192.168.1.50)
+    # directly for the OIDC server-to-server calls -- same target browsers use.
+    extra_hosts:
+    - "auth.internal:192.168.1.50"
     ports:
     - "${IMMICH_PORT}:2283"
     volumes:
     - ${IMMICH_UPLOAD_LOCATION}:/data
     - /etc/localtime:/etc/localtime:ro
+    - ./sovereign-root-ca.crt:/run/secrets/sovereign-root-ca.crt:ro
 
   immich-machine-learning:
     image: ghcr.io/immich-app/immich-machine-learning:${IMMICH_VERSION}

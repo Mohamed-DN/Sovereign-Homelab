@@ -303,15 +303,29 @@ trust the network layer entirely:
 - NPM (LXC 100): same forward-auth snippet as `dash.internal`/`status.internal`
   proxy host id 8, `auth_request` gate in front, patched both the DB
   `advanced_config` and the generated `8.conf`.
-- Kuma (`stacks/observability/docker-compose.yml`): `UPTIME_KUMA_DISABLE_AUTH:
-  "true"` — Kuma serves `/dashboard` with no login screen at all once a
-  request reaches it; the Authentik gate is the *only* door on
+- Kuma login disabled: **there is NO `UPTIME_KUMA_DISABLE_AUTH` env var**
+  (an early attempt used one — it does nothing). Kuma stores this as a DB
+  setting: `setting(key='disableAuth', value='true', type='general')` in
+  `kuma.db`, then restart the container. Once set, Kuma serves `/dashboard`
+  with no login screen; the Authentik gate is the only door on
   `status.internal`.
-- **Verified live:** `status.internal` unauthenticated → 302 to Authentik
-  (gate intact); `http://localhost:3001/dashboard` inside LXC 101 → `200`
-  with no login form (auth genuinely disabled); `authentik-server` stayed at
-  `RestartCount=0` / idle CPU throughout (the earlier crash-loop bug did not
-  recur when a second provider was added to the embedded outpost).
+- **Two real bugs fixed before it worked (both were programmatic-creation
+  gaps).** A `ProxyProvider` created via `ak shell`/API — unlike one made in
+  the web UI wizard — comes up with **empty `grant_types`** and **no scope
+  property_mappings**. With those empty, the outpost's authorize request has
+  no `scope` and Authentik rejects it as *"Invalid grant_type for provider" →
+  "The request is otherwise malformed"*, which the browser sees as
+  `ERR_TOO_MANY_REDIRECTS` (callback loops on the error). The dashboard
+  provider happened to get them; the Kuma one didn't. Fix: copy the working
+  provider's `grant_types` (`['authorization_code','client_credentials',
+  'password']`) and its five scope mappings onto the new provider. **Always
+  set these two fields when creating a proxy/OAuth2 provider by script.**
+  (An earlier hypothesis blamed a favicon/socket.io redirect race and added
+  per-path carve-outs in NPM — harmless and kept, but NOT the cause.)
+- **Verified live:** `status.internal` unauthenticated → 302 to Authentik and
+  the authorize endpoint now returns the real login flow (not the malformed
+  callback); `http://localhost:3001/dashboard` inside LXC 101 → `200` with no
+  login form once `disableAuth` is set.
 - Kuma's own self-monitor ("Uptime Kuma", id 11) initially went down with
   "Maximum number of redirects exceeded" — an unauthenticated HTTP checker
   following the 302 loop through the login gate forever. Fixed by repointing
@@ -327,9 +341,54 @@ trust the network layer entirely:
   `status.internal` gate entirely. No one outside the LAN/VPN can reach it.
   If this becomes unacceptable later, the fix is an LXC 101 firewall rule
   restricting 3001 to NPM's IP (192.168.1.50) only.
-- **Rollback:** unset `UPTIME_KUMA_DISABLE_AUTH` and recreate the container to
-  bring Kuma's own login back; clearing the NPM Advanced field removes the
-  outer gate independently.
+- **Rollback:** set `disableAuth` back to `false` (or delete the setting row)
+  in `kuma.db` and restart Kuma to bring its own login back; clearing the NPM
+  Advanced field removes the outer gate independently.
+
+**Third service DONE (2026-07-13): Immich (foto.internal) via OIDC — sacred
+system, done with maximum care.**
+
+Immich holds the irreplaceable photo history, so every step was verified
+non-destructive:
+
+- Authentik: OAuth2/OIDC provider "Immich OIDC" (confidential, scopes
+  openid/email/profile, `grant_types` + scope mappings set explicitly per the
+  Kuma lesson above), redirect URIs `https://foto.internal/auth/login`,
+  `https://foto.internal/user-settings`, and `app.immich:///oauth-callback`
+  (mobile app), attached to the `immich` Application (bound to
+  `access-immich`). Client id/secret root-only at
+  `/root/sovereign-secrets/immich/oidc-creds`.
+- **Account-safety guarantee:** Immich links an OIDC login to an existing
+  local user **by email**. The Immich admin account email
+  (`mohamed.d.n.2002@gmail.com`) is identical to mohamed's Authentik email, so
+  the first SSO login **links to the existing account** — it does not create a
+  duplicate and does not touch any photo/asset data. Verified the asset count
+  was **15,421 before and after** every change.
+- Immich config was applied by **merging** only `oauth` + `passwordLogin` into
+  the existing DB `system-config` with the JSONB `||` operator (preserving the
+  pre-existing `storageTemplate` setting), never a wholesale replace.
+  `oauth.autoRegister=true` (granted users get accounts on first login),
+  `oauth.autoLaunch=false` (the password page still shows both options), and
+  **`passwordLogin.enabled` kept `true` as break-glass**.
+- Two infra gaps on VM 110 had to be bridged for immich-server's
+  server-to-server OIDC calls, both surgically (no VM-wide change):
+  1. **CA trust** — immich-server (Node) didn't trust the Smallstep internal
+     CA, so add the root CA as `NODE_EXTRA_CA_CERTS` via a read-only mount
+     (`stacks/immich/sovereign-root-ca.crt`), same idea as Forgejo's bundle.
+  2. **DNS** — VM 110's systemd-resolved prefers the router's IPv6 DNS over
+     AdGuard and cannot resolve `*.internal`. Rather than reconfigure the
+     sacred VM's DNS, added `extra_hosts: auth.internal:192.168.1.50` to the
+     immich-server container so its OIDC calls resolve auth.internal to NPM
+     (the same target browsers use). A future broader fix is to make VM 110
+     use AdGuard as its primary resolver.
+- **Verified live:** `/api/server/features` → `oauth:true, oauthAutoLaunch:false,
+  passwordLogin:true`; immich-server fetches the OIDC discovery doc
+  successfully (`issuer: https://auth.internal/application/o/immich/`); ping
+  still `pong`; assets still 15,421.
+- **Rollback:** merge `{"oauth":{"enabled":false}}` back into the Immich
+  `system-config` (password login was never disabled, so access is unaffected),
+  and/or remove the `extra_hosts`/CA lines from the compose. Live compose
+  backup kept at `docker-compose.yml.pre-oidc.bak` on VM 110.
 
 **A note on the broader ask ("auto-login everywhere" / syncing a shared
 password into every app's own login):** real cross-origin credential
