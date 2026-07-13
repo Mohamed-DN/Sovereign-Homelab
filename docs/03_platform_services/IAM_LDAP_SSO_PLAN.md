@@ -143,6 +143,30 @@ Break-glass accounts (`akadmin`, `mohamed`, `svc-ldap`, `svc-dashboard-iam`)
 are locked (🔒) in the console: no delete/deactivate/demote/reset from the
 dashboard, enforced server-side.
 
+### Deprovisioning with a grace window (2026-07-13)
+
+OIDC auto-provisions a service account on a user's first login, so revoking a
+grant in Authentik stops *future* logins but leaves the already-created
+account (and its files) orphaned on the service. The dashboard now closes that
+loop with a **timed, reversible** cleanup:
+
+- **Revoke** an access grant → the `<user>@<slug>` deletion is **scheduled**
+  `DEPROV_GRACE_DAYS` (default **7**) days out, recorded root-only in
+  `deprovision-pending.jsonl`. Deleting a user entirely schedules cleanup for
+  every service they had.
+- **Re-grant** the same access within the window → the pending deletion is
+  **cancelled** (no data lost for an accidental/temporary revoke).
+- A background worker (every 6h) processes entries past the window, but only
+  after **re-confirming the access is still revoked**. It deletes the account
+  where a safe CLI exists — **Nextcloud** (`occ user:delete`, never the local
+  `admin`) and **Forgejo** (`admin user delete --purge`) — and for everything
+  else, including the **sacred Immich**, it **never scripts a deletion**: it
+  emails the admin to remove the account by hand. Break-glass users are never
+  scheduled. Every action is audited and emailed.
+- Admins see pending removals as a banner in the IAM tab
+  ("🧹 Rimozioni programmate: user@slug (fra Ng)").
+- Verified live: revoke schedules (7g), re-grant cancels.
+
 ### Phase 2 — LDAP directory backbone (`ldap.internal`)
 
 **Status (2026-07-13): FIXED and validated — binds and searches both work.**
