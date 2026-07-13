@@ -402,6 +402,47 @@ and always will be: its master password encrypts the vault client-side, so
 centralizing or syncing it via Authentik would defeat the zero-knowledge
 guarantee that is the entire point of running a password manager.
 
+**Fourth service DONE (2026-07-13): Nextcloud (files.internal) via OIDC —
+data-bearing, existing account linked not duplicated.**
+
+Nextcloud AIO on VM 120, single existing user `admin` holding all the files.
+The risk was orphaning those files into a new `mohamed` account, so the OIDC
+uid is deliberately mapped back onto `admin`:
+
+- Authentik: OAuth2/OIDC provider "Nextcloud OIDC" (grant_types + scopes set
+  explicitly), redirect `https://files.internal/apps/user_oidc/code`, bound to
+  the `nextcloud` Application (which is bound to `access-nextcloud` — **only
+  granted users can complete the flow, so a new granted user is
+  auto-provisioned and an ungranted one is refused at Authentik**). Client
+  id/secret root-only at `/root/sovereign-secrets/nextcloud/oidc-creds`.
+- **Account-linking mechanism:** a custom scope mapping (assigned only to this
+  provider) emits `preferred_username = "admin"` **for mohamed specifically**
+  and the real username for everyone else:
+  `uid = 'admin' if request.user.username == 'mohamed' else request.user.username`.
+  Combined with user_oidc `--unique-uid=0 --mapping-uid=preferred_username`,
+  mohamed's Nextcloud uid resolves to the existing `admin` account (files
+  intact); any other granted user provisions under their own uid. Isolated to
+  the Nextcloud provider — mohamed's global username is unchanged.
+- Nextcloud side (`occ`, live — AIO is not in git): imported the internal CA
+  the Nextcloud-native way (`occ security:certificates:import`, persists in the
+  data dir across container updates, and user_oidc's HTTP client honours it —
+  cleaner than mounting into the AIO container); `occ app:install user_oidc`;
+  `occ user_oidc:provider authentik --clientid=… --clientsecret-file=… \
+  --discoveryuri=https://auth.internal/application/o/nextcloud/.well-known/openid-configuration \
+  --scope="openid email profile" --unique-uid=0 --mapping-uid=preferred_username \
+  --mapping-display-name=name --mapping-email=email --check-bearer=0`; set the
+  admin account's email to mohamed's (was empty). Local password login stays
+  enabled (break-glass).
+- Unlike Immich, VM 120's host **does** resolve `*.internal` via AdGuard, so no
+  DNS bridge was needed — the container reached auth.internal once the CA was
+  trusted (verified: `curl` 200 with the CA).
+- **Verified live:** `/apps/user_oidc/login/1` → 303 to Authentik authorize
+  with the right client_id, `openid email profile`, PKCE S256, and
+  `preferred_username` requested essential; the `admin` account and its files
+  are intact with the email now set.
+- **Rollback:** `occ user_oidc:provider:delete 1` (or disable the user_oidc
+  app); local login is untouched.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
