@@ -42,6 +42,11 @@ AGENT_URL = os.environ.get("DASH_AGENT_URL", "http://192.168.1.52:8097")
 AGENT_TOKEN_FILE = os.environ.get("DASH_AGENT_TOKEN_FILE", "/root/sovereign-secrets/app-control-agent-token")
 AUTHENTIK_API = os.environ.get("DASH_AUTHENTIK_API", "http://192.168.1.51:9000/api/v3")
 AUTHENTIK_TOKEN_FILE = os.environ.get("DASH_AUTHENTIK_TOKEN_FILE", "/root/sovereign-secrets/dashboard/authentik-iam-token")
+# The only proxy allowed to assert an authenticated identity via the
+# X-authentik-username header (NPM on LXC 100, which enforces the Authentik
+# forward-auth login before anything reaches this port).
+TRUSTED_PROXIES = set(os.environ.get("DASH_TRUSTED_PROXIES", "192.168.1.50").split(","))
+ADMIN_GROUPS = {"dashboard-admins", "authentik Admins"}
 AUDIT_LOG = Path(os.environ.get("DASH_AUDIT_LOG", "/root/sovereign-secrets/master-dashboard-audit.jsonl"))
 PBS_STORAGE = os.environ.get("DASH_PBS_STORAGE", "pbs-p710")
 PBS_BACKUP_ALLOW = {"100", "101", "102", "103", "110", "120", "130"}
@@ -116,44 +121,46 @@ def metrics_range(range_key: str) -> dict[str, Any]:
     return {"points": points}
 
 # Launchpad links (mirrors the Homepage layout; .internal only, no public names).
+# "slug" ties each service to its Authentik Application: grants are memberships
+# in the matching `access-<slug>` group, and per-user visibility filters on it.
 LINKS: list[dict[str, Any]] = [
     {"group": "Network", "items": [
-        {"name": "AdGuard Home", "icon": "\U0001F6E1️", "href": "https://adguard.internal", "desc": "DNS filtering and .internal rewrites", "kw": "adguard"},
-        {"name": "Headscale UI", "icon": "\U0001F511", "href": "https://headscale.internal", "desc": "VPN users, devices, routes", "kw": "headscale"},
-        {"name": "Nginx Proxy Manager", "icon": "\U0001F500", "href": "https://npm.internal", "desc": "Reverse proxy, aliases, certificates", "kw": "proxy"},
+        {"name": "AdGuard Home", "slug": "adguard", "icon": "\U0001F6E1️", "href": "https://adguard.internal", "desc": "DNS filtering and .internal rewrites", "kw": "adguard"},
+        {"name": "Headscale UI", "slug": "headscale", "icon": "\U0001F511", "href": "https://headscale.internal", "desc": "VPN users, devices, routes", "kw": "headscale"},
+        {"name": "Nginx Proxy Manager", "slug": "npm", "icon": "\U0001F500", "href": "https://npm.internal", "desc": "Reverse proxy, aliases, certificates", "kw": "proxy"},
     ]},
     {"group": "Admin", "items": [
-        {"name": "Proxmox VE", "icon": "\U0001F5A5️", "href": "https://proxmox.internal", "desc": "VMs, LXCs, storage", "kw": "proxmox ve"},
-        {"name": "Proxmox Backup Server", "icon": "\U0001F4BE", "href": "https://pbs.internal", "desc": "Datastore, verify, restore", "kw": "backup server"},
+        {"name": "Proxmox VE", "slug": "proxmox", "icon": "\U0001F5A5️", "href": "https://proxmox.internal", "desc": "VMs, LXCs, storage", "kw": "proxmox ve"},
+        {"name": "Proxmox Backup Server", "slug": "pbs", "icon": "\U0001F4BE", "href": "https://pbs.internal", "desc": "Datastore, verify, restore", "kw": "backup server"},
     ]},
     {"group": "Identity", "items": [
-        {"name": "Authentik", "icon": "\U0001FAAA", "href": "https://auth.internal", "desc": "SSO, MFA, proxy providers", "kw": "authentik"},
-        {"name": "Trust Portal", "icon": "\U0001F4DC", "href": "https://trust.internal", "desc": "Install the internal CA", "kw": "trust"},
+        {"name": "Authentik", "slug": "authentik", "icon": "\U0001FAAA", "href": "https://auth.internal", "desc": "SSO, MFA, proxy providers", "kw": "authentik"},
+        {"name": "Trust Portal", "slug": "trust-portal", "icon": "\U0001F4DC", "href": "https://trust.internal", "desc": "Install the internal CA", "kw": "trust"},
     ]},
     {"group": "Monitoring", "items": [
-        {"name": "Uptime Kuma", "icon": "\U0001F4C8", "href": "https://status.internal", "desc": "Health checks and alerting", "kw": "kuma"},
-        {"name": "Beszel", "icon": "\U0001F4CA", "href": "https://monitor.internal", "desc": "Host and container metrics", "kw": "beszel"},
-        {"name": "Dozzle", "icon": "\U0001F9FE", "href": "https://logs.internal", "desc": "Live Docker logs", "kw": "dozzle"},
-        {"name": "Homepage", "icon": "\U0001F3E0", "href": "https://homepage.internal", "desc": "Classic launchpad (rollback)", "kw": "homepage"},
-        {"name": "NetAlertX", "icon": "\U0001F4E1", "href": "https://netalert.internal", "desc": "LAN device inventory", "kw": "netalert"},
-        {"name": "Scrutiny", "icon": "\U0001F4BD", "href": "https://disks.internal", "desc": "SMART disk health", "kw": "scrutiny"},
-        {"name": "ntfy", "icon": "\U0001F514", "href": "https://alerts.internal", "desc": "Push notifications", "kw": "ntfy"},
+        {"name": "Uptime Kuma", "slug": "uptime-kuma", "icon": "\U0001F4C8", "href": "https://status.internal", "desc": "Health checks and alerting", "kw": "kuma"},
+        {"name": "Beszel", "slug": "beszel", "icon": "\U0001F4CA", "href": "https://monitor.internal", "desc": "Host and container metrics", "kw": "beszel"},
+        {"name": "Dozzle", "slug": "dozzle", "icon": "\U0001F9FE", "href": "https://logs.internal", "desc": "Live Docker logs", "kw": "dozzle"},
+        {"name": "Homepage", "slug": "homepage", "icon": "\U0001F3E0", "href": "https://homepage.internal", "desc": "Classic launchpad (rollback)", "kw": "homepage"},
+        {"name": "NetAlertX", "slug": "netalertx", "icon": "\U0001F4E1", "href": "https://netalert.internal", "desc": "LAN device inventory", "kw": "netalert"},
+        {"name": "Scrutiny", "slug": "scrutiny", "icon": "\U0001F4BD", "href": "https://disks.internal", "desc": "SMART disk health", "kw": "scrutiny"},
+        {"name": "ntfy", "slug": "ntfy", "icon": "\U0001F514", "href": "https://alerts.internal", "desc": "Push notifications", "kw": "ntfy"},
     ]},
     {"group": "Critical Data", "items": [
-        {"name": "Vaultwarden", "icon": "\U0001F510", "href": "https://pwd.internal", "desc": "Password vault", "kw": "vaultwarden"},
-        {"name": "Immich", "icon": "\U0001F4F7", "href": "https://foto.internal", "desc": "Photos - protected by PBS + dumps + mirror", "kw": "immich"},
-        {"name": "Nextcloud", "icon": "☁️", "href": "https://files.internal", "desc": "Personal cloud", "kw": "nextcloud"},
-        {"name": "Syncthing", "icon": "\U0001F501", "href": "https://sync.internal", "desc": "Peer-to-peer sync", "kw": "syncthing"},
-        {"name": "Paperless-ngx", "icon": "\U0001F4C4", "href": "https://paper.internal", "desc": "OCR document archive", "kw": "paperless"},
+        {"name": "Vaultwarden", "slug": "vaultwarden", "icon": "\U0001F510", "href": "https://pwd.internal", "desc": "Password vault", "kw": "vaultwarden"},
+        {"name": "Immich", "slug": "immich", "icon": "\U0001F4F7", "href": "https://foto.internal", "desc": "Photos - protected by PBS + dumps + mirror", "kw": "immich"},
+        {"name": "Nextcloud", "slug": "nextcloud", "icon": "☁️", "href": "https://files.internal", "desc": "Personal cloud", "kw": "nextcloud"},
+        {"name": "Syncthing", "slug": "syncthing", "icon": "\U0001F501", "href": "https://sync.internal", "desc": "Peer-to-peer sync", "kw": "syncthing"},
+        {"name": "Paperless-ngx", "slug": "paperless", "icon": "\U0001F4C4", "href": "https://paper.internal", "desc": "OCR document archive", "kw": "paperless"},
     ]},
     {"group": "Apps", "items": [
-        {"name": "Home Assistant", "icon": "\U0001F3E1", "href": "https://ha.internal", "desc": "Home automation", "kw": "home assistant"},
-        {"name": "Jellyfin", "icon": "\U0001F3AC", "href": "https://media.internal", "desc": "Media server", "kw": "jellyfin"},
-        {"name": "FreshRSS", "icon": "\U0001F4F0", "href": "https://rss.internal", "desc": "RSS reader", "kw": "freshrss"},
-        {"name": "Karakeep", "icon": "\U0001F516", "href": "https://bookmarks.internal", "desc": "Bookmarks and archive", "kw": "karakeep"},
-        {"name": "SearXNG", "icon": "\U0001F50E", "href": "https://search.internal", "desc": "Private metasearch", "kw": "searxng"},
-        {"name": "Forgejo", "icon": "\U0001F33F", "href": "https://git.internal", "desc": "Git repositories", "kw": "forgejo"},
-        {"name": "Open WebUI", "icon": "\U0001F916", "href": "https://ai.internal", "desc": "Local AI chat", "kw": "webui"},
+        {"name": "Home Assistant", "slug": "home-assistant", "icon": "\U0001F3E1", "href": "https://ha.internal", "desc": "Home automation", "kw": "home assistant"},
+        {"name": "Jellyfin", "slug": "jellyfin", "icon": "\U0001F3AC", "href": "https://media.internal", "desc": "Media server", "kw": "jellyfin"},
+        {"name": "FreshRSS", "slug": "freshrss", "icon": "\U0001F4F0", "href": "https://rss.internal", "desc": "RSS reader", "kw": "freshrss"},
+        {"name": "Karakeep", "slug": "karakeep", "icon": "\U0001F516", "href": "https://bookmarks.internal", "desc": "Bookmarks and archive", "kw": "karakeep"},
+        {"name": "SearXNG", "slug": "searxng", "icon": "\U0001F50E", "href": "https://search.internal", "desc": "Private metasearch", "kw": "searxng"},
+        {"name": "Forgejo", "slug": "forgejo", "icon": "\U0001F33F", "href": "https://git.internal", "desc": "Git repositories", "kw": "forgejo"},
+        {"name": "Open WebUI", "slug": "open-webui", "icon": "\U0001F916", "href": "https://ai.internal", "desc": "Local AI chat", "kw": "webui"},
     ]},
 ]
 
@@ -420,6 +427,34 @@ def overview(force: bool = False) -> dict[str, Any]:
     return data
 
 
+def overview_for(w: dict[str, Any]) -> dict[str, Any]:
+    """Shape the overview payload by role: admins get everything; normal users
+    get only their granted services plus an overall up/down summary — no host
+    internals, no backup state, no audit, no jobs."""
+    data = overview()
+    data["me"] = {"username": w["username"], "is_admin": w["is_admin"],
+                  "apps": sorted(w["apps"]) if w["apps"] is not None else None,
+                  "via": w["via"]}
+    if w["is_admin"]:
+        return data
+    slugs = w["apps"] or set()
+    links = []
+    for g in data["links"]:
+        items = [it for it in g["items"] if it.get("slug") in slugs]
+        if items:
+            links.append({"group": g["group"], "items": items})
+    kws = {it["kw"] for g in links for it in g["items"]}
+    mons = [m for m in data["kuma"].get("monitors", [])
+            if any(k in m["name"].lower() for k in kws)]
+    return {"generated": data["generated"], "me": data["me"], "links": links,
+            "kuma": {"active": len(mons), "down": sum(1 for m in mons if not m["up"]),
+                     "monitors": mons},
+            "sample_every": data["sample_every"],
+            "guests": [], "storages": [], "disks": [], "audit": [], "apps": [],
+            "guest_power": {}, "pbs": {}, "immich": {"immich_ping": True, "mirror": {}},
+            "cpu_hist": [], "mem_hist": [], "jobs": {}, "retention": ""}
+
+
 # ------------------------------------------------------------ IAM console
 # Thin read/write layer over Authentik's own API (the real IAM/LDAP backend).
 # svc-dashboard-iam only has: view/add user, view/change group, view app,
@@ -427,35 +462,127 @@ def overview(force: bool = False) -> dict[str, Any]:
 # an existing account, never delete.
 
 BREAK_GLASS_USERS = {"akadmin", "mohamed", "svc-ldap", "svc-dashboard-iam"}
+HIDDEN_USER_PREFIXES = ("ak-outpost-",)
+
+# Cached authorization snapshot from Authentik (users, groups, app bindings).
+# Serves both the RBAC checks on every request and the IAM console. On fetch
+# failure the last good snapshot is served (Authentik being down also blocks
+# NPM's forward-auth, so no new SSO request can arrive without it anyway).
+_authz_cache: dict[str, Any] = {"ts": 0.0, "snap": None}
+_authz_lock = threading.Lock()
+
+
+def _authz_fetch() -> dict[str, Any] | None:
+    # NOTE: deliberately no /core/applications/ list call — Authentik policy-
+    # filters that list per requesting user, so the scoped service account
+    # would see nothing once every app is bound to its access group. The app
+    # catalog is LINKS (the dashboard owns it) and a grant is simply
+    # membership in the matching `access-<slug>` group.
+    ok_u, users = ak_api("/core/users/?page_size=200&ordering=username")
+    ok_g, groups = ak_api("/core/groups/?page_size=200&ordering=name&include_users=true")
+    if not (ok_u and ok_g):
+        return None
+    ulist, glist = users.get("results", []), groups.get("results", [])
+    user_by_pk = {u["pk"]: u["username"] for u in ulist}
+    group_members = {g["name"]: {user_by_pk[pk] for pk in (g.get("users") or []) if pk in user_by_pk}
+                     for g in glist}
+    group_pk_by_name = {g["name"]: g["pk"] for g in glist}
+    user_groups = {u["username"]: {g["name"] for g in (u.get("groups_obj") or [])} for u in ulist}
+    users_info = {u["username"]: {"pk": u["pk"], "name": u.get("name", ""), "email": u.get("email", ""),
+                                   "is_active": u.get("is_active", True), "type": u.get("type", "")}
+                  for u in ulist}
+    catalog = [{"name": it["name"], "slug": it["slug"], "url": it["href"]}
+               for g in LINKS for it in g["items"]]
+    return {"users": users_info, "user_groups": user_groups,
+            "group_members": group_members, "group_pks": group_pk_by_name,
+            "apps": catalog}
+
+
+def authz_snapshot(force: bool = False) -> dict[str, Any] | None:
+    now = time.time()
+    with _authz_lock:
+        if not force and _authz_cache["snap"] is not None and now - _authz_cache["ts"] < 60:
+            return _authz_cache["snap"]
+    snap = _authz_fetch()
+    with _authz_lock:
+        if snap is not None:
+            _authz_cache["ts"], _authz_cache["snap"] = now, snap
+        return _authz_cache["snap"]
+
+
+def authz_invalidate() -> None:
+    with _authz_lock:
+        _authz_cache["ts"] = 0.0
+
+
+def user_app_slugs(username: str, snap: dict[str, Any]) -> set[str]:
+    ug = snap["user_groups"].get(username, set())
+    return {g[len("access-"):] for g in ug if g.startswith("access-")}
+
+
+def who(handler: Any) -> dict[str, Any] | None:
+    """Resolve the authenticated identity of a request, or None.
+
+    Identity is only ever accepted from (a) localhost — break-glass admin so
+    the host root can always reach the API even with Authentik down — or
+    (b) the trusted NPM proxy, which performs the Authentik forward-auth login
+    before any request reaches this port and asserts X-authentik-username.
+    Roles/grants come from the Authentik snapshot, never from client headers.
+    """
+    ip = handler.client_address[0]
+    if ip in {"127.0.0.1", "::1"}:
+        return {"username": "root-console", "is_admin": True, "apps": None, "via": "console"}
+    if ip in TRUSTED_PROXIES:
+        u = (handler.headers.get("X-authentik-username") or "").strip()[:150]
+        if u:
+            snap = authz_snapshot()
+            if snap is None:
+                return {"username": u, "is_admin": False, "apps": set(), "via": "sso"}
+            if ADMIN_GROUPS & snap["user_groups"].get(u, set()):
+                return {"username": u, "is_admin": True, "apps": None, "via": "sso"}
+            return {"username": u, "is_admin": False, "apps": user_app_slugs(u, snap), "via": "sso"}
+    return None
 
 
 def iam_data() -> dict[str, Any]:
-    ok_u, users = ak_api("/core/users/?page_size=200&ordering=username")
-    ok_g, groups = ak_api("/core/groups/?page_size=200&ordering=name")
-    ok_a, apps = ak_api("/core/applications/?page_size=200&ordering=name")
-    ok_b, bindings = ak_api("/policies/bindings/?page_size=200")
-    if not (ok_u and ok_g and ok_a and ok_b):
+    snap = authz_snapshot(force=True)
+    if snap is None:
         return {"error": True, "users": [], "groups": [], "apps": []}
-    group_by_pk = {g["pk"]: g["name"] for g in groups.get("results", [])}
-    app_access: dict[str, list[str]] = {}
-    for b in bindings.get("results", []):
-        if b.get("target_type") != "application" or not b.get("group") or not b.get("enabled"):
+    users = []
+    for uname in sorted(snap["users"]):
+        if uname.startswith(HIDDEN_USER_PREFIXES):
             continue
-        app_access.setdefault(b["target"], []).append(group_by_pk.get(b["group"], b["group"]))
-    return {
-        "users": [
-            {"username": u["username"], "name": u.get("name", ""), "email": u.get("email", ""),
-             "is_active": u.get("is_active", True), "groups": u.get("groups_obj") and
-             [g["name"] for g in u["groups_obj"]] or [],
-             "protected": u["username"] in BREAK_GLASS_USERS}
-            for u in users.get("results", [])
-        ],
-        "groups": [g["name"] for g in groups.get("results", [])],
-        "apps": [
-            {"name": a["name"], "slug": a["slug"], "access": app_access.get(a["pk"], [])}
-            for a in apps.get("results", [])
-        ],
-    }
+        info = snap["users"][uname]
+        groups = sorted(snap["user_groups"].get(uname, set()))
+        users.append({"username": uname, "name": info["name"], "email": info["email"],
+                      "is_active": info["is_active"], "groups": groups,
+                      "is_admin": bool(ADMIN_GROUPS & set(groups)),
+                      "apps": sorted(user_app_slugs(uname, snap)),
+                      "protected": uname in BREAK_GLASS_USERS})
+    apps = [{"name": a["name"], "slug": a["slug"],
+             "users": sorted(snap["group_members"].get(f"access-{a['slug']}", set()))}
+            for a in snap["apps"] if a["slug"] != "sovereign-dashboard"]
+    return {"users": users, "groups": sorted(snap["group_members"]), "apps": apps}
+
+
+def iam_self(username: str) -> dict[str, Any]:
+    snap = authz_snapshot()
+    if snap is None:
+        return {"self": True, "error": True, "username": username, "apps": [], "all_apps": []}
+    info = snap["users"].get(username, {})
+    return {"self": True, "username": username, "name": info.get("name", ""),
+            "email": info.get("email", ""),
+            "groups": sorted(snap["user_groups"].get(username, set())),
+            "apps": sorted(user_app_slugs(username, snap)),
+            "all_apps": [{"name": a["name"], "slug": a["slug"]}
+                          for a in snap["apps"] if a["slug"] != "sovereign-dashboard"]}
+
+
+def _find_user_pk(username: str) -> int | None:
+    ok, res = ak_api(f"/core/users/?username={urllib.parse.quote(username)}")
+    if ok and res.get("results"):
+        return res["results"][0]["pk"]
+    return None
 
 
 def do_iam_create_user(username: str, name: str, email: str, password: str,
@@ -503,8 +630,104 @@ def do_iam_grant_access(username: str, app_slug: str, actor: str, reason: str) -
     ok_add, _ = ak_api(f"/core/groups/{group_pk}/add_user/", "POST", {"pk": user_pk})
     if not ok_add:
         return False, "impossibile aggiungere l'utente al gruppo di accesso"
+    authz_invalidate()
     print(f"[iam] {actor} ha concesso a '{username}' accesso a '{app_slug}': {reason}")
     return True, f"'{username}' ora ha accesso a '{a.get('name', app_slug)}' (stessa password LDAP)"
+
+
+def do_iam_revoke_access(username: str, app_slug: str, actor: str) -> tuple[bool, str]:
+    snap = authz_snapshot(force=True)
+    if snap is None:
+        return False, "Authentik non raggiungibile"
+    group_name = f"access-{app_slug}"
+    group_pk = snap["group_pks"].get(group_name)
+    user_pk = snap["users"].get(username, {}).get("pk")
+    if group_pk is None or user_pk is None:
+        return False, "utente o gruppo di accesso non trovato"
+    ok, res = ak_api(f"/core/groups/{group_pk}/remove_user/", "POST", {"pk": user_pk})
+    if not ok:
+        return False, f"revoca fallita: {res}"
+    authz_invalidate()
+    return True, f"accesso a '{app_slug}' revocato per '{username}'"
+
+
+def do_iam_delete_user(username: str, actor: str) -> tuple[bool, str]:
+    if username in BREAK_GLASS_USERS or username.startswith(HIDDEN_USER_PREFIXES):
+        return False, "account protetto: non eliminabile dalla dashboard"
+    pk = _find_user_pk(username)
+    if pk is None:
+        return False, "utente non trovato"
+    ok, res = ak_api(f"/core/users/{pk}/", "DELETE")
+    if not ok:
+        return False, f"eliminazione fallita: {res}"
+    authz_invalidate()
+    return True, f"utenza '{username}' eliminata definitivamente"
+
+
+def do_iam_set_active(username: str, active: bool, actor: str) -> tuple[bool, str]:
+    if username in BREAK_GLASS_USERS or username.startswith(HIDDEN_USER_PREFIXES):
+        return False, "account protetto: non modificabile dalla dashboard"
+    pk = _find_user_pk(username)
+    if pk is None:
+        return False, "utente non trovato"
+    ok, res = ak_api(f"/core/users/{pk}/", "PATCH", {"is_active": bool(active)})
+    if not ok:
+        return False, f"modifica fallita: {res}"
+    authz_invalidate()
+    return True, f"utenza '{username}' {'riattivata' if active else 'disattivata'}"
+
+
+def do_iam_reset_password(username: str, password: str, actor: str) -> tuple[bool, str]:
+    if username in BREAK_GLASS_USERS or username.startswith(HIDDEN_USER_PREFIXES):
+        return False, "account protetto: reset non permesso da qui"
+    if len(password) < 8:
+        return False, "password troppo corta (min 8 caratteri)"
+    pk = _find_user_pk(username)
+    if pk is None:
+        return False, "utente non trovato"
+    ok, res = ak_api(f"/core/users/{pk}/set_password/", "POST", {"password": password})
+    if not ok:
+        return False, f"reset fallito: {res}"
+    return True, f"password di '{username}' aggiornata (vale subito anche su LDAP)"
+
+
+def do_iam_set_admin(username: str, admin: bool, actor: str) -> tuple[bool, str]:
+    if username in BREAK_GLASS_USERS or username.startswith(HIDDEN_USER_PREFIXES):
+        return False, "account protetto: il suo ruolo non si tocca da qui"
+    snap = authz_snapshot(force=True)
+    if snap is None:
+        return False, "Authentik non raggiungibile"
+    group_pk = snap["group_pks"].get("dashboard-admins")
+    user_pk = snap["users"].get(username, {}).get("pk")
+    if group_pk is None or user_pk is None:
+        return False, "utente o gruppo dashboard-admins non trovato"
+    verb = "add_user" if admin else "remove_user"
+    ok, res = ak_api(f"/core/groups/{group_pk}/{verb}/", "POST", {"pk": user_pk})
+    if not ok:
+        return False, f"modifica ruolo fallita: {res}"
+    authz_invalidate()
+    return True, f"'{username}' ora {'È' if admin else 'NON è più'} amministratore della dashboard"
+
+
+def do_iam_change_my_password(username: str, password: str) -> tuple[bool, str]:
+    if len(password) < 8:
+        return False, "password troppo corta (min 8 caratteri)"
+    pk = _find_user_pk(username)
+    if pk is None:
+        return False, "utente non trovato"
+    ok, res = ak_api(f"/core/users/{pk}/set_password/", "POST", {"password": password})
+    if not ok:
+        return False, f"cambio password fallito: {res}"
+    return True, "password aggiornata: vale subito per la dashboard e per tutti i servizi collegati"
+
+
+def do_iam_request_access(username: str, app_slug: str, message: str) -> tuple[bool, str]:
+    app = app_slug.strip()[:60] or "(nessuna app specifica)"
+    msg = message.strip()[:800] or "(nessun messaggio)"
+    notify_email(f"🔑 Richiesta accesso da {username}",
+                  f"Utente: {username}\nApp richiesta: {app}\nMessaggio:\n{msg}\n\n"
+                  f"Per concedere: dashboard → IAM → Concedi accesso.", "#7c3aed")
+    return True, "richiesta inviata all'amministratore via email"
 
 
 # ---------------------------------------------------------------- actions
@@ -1104,6 +1327,15 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 #hero{margin:2px 0 20px}
 /* monogram icon fallback (instead of emoji) */
 .mono{width:100%;height:100%;display:grid;place-items:center;border-radius:inherit;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:.02em}
+/* role gating: normal users see only the hero on Overview (no host internals) */
+body.role-user #p-overview>h2,body.role-user #p-overview .tiles,body.role-user #p-overview .charts,
+body.role-user #p-overview .donuts,body.role-user #p-overview #disks,body.role-user #p-overview .guests,
+body.role-user .bento.hero .hstats{display:none}
+/* small icon buttons on IAM rows */
+.ibt{width:26px;height:26px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);
+ color:var(--ink);cursor:pointer;font-size:.8rem;display:inline-grid;place-items:center;transition:all .15s ease}
+.ibt:hover{border-color:var(--accent);transform:translateY(-1px)}
+.ibt.danger:hover{border-color:var(--led-bad);color:var(--led-bad)}
 /* audit list */
 #audit{grid-column:1/-1}
 #audit .arow{display:flex;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px dashed var(--line);font-size:.8rem}
@@ -1155,6 +1387,8 @@ footer a:hover{text-decoration:underline}
  <div class="hright">
   <span id="clock"></span>
   <span class="pill" id="statuspill"><span class="led nn"></span><span id="statustxt">loading&hellip;</span></span>
+  <span class="pill" id="userpill" style="display:none">👤 <b id="username"></b></span>
+  <button class="iconbtn" id="logoutbtn" title="Esci" aria-label="Logout" style="display:none">🚪</button>
   <button class="iconbtn" id="themebtn" title="Tema chiaro/scuro" aria-label="Toggle theme">&#127769;</button>
  </div>
 </header>
@@ -1215,13 +1449,13 @@ footer a:hover{text-decoration:underline}
 
 <section class="page" id="p-iam" style="--sec:#2dd4a7">
  <h2 style="--sec:#2dd4a7">Utenze (LDAP / Authentik) &mdash; una password ovunque</h2>
- <p class="note">Crea un'utenza o concedi l'accesso a un'app da qui: con LDAP la stessa password vale su tutti i servizi collegati. <b>akadmin, mohamed, svc-ldap</b> non si toccano da qui.</p>
+ <p class="note" id="iam-note">Con LDAP/SSO la stessa password vale su tutti i servizi collegati.</p>
  <div class="grid" style="grid-template-columns:1fr">
-  <div class="card" style="--sec:#2dd4a7"><div class="top"><span class="name">👤 Utenze</span>
+  <div class="card" style="--sec:#2dd4a7"><div class="top" id="iam-admin-head"><span class="name">👤 Utenze</span>
     <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="iamCreateUser()">➕ Nuova utenza</button></div>
    <div class="rows" id="iam-users">caricamento…</div></div>
  </div>
- <h2 style="--sec:#a78bfa">App &amp; accessi</h2>
+ <h2 style="--sec:#a78bfa" id="iam-apps-h">App &amp; accessi</h2>
  <div class="grid" id="iam-apps"></div>
 </section>
 
@@ -1369,20 +1603,53 @@ function heroInfo(){
    :`<div style="margin-top:10px;color:var(--led-good);font-weight:700">✅ Tutti i monitor sono su</div>`));
 }
 let IAM=null;
+async function iamPost(body,okCb){
+ const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+ let d;try{d=await r.json();}catch(e){location.reload();return;}
+ t(d.detail);if(d.ok){closeModal();if(okCb)okCb();}
+}
 async function loadIam(){
  try{IAM=await(await fetch('api/iam')).json();}catch(e){IAM=null;}
  if(!IAM||IAM.error){$('iam-users').innerHTML='<span style="color:var(--led-bad)">Authentik non raggiungibile</span>';$('iam-apps').innerHTML='';return;}
+ if(IAM.self){renderIamSelf();return;}
+ $('iam-admin-head').style.display='';
+ const ub=u=>{
+  if(u.protected)return `<span style="margin-left:auto;color:var(--muted)" title="account di base: non modificabile da qui">🔒</span>`;
+  const esc=u.username.replace(/'/g,"\\'");
+  return `<span style="margin-left:auto;display:flex;gap:5px">
+   <button class="ibt" title="Reset password" onclick="iamResetPw('${esc}')">🔑</button>
+   <button class="ibt" title="${u.is_admin?'Togli ruolo admin':'Rendi admin'}" onclick="iamToggleAdmin('${esc}',${!u.is_admin})">${u.is_admin?'👑':'☆'}</button>
+   <button class="ibt" title="${u.is_active?'Disattiva':'Riattiva'}" onclick="iamToggleActive('${esc}',${!u.is_active})">${u.is_active?'⏻':'▶'}</button>
+   <button class="ibt danger" title="Elimina utenza" onclick="iamDeleteUser('${esc}')">🗑</button></span>`;
+ };
  $('iam-users').innerHTML=IAM.users.map(u=>
    `<div class="arow"><span class="abadge" style="background:color-mix(in srgb,${u.is_active?'var(--led-good)':'var(--led-bad)'} 15%,transparent);color:${u.is_active?'var(--led-good)':'var(--led-bad)'}">${u.is_active?'attivo':'disattivo'}</span>
-    <b>${u.username}</b><span style="color:var(--muted)">${u.name||''}${u.email?' · '+u.email:''}</span>
-    <span style="color:var(--muted);font-style:italic">${(u.groups||[]).join(', ')}</span>
-    ${u.protected?'<span style="margin-left:auto;color:var(--muted)" title="account di base, non modificabile da qui">🔒</span>':''}</div>`
+    <b>${u.username}</b>${u.is_admin?'<span title="amministratore">👑</span>':''}
+    <span style="color:var(--muted)">${u.name||''}${u.email?' · '+u.email:''}</span>
+    <span style="color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:30ch">${(u.apps||[]).join(', ')}</span>
+    ${ub(u)}</div>`
  ).join('')||'<div style="color:var(--muted)">nessuna utenza</div>';
- $('iam-apps').innerHTML=IAM.apps.map(a=>
-   `<div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">${a.name}</span></div>
-    <div class="rows">Accesso: ${a.access.length?a.access.join(', '):'<i>nessun gruppo assegnato</i>'}</div>
-    <button class="btn act" onclick="iamGrantAccess('${a.slug}','${a.name.replace(/'/g,"\\'")}')">+ Concedi accesso</button></div>`
- ).join('');
+ $('iam-apps').innerHTML=IAM.apps.map(a=>{
+  const esc=a.slug, escName=a.name.replace(/'/g,"\\'");
+  const members=(a.users||[]).map(u=>`<span class="hchip" style="font-size:.7rem;padding:3px 8px">${u}
+    <button class="ibt" style="width:16px;height:16px;font-size:.6rem" title="Revoca" onclick="iamRevoke('${u.replace(/'/g,"\\'")}','${esc}')">✕</button></span>`).join(' ');
+  return `<div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">${a.name}</span></div>
+    <div class="rows">Chi ha accesso: ${members||'<i>nessuno</i>'}</div>
+    <button class="btn act" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
+ }).join('');
+}
+function renderIamSelf(){
+ $('iam-admin-head').style.display='none';
+ $('iam-users').innerHTML=
+  `<div style="font-size:.9rem;line-height:2">
+    <b style="font-size:1.05rem">👤 ${IAM.username}</b> ${IAM.name?'· '+IAM.name:''} ${IAM.email?'· '+IAM.email:''}<br>
+    Le tue app: ${(IAM.apps||[]).length?IAM.apps.join(', '):'<i>nessuna ancora — chiedi un accesso qui sotto</i>'}
+   </div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+    <button class="btn act" style="width:auto;padding:9px 16px" onclick="iamMyPassword()">🔑 Cambia la mia password</button>
+    <button class="btn act" style="width:auto;padding:9px 16px" onclick="iamAskAccess()">✉️ Chiedi accesso / assistenza</button>
+   </div>`;
+ $('iam-apps').innerHTML='';
 }
 function iamCreateUser(){
  openModal('➕','Nuova utenza',
@@ -1391,23 +1658,69 @@ function iamCreateUser(){
    <div class="mrow"><label style="width:100%">Email<br><input id="f-email" type="email" style="width:100%;margin-top:4px"></label></div>
    <div class="mrow"><label style="width:100%">Password (min 8 caratteri, usata ovunque via LDAP)<br><input id="f-password" type="password" style="width:100%;margin-top:4px"></label></div>
    <button class="btn act" id="iam-go">Crea utenza</button>`);
- $('iam-go').onclick=async()=>{
-  const body={op:'iam-create-user',actor:localStorage.getItem('sov-actor')||'dashboard',reason:'creazione da console IAM',
-   username:$('f-username').value.trim(),name:$('f-name').value.trim(),email:$('f-email').value.trim(),password:$('f-password').value};
-  const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await r.json();t(d.detail);if(d.ok){closeModal();loadIam();}
- };
+ $('iam-go').onclick=()=>iamPost({op:'iam-create-user',reason:'creazione da console IAM',
+  username:$('f-username').value.trim(),name:$('f-name').value.trim(),email:$('f-email').value.trim(),password:$('f-password').value},loadIam);
 }
 function iamGrantAccess(slug,appName){
  openModal('🔑','Concedi accesso a '+appName,
   `<div class="mrow"><label style="width:100%">Username esistente<br><input id="f-grantuser" style="width:100%;margin-top:4px" placeholder="es. giulia"></label></div>
    <button class="btn act" id="iam-grant-go">Concedi accesso</button>`);
- $('iam-grant-go').onclick=async()=>{
-  const body={op:'iam-grant-access',actor:localStorage.getItem('sov-actor')||'dashboard',reason:'accesso concesso da console IAM',
-   username:$('f-grantuser').value.trim(),app_slug:slug};
-  const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  const d=await r.json();t(d.detail);if(d.ok){closeModal();loadIam();}
+ $('iam-grant-go').onclick=()=>iamPost({op:'iam-grant-access',reason:'accesso concesso da console IAM',
+  username:$('f-grantuser').value.trim(),app_slug:slug},loadIam);
+}
+function iamRevoke(user,slug){
+ openModal('🚫','Revoca accesso',
+  `<p>Togliere a <b>${user}</b> l'accesso a <b>${slug}</b>?</p>
+   <button class="btn stop" id="iam-rv-go">Revoca</button>`);
+ $('iam-rv-go').onclick=()=>iamPost({op:'iam-revoke-access',reason:'revoca da console IAM',username:user,app_slug:slug},loadIam);
+}
+function iamResetPw(user){
+ openModal('🔑','Reset password · '+user,
+  `<div class="mrow"><label style="width:100%">Nuova password (min 8 caratteri)<br><input id="f-newpw" type="password" style="width:100%;margin-top:4px"></label></div>
+   <button class="btn act" id="iam-pw-go">Imposta password</button>`);
+ $('iam-pw-go').onclick=()=>iamPost({op:'iam-reset-password',reason:'reset password da console IAM',username:user,password:$('f-newpw').value},loadIam);
+}
+function iamToggleAdmin(user,makeAdmin){
+ openModal(makeAdmin?'👑':'☆',(makeAdmin?'Rendere amministratore ':'Togliere il ruolo admin a ')+user+'?',
+  `<p style="color:var(--muted)">${makeAdmin?'Vedrà e potrà fare TUTTO sulla dashboard.':'Tornerà a vedere solo i propri servizi.'}</p>
+   <button class="btn act" id="iam-adm-go">Conferma</button>`);
+ $('iam-adm-go').onclick=()=>iamPost({op:'iam-set-admin',reason:'cambio ruolo da console IAM',username:user,admin:makeAdmin},loadIam);
+}
+function iamToggleActive(user,makeActive){
+ openModal(makeActive?'▶':'⏻',(makeActive?'Riattivare ':'Disattivare ')+user+'?',
+  `<p style="color:var(--muted)">${makeActive?'Potrà di nuovo accedere ovunque.':'Non potrà più accedere a nessun servizio (reversibile).'}</p>
+   <button class="btn ${makeActive?'act':'stop'}" id="iam-act-go">Conferma</button>`);
+ $('iam-act-go').onclick=()=>iamPost({op:'iam-set-active',reason:'cambio stato da console IAM',username:user,active:makeActive},loadIam);
+}
+function iamDeleteUser(user){
+ openModal('🗑','Elimina utenza · '+user,
+  `<p style="color:var(--led-bad);font-weight:700">Eliminazione DEFINITIVA.</p>
+   <p style="color:var(--muted)">Scrivi <b>${user}</b> per confermare:</p>
+   <input id="f-delconf" style="width:100%" placeholder="${user}">
+   <button class="btn stop" id="iam-del-go">Elimina per sempre</button>`);
+ $('iam-del-go').onclick=()=>{
+  if($('f-delconf').value.trim()!==user){t('Conferma non corrispondente');return;}
+  iamPost({op:'iam-delete-user',reason:'eliminazione da console IAM',username:user},loadIam);
  };
+}
+function iamMyPassword(){
+ openModal('🔑','Cambia la mia password',
+  `<div class="mrow"><label style="width:100%">Nuova password (min 8 caratteri, varrà ovunque)<br><input id="f-mypw" type="password" style="width:100%;margin-top:4px"></label></div>
+   <div class="mrow"><label style="width:100%">Ripeti password<br><input id="f-mypw2" type="password" style="width:100%;margin-top:4px"></label></div>
+   <button class="btn act" id="iam-mypw-go">Cambia password</button>`);
+ $('iam-mypw-go').onclick=()=>{
+  if($('f-mypw').value!==$('f-mypw2').value){t('Le password non coincidono');return;}
+  iamPost({op:'iam-change-my-password',reason:'cambio password personale',password:$('f-mypw').value},loadIam);
+ };
+}
+function iamAskAccess(){
+ const opts=(IAM.all_apps||[]).map(a=>`<option value="${a.slug}">${a.name}</option>`).join('');
+ openModal('✉️','Chiedi accesso / assistenza',
+  `<div class="mrow"><label style="width:100%">App (opzionale)<br><select id="f-reqapp" style="width:100%;margin-top:4px"><option value="">— nessuna app specifica —</option>${opts}</select></label></div>
+   <div class="mrow"><label style="width:100%">Messaggio per l'amministratore<br><textarea id="f-reqmsg" style="width:100%;margin-top:4px" rows="3" placeholder="es. mi serve accesso alle foto"></textarea></label></div>
+   <button class="btn act" id="iam-req-go">Invia richiesta</button>`);
+ $('iam-req-go').onclick=()=>iamPost({op:'iam-request-access',reason:'richiesta via console IAM',
+  app_slug:$('f-reqapp').value,message:$('f-reqmsg').value},null);
 }
 function wireSearch(inputId,itemSel,nameSel){
  const inp=$(inputId);if(!inp)return;
@@ -1610,35 +1923,55 @@ function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('of
 $('orb').onclick=openAsst;
 $('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb');};
 setTimeout(()=>{if(!asst.classList.contains('off'))openAsst();},2500);
+function applyRole(){
+ const me=D&&D.me;if(!me)return;
+ const adm=!!me.is_admin;
+ document.body.classList.toggle('role-user',!adm);
+ document.querySelectorAll('.tab').forEach(b=>{
+  const p=b.dataset.p;
+  b.style.display=(adm||p==='overview'||p==='services'||p==='iam')?'':'none';
+ });
+ if(me.via==='sso'){
+  $('userpill').style.display='';$('username').textContent=me.username;
+  $('logoutbtn').style.display='';
+  $('logoutbtn').onclick=()=>{location.href='/outpost.goauthentik.io/sign_out';};
+ }
+ $('iam-note').textContent=adm
+  ?'Crea utenze, assegna/revoca accessi e ruoli: con LDAP/SSO la stessa password vale su tutti i servizi collegati. Gli account di base sono protetti (🔒).'
+  :'Qui gestisci il tuo profilo: cambi la password (vale ovunque) o chiedi un accesso all\'amministratore.';
+ $('iam-apps-h').style.display=adm?'':'none';
+}
 async function load(){
- try{D=await(await fetch('api/overview')).json();render();}
- catch(e){$('statustxt').textContent='backend non raggiungibile';}
+ try{
+  const r=await fetch('api/overview');
+  if(r.redirected||!(r.headers.get('content-type')||'').includes('json')){location.reload();return;}
+  if(r.status===401){location.reload();return;}
+  D=await r.json();applyRole();render();
+ }catch(e){$('statustxt').textContent='backend non raggiungibile';}
 }
 /* ---------- beautiful action modal (replaces ugly prompt/confirm) ---------- */
 function act(op,arg,btn,confirmMsg){
  const danger=/stop|spegn/i.test(btn.textContent)||/Spegnere/.test(confirmMsg||'');
  const title=btn.textContent.replace(/^[⏹▶⚡🛑\s]+/,'').trim()||'Conferma azione';
- const saved=localStorage.getItem('sov-actor')||'';
+ const meName=(D&&D.me&&D.me.username)||'';
  openModal(danger?'🛑':'⚡',title,
   `${confirmMsg?`<div style="padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:.82rem;line-height:1.5;
      background:color-mix(in srgb,${danger?'var(--led-bad)':'var(--led-warn)'} 12%,transparent);
      border:1px solid color-mix(in srgb,${danger?'var(--led-bad)':'var(--led-warn)'} 35%,transparent)">${confirmMsg}</div>`:''}
-   <label style="display:block;font-size:.72rem;color:var(--muted);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.06em">Chi sei</label>
-   <input id="f-actor" value="${saved}" placeholder="es. sole" style="width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:.9rem">
+   <div style="font-size:.78rem;color:var(--muted);margin:2px 0 8px">Firmato come <b style="color:var(--ink)">👤 ${meName}</b></div>
    <label style="display:block;font-size:.72rem;color:var(--muted);margin:12px 0 4px;text-transform:uppercase;letter-spacing:.06em">Motivo</label>
    <textarea id="f-reason" rows="2" placeholder="perché lo stai facendo…" style="width:100%;padding:11px 13px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:.9rem;resize:vertical"></textarea>
    <div style="display:flex;gap:10px;margin-top:16px">
      <button class="btn" style="flex:1" onclick="closeModal()">Annulla</button>
      <button class="btn ${danger?'stop':'act'}" style="flex:2" id="f-go">${danger?'🛑 Conferma':'⚡ Esegui'}</button>
    </div>`);
- setTimeout(()=>$('f-actor').focus(),150);
+ setTimeout(()=>$('f-reason').focus(),150);
  $('f-go').onclick=async()=>{
-  const who=$('f-actor').value.trim(),reason=$('f-reason').value.trim();
-  if(!who){$('f-actor').style.borderColor='var(--led-bad)';return;}
+  const reason=$('f-reason').value.trim();
   if(!reason){$('f-reason').style.borderColor='var(--led-bad)';return;}
-  localStorage.setItem('sov-actor',who);closeModal();
+  closeModal();
   btn.disabled=true;const old=btn.textContent;btn.textContent='⏳ In corso…';
-  const body={op,actor:who,reason};
+  const body={op,reason};
   if(op==='app'){body.service=arg.service;body.action=arg.action;}
   if(op==='pbs-backup'){body.vmid=arg;}
   if(op==='guest-power'){body.vmid=arg.vmid;body.action=arg.action;}
@@ -1652,6 +1985,22 @@ load();setInterval(load,15000);
 </script></body></html>""".replace("__PBS__", PBS_STORAGE)
 
 
+LOGIN_REDIRECT_PAGE = (
+    "<!doctype html><html lang=it><meta charset=utf-8>"
+    "<meta http-equiv=refresh content='3;url=https://dash.internal/'>"
+    "<title>Sovereign Dashboard</title>"
+    "<body style='font-family:system-ui;background:#06080b;color:#e5e7eb;display:grid;"
+    "place-items:center;height:100vh;margin:0'><div style='text-align:center'>"
+    "<div style='font-size:2.4rem'>🔐</div><h2>Accesso richiesto</h2>"
+    "<p>Entra dalla porta principale:<br>"
+    "<a href='https://dash.internal' style='color:#22d3ee;font-weight:700'>https://dash.internal</a></p>"
+    "</div></body></html>"
+)
+
+# Ops a non-admin user may invoke; everything else requires the admin role.
+SELF_OPS = {"iam-change-my-password", "iam-request-access"}
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send(self, code: int, body: bytes, ctype: str) -> None:
         self.send_response(code)
@@ -1661,21 +2010,34 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_GET(self) -> None:
-        if self.path in {"/", "/index.html"}:
-            self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
-        elif self.path == "/health":
+        if self.path == "/health":
             self._send(200, b'{"status":"ok"}', "application/json")
-        elif self.path == "/api/overview":
+            return
+        w = who(self)
+        if self.path in {"/", "/index.html"}:
+            if w is None:
+                self._send(200, LOGIN_REDIRECT_PAGE.encode("utf-8"), "text/html; charset=utf-8")
+            else:
+                self._send(200, PAGE.encode("utf-8"), "text/html; charset=utf-8")
+            return
+        if w is None:
+            self._send(401, b'{"error":"non autenticato"}', "application/json")
+            return
+        if self.path == "/api/overview":
             try:
-                self._send(200, json.dumps(overview()).encode("utf-8"), "application/json")
+                self._send(200, json.dumps(overview_for(w)).encode("utf-8"), "application/json")
             except Exception as exc:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
         elif self.path == "/api/iam":
             try:
-                self._send(200, json.dumps(iam_data()).encode("utf-8"), "application/json")
+                payload = iam_data() if w["is_admin"] else iam_self(w["username"])
+                self._send(200, json.dumps(payload).encode("utf-8"), "application/json")
             except Exception as exc:  # noqa: BLE001
                 self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
         elif self.path.startswith("/api/metrics"):
+            if not w["is_admin"]:
+                self._send(403, b'{"error":"solo amministratori"}', "application/json")
+                return
             qs = urllib.parse.urlparse(self.path).query
             range_key = urllib.parse.parse_qs(qs).get("range", ["20m"])[0]
             if range_key not in {"20m", "2h", "2d", "7d"}:
@@ -1691,6 +2053,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path != "/api/action":
             self._send(404, b'{"error":"not found"}', "application/json")
             return
+        w = who(self)
+        if w is None:
+            self._send(401, b'{"error":"non autenticato"}', "application/json")
+            return
         length = int(self.headers.get("Content-Length", "0"))
         if length < 1 or length > MAX_BODY:
             self._send(413, b'{"error":"bad body"}', "application/json")
@@ -1701,8 +2067,17 @@ class Handler(BaseHTTPRequestHandler):
             self._send(400, b'{"error":"invalid json"}', "application/json")
             return
         op = str(p.get("op", ""))
-        actor = str(p.get("actor", "unknown"))[:120]
+        # The actor is ALWAYS the authenticated identity; whatever the client
+        # sends is ignored so the audit log cannot be spoofed.
+        actor = w["username"]
         reason = str(p.get("reason", ""))[:300]
+        if op not in SELF_OPS and not w["is_admin"]:
+            audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
+                   "op": op, "target": p.get("service") or p.get("vmid") or p.get("username") or "",
+                   "reason": reason, "result": "denied", "detail": "ruolo insufficiente"})
+            self._send(403, json.dumps({"ok": False, "detail": "non autorizzato: serve il ruolo admin"}).encode("utf-8"),
+                       "application/json")
+            return
         ok, detail = False, "unknown op"
         if op == "app":
             ok, detail = do_app(str(p.get("service", "")), str(p.get("action", "")), actor, reason)
@@ -1721,6 +2096,20 @@ class Handler(BaseHTTPRequestHandler):
                                              str(p.get("email", "")), str(p.get("password", "")), actor, reason)
         elif op == "iam-grant-access":
             ok, detail = do_iam_grant_access(str(p.get("username", "")), str(p.get("app_slug", "")), actor, reason)
+        elif op == "iam-revoke-access":
+            ok, detail = do_iam_revoke_access(str(p.get("username", "")), str(p.get("app_slug", "")), actor)
+        elif op == "iam-delete-user":
+            ok, detail = do_iam_delete_user(str(p.get("username", "")), actor)
+        elif op == "iam-set-active":
+            ok, detail = do_iam_set_active(str(p.get("username", "")), bool(p.get("active")), actor)
+        elif op == "iam-reset-password":
+            ok, detail = do_iam_reset_password(str(p.get("username", "")), str(p.get("password", "")), actor)
+        elif op == "iam-set-admin":
+            ok, detail = do_iam_set_admin(str(p.get("username", "")), bool(p.get("admin")), actor)
+        elif op == "iam-change-my-password":
+            ok, detail = do_iam_change_my_password(actor, str(p.get("password", "")))
+        elif op == "iam-request-access":
+            ok, detail = do_iam_request_access(actor, str(p.get("app_slug", "")), str(p.get("message", "")))
         audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
                "op": op, "target": p.get("service") or p.get("vmid") or p.get("username") or p.get("app_slug") or "",
                "reason": reason, "result": "ok" if ok else "error", "detail": detail if not ok else ""})
