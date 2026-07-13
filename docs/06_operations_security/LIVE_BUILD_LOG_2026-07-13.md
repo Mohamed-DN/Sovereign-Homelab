@@ -137,10 +137,60 @@ dumps.
   changed her own password (proven via LDAP bind: old password rejected),
   access-request email delivered.
 
+## Third pass (same day): login fixes, calmer branding, Kuma SSO
+
+- **Redirect URI Error fixed**: the dashboard's Proxy Provider had empty
+  `redirect_uris` (Authentik requires an explicit allow-list entry even for
+  forward-auth); fixed with a REGEX entry tolerant of the outpost's
+  `?X-authentik-auth-callback=true` suffix. Verified with a full
+  unauthenticated `curl -L` chain reaching a real `200` login page.
+- **mohamed's password** set to the owner-specified value; verified via a
+  direct LDAP bind (same password works for LDAP too, as designed).
+- **Branding, corrected**: a first pass styled generic Patternfly classes
+  with a full saturated gradient, which (a) was hard to look at and (b)
+  leaked into the Authentik **admin UI** too, since `branding_custom_css` is
+  injected on every Authentik page and `.pf-c-card` is a generic component
+  used throughout the admin panels, not just login. Reduced to only the
+  documented `--ak-accent`/`--ak-dark-background*` CSS custom properties
+  (safe, global, designed for exactly this) plus a custom SVG logo
+  (shield+keyhole, inline data URI) replacing the authentik wordmark.
+- **Live incident, diagnosed**: the owner saw "backend non raggiungibile" and
+  a redirect loop while testing. Root cause confirmed in authentik-server's
+  own logs: a proxy session record went missing (`record not found` on
+  `authentik_providers_proxy_proxysession`) at the exact moment a new
+  provider was being added to the embedded outpost live — the outpost
+  reloads its config on provider changes, orphaning any in-flight session.
+  Confirmed transient (not the earlier crash-loop bug recurring:
+  `RestartCount=0`, idle CPU throughout) — self-resolved once outpost edits
+  stopped.
+- **Uptime Kuma SSO** (forward-auth + `UPTIME_KUMA_DISABLE_AUTH`, since Kuma
+  has no OIDC support) — full details in
+  [IAM / LDAP / SSO Plan](../03_platform_services/IAM_LDAP_SSO_PLAN.md).
+  Found and fixed a side effect: Kuma's own self-monitor followed the login
+  redirect forever ("Maximum number of redirects exceeded") until repointed
+  to check the direct backend instead of the gated public URL.
+- **Scope clarified with the owner**: cross-origin credential autofill
+  ("click a tile, get logged into any app automatically") is not something a
+  browser allows any page to do to another origin — not a design choice, a
+  browser security boundary. The two things that actually deliver "one
+  password, no re-login" are OIDC (no per-app password exists at all) and
+  forward-auth-with-local-login-disabled (trusts the network gate); applied
+  the latter to Kuma. **Vaultwarden is permanently excluded from both** —
+  syncing/centralizing its master password would defeat the zero-knowledge
+  encryption that is the entire reason to run a password manager.
+- Custom retro-style icon generation was requested for the fallback
+  monogram tiles ("nano banana pro" or similar) — no image-generation tool
+  is available in this environment, so this was not done; flagged back to
+  the owner rather than attempted with a worse substitute.
+
 ## Next Actions
 
-- Owner: first browser login on `https://dash.internal` as `mohamed`, and one
-  click on "Accedi con authentik" on `git.internal` to see the auto-provision.
+- Owner: first browser login on `https://dash.internal` as `mohamed`
+  (password as set), and one click on "Accedi con authentik" on
+  `git.internal` to see the auto-provision.
+- Decide how to source nicer service icons (external icon CDN would break
+  the LAN/VPN-only, no-external-calls posture — needs an explicit decision,
+  not a silent default) — see Next Actions in IAM_LDAP_SSO_PLAN.md.
 - Phase 3 continues: next OIDC candidates Paperless / FreshRSS / Jellyfin,
   one at a time (see [IAM / LDAP / SSO Plan](../03_platform_services/IAM_LDAP_SSO_PLAN.md)).
 - Add the AdGuard rewrite `ldap.internal -> 192.168.1.51` and move services to
