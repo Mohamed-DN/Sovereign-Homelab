@@ -42,7 +42,7 @@ The first two layers are the primary safety net and are always on.
 | Daily DB dumps | `/root/sovereign-secrets/immich-protection/daily/immich-db-*.sql.gz` on VM 110 |
 | Recovery metadata (version, counts) | inside each mirror/protection snapshot |
 | Emergency stack (repo) | `stacks/immich-restore/` |
-| Pinned version | `IMMICH_VERSION` in the stack `.env` (currently `v3.0.1`) |
+| Pinned version | `IMMICH_VERSION` in the stack `.env` (currently `v3.0.2`) |
 
 The upload tree contains these subfolders, all of which must be recovered
 together: `library/`, `upload/`, `profile/`, `thumbs/`, `encoded-video/`,
