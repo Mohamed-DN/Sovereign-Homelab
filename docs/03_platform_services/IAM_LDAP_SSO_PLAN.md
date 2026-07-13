@@ -466,6 +466,31 @@ uid is deliberately mapped back onto `admin`:
   are intact with the email now set.
 - **Rollback:** `occ user_oidc:provider:delete 1` (or disable the user_oidc
   app); local login is untouched.
+- **Two post-launch blockers surfaced only when the real browser login was
+  exercised (2026-07-13) — both fixed live:**
+  1. *cURL error 60 (SSL) in `DiscoveryService`* → the `occ`-imported CA is
+     **not** what user_oidc's Guzzle client trusts; that client uses the
+     container **system** trust store. Fixed persistently with AIO's own
+     mechanism: `NEXTCLOUD_TRUSTED_CACERTS_DIR=/trusted-cacerts` on the
+     mastercontainer (+ a `./trusted-cacerts` volume holding the internal CA),
+     so AIO re-injects the CA into the Nextcloud container's system trust on
+     every start (survives AIO updates). Verified `PHP_TLS_OK`.
+  2. *`RuntimeException: Unsupported JWT alg` in `fixJwksAlg`* → the Authentik
+     "Nextcloud OIDC" provider had **`signing_key = None`** (the ak-shell
+     creation left it unset — the same class of gap as the empty `grant_types`
+     bug). With no signing key Authentik signs the id_token **HS256** and
+     serves an **empty JWKS**; user_oidc only accepts asymmetric algs
+     (RS256/ES256/EdDSA) so it cannot verify → 500. Fixed by assigning the
+     shared **"authentik Self-signed Certificate"** (the same cert the working
+     Immich/Forgejo/Jellyfin providers already use) → id_token now RS256 and
+     the JWKS publishes the RSA public key. Then purged the stale empty JWKS
+     user_oidc had cached in appconfig
+     (`occ config:app:delete user_oidc provider-1-jwksCache` + `…Timestamp`,
+     1 h TTL) so the fix applies on the next login, not an hour later.
+  - **Lesson (checklist for every future OIDC provider):** an OAuth2/OIDC
+    (token) provider MUST have a signing key set — verify the JWKS endpoint is
+    non-empty. Only forward-auth **Proxy** providers (Dashboard, Kuma) may
+    legitimately leave `signing_key` unset.
 
 **Fifth service DONE (2026-07-13): Jellyfin (media.internal) via the SSO
 plugin — no native OIDC.**

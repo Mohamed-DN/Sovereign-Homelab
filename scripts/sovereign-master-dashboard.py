@@ -1243,13 +1243,13 @@ PAGE = r"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset=
  --glow:rgba(34,211,238,.35);--shadow:0 14px 34px rgba(0,0,0,.38);
 }
 :root[data-theme="light"]{
- --bg:#f9f9f7;--plane:#f3f3f0;--surface:#fcfcfb;--raised:#ffffff;--glass:rgba(252,252,251,.8);
- --line:rgba(11,11,11,.10);--line-strong:rgba(11,11,11,.2);
- --ink:#0b0b0b;--ink2:#3c3b38;--muted:#6b6a64;--grid:#e1e0d9;
+ --bg:#e7e4db;--plane:#e2ded4;--surface:#eeebe3;--raised:#f4f1ea;--glass:rgba(238,235,227,.82);
+ --line:rgba(50,45,35,.12);--line-strong:rgba(50,45,35,.22);
+ --ink:#2b2822;--ink2:#514c42;--muted:#7a746a;--grid:#d5d1c6;
  --accent:#0e7490;--s1:#2a78d6;--s2:#1baf7a;
- --good:#0ca30c;--warn:#b45309;--crit:#d03b3b;
+ --good:#15803d;--warn:#b45309;--crit:#c2410c;
  --led-good:#059669;--led-warn:#b45309;--led-bad:#dc2626;
- --glow:rgba(14,116,144,.22);--shadow:0 12px 28px rgba(11,11,11,.10);
+ --glow:rgba(14,116,144,.14);--shadow:0 12px 28px rgba(50,45,35,.10);
 }
 *{box-sizing:border-box}html{background:var(--bg)}
 body{margin:0;min-height:100vh;color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--bg);
@@ -1733,7 +1733,7 @@ const ICON_CDN=Object.fromEntries(Object.entries(ICON_CDN_FILES).map(([slug,f])=
 /* ---------- theme ---------- */
 const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
-setTheme(localStorage.getItem('sov-theme')||(matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'));
+setTheme(localStorage.getItem('sov-theme')||'dark');
 tbtn.onclick=()=>{setTheme(root.dataset.theme==='dark'?'light':'dark');if(D)render();};
 /* ---------- tabs ---------- */
 document.querySelectorAll('.tab').forEach(b=>b.onclick=()=>{
