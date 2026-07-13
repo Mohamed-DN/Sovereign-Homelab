@@ -88,6 +88,27 @@ What is live:
 4. **Rollback:** clear the Advanced field on the `dash.internal` proxy host (or
    restore the `.bak-dashauth` DB) and restart NPM.
 
+**Fixed same day:** the proxy provider was created with empty `redirect_uris`,
+so the first real browser attempt showed Authentik's "Redirect URI Error"
+(the outpost's OAuth2 callback needs an explicit allow-listed URI just like a
+regular OAuth2 app, even in forward-auth mode). Fixed with a REGEX-mode entry
+`^https://dash\.internal/outpost\.goauthentik\.io/callback.*$` (STRICT mode
+doesn't work here — the outpost appends
+`?X-authentik-auth-callback=true` to its own callback URL, so the registered
+URI must tolerate that query string). Verified with a full unauthenticated
+`curl -L` chain: `dash.internal` → outpost `/start` → Authentik `/authorize`
+→ real `200` login page, zero "Redirect URI Error".
+
+**Branding (2026-07-13):** the login page now matches the dashboard's
+dark/cyan palette instead of Authentik's default forest photo, via the
+default **Brand**'s `branding_title` ("Sovereign Dashboard"),
+`branding_custom_css` (overrides the documented `--ak-accent` /
+`--ak-dark-background*` / `--ak-global--background-*` CSS custom properties
+Authentik exposes for exactly this, plus a matching gradient-border login
+card), and `branding_default_flow_background` cleared; the
+`default-authentication-flow`'s own title was also renamed. Change it via
+`ak shell`: `Brand.objects.filter(default=True).first()`.
+
 **Verified live:** unauthenticated → 302 to auth.internal; direct-LAN `:8095`
 API → 401 (with a friendly "vai su dash.internal" page on `/`); spoofed
 header → 401; localhost → full admin; real user `luna` (granted immich +
