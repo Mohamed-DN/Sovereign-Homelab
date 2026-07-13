@@ -1269,6 +1269,10 @@ border-bottom:1px solid var(--line-strong);background:var(--glass);backdrop-filt
  letter-spacing:.2em;line-height:1;white-space:nowrap;color:#eafcff;
  text-shadow:2px 0 0 #ff2fd0,-2px 0 0 #22d3ee,0 0 14px rgba(34,211,238,.45)}
 .brand .sub{color:var(--muted);font-size:.66rem;margin-top:4px;letter-spacing:.24em;text-transform:uppercase;font-family:ui-monospace,monospace}
+/* light mode: the near-white wordmark + cyan glow disappear on the paper bg,
+   so swap to a dark readable ink with deeper neon ghosts (retro effect kept) */
+:root[data-theme="light"] .brand h1{color:#241a3a;text-shadow:1.4px 0 0 #d61f9a,-1.4px 0 0 #0e8aa8,0 1px 0 rgba(0,0,0,.10)}
+:root[data-theme="light"] #clock{color:#0e6d86;text-shadow:none}
 .uic{width:16px;height:16px;flex:0 0 auto;border-radius:50%;
  background:radial-gradient(circle at 50% 38%,currentColor 0 34%,transparent 35%),
  radial-gradient(circle at 50% 118%,currentColor 0 46%,transparent 47%);color:var(--accent)}
@@ -1600,6 +1604,46 @@ footer a:hover{text-decoration:underline}
 #qa{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 #qa button{font:600 .74rem system-ui;padding:6px 10px;border-radius:8px;cursor:pointer;color:var(--accent);background:color-mix(in srgb,var(--accent) 10%,transparent);border:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
 #qa button:hover{background:color-mix(in srgb,var(--accent) 20%,transparent)}
+/* ===== Enterprise IAM ===== */
+.iam-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:12px;margin:6px 0 18px}
+.iam-stat{position:relative;overflow:hidden;padding:14px 16px;border:1px solid var(--line);border-radius:13px;background:var(--surface);box-shadow:var(--shadow)}
+.iam-stat::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--sc,var(--accent))}
+.iam-stat .n{font-size:1.7rem;font-weight:800;font-variant-numeric:tabular-nums;line-height:1;color:var(--ink)}
+.iam-stat .l{color:var(--muted);font-size:.66rem;text-transform:uppercase;letter-spacing:.07em;margin-top:7px}
+.iam-panel{border:1px solid var(--line);border-radius:15px;background:var(--surface);box-shadow:var(--shadow);margin-bottom:18px;overflow:hidden}
+.iam-phead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:13px 18px;border-bottom:1px solid var(--line);background:color-mix(in srgb,var(--accent) 4%,transparent)}
+.iam-ptitle{font-weight:800;font-size:.9rem;display:flex;align-items:center;gap:9px}
+.iam-count{color:var(--muted);font-weight:700;font-size:.72rem;padding:2px 9px;border-radius:999px;border:1px solid var(--line-strong);background:var(--raised)}
+.iam-ptools{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.iam-search{padding:8px 12px;border-radius:9px;border:1px solid var(--line-strong);background:var(--raised);color:var(--ink);font-size:.82rem;min-width:170px}
+.iam-search:focus{outline:none;border-color:var(--accent)}
+.iam-thead,.iam-urow{display:grid;grid-template-columns:minmax(170px,1.6fr) 116px 104px minmax(150px,1.4fr) auto;gap:12px;align-items:center}
+.iam-thead{padding:9px 18px;border-bottom:1px solid var(--line);color:var(--muted);font-size:.62rem;text-transform:uppercase;letter-spacing:.08em;font-weight:800}
+.iam-urow{padding:11px 18px;border-bottom:1px dashed var(--line);transition:background .12s ease}
+.iam-urow:last-child{border-bottom:none}
+.iam-urow:hover{background:color-mix(in srgb,var(--accent) 5%,transparent)}
+.iam-id{display:flex;align-items:center;gap:11px;min-width:0}
+.iam-av{width:34px;height:34px;flex:0 0 auto;border-radius:9px;display:grid;place-items:center;font-weight:800;font-size:.86rem;color:#fff;box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.iam-nm{min-width:0}
+.iam-nm b{display:block;font-size:.85rem;line-height:1.25}
+.iam-nm span{display:block;color:var(--muted);font-size:.7rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.iam-badge{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:.65rem;font-weight:800;white-space:nowrap}
+.iam-badge.ok{background:color-mix(in srgb,var(--led-good) 15%,transparent);color:var(--led-good)}
+.iam-badge.off{background:color-mix(in srgb,var(--led-bad) 15%,transparent);color:var(--led-bad)}
+.iam-badge.adm{background:color-mix(in srgb,#f5c451 20%,transparent);color:#b7791f}
+.iam-badge.usr{background:color-mix(in srgb,var(--muted) 15%,transparent);color:var(--muted)}
+:root[data-theme="dark"] .iam-badge.adm{color:#f5c451}
+.iam-apps-mini{display:flex;flex-wrap:wrap;gap:5px}
+.iam-acts{display:flex;gap:5px;justify-self:end}
+@media(max-width:820px){.iam-thead{display:none}
+ .iam-urow{grid-template-columns:1fr;row-gap:9px}.iam-acts{justify-self:start}}
+.iam-appgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(258px,1fr));gap:12px;padding:16px 18px}
+.iam-appc{border:1px solid var(--line);border-radius:12px;background:var(--raised);padding:13px 14px;display:flex;flex-direction:column;gap:9px}
+.iam-appc .ah{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.iam-appc .an{font-weight:800;font-size:.83rem}
+.iam-appc .sso{font-size:.58rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:2px 7px;border-radius:6px;background:color-mix(in srgb,var(--led-good) 16%,transparent);color:var(--led-good)}
+.iam-appc .cnt{color:var(--muted);font-size:.7rem}
+.iam-appc .mem{display:flex;flex-wrap:wrap;gap:5px;min-height:20px}
 </style></head><body>
 <header>
  <div class="hslot hleft"><span id="clock"></span></div>
@@ -1687,15 +1731,23 @@ footer a:hover{text-decoration:underline}
 </section>
 
 <section class="page" id="p-iam" style="--sec:#2dd4a7">
- <h2 style="--sec:#2dd4a7">Utenze (LDAP / Authentik) &mdash; una password ovunque</h2>
- <p class="note" id="iam-note">Con LDAP/SSO la stessa password vale su tutti i servizi collegati.</p>
- <div class="grid" style="grid-template-columns:1fr">
-  <div class="card" style="--sec:#2dd4a7"><div class="top" id="iam-admin-head"><span class="name">👤 Utenze</span>
-    <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="iamCreateUser()">➕ Nuova utenza</button></div>
-   <div class="rows" id="iam-users">caricamento…</div></div>
+ <h2 style="--sec:#2dd4a7">Identity &amp; Access Management</h2>
+ <p class="note" id="iam-note">Directory unica LDAP/SSO &mdash; una sola password su tutti i servizi collegati.</p>
+ <div class="iam-stats" id="iam-stats"></div>
+ <div class="iam-panel" id="iam-users-panel">
+  <div class="iam-phead">
+   <span class="iam-ptitle" id="iam-admin-head">👥 Directory utenze <span class="iam-count" id="iam-ucount">·</span></span>
+   <div class="iam-ptools" id="iam-tools">
+    <input id="iam-search" class="iam-search" placeholder="🔎 Cerca nome, utente o email…" oninput="iamFilter()" autocomplete="off">
+    <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="iamCreateUser()">➕ Nuova utenza</button>
+   </div>
+  </div>
+  <div id="iam-users">caricamento…</div>
  </div>
- <h2 style="--sec:#a78bfa" id="iam-apps-h">App &amp; accessi</h2>
- <div class="grid" id="iam-apps"></div>
+ <div class="iam-panel" id="iam-apps-panel">
+  <div class="iam-phead"><span class="iam-ptitle">🔐 Applicazioni &amp; accessi <span class="iam-count" id="iam-acount">·</span></span></div>
+  <div class="iam-appgrid" id="iam-apps"></div>
+ </div>
 </section>
 
 <footer>
@@ -1853,7 +1905,10 @@ function heroInfo(){
      +down.map(m=>mrow(m.name,'DOWN')).join('')
    :`<div style="margin-top:10px;color:var(--led-good);font-weight:700">✅ Tutti i monitor sono su</div>`));
 }
-let IAM=null;
+let IAM=null,IAMQ='';
+function iamAvatar(s){s=s||'?';let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))>>>0;const hue=h%360;
+ const initials=((s.match(/[A-Za-z0-9]+/g)||['?']).slice(0,2).map(w=>w[0]).join('')||'?').toUpperCase();
+ return{bg:`linear-gradient(135deg,hsl(${hue} 58% 45%),hsl(${(hue+38)%360} 56% 38%))`,initials};}
 async function iamPost(body,okCb){
  const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
  let d;try{d=await r.json();}catch(e){location.reload();return;}
@@ -1861,62 +1916,77 @@ async function iamPost(body,okCb){
 }
 async function loadIam(){
  try{IAM=await(await fetch('api/iam')).json();}catch(e){IAM=null;}
- if(!IAM||IAM.error){$('iam-users').innerHTML='<span style="color:var(--led-bad)">Authentik non raggiungibile</span>';$('iam-apps').innerHTML='';return;}
+ if(!IAM||IAM.error){$('iam-users').innerHTML='<div style="padding:16px;color:var(--led-bad)">Authentik non raggiungibile</div>';$('iam-apps').innerHTML='';$('iam-stats').innerHTML='';return;}
  if(IAM.self){renderIamSelf();return;}
- $('iam-admin-head').style.display='';
- const ub=u=>{
-  if(u.protected)return `<span style="margin-left:auto;color:var(--muted)" title="account di base: non modificabile da qui">🔒</span>`;
-  const esc=u.username.replace(/'/g,"\\'");
-  return `<span style="margin-left:auto;display:flex;gap:5px">
-   <button class="ibt" title="Reset password" onclick="iamResetPw('${esc}')">🔑</button>
-   <button class="ibt" title="${u.is_admin?'Togli ruolo admin':'Rendi admin'}" onclick="iamToggleAdmin('${esc}',${!u.is_admin})">${u.is_admin?'👑':'☆'}</button>
-   <button class="ibt" title="${u.is_active?'Disattiva':'Riattiva'}" onclick="iamToggleActive('${esc}',${!u.is_active})">${u.is_active?'⏻':'▶'}</button>
-   <button class="ibt danger" title="Elimina utenza" onclick="iamDeleteUser('${esc}')">🗑</button></span>`;
- };
- const appsLine=u=>u.is_admin
-  ?'<span style="color:var(--led-good);font-weight:700;font-size:.76rem">✦ tutti i servizi (admin)</span>'
-  :(u.apps&&u.apps.length
-    ?u.apps.map(a=>`<span class="hchip" style="font-size:.68rem;padding:3px 9px">${a}</span>`).join(' ')
-    :'<span style="color:var(--muted);font-style:italic;font-size:.78rem">nessun accesso ancora</span>');
- $('iam-users').innerHTML=IAM.users.map(u=>
-   `<div class="arow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px;
-     padding:10px 4px;border-bottom:1px dashed var(--line)">
-    <span class="abadge" style="background:color-mix(in srgb,${u.is_active?'var(--led-good)':'var(--led-bad)'} 15%,transparent);color:${u.is_active?'var(--led-good)':'var(--led-bad)'};padding:3px 9px;border-radius:999px;font-size:.68rem;font-weight:800">${u.is_active?'attivo':'disattivo'}</span>
-    <b>${u.username}</b>${u.is_admin?'<span title="amministratore">👑</span>':''}
-    <span style="color:var(--muted)">${u.name||''}${u.email?' · '+u.email:''}</span>
-    ${ub(u)}
-    <div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px">${appsLine(u)}</div>
-   </div>`
- ).join('')||'<div style="color:var(--muted)">nessuna utenza</div>';
- const protectedUsers=new Set(IAM.users.filter(u=>u.protected).map(u=>u.username));
- $('iam-apps').innerHTML=IAM.apps.map(a=>{
-  const esc=a.slug, escName=a.name.replace(/'/g,"\\'");
-  const members=(a.users||[]).map(u=>`<span class="hchip" style="font-size:.7rem;padding:3px 8px">${u}${protectedUsers.has(u)?' 🔒':
-    ` <button class="ibt" style="width:16px;height:16px;font-size:.6rem" title="Revoca" onclick="iamRevoke('${u.replace(/'/g,"\\'")}','${esc}')">✕</button>`}</span>`).join(' ');
-  return `<div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">${a.name}</span></div>
-    <div class="rows">Chi ha accesso: ${members||'<i>nessuno</i>'}</div>
-    <button class="btn act" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
+ $('iam-tools').style.display='';$('iam-apps-panel').style.display='';$('iam-stats').style.display='';
+ if($('iam-admin-head').firstChild)$('iam-admin-head').firstChild.textContent='👥 Directory utenze ';
+ const U=IAM.users,A=IAM.apps,dp=IAM.deprov||[];
+ const nActive=U.filter(u=>u.is_active).length,nAdmin=U.filter(u=>u.is_admin).length;
+ $('iam-stats').innerHTML=[
+  ['#2dd4a7',U.length,'Utenze totali'],
+  ['#22d3ee',nActive,'Attive'],
+  ['#f5c451',nAdmin,'Amministratori'],
+  ['#a78bfa',A.length,'App con SSO'],
+  ['#fb7185',dp.length,'Rimozioni programmate']
+ ].map(([c,n,l])=>`<div class="iam-stat" style="--sc:${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
+ $('iam-ucount').textContent=U.length;$('iam-acount').textContent=A.length;
+ renderIamUsers();
+ const protectedUsers=new Set(U.filter(u=>u.protected).map(u=>u.username));
+ $('iam-apps').innerHTML=A.map(a=>{
+  const esc=a.slug,escName=a.name.replace(/'/g,"\\'");
+  const mem=(a.users||[]);
+  const chips=mem.map(u=>`<span class="hchip" style="font-size:.68rem;padding:3px 8px">${u}${protectedUsers.has(u)?' 🔒':` <button class="ibt" style="width:15px;height:15px;font-size:.55rem" title="Revoca" onclick="iamRevoke('${u.replace(/'/g,"\\'")}','${esc}')">✕</button>`}</span>`).join(' ');
+  return `<div class="iam-appc"><div class="ah"><span class="an">${a.name}</span><span class="sso">● SSO</span></div>
+    <div class="cnt">${mem.length} ${mem.length===1?'utente':'utenti'} con accesso</div>
+    <div class="mem">${chips||'<i style="color:var(--muted);font-size:.72rem">nessuno</i>'}</div>
+    <button class="btn act" style="margin-top:auto" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
  }).join('');
- // pending deprovisions (revoked accounts awaiting deletion after the grace window)
- const dp=IAM.deprov||[];
- const note=$('iam-note');
- const oldbanner=document.getElementById('deprov-banner'); if(oldbanner)oldbanner.remove();
+ const note=$('iam-note'),oldbanner=document.getElementById('deprov-banner');if(oldbanner)oldbanner.remove();
  if(dp.length){
-  const b=document.createElement('div'); b.id='deprov-banner'; b.className='note';
+  const b=document.createElement('div');b.id='deprov-banner';b.className='note';
   b.style.cssText='margin:14px 2px 0;padding:10px 12px;border-radius:10px;border:1px solid color-mix(in srgb,var(--led-warn) 40%,transparent);background:color-mix(in srgb,var(--led-warn) 10%,transparent)';
-  b.innerHTML='🧹 <b>Rimozioni programmate:</b> '+dp.map(x=>`${x.user}@${x.slug} (fra ${x.days_left}g)`).join(' · ')
-   +' — riassegna l\'accesso per annullare.';
+  b.innerHTML='🧹 <b>Rimozioni programmate:</b> '+dp.map(x=>`${x.user}@${x.slug} (fra ${x.days_left}g)`).join(' · ')+' — riassegna l\'accesso per annullare.';
   note.parentNode.insertBefore(b,note.nextSibling);
  }
 }
-function renderIamSelf(){
- $('iam-admin-head').style.display='none';
+function iamFilter(){IAMQ=($('iam-search').value||'').toLowerCase();renderIamUsers();}
+function renderIamUsers(){
+ const rows=IAM.users.filter(u=>!IAMQ||u.username.toLowerCase().includes(IAMQ)||(u.name||'').toLowerCase().includes(IAMQ)||(u.email||'').toLowerCase().includes(IAMQ));
+ const ub=u=>{
+  if(u.protected)return `<span style="color:var(--muted)" title="account di base: non modificabile da qui">🔒</span>`;
+  const esc=u.username.replace(/'/g,"\\'");
+  return `<button class="ibt" title="Reset password" onclick="iamResetPw('${esc}')">🔑</button>
+   <button class="ibt" title="${u.is_admin?'Togli ruolo admin':'Rendi admin'}" onclick="iamToggleAdmin('${esc}',${!u.is_admin})">${u.is_admin?'👑':'☆'}</button>
+   <button class="ibt" title="${u.is_active?'Disattiva':'Riattiva'}" onclick="iamToggleActive('${esc}',${!u.is_active})">${u.is_active?'⏻':'▶'}</button>
+   <button class="ibt danger" title="Elimina utenza" onclick="iamDeleteUser('${esc}')">🗑</button>`;
+ };
+ const mini=u=>u.is_admin
+   ?'<span style="color:var(--led-good);font-weight:800;font-size:.7rem">✦ tutti (admin)</span>'
+   :((u.apps&&u.apps.length)?u.apps.map(a=>`<span class="hchip" style="font-size:.63rem;padding:2px 7px">${a}</span>`).join(''):'<span style="color:var(--muted);font-style:italic;font-size:.72rem">nessuno</span>');
  $('iam-users').innerHTML=
-  `<div style="font-size:.9rem;line-height:2">
-    <b style="font-size:1.05rem">👤 ${IAM.username}</b> ${IAM.name?'· '+IAM.name:''} ${IAM.email?'· '+IAM.email:''}<br>
-    Le tue app: ${(IAM.apps||[]).length?IAM.apps.join(', '):'<i>nessuna ancora — chiedi un accesso qui sotto</i>'}
+  '<div class="iam-thead"><span>Utente</span><span>Stato</span><span>Ruolo</span><span>Accessi</span><span style="justify-self:end">Azioni</span></div>'
+  +(rows.map(u=>{const av=iamAvatar(u.name||u.username);return `<div class="iam-urow">
+    <div class="iam-id"><span class="iam-av" style="background:${av.bg}">${av.initials}</span>
+     <span class="iam-nm"><b>${u.username}</b><span>${u.name||''}${u.email?((u.name?' · ':'')+u.email):''}</span></span></div>
+    <div><span class="iam-badge ${u.is_active?'ok':'off'}">${u.is_active?'● attivo':'○ disattivo'}</span></div>
+    <div><span class="iam-badge ${u.is_admin?'adm':'usr'}">${u.is_admin?'👑 admin':'utente'}</span></div>
+    <div class="iam-apps-mini">${mini(u)}</div>
+    <div class="iam-acts">${ub(u)}</div></div>`;}).join('')
+   ||'<div style="padding:16px;color:var(--muted)">nessun risultato per la ricerca</div>');
+}
+function renderIamSelf(){
+ $('iam-stats').style.display='none';$('iam-tools').style.display='none';$('iam-apps-panel').style.display='none';
+ if($('iam-admin-head').firstChild)$('iam-admin-head').firstChild.textContent='👤 Il mio profilo ';
+ $('iam-ucount').textContent='';
+ const av=iamAvatar(IAM.name||IAM.username||'?');
+ $('iam-users').innerHTML=
+  `<div style="display:flex;align-items:center;gap:14px;padding:18px">
+    <span class="iam-av" style="width:52px;height:52px;font-size:1.2rem;background:${av.bg}">${av.initials}</span>
+    <div><b style="font-size:1.05rem">${IAM.username}</b>${IAM.name?' · '+IAM.name:''}<br>
+     <span style="color:var(--muted);font-size:.82rem">${IAM.email||''}</span></div>
    </div>
-   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+   <div style="padding:0 18px 6px;font-size:.84rem">Le tue app: ${(IAM.apps||[]).length?IAM.apps.map(a=>`<span class="hchip" style="font-size:.68rem;padding:3px 9px">${a}</span>`).join(' '):'<i style="color:var(--muted)">nessuna ancora — chiedi un accesso qui sotto</i>'}</div>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;padding:12px 18px 18px">
     <button class="btn act" style="width:auto;padding:9px 16px" onclick="iamMyPassword()">🔑 Cambia la mia password</button>
     <button class="btn act" style="width:auto;padding:9px 16px" onclick="iamAskAccess()">✉️ Chiedi accesso / assistenza</button>
    </div>`;
@@ -2245,7 +2315,7 @@ function applyRole(){
  $('iam-note').textContent=adm
   ?'Crea utenze, assegna/revoca accessi e ruoli: con LDAP/SSO la stessa password vale su tutti i servizi collegati. Gli account di base sono protetti (🔒).'
   :'Qui gestisci il tuo profilo: cambi la password (vale ovunque) o chiedi un accesso all\'amministratore.';
- $('iam-apps-h').style.display=adm?'':'none';
+ const _ap=$('iam-apps-panel');if(_ap)_ap.style.display=adm?'':'none';
 }
 async function load(){
  try{
