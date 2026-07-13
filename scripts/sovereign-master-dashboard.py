@@ -636,6 +636,8 @@ def do_iam_grant_access(username: str, app_slug: str, actor: str, reason: str) -
 
 
 def do_iam_revoke_access(username: str, app_slug: str, actor: str) -> tuple[bool, str]:
+    if username in BREAK_GLASS_USERS:
+        return False, f"'{username}' è protetto: il suo accesso non si revoca da qui"
     snap = authz_snapshot(force=True)
     if snap is None:
         return False, "Authentik non raggiungibile"
@@ -1479,6 +1481,19 @@ footer a:hover{text-decoration:underline}
 <script>
 const $=id=>document.getElementById(id),toast=$('toast');
 let D=null,first=true;
+/* Curated brand icons (homarr-labs/dashboard-icons via jsdelivr) used only when
+   a service's own favicon.ico fails to load. No image-generation tool is
+   available in this environment, so this is the closest practical substitute
+   for "nice retro icons where they're missing" -- one small cached SVG fetch
+   per uncovered service, same pattern many self-hosted dashboards use. */
+const ICON_CDN_BASE='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/svg/';
+const ICON_CDN_FILES={adguard:'adguard-home',headscale:'headscale',npm:'nginx-proxy-manager',proxmox:'proxmox',
+ pbs:'proxmox-backup-server',authentik:'authentik','uptime-kuma':'uptime-kuma',beszel:'beszel',dozzle:'dozzle',
+ netalertx:'netalertx',scrutiny:'scrutiny',ntfy:'ntfy',vaultwarden:'vaultwarden',immich:'immich',
+ nextcloud:'nextcloud',syncthing:'syncthing',paperless:'paperless-ngx','home-assistant':'home-assistant',
+ jellyfin:'jellyfin',freshrss:'freshrss',karakeep:'karakeep',searxng:'searxng',forgejo:'forgejo',
+ 'open-webui':'open-webui'};
+const ICON_CDN=Object.fromEntries(Object.entries(ICON_CDN_FILES).map(([slug,f])=>[slug,ICON_CDN_BASE+f+'.svg']));
 /* ---------- theme ---------- */
 const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
@@ -1622,17 +1637,26 @@ async function loadIam(){
    <button class="ibt" title="${u.is_active?'Disattiva':'Riattiva'}" onclick="iamToggleActive('${esc}',${!u.is_active})">${u.is_active?'⏻':'▶'}</button>
    <button class="ibt danger" title="Elimina utenza" onclick="iamDeleteUser('${esc}')">🗑</button></span>`;
  };
+ const appsLine=u=>u.is_admin
+  ?'<span style="color:var(--led-good);font-weight:700;font-size:.76rem">✦ tutti i servizi (admin)</span>'
+  :(u.apps&&u.apps.length
+    ?u.apps.map(a=>`<span class="hchip" style="font-size:.68rem;padding:3px 9px">${a}</span>`).join(' ')
+    :'<span style="color:var(--muted);font-style:italic;font-size:.78rem">nessun accesso ancora</span>');
  $('iam-users').innerHTML=IAM.users.map(u=>
-   `<div class="arow"><span class="abadge" style="background:color-mix(in srgb,${u.is_active?'var(--led-good)':'var(--led-bad)'} 15%,transparent);color:${u.is_active?'var(--led-good)':'var(--led-bad)'}">${u.is_active?'attivo':'disattivo'}</span>
+   `<div class="arow" style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:8px;
+     padding:10px 4px;border-bottom:1px dashed var(--line)">
+    <span class="abadge" style="background:color-mix(in srgb,${u.is_active?'var(--led-good)':'var(--led-bad)'} 15%,transparent);color:${u.is_active?'var(--led-good)':'var(--led-bad)'};padding:3px 9px;border-radius:999px;font-size:.68rem;font-weight:800">${u.is_active?'attivo':'disattivo'}</span>
     <b>${u.username}</b>${u.is_admin?'<span title="amministratore">👑</span>':''}
     <span style="color:var(--muted)">${u.name||''}${u.email?' · '+u.email:''}</span>
-    <span style="color:var(--muted);font-style:italic;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:30ch">${(u.apps||[]).join(', ')}</span>
-    ${ub(u)}</div>`
+    ${ub(u)}
+    <div style="flex-basis:100%;display:flex;flex-wrap:wrap;gap:6px">${appsLine(u)}</div>
+   </div>`
  ).join('')||'<div style="color:var(--muted)">nessuna utenza</div>';
+ const protectedUsers=new Set(IAM.users.filter(u=>u.protected).map(u=>u.username));
  $('iam-apps').innerHTML=IAM.apps.map(a=>{
   const esc=a.slug, escName=a.name.replace(/'/g,"\\'");
-  const members=(a.users||[]).map(u=>`<span class="hchip" style="font-size:.7rem;padding:3px 8px">${u}
-    <button class="ibt" style="width:16px;height:16px;font-size:.6rem" title="Revoca" onclick="iamRevoke('${u.replace(/'/g,"\\'")}','${esc}')">✕</button></span>`).join(' ');
+  const members=(a.users||[]).map(u=>`<span class="hchip" style="font-size:.7rem;padding:3px 8px">${u}${protectedUsers.has(u)?' 🔒':
+    ` <button class="ibt" style="width:16px;height:16px;font-size:.6rem" title="Revoca" onclick="iamRevoke('${u.replace(/'/g,"\\'")}','${esc}')">✕</button>`}</span>`).join(' ');
   return `<div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">${a.name}</span></div>
     <div class="rows">Chi ha accesso: ${members||'<i>nessuno</i>'}</div>
     <button class="btn act" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
@@ -1805,7 +1829,11 @@ function render(){
  function dot(kw){const f=mons.find(x=>x.n.includes(kw));return f?(f.up?'up':'dn'):'nn';}
  function monoOf(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%360;const ini=n.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   return `<span class=&quot;mono&quot; style=&quot;background:linear-gradient(135deg,hsl(${h} 65% 52%),hsl(${(h+40)%360} 65% 42%))&quot;>${ini}</span>`;}
- function favImg(it){return `<img src="${it.href.replace(/\/$/,'')}/favicon.ico" loading="lazy" alt="" onerror="this.outerHTML='${monoOf(it.name)}'">`;}
+ function favImg(it){
+  const cdn=ICON_CDN[it.slug];
+  const onerr=cdn?`this.onerror=function(){this.outerHTML='${monoOf(it.name)}'};this.src='${cdn}'`
+              :`this.outerHTML='${monoOf(it.name)}'`;
+  return `<img src="${it.href.replace(/\/$/,'')}/favicon.ico" loading="lazy" alt="" onerror="${onerr}">`;}
  function ltile(it,small){return `<a class="ltile" href="${it.href}" target="_blank" rel="noopener" data-app="${it.name}">
    <button class="inf" title="Info" onclick="event.preventDefault();event.stopPropagation();svcInfo('${it.name.replace(/'/g,"\\'")}')">i</button>
    <span class="led ${dot(it.kw)}"></span><span class="lic">${favImg(it)}</span><span class="lname">${it.name}</span></a>`;}
