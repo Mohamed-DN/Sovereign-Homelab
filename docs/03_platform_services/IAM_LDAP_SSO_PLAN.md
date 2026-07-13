@@ -467,6 +467,40 @@ uid is deliberately mapped back onto `admin`:
 - **Rollback:** `occ user_oidc:provider:delete 1` (or disable the user_oidc
   app); local login is untouched.
 
+**Fifth service DONE (2026-07-13): Jellyfin (media.internal) via the SSO
+plugin — no native OIDC.**
+
+Jellyfin has no built-in OIDC, so it uses the third-party
+`jellyfin-plugin-sso`. Jellyfin 10.11 is new, but the plugin has a matching
+build (**v4.0.0.4, targetAbi 10.11.0.0**):
+
+- Installed the plugin by dropping its DLLs into
+  `/config/plugins/SSO Authentication_4.0.0.4/` (md5 verified against the
+  manifest), and mounted the internal CA into the container
+  (`stacks/jellyfin/ca-bundle.crt`) so it can reach `https://auth.internal`.
+- Authentik: OAuth2/OIDC provider "Jellyfin OIDC" (grant_types + scopes set),
+  bound to the `jellyfin` Application (bound to `access-jellyfin`). Redirect
+  URI regex `^https?://media\.internal/sso/OID/.*$` — **both schemes** on
+  purpose: Jellyfin behind NPM emits the callback as `http://media.internal/…`
+  (it doesn't see the TLS termination), and media.internal is LAN/VPN-only
+  with NPM force-upgrading http→https, so accepting both is safe and avoids a
+  redirect_uri mismatch.
+- Configured the plugin via its admin API (`POST /sso/OID/Add/authentik`):
+  endpoint `https://auth.internal/application/o/jellyfin/`, `AdminRoles:
+  ["authentik Admins"]` (so an admin OIDC login stays a Jellyfin admin),
+  `RoleClaim: groups`, scopes openid/email/profile. Added an "Accedi con
+  Sovereign" button to the login page via the branding LoginDisclaimer.
+- **The `sole` admin residue was renamed to `mohamed`** (the owner's request —
+  Jellyfin kept the old identity name). Done in the DB while stopped
+  (disposable data), so mohamed's SSO login links to the existing admin
+  account. A one-shot API key was injected for the plugin setup and **deleted
+  afterwards** (SSO is the admin path now).
+- **Verified live:** `/sso/OID/p/authentik` → 302 to Authentik authorize
+  (PKCE S256, right client_id/scope); the authorize reaches the real login
+  flow (no "malformed"); Jellyfin admin is now `mohamed`.
+- **Rollback:** disable/delete the provider in the SSO plugin config; local
+  Jellyfin login is untouched.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
