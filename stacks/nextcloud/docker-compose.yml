@@ -11,11 +11,17 @@ services:
       APACHE_IP_BINDING: 0.0.0.0
       NEXTCLOUD_DATADIR: ${NEXTCLOUD_DATADIR}
       SKIP_DOMAIN_VALIDATION: ${NEXTCLOUD_SKIP_DOMAIN_VALIDATION}
+      # AIO propagates every CA in this dir into the Nextcloud container's
+      # system trust on each start, so user_oidc's HTTP client trusts the
+      # internal CA for OIDC against https://auth.internal (fixes cURL error
+      # 60 on the SSO callback). Persistent across AIO container updates.
+      NEXTCLOUD_TRUSTED_CACERTS_DIR: /trusted-cacerts
     ports:
     - "${NEXTCLOUD_AIO_PORT}:8080"
     volumes:
     - nextcloud_aio_mastercontainer:/mnt/docker-aio-config
     - /var/run/docker.sock:/var/run/docker.sock:ro
+    - ./trusted-cacerts:/trusted-cacerts:ro
 
     healthcheck:
       test:
