@@ -56,6 +56,26 @@ Require-Command restic "Install with: winget install restic.restic"
 Require-Command podman "Install with: winget install RedHat.Podman"
 Require-Command python "Install with: winget install Python.Python.3.12"
 
+# The #1 cause of "network not found" / connection failures here is a stopped
+# Podman WSL machine (e.g. after a reboot). Make every run self-healing: start
+# it and wait until podman actually answers before doing anything.
+function Initialize-PodmanMachine {
+    $running = $false
+    try { $running = (podman machine inspect 2>$null | ConvertFrom-Json).State -eq "running" } catch {}
+    if (-not $running) {
+        Write-Output "== Podman machine not running -> starting it =="
+        podman machine start 2>&1 | Out-Null
+    }
+    for ($i = 0; $i -lt 30; $i++) {
+        podman info *> $null
+        if ($LASTEXITCODE -eq 0) { Write-Output "Podman ready."; return }
+        Start-Sleep 4
+    }
+    throw "Podman did not become ready (the WSL machine failed to start)."
+}
+
+Initialize-PodmanMachine
+
 if (-not (Test-Path -LiteralPath $RepoRoot)) {
     throw "Mirror repository folder not found: $RepoRoot"
 }
@@ -78,8 +98,12 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "Could not open the repository (wrong password or path?)." }
 
     Write-Output "== [2/6] Force teardown of any existing emergency stack (idempotent) =="
-    podman rm -f imm-server imm-db imm-redis 2>$null | Out-Null
-    podman network rm imm-net 2>$null | Out-Null
+    # Best-effort removal via cmd /c: podman writes to stderr when a container/
+    # network doesn't exist, which under $ErrorActionPreference='Stop' would
+    # otherwise abort the whole run with a NativeCommandError ("network not
+    # found"). cmd swallows stderr so a clean/empty state is never an error.
+    cmd /c "podman rm -f imm-server imm-db imm-redis >nul 2>&1"
+    cmd /c "podman network rm imm-net >nul 2>&1"
 
     Write-Output "== [3/6] Restoring LATEST backup snapshot (wiping previous staging) =="
     if (Test-Path -LiteralPath $RestoreTarget) {
