@@ -558,6 +558,84 @@ def who(handler: Any) -> dict[str, Any] | None:
     return None
 
 
+# ===== VPN self-service onboarding (Headscale) =====
+# Admin-only: mint a single-use pre-auth key so someone OUTSIDE the LAN can join
+# the tailnet. login_server is the PUBLIC URL (a remote colleague cannot reach
+# headscale.internal). 'guest' = ephemeral (device auto-removes when offline),
+# 'person' = durable household device. Only personal ('casa') devices are ever
+# listed/revoked here — infrastructure nodes (router, exit) are untouchable.
+HEADSCALE_LXC = "100"
+HEADSCALE_USER_ID = "1"  # 'casa'
+HEADSCALE_USER = "casa"
+HEADSCALE_LOGIN_SERVER = "https://vpn.casca-certosa.duckdns.org"
+
+
+def _hs(args: list[str], timeout: int = 30) -> tuple[int, str]:
+    return run(["pct", "exec", HEADSCALE_LXC, "--", "docker", "exec", "headscale",
+                "headscale", *args], timeout=timeout)
+
+
+def _hs_nodes() -> list[dict[str, Any]]:
+    s, out = _hs(["nodes", "list", "--output", "json"], timeout=25)
+    try:
+        return json.loads(out) if s == 0 else []
+    except (json.JSONDecodeError, TypeError):
+        return []
+
+
+def vpn_public() -> dict[str, Any]:
+    """Personal VPN devices for the admin IAM view. Never raises."""
+    try:
+        nodes = _hs_nodes()
+    except Exception:  # noqa: BLE001
+        return {"ok": False, "devices": [], "login_server": HEADSCALE_LOGIN_SERVER}
+    devices = [{"id": n.get("id"), "name": n.get("given_name") or n.get("name"),
+                "online": bool(n.get("online")), "ephemeral": bool(n.get("ephemeral"))}
+               for n in nodes if (n.get("user") or {}).get("name") == HEADSCALE_USER]
+    return {"ok": True, "devices": devices, "login_server": HEADSCALE_LOGIN_SERVER}
+
+
+def do_vpn_invite(actor: str, name: str, kind: str) -> tuple[bool, Any]:
+    label = re.sub(r"[^\w \-]", "", name or "").strip()[:40] or "dispositivo"
+    ephemeral = (kind == "guest")
+    args = ["preauthkeys", "create", "--user", HEADSCALE_USER_ID, "--expiration", "24h"]
+    if ephemeral:
+        args.append("--ephemeral")
+    args += ["--output", "json"]
+    s, out = _hs(args, timeout=30)
+    try:
+        key = (json.loads(out) or {}).get("key")
+    except (json.JSONDecodeError, TypeError):
+        key = None
+    if not key:
+        return False, f"creazione chiave VPN fallita: {out[-150:]}"
+    cmd = f"tailscale up --login-server {HEADSCALE_LOGIN_SERVER} --authkey {key}"
+    audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
+           "op": "vpn-invite", "target": f"{label} ({kind})", "reason": "",
+           "result": "ok", "detail": "chiave VPN 24h" + (" ephemeral" if ephemeral else "")})
+    return True, {"vpn": True, "label": label, "kind": kind, "ephemeral": ephemeral,
+                  "login_server": HEADSCALE_LOGIN_SERVER, "authkey": key, "command": cmd,
+                  "expires": "24 ore"}
+
+
+def do_vpn_revoke(actor: str, node_id: str) -> tuple[bool, str]:
+    try:
+        nid = int(node_id)
+    except (ValueError, TypeError):
+        return False, "id dispositivo non valido"
+    match = next((n for n in _hs_nodes() if n.get("id") == nid), None)
+    if not match:
+        return False, "dispositivo non trovato"
+    if (match.get("user") or {}).get("name") != HEADSCALE_USER:
+        return False, "solo i dispositivi personali possono essere rimossi da qui"
+    s, out = _hs(["nodes", "delete", "-i", str(nid), "--force"], timeout=30)
+    ok = s == 0
+    audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
+           "op": "vpn-revoke", "target": f"node {nid}", "reason": "",
+           "result": "ok" if ok else "error", "detail": out[-150:]})
+    return ok, ("dispositivo rimosso dalla VPN" if ok else f"rimozione fallita: {out[-150:]}")
+
+
 def iam_data() -> dict[str, Any]:
     snap = authz_snapshot(force=True)
     if snap is None:
@@ -577,7 +655,7 @@ def iam_data() -> dict[str, Any]:
              "users": sorted(snap["group_members"].get(f"access-{a['slug']}", set()))}
             for a in snap["apps"] if a["slug"] != "sovereign-dashboard"]
     return {"users": users, "groups": sorted(snap["group_members"]), "apps": apps,
-            "deprov": deprov_pending_public()}
+            "deprov": deprov_pending_public(), "vpn": vpn_public()}
 
 
 def iam_self(username: str) -> dict[str, Any]:
@@ -2012,6 +2090,13 @@ footer a:hover{text-decoration:underline}
   <div class="iam-phead"><span class="iam-ptitle">🔐 Applicazioni &amp; accessi <span class="iam-count" id="iam-acount">·</span></span></div>
   <div class="iam-appgrid" id="iam-apps"></div>
  </div>
+ <div class="iam-panel" id="iam-vpn-panel">
+  <div class="iam-phead">
+   <span class="iam-ptitle">🌐 Accesso VPN &mdash; chi è fuori casa <span class="iam-count" id="iam-vpncount">·</span></span>
+   <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="vpnAdd()">➕ Aggiungi dispositivo</button>
+  </div>
+  <div id="iam-vpn" style="padding:10px 16px">caricamento…</div>
+ </div>
 </section>
 
 <footer>
@@ -2182,7 +2267,7 @@ async function loadIam(){
  try{IAM=await(await fetch('api/iam')).json();}catch(e){IAM=null;}
  if(!IAM||IAM.error){$('iam-users').innerHTML='<div style="padding:16px;color:var(--led-bad)">Authentik non raggiungibile</div>';$('iam-apps').innerHTML='';$('iam-stats').innerHTML='';return;}
  if(IAM.self){renderIamSelf();return;}
- $('iam-tools').style.display='';$('iam-apps-panel').style.display='';$('iam-stats').style.display='';
+ $('iam-tools').style.display='';$('iam-apps-panel').style.display='';$('iam-stats').style.display='';$('iam-vpn-panel').style.display='';
  if($('iam-admin-head').firstChild)$('iam-admin-head').firstChild.textContent='👥 Directory utenze ';
  const U=IAM.users,A=IAM.apps,dp=IAM.deprov||[];
  const nActive=U.filter(u=>u.is_active).length,nAdmin=U.filter(u=>u.is_admin).length;
@@ -2205,6 +2290,7 @@ async function loadIam(){
     <div class="mem">${chips||'<i style="color:var(--muted);font-size:.72rem">nessuno</i>'}</div>
     <button class="btn act" style="margin-top:auto" onclick="iamGrantAccess('${esc}','${escName}')">+ Concedi accesso</button></div>`;
  }).join('');
+ renderIamVpn();
  const note=$('iam-note'),oldbanner=document.getElementById('deprov-banner');if(oldbanner)oldbanner.remove();
  if(dp.length){
   const b=document.createElement('div');b.id='deprov-banner';b.className='note';
@@ -2239,7 +2325,7 @@ function renderIamUsers(){
    ||'<div style="padding:16px;color:var(--muted)">nessun risultato per la ricerca</div>');
 }
 function renderIamSelf(){
- $('iam-stats').style.display='none';$('iam-tools').style.display='none';$('iam-apps-panel').style.display='none';
+ $('iam-stats').style.display='none';$('iam-tools').style.display='none';$('iam-apps-panel').style.display='none';$('iam-vpn-panel').style.display='none';
  if($('iam-admin-head').firstChild)$('iam-admin-head').firstChild.textContent='👤 Il mio profilo ';
  $('iam-ucount').textContent='';
  const av=iamAvatar(IAM.name||IAM.username||'?');
@@ -2255,6 +2341,59 @@ function renderIamSelf(){
     <button class="btn act" style="width:auto;padding:9px 16px" onclick="iamAskAccess()">✉️ Chiedi accesso / assistenza</button>
    </div>`;
  $('iam-apps').innerHTML='';
+}
+function renderIamVpn(){
+ const vpn=(IAM&&IAM.vpn)||{},dv=vpn.devices||[];
+ $('iam-vpncount').textContent=dv.length;
+ if(vpn.ok===false){$('iam-vpn').innerHTML='<span style="color:var(--led-bad)">Headscale non raggiungibile</span>';return;}
+ $('iam-vpn').innerHTML='<div class="note" style="margin:0 0 10px">Dispositivi personali sulla VPN di casa. Aggiungine uno per dare accesso alla rete a chi è fuori: <b>ospite</b> = temporaneo (si rimuove da solo alla disconnessione), <b>nuova persona</b> = permanente.</div>'
+  +(dv.length?dv.map(x=>{const av=iamAvatar(x.name||'?');return `<div class="iam-urow" style="grid-template-columns:1fr auto;padding:9px 2px">
+     <div class="iam-id"><span class="iam-av" style="width:30px;height:30px;font-size:.8rem;background:${av.bg}">${av.initials}</span>
+      <span class="iam-nm"><b>${x.name||'—'}</b><span>${x.ephemeral?'ospite (temporaneo)':'dispositivo di casa'}</span></span></div>
+     <div style="display:flex;align-items:center;gap:8px">
+      <span class="iam-badge ${x.online?'ok':'usr'}">${x.online?'● online':'○ offline'}</span>
+      <button class="ibt danger" title="Rimuovi dalla VPN" onclick="vpnRevoke(${x.id},'${(x.name||'').replace(/'/g,"\\'")}')">🗑</button></div>
+    </div>`;}).join(''):'<i style="color:var(--muted)">nessun dispositivo personale</i>');
+}
+function vpnAdd(){
+ openModal('🌐','Aggiungi dispositivo VPN',
+  `<div class="mrow"><label style="width:100%">Nome (promemoria per te, es. "PC di Marco")<br><input id="f-vpnname" style="width:100%;margin-top:4px" placeholder="nome persona o dispositivo"></label></div>
+   <div class="mrow"><label style="width:100%">Tipo di accesso<br>
+    <select id="f-vpnkind" style="width:100%;margin-top:4px;padding:8px;border-radius:8px;background:var(--raised);color:var(--ink);border:1px solid var(--line-strong)">
+     <option value="guest">Ospite — temporaneo (il dispositivo si rimuove da solo alla disconnessione)</option>
+     <option value="person">Nuova persona — dispositivo permanente di casa</option>
+    </select></label></div>
+   <button class="btn act" id="vpn-go">Genera invito</button>`);
+ $('vpn-go').onclick=async()=>{
+  const b=$('vpn-go');b.disabled=true;b.textContent='Genero…';
+  let j;try{const r=await fetch('api/action',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({op:'vpn-invite',name:$('f-vpnname').value.trim(),kind:$('f-vpnkind').value,reason:'invito VPN da console'})});j=await r.json();}catch(e){j=null;}
+  if(!j||!j.ok||!j.detail||!j.detail.command){t((j&&typeof j.detail==='string')?j.detail:'creazione invito fallita');b.disabled=false;b.textContent='Genera invito';return;}
+  vpnShowInvite(j.detail);
+ };
+}
+function vpnShowInvite(d){
+ const instr="SOVEREIGN VPN — istruzioni per: "+d.label+"\n"
+  +"Tipo: "+(d.kind==='guest'?'Ospite (temporaneo)':'Nuova persona (permanente)')+"\n"
+  +"Chiave valida "+d.expires+", monouso.\n\n"
+  +"1) Installa Tailscale:  https://tailscale.com/download\n"
+  +"2) Da terminale (PC/Mac/Linux):\n\n   "+d.command+"\n\n"
+  +"   Oppure su telefono: apri Tailscale > \"Use custom coordination server\" > "+d.login_server+"\n"
+  +"   e incolla questa chiave:\n   "+d.authkey+"\n";
+ openModal('🌐','Invito VPN pronto — '+d.label,
+  `<p class="note">Invia queste istruzioni al tuo contatto. La chiave vale <b>${d.expires}</b> ed è monouso.</p>
+   <textarea readonly style="width:100%;height:150px;font-family:ui-monospace,monospace;font-size:.72rem;padding:8px;border-radius:8px;background:var(--raised);color:var(--ink);border:1px solid var(--line-strong)">${instr.replace(/</g,'&lt;')}</textarea>
+   <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:10px">
+    <button class="btn act" style="width:auto;padding:9px 14px" id="vpn-copy">📋 Copia comando</button>
+    <button class="btn act" style="width:auto;padding:9px 14px" id="vpn-dl">⬇️ Scarica istruzioni (.txt)</button>
+   </div>`);
+ $('vpn-copy').onclick=()=>{navigator.clipboard.writeText(d.command).then(()=>t('comando copiato')).catch(()=>t('copia non riuscita'));};
+ $('vpn-dl').onclick=()=>{const bl=new Blob([instr],{type:'text/plain'});const u=URL.createObjectURL(bl);const a=document.createElement('a');a.href=u;a.download='vpn-'+((d.label||'invito').replace(/[^\w]+/g,'_'))+'.txt';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(u);};
+}
+function vpnRevoke(id,name){
+ openModal('🗑','Rimuovere dalla VPN?',
+  `<p>Togliere <b>${name||'questo dispositivo'}</b> dalla VPN? Non potrà più collegarsi finché non lo re-inviti.</p>
+   <button class="btn stop" id="vpn-rv">Rimuovi dalla VPN</button>`);
+ $('vpn-rv').onclick=()=>iamPost({op:'vpn-revoke',node_id:id,reason:'revoca VPN da console'},loadIam);
 }
 function iamCreateUser(){
  openModal('➕','Nuova utenza',
@@ -2746,6 +2885,10 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_immich_update(actor, reason)
         elif op == "immich-rollback":
             ok, detail = do_immich_rollback(actor, reason)
+        elif op == "vpn-invite":
+            ok, detail = do_vpn_invite(actor, str(p.get("name", "")), str(p.get("kind", "")))
+        elif op == "vpn-revoke":
+            ok, detail = do_vpn_revoke(actor, str(p.get("node_id", "")))
         elif op == "pbs-backup":
             ok, detail = do_pbs_backup(str(p.get("vmid", "")), actor, reason)
         elif op == "guest-power":
