@@ -8,7 +8,9 @@ services:
     command: serve
     ports:
       - "${HEADSCALE_HTTP_PORT}:8080"
-      - "${HEADSCALE_METRICS_PORT}:9090"
+      # metrics are localhost-only: nothing on the LAN scrapes them (audited
+      # 2026-07-14 — no Kuma monitor/scraper) and they leak topology details.
+      - "127.0.0.1:${HEADSCALE_METRICS_PORT}:9090"
     volumes:
       - ./headscale/config:/etc/headscale
       - ./headscale/data:/var/lib/headscale
