@@ -562,12 +562,15 @@ def who(handler: Any) -> dict[str, Any] | None:
 # ===== VPN self-service onboarding (Headscale) =====
 # Admin-only: mint a single-use pre-auth key so someone OUTSIDE the LAN can join
 # the tailnet. login_server is the PUBLIC URL (a remote colleague cannot reach
-# headscale.internal). 'guest' = ephemeral (device auto-removes when offline),
-# 'person' = durable household device. Only personal ('casa') devices are ever
-# listed/revoked here — infrastructure nodes (router, exit) are untouchable.
+# headscale.internal). 'person' = durable household device under user 'casa'
+# (group:owners ACL: full home access). 'guest' = ephemeral device under user
+# 'ospite' (group:guests ACL: ONLY DNS + the NPM web edge, every app there is
+# still SSO-gated — never the raw LAN, never the exit node). Only casa/ospite
+# devices are listed/revocable here — infra nodes (router, exit) untouchable.
 HEADSCALE_LXC = "100"
-HEADSCALE_USER_ID = "1"  # 'casa'
-HEADSCALE_USER = "casa"
+HEADSCALE_USER_ID = "1"        # 'casa'  (household)
+HEADSCALE_GUEST_USER_ID = "2"  # 'ospite' (guests, restricted ACL)
+HEADSCALE_PERSONAL_USERS = {"casa", "ospite"}
 HEADSCALE_LOGIN_SERVER = "https://vpn.casca-certosa.duckdns.org"
 
 
@@ -591,15 +594,19 @@ def vpn_public() -> dict[str, Any]:
     except Exception:  # noqa: BLE001
         return {"ok": False, "devices": [], "login_server": HEADSCALE_LOGIN_SERVER}
     devices = [{"id": n.get("id"), "name": n.get("given_name") or n.get("name"),
-                "online": bool(n.get("online")), "ephemeral": bool(n.get("ephemeral"))}
-               for n in nodes if (n.get("user") or {}).get("name") == HEADSCALE_USER]
+                "online": bool(n.get("online")), "ephemeral": bool(n.get("ephemeral")),
+                "guest": (n.get("user") or {}).get("name") == "ospite"}
+               for n in nodes if (n.get("user") or {}).get("name") in HEADSCALE_PERSONAL_USERS]
     return {"ok": True, "devices": devices, "login_server": HEADSCALE_LOGIN_SERVER}
 
 
 def do_vpn_invite(actor: str, name: str, kind: str) -> tuple[bool, Any]:
     label = re.sub(r"[^\w \-]", "", name or "").strip()[:40] or "dispositivo"
     ephemeral = (kind == "guest")
-    args = ["preauthkeys", "create", "--user", HEADSCALE_USER_ID, "--expiration", "24h"]
+    # guests land under the 'ospite' user -> group:guests ACL (web edge + DNS
+    # only); household devices under 'casa' -> group:owners (full home access)
+    user_id = HEADSCALE_GUEST_USER_ID if ephemeral else HEADSCALE_USER_ID
+    args = ["preauthkeys", "create", "--user", user_id, "--expiration", "24h"]
     if ephemeral:
         args.append("--ephemeral")
     args += ["--output", "json"]
@@ -627,7 +634,7 @@ def do_vpn_revoke(actor: str, node_id: str) -> tuple[bool, str]:
     match = next((n for n in _hs_nodes() if n.get("id") == nid), None)
     if not match:
         return False, "dispositivo non trovato"
-    if (match.get("user") or {}).get("name") != HEADSCALE_USER:
+    if (match.get("user") or {}).get("name") not in HEADSCALE_PERSONAL_USERS:
         return False, "solo i dispositivi personali possono essere rimossi da qui"
     s, out = _hs(["nodes", "delete", "-i", str(nid), "--force"], timeout=30)
     ok = s == 0
@@ -2391,7 +2398,7 @@ function renderIamVpn(){
  $('iam-vpn').innerHTML='<div class="note" style="margin:0 0 10px">Dispositivi personali sulla VPN di casa. Aggiungine uno per dare accesso alla rete a chi è fuori: <b>ospite</b> = temporaneo (si rimuove da solo alla disconnessione), <b>nuova persona</b> = permanente.</div>'
   +(dv.length?dv.map(x=>{const av=iamAvatar(x.name||'?');return `<div class="iam-urow" style="grid-template-columns:1fr auto;padding:9px 2px">
      <div class="iam-id"><span class="iam-av" style="width:30px;height:30px;font-size:.8rem;background:${av.bg}">${av.initials}</span>
-      <span class="iam-nm"><b>${x.name||'—'}</b><span>${x.ephemeral?'ospite (temporaneo)':'dispositivo di casa'}</span></span></div>
+      <span class="iam-nm"><b>${x.name||'—'}</b><span>${x.guest?'ospite (accesso limitato: solo web+DNS)':'dispositivo di casa'}</span></span></div>
      <div style="display:flex;align-items:center;gap:8px">
       <span class="iam-badge ${x.online?'ok':'usr'}">${x.online?'● online':'○ offline'}</span>
       <button class="ibt danger" title="Rimuovi dalla VPN" onclick="vpnRevoke(${x.id},'${(x.name||'').replace(/'/g,"\\'")}')">🗑</button></div>

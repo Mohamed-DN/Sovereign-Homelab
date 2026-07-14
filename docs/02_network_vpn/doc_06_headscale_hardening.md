@@ -139,6 +139,26 @@ Explanation:
 
 Do not put future family or guest identities in `group:owners`. Enroll them under separate Headscale users and add narrow `group:members` ACL rules for DNS, NPM HTTPS, and explicitly approved LAN targets. A policy that places the same user in both an unrestricted owner group and a restricted member group is not least privilege because accept rules are additive.
 
+**Guest access implemented (2026-07-14)** following the rule above. The live
+policy adds a dedicated Headscale user **`ospite`** (id 2) and:
+
+```json
+"groups": { "group:owners": ["casa@"], "group:guests": ["ospite@"] },
+"acls": [ …owner rules unchanged…,
+  { "action": "accept", "src": ["group:guests"],
+    "dst": ["192.168.1.50:53,80,443"] } ]
+```
+
+Guests can reach ONLY DNS and the NPM web edge (every app behind it is still
+SSO-gated per-application) — never the raw LAN, never the exit node. The
+dashboard's VPN invite panel enforces the split: *ospite* invites mint
+**ephemeral** 24h keys under `ospite` (device auto-removes when it goes
+offline); *nuova persona* invites mint durable keys under `casa`
+(`group:owners`). The revoke guard covers `casa`+`ospite` devices and still
+refuses infrastructure nodes. Verified live: a guest key created via the
+dashboard lands under `ospite`. Rollback: `policy.hujson.pre-guests.bak` next
+to the live policy.
+
 When a later stable Headscale release supports grants in the live binary, migrate this policy in an isolated test first. ACLs and grants are different schemas; a successful parse in online documentation is not evidence that the pinned server accepts it.
 
 ---
