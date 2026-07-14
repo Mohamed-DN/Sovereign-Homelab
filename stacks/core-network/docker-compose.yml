@@ -21,6 +21,23 @@ services:
     ports:
       - "${HEADSCALE_UI_PORT}:8080"
 
+  # Headplane: modern web UI for Headscale (device/user/pre-auth-key management,
+  # ACL view, and OIDC login). Reads only Headscale's config.yaml (not its
+  # private keys). Its own config (with the Headscale API key + cookie secret)
+  # lives root-only at ./headplane/config.yaml on the host, never in git.
+  headplane:
+    image: ghcr.io/tale/headplane:${HEADPLANE_TAG}
+    container_name: headplane
+    restart: unless-stopped
+    depends_on:
+      - headscale
+    ports:
+      - "${HEADPLANE_PORT}:3000"
+    volumes:
+      - ./headplane/config.yaml:/etc/headplane/config.yaml:ro
+      - ./headscale/config/config.yaml:/etc/headscale/config.yaml:ro
+      - ./headplane/data:/var/lib/headplane
+
   adguardhome:
     image: adguard/adguardhome:${ADGUARD_TAG}
     container_name: adguardhome
