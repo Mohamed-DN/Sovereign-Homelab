@@ -63,8 +63,10 @@ Dashboard (forward-auth) · Authentik LDAP directory outpost.
 
 ## 2. Immich version auto-update with 1-day rollback (dashboard flow)
 
-⚪ Planned. Give the Dati & Backup tab a controlled updater instead of manual
-`docker compose pull`.
+🟢 **DONE (2026-07-14).** Live in the Dati & Backup tab ("Aggiornamenti Immich"
+card): checks the latest GitHub release, and the "Aggiorna" button runs the flow
+below with an auto-rollback verification gate + a 1-day snapshot prune. Original
+plan for reference:
 
 **Algorithm**
 1. **Check**: poll the Immich GitHub releases API, compare to the pinned
@@ -86,16 +88,18 @@ Dashboard (forward-auth) · Authentik LDAP directory outpost.
 before declaring success; all steps in the audit log + email on result. Immich
 stays sacred.
 
-> Note (2026-07-13): live version is **v3.0.1**, latest is **v3.0.2** — a patch
-> (the v3.0.0 pgvecto.rs→vectorchord migration is already behind us), so the
-> first run of this flow is low-risk.
+> Note: live version is now **v3.0.2** (upgraded 2026-07-13, verified: asset
+> count unchanged, fresh backup OK). The v3.0.0 pgvecto.rs→vectorchord migration
+> is behind us, so subsequent patch updates via this flow are low-risk.
 
 ---
 
 ## 3. Server / Windows action-button matrix (Immich emergency ops)
 
-⚪ Planned. Make explicit, from the dashboard, **where** each action runs so the
-server is never destabilised by a Windows action and vice-versa.
+🟢 **DONE (2026-07-14).** Start/Stop of the Windows emergency Immich added
+(pause-resume without teardown); the card shows a "solo PC Windows" scope chip;
+a shared single-run lock prevents concurrent Windows actions from corrupting the
+Podman stack. Matrix:
 
 | Button | Runs on | Exists? |
 |--------|---------|---------|
@@ -116,9 +120,11 @@ server. Server-only actions never reach into Windows.
 
 ## 4. VPN self-service device onboarding (guest / new person)
 
-⚪ Planned. Let an **admin** grant network/VPN access from the dashboard to
-someone outside the LAN, using the existing **Headscale** coordination server
-(Tailscale-compatible clients).
+🟢 **DONE (2026-07-14).** Live in the IAM tab ("Accesso VPN" panel, admin-only):
+add a guest (ephemeral) or new-person (durable) device → mints a single-use 24h
+Headscale pre-auth key and shows the `tailscale up` join command (via the public
+login server) with copy + downloadable-instructions; lists personal devices with
+a revoke guarded to `casa` devices only. Design for reference:
 
 **Two cases**
 - **Guest** — short-lived: an ephemeral, pre-authorised, auto-expiring key
