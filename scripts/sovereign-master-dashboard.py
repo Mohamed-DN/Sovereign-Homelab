@@ -132,6 +132,7 @@ LINKS: list[dict[str, Any]] = [
     {"group": "Network", "items": [
         {"name": "AdGuard Home", "slug": "adguard", "icon": "\U0001F6E1️", "href": "https://adguard.internal", "desc": "DNS filtering and .internal rewrites", "kw": "adguard"},
         {"name": "Headscale UI", "slug": "headscale", "icon": "\U0001F511", "href": "https://headscale.internal", "desc": "VPN users, devices, routes", "kw": "headscale"},
+        {"name": "Headplane", "slug": "headplane", "icon": "\U0001F310", "href": "https://headplane.internal/admin", "desc": "VPN console: dispositivi, chiavi, ACL (SSO)", "kw": "headplane"},
         {"name": "Nginx Proxy Manager", "slug": "npm", "icon": "\U0001F500", "href": "https://npm.internal", "desc": "Reverse proxy, aliases, certificates", "kw": "proxy"},
     ]},
     {"group": "Admin", "items": [

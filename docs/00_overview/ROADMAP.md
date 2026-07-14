@@ -120,7 +120,11 @@ server. Server-only actions never reach into Windows.
 
 ## 4. VPN self-service device onboarding (guest / new person)
 
-🟢 **DONE (2026-07-14).** Live in the IAM tab ("Accesso VPN" panel, admin-only):
+🟢 **DONE (2026-07-14)** — and upgraded the same day with **Headplane**
+(headplane.internal): a full VPN console (devices, users, pre-auth keys, ACLs)
+with OIDC login via Authentik, deployed after researching the best option (the
+Tailscale QR flow doesn't work with Headscale; OIDC is the real UX win). The
+dashboard IAM panel remains the quick path. Original feature:
 add a guest (ephemeral) or new-person (durable) device → mints a single-use 24h
 Headscale pre-auth key and shows the `tailscale up` join command (via the public
 login server) with copy + downloadable-instructions; lists personal devices with
