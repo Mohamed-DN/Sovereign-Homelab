@@ -526,6 +526,33 @@ build (**v4.0.0.4, targetAbi 10.11.0.0**):
 - **Rollback:** disable/delete the provider in the SSO plugin config; local
   Jellyfin login is untouched.
 
+**Sixth service DONE (2026-07-14): Headplane (headplane.internal) via OIDC —
+the VPN console.**
+
+Headplane 0.7.0 (web UI for Headscale) on LXC 100, deployed to make VPN
+device/user/key management self-service (see ROADMAP §4):
+
+- NPM proxy host `headplane.internal` → `http://headplane:3000` (created via
+  the NPM API per doc_03's rule — never hand-written files), Sovereign
+  Internal Wildcard cert, websockets on, `X-Forwarded-Proto` passed. The
+  existing `*.internal` AdGuard wildcard already resolves it.
+- Authentik: "Headplane OIDC" provider created **with the full checklist**:
+  signing key (JWKS verified: 1 RS256 key), explicit grant_types,
+  openid/email/profile scopes, redirect regex
+  `^https://headplane\.internal/admin/oidc/.*$`. App `headplane` bound to
+  `access-headplane` (mohamed granted) — manageable from the IAM tab.
+- Headplane side: `oidc:` section in its root-only config (client secret never
+  in git), PKCE on, `default_role: member` (first OIDC login becomes owner —
+  that will be mohamed). Node trusts the internal CA via
+  `NODE_EXTRA_CA_CERTS=/etc/headplane/ca.pem` (mounted in compose).
+- **Verified live:** login page shows "Single Sign-On"; `/admin/oidc/start` →
+  302 to auth.internal authorize with the right client_id, https callback and
+  PKCE S256 (discovery through the internal CA works).
+- **Break-glass:** API-key login stays enabled (`disable_api_key_login:
+  false`); the Headscale API key is in the root-only Headplane config.
+- **Rollback:** remove the `oidc:` block (API-key login remains), or stop the
+  headplane container; Headscale itself is untouched.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
