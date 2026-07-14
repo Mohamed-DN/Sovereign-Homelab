@@ -32,7 +32,10 @@ services:
     depends_on:
       - headscale
     ports:
-      - "${HEADPLANE_PORT}:3000"
+      # localhost-only: NPM reaches Headplane over the docker network by
+      # container name; this bind is just LXC-local break-glass/debugging.
+      # Publishing it on the LAN would bypass the HTTPS/SSO front door.
+      - "127.0.0.1:${HEADPLANE_PORT}:3000"
     volumes:
       - ./headplane/config.yaml:/etc/headplane/config.yaml:ro
       # Internal root CA so Node trusts https://auth.internal for OIDC login.
