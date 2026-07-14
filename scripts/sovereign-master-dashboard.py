@@ -1579,10 +1579,10 @@ PAGE = r"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset=
  --bg:#06080b;--plane:#0a0e13;--surface:#0d1218;--raised:#121922;--glass:rgba(13,18,24,.72);
  --line:rgba(148,163,184,.16);--line-strong:rgba(148,163,184,.32);
  --ink:#f4f7fb;--ink2:#c3c9d4;--muted:#8b98a9;--grid:#232a33;
- --accent:#22d3ee;--s1:#3987e5;--s2:#199e70;
+ --accent:#43b4c4;--s1:#3987e5;--s2:#199e70;
  --good:#0ca30c;--warn:#fab219;--crit:#d03b3b;
  --led-good:#2dd4a7;--led-warn:#fbbf24;--led-bad:#fb7185;
- --glow:rgba(34,211,238,.35);--shadow:0 14px 34px rgba(0,0,0,.38);
+ --glow:rgba(67,180,196,.35);--shadow:0 14px 34px rgba(0,0,0,.38);
 }
 :root[data-theme="light"]{
  --bg:#e7e4db;--plane:#e2ded4;--surface:#eeebe3;--raised:#f4f1ea;--glass:rgba(238,235,227,.82);
@@ -1603,13 +1603,13 @@ border-bottom:1px solid var(--line-strong);background:var(--glass);backdrop-filt
 .hleft{justify-self:start}
 .hright{justify-self:end;justify-content:flex-end}
 .brand{justify-self:center;display:flex;align-items:center;gap:11px;text-align:left}
-.brand .crest{flex:0 0 auto;filter:drop-shadow(0 0 7px rgba(34,211,238,.55))}
+.brand .crest{flex:0 0 auto;filter:drop-shadow(0 0 7px rgba(67,180,196,.55))}
 @media(prefers-reduced-motion:no-preference){.brand .crest{animation:crestpulse 3.4s ease-in-out infinite}
- @keyframes crestpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(34,211,238,.45))}50%{filter:drop-shadow(0 0 12px rgba(255,47,208,.6))}}}
+ @keyframes crestpulse{0%,100%{filter:drop-shadow(0 0 6px rgba(67,180,196,.45))}50%{filter:drop-shadow(0 0 12px rgba(207,95,162,.6))}}}
 /* retro/pixel wordmark: chromatic-aberration glitch shadow (cyan+magenta) */
 .brand h1{margin:0;font-family:'Courier New',ui-monospace,Consolas,monospace;font-weight:800;font-size:1.22rem;
  letter-spacing:.2em;line-height:1;white-space:nowrap;color:#eafcff;
- text-shadow:2px 0 0 #ff2fd0,-2px 0 0 #22d3ee,0 0 14px rgba(34,211,238,.45)}
+ text-shadow:2px 0 0 #cf5fa2,-2px 0 0 #43b4c4,0 0 14px rgba(67,180,196,.45)}
 .brand .sub{color:var(--muted);font-size:.66rem;margin-top:4px;letter-spacing:.24em;text-transform:uppercase;font-family:ui-monospace,monospace}
 /* light mode: the near-white wordmark + cyan glow disappear on the paper bg,
    so swap to a dark readable ink with deeper neon ghosts (retro effect kept) */
@@ -1622,8 +1622,8 @@ border-bottom:1px solid var(--line-strong);background:var(--glass);backdrop-filt
  .hleft{display:none}.hright{justify-self:center;justify-content:center}.brand{justify-self:center}}
 .pill{display:inline-flex;align-items:center;gap:8px;padding:6px 13px;border-radius:999px;font-weight:700;font-size:.78rem;border:1px solid var(--line-strong);background:var(--surface)}
 #clock{font-family:ui-monospace,'Cascadia Code',Consolas,'Courier New',monospace;font-size:.82rem;letter-spacing:.06em;
- color:#22d3ee;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(34,211,238,.4);padding:4px 10px;border-radius:8px;
- border:1px solid color-mix(in srgb,#22d3ee 28%,transparent);background:color-mix(in srgb,#22d3ee 7%,transparent)}
+ color:#43b4c4;font-variant-numeric:tabular-nums;text-shadow:0 0 8px rgba(67,180,196,.4);padding:4px 10px;border-radius:8px;
+ border:1px solid color-mix(in srgb,#43b4c4 28%,transparent);background:color-mix(in srgb,#43b4c4 7%,transparent)}
 .iconbtn{width:38px;height:38px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface);color:var(--ink);font-size:1.05rem;cursor:pointer;display:grid;place-items:center;transition:transform .15s ease}
 .iconbtn:hover{transform:translateY(-1px);border-color:var(--accent)}
 .iconbtn:focus-visible,.btn:focus-visible,.tab:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
@@ -1652,12 +1652,26 @@ h2:first-child{margin-top:2px}
 .chart .t .now{font-weight:800;font-size:1.15rem;font-variant-numeric:tabular-nums}
 .chart .t .u{color:var(--muted);font-size:.72rem;margin-left:5px}
 .chart svg{width:100%;height:96px;display:block}
+.chart .axis{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:5px;font-size:.66rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.chart .axis .pk{color:var(--crit);font-weight:800;white-space:nowrap}
+.topcons{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.topcons{grid-template-columns:1fr}}
+.tc-col{border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow);padding:12px 14px}
+.tc-h{font-size:.74rem;font-weight:800;margin-bottom:8px;letter-spacing:.02em}
+.tc-row{display:grid;grid-template-columns:18px minmax(84px,1.1fr) 2fr auto;align-items:center;gap:9px;padding:5px 0}
+.tc-rank{width:18px;height:18px;border-radius:6px;background:var(--raised);border:1px solid var(--line-strong);color:var(--muted);font-size:.62rem;font-weight:800;display:grid;place-items:center}
+.tc-name{font-size:.8rem;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tc-bar{height:7px;border-radius:5px;background:var(--raised);overflow:hidden}
+.tc-bar i{display:block;height:100%;border-radius:5px;transition:width .5s cubic-bezier(.22,1,.36,1)}
+.tc-val{font-size:.76rem;font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
 .rng{display:flex;gap:5px;margin-bottom:8px}
 .rngbtn{padding:3px 9px;border-radius:7px;font-size:.68rem;font-weight:800;cursor:pointer;
  border:1px solid var(--line-strong);background:transparent;color:var(--muted);transition:all .15s ease}
 .rngbtn:hover{color:var(--ink);border-color:var(--sec,var(--accent))}
 .rngbtn.on{color:#fff;background:var(--sec,var(--accent));border-color:var(--sec,var(--accent))}
-.tip{position:absolute;pointer-events:none;background:var(--raised);border:1px solid var(--line-strong);border-radius:7px;padding:5px 9px;font-size:.74rem;font-variant-numeric:tabular-nums;opacity:0;transform:translate(-50%,-100%);white-space:nowrap;box-shadow:var(--shadow);z-index:5;max-width:calc(100% - 12px)}
+.tip{position:absolute;pointer-events:none;background:var(--surface);border:1px solid var(--accent);border-radius:7px;padding:5px 9px;font-size:.74rem;font-weight:700;font-variant-numeric:tabular-nums;opacity:0;transform:translate(-50%,0);white-space:nowrap;box-shadow:var(--shadow);z-index:6;max-width:calc(100% - 12px)}
+.tip.up{transform:translate(-50%,-100%)}
+.tip.down{transform:translate(-50%,0)}
 .donuts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-top:14px}
 .donut{display:flex;align-items:center;gap:12px;padding:13px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);box-shadow:var(--shadow)}
 .donut svg{width:62px;height:62px;flex:0 0 auto}
@@ -1731,7 +1745,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 @media(max-width:720px){.wrap{padding:12px}nav.tabs{top:58px;padding:8px 12px}.tile .v{font-size:1.35rem}header{padding:11px 14px}}
 
 /* ============ v5 LAUNCHER ============ */
-:root{--hA:var(--accent);--hB:#a78bfa;--hC:#2dd4a7}
+:root{--hA:var(--accent);--hB:#9184c6;--hC:#2dd4a7}
 /* App-drawer launcher tiles */
 .lgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:12px}
 .ltile{position:relative;display:flex;flex-direction:column;align-items:center;gap:9px;padding:18px 8px 13px;
@@ -1776,19 +1790,19 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  display:grid;grid-template-columns:auto 1fr auto;gap:26px;align-items:center;padding:22px 26px;
  border-radius:0;image-rendering:pixelated;
  clip-path:polygon(14px 0,calc(100% - 14px) 0,100% 14px,100% calc(100% - 14px),calc(100% - 14px) 100%,14px 100%,0 calc(100% - 14px),0 14px);
- background:linear-gradient(165deg,color-mix(in srgb,#22d3ee 8%,var(--surface)),color-mix(in srgb,#ff2fd0 5%,var(--surface))) padding-box,
-   linear-gradient(115deg,#ff2fd0,#22d3ee 45%,#a78bfa 100%) border-box;
+ background:linear-gradient(165deg,color-mix(in srgb,#43b4c4 8%,var(--surface)),color-mix(in srgb,#cf5fa2 5%,var(--surface))) padding-box,
+   linear-gradient(115deg,#cf5fa2,#43b4c4 45%,#9184c6 100%) border-box;
  border:3px solid transparent}
 .bento.hero::before{content:none}
 .bento.hero::after{content:"";position:absolute;inset:-8px;z-index:-1;clip-path:inherit;
- background:linear-gradient(115deg,#ff2fd0,#22d3ee 45%,#a78bfa 100%);filter:blur(26px);opacity:.28}
+ background:linear-gradient(115deg,#cf5fa2,#43b4c4 45%,#9184c6 100%);filter:blur(26px);opacity:.28}
 .bento.hero .hleft{min-width:150px}
 .bento.hero h3{color:var(--muted);margin:0 0 4px}
 .bento.hero .hnum{font-size:3rem;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;
- background:linear-gradient(120deg,#22d3ee,#a78bfa 60%,#ff2fd0);-webkit-background-clip:text;background-clip:text;color:transparent}
+ background:linear-gradient(120deg,#43b4c4,#9184c6 60%,#cf5fa2);-webkit-background-clip:text;background-clip:text;color:transparent}
 .bento.hero .hsub{color:var(--muted);font-size:.8rem;margin-top:2px}
 .bento.hero .hbar{height:8px;border-radius:0;background:color-mix(in srgb,var(--ink) 10%,transparent);overflow:hidden;margin:12px 0 0;max-width:260px}
-.bento.hero .hbar i{display:block;height:100%;background:linear-gradient(90deg,#22d3ee,#a78bfa,#ff2fd0);box-shadow:0 0 10px #22d3ee;
+.bento.hero .hbar i{display:block;height:100%;background:linear-gradient(90deg,#43b4c4,#9184c6,#cf5fa2);box-shadow:0 0 10px #43b4c4;
  transition:width .9s cubic-bezier(.22,1,.36,1)}
 .bento.hero .hstats{text-align:right;font-size:.8rem;color:var(--muted);line-height:1.8;white-space:nowrap}
 .bento.hero .hstats b{color:var(--ink);font-size:1.05rem}
@@ -1806,14 +1820,14 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  min-width:72px;padding:10px 6px 8px;border:2px solid transparent;border-radius:0;image-rendering:pixelated;
  clip-path:polygon(7px 0,calc(100% - 7px) 0,100% 7px,100% calc(100% - 7px),calc(100% - 7px) 100%,7px 100%,0 calc(100% - 7px),0 7px);
  background:linear-gradient(var(--surface),var(--surface)) padding-box,
-   linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%) border-box;
+   linear-gradient(135deg,#cf5fa2,#43b4c4 50%,#9184c6 100%) border-box;
  box-shadow:0 0 0 1px rgba(0,0,0,.28),0 8px 18px rgba(0,0,0,.32);
  transition:transform .22s cubic-bezier(.22,1.4,.36,1),box-shadow .22s ease}
 #quick .ltile::after{content:"";position:absolute;inset:-3px;z-index:-1;
- clip-path:inherit;background:linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%);filter:blur(9px);opacity:.3}
+ clip-path:inherit;background:linear-gradient(135deg,#cf5fa2,#43b4c4 50%,#9184c6 100%);filter:blur(9px);opacity:.3}
 #quick .ltile:nth-child(odd):hover{transform:translateY(-5px) scale(1.08) rotate(-2deg)}
 #quick .ltile:nth-child(even):hover{transform:translateY(-5px) scale(1.08) rotate(2deg)}
-#quick .ltile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 22px rgba(34,211,238,.6),0 14px 26px rgba(0,0,0,.4)}
+#quick .ltile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 22px rgba(67,180,196,.6),0 14px 26px rgba(0,0,0,.4)}
 #quick .lic{width:30px;height:30px;font-size:1.1rem;border-radius:0;
  clip-path:polygon(5px 0,calc(100% - 5px) 0,100% 5px,100% calc(100% - 5px),calc(100% - 5px) 100%,5px 100%,0 calc(100% - 5px),0 5px)}
 #quick .lic img{width:23px;height:23px}
@@ -1858,6 +1872,9 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 .svcbar input:focus{border-color:var(--accent)}
 .svcbar input::placeholder{color:var(--muted)}
 #hero{margin:2px 0 20px}
+.bento.hero .herocol{position:absolute;top:10px;right:12px;z-index:3;width:26px;height:26px;border-radius:7px;border:1px solid var(--line-strong);background:var(--surface);color:var(--muted);cursor:pointer;font-size:.72rem;line-height:1;display:grid;place-items:center;transition:all .15s ease}
+.bento.hero .herocol:hover{color:var(--ink);border-color:var(--accent)}
+.bento.hero.collapsed .hmid{display:none}
 /* monogram icon fallback (instead of emoji) */
 .mono{width:100%;height:100%;display:grid;place-items:center;border-radius:inherit;color:#fff;font-weight:800;font-size:.95rem;letter-spacing:.02em}
 /* role gating: normal users see only their personal home on Overview */
@@ -1869,25 +1886,25 @@ body.role-user #userhome{display:block}
 /* personal user home: welcome + big pixel-neon app tiles */
 .uwelcome{text-align:center;margin:6px 0 26px}
 .uwelcome .uhi{font-family:ui-monospace,'Cascadia Code',Consolas,monospace;font-weight:800;font-size:1.7rem;letter-spacing:.04em;
- background:linear-gradient(120deg,#ff2fd0,#22d3ee 52%,#a78bfa);-webkit-background-clip:text;background-clip:text;color:transparent}
+ background:linear-gradient(120deg,#cf5fa2,#43b4c4 52%,#9184c6);-webkit-background-clip:text;background-clip:text;color:transparent}
 .uwelcome .usub{color:var(--muted);font-size:.9rem;margin-top:6px}
 .uhsec{display:flex;align-items:center;gap:10px;margin:6px 2px 14px;color:var(--muted);font-size:.72rem;
  font-weight:800;text-transform:uppercase;letter-spacing:.12em}
-.uhsec::before{content:"";width:8px;height:8px;background:#22d3ee;box-shadow:0 0 8px #22d3ee;flex:0 0 auto;animation:pxblink 1.4s steps(2) infinite}
+.uhsec::before{content:"";width:8px;height:8px;background:#43b4c4;box-shadow:0 0 8px #43b4c4;flex:0 0 auto;animation:pxblink 1.4s steps(2) infinite}
 .uhsec::after{content:"";flex:1;height:1px;background:var(--line)}
 @keyframes pxblink{50%{opacity:.25}}
 .ugrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:18px}
 .utile{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px;padding:26px 12px 18px;
  border:2px solid transparent;border-radius:0;text-decoration:none;color:var(--ink);image-rendering:pixelated;
  clip-path:polygon(11px 0,calc(100% - 11px) 0,100% 11px,100% calc(100% - 11px),calc(100% - 11px) 100%,11px 100%,0 calc(100% - 11px),0 11px);
- background:linear-gradient(165deg,color-mix(in srgb,#22d3ee 7%,var(--surface)),var(--surface) 60%) padding-box,
-   linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%) border-box;
+ background:linear-gradient(165deg,color-mix(in srgb,#43b4c4 7%,var(--surface)),var(--surface) 60%) padding-box,
+   linear-gradient(135deg,#cf5fa2,#43b4c4 50%,#9184c6 100%) border-box;
  box-shadow:0 0 0 1px rgba(0,0,0,.28),0 10px 24px rgba(0,0,0,.34);transition:transform .22s cubic-bezier(.22,1.4,.36,1),box-shadow .22s ease}
 .utile::after{content:"";position:absolute;inset:-4px;z-index:-1;clip-path:inherit;
- background:linear-gradient(135deg,#ff2fd0,#22d3ee 50%,#a78bfa 100%);filter:blur(13px);opacity:.28}
+ background:linear-gradient(135deg,#cf5fa2,#43b4c4 50%,#9184c6 100%);filter:blur(13px);opacity:.28}
 .utile:nth-child(odd):hover{transform:translateY(-7px) scale(1.05) rotate(-1.5deg)}
 .utile:nth-child(even):hover{transform:translateY(-7px) scale(1.05) rotate(1.5deg)}
-.utile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 26px rgba(34,211,238,.6),0 16px 30px rgba(0,0,0,.42)}
+.utile:hover{box-shadow:0 0 0 1px rgba(0,0,0,.28),0 0 26px rgba(67,180,196,.6),0 16px 30px rgba(0,0,0,.42)}
 .utile .uic{width:58px;height:58px;display:grid;place-items:center;font-size:2rem;overflow:hidden;border-radius:0;
  clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 8px,100% calc(100% - 8px),calc(100% - 8px) 100%,8px 100%,0 calc(100% - 8px),0 8px)}
 .utile .uic img{width:46px;height:46px;object-fit:contain}
@@ -1992,20 +2009,20 @@ footer a:hover{text-decoration:underline}
  <div class="brand">
   <svg class="crest" viewBox="0 0 48 52" width="34" height="37" aria-hidden="true">
    <defs><linearGradient id="crn" x1="0" y1="0" x2="1" y2="1">
-     <stop offset="0%" stop-color="#ff2fd0"/><stop offset="50%" stop-color="#22d3ee"/><stop offset="100%" stop-color="#a78bfa"/>
+     <stop offset="0%" stop-color="#cf5fa2"/><stop offset="50%" stop-color="#43b4c4"/><stop offset="100%" stop-color="#9184c6"/>
    </linearGradient></defs>
-   <!-- crest body: hexagonal shield with a faint fill + inner frame for depth -->
-   <path d="M24 12 L41 20 V34 L24 48 L7 34 V20 Z" fill="url(#crn)" opacity=".14"/>
-   <path d="M24 12 L41 20 V34 L24 48 L7 34 V20 Z" fill="none" stroke="url(#crn)" stroke-width="2.4" stroke-linejoin="round"/>
-   <path d="M24 16.5 L37 23 V32.5 L24 43 L11 32.5 V23 Z" fill="none" stroke="url(#crn)" stroke-width="1" opacity=".55"/>
-   <!-- sovereign crown resting on the crest, with three gems -->
-   <path d="M13 13 L17 6 L24 11 L31 6 L35 13 Z" fill="url(#crn)"/>
-   <rect x="22" y="2" width="4" height="4" fill="#22d3ee"/>
-   <rect x="14.5" y="6.5" width="3" height="3" fill="#ff2fd0"/>
-   <rect x="30.5" y="6.5" width="3" height="3" fill="#a78bfa"/>
-   <!-- arcane keyhole rune in the heart of the crest -->
-   <circle cx="24" cy="28" r="4.3" fill="url(#crn)"/>
-   <path d="M21.7 30.6 H26.3 L27.7 39 H20.3 Z" fill="url(#crn)"/>
+   <!-- hexagonal shield: faint fill + crisp frame -->
+   <path d="M24 13 L41 21 V35 L24 48 L7 35 V21 Z" fill="url(#crn)" opacity=".13"/>
+   <path d="M24 13 L41 21 V35 L24 48 L7 35 V21 Z" fill="none" stroke="url(#crn)" stroke-width="2.3" stroke-linejoin="round"/>
+   <!-- sovereign crown resting on the crest, single gem -->
+   <path d="M13 14 L17 7 L24 12 L31 7 L35 14 Z" fill="url(#crn)"/>
+   <rect x="22.3" y="3.4" width="3.4" height="3.4" fill="#43b4c4"/>
+   <!-- the sovereign mesh: a core node linked to three satellites -->
+   <path d="M24 31 L16.5 26 M24 31 L31.5 27 M24 31 L24 41.5" fill="none" stroke="url(#crn)" stroke-width="1.3" opacity=".85"/>
+   <circle cx="16.5" cy="26" r="1.9" fill="url(#crn)"/>
+   <circle cx="31.5" cy="27" r="1.9" fill="url(#crn)"/>
+   <circle cx="24" cy="41.5" r="1.9" fill="url(#crn)"/>
+   <circle cx="24" cy="31" r="3.4" fill="url(#crn)"/>
   </svg>
   <div class="btxt"><h1>SOVEREIGN&nbsp;DASHBOARD</h1><div class="sub">Proxmox &middot; VPN/LAN only</div></div>
  </div>
@@ -2033,11 +2050,13 @@ footer a:hover{text-decoration:underline}
  <div class="charts">
   <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div>
    <div class="rng"><button class="rngbtn on" data-r="20m" onclick="setChartRange('cpu','20m')">20m</button><button class="rngbtn" data-r="2h" onclick="setChartRange('cpu','2h')">2h</button><button class="rngbtn" data-r="2d" onclick="setChartRange('cpu','2d')">2g</button><button class="rngbtn" data-r="7d" onclick="setChartRange('cpu','7d')">7g</button></div>
-   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div><div class="axis"></div></div>
   <div class="chart" id="c-mem" style="--sec:var(--s2)"><div class="t"><span class="n">RAM host</span><span><span class="now" id="mem-now">-</span><span class="u">%</span></span></div>
    <div class="rng"><button class="rngbtn on" data-r="20m" onclick="setChartRange('mem','20m')">20m</button><button class="rngbtn" data-r="2h" onclick="setChartRange('mem','2h')">2h</button><button class="rngbtn" data-r="2d" onclick="setChartRange('mem','2d')">2g</button><button class="rngbtn" data-r="7d" onclick="setChartRange('mem','7d')">7g</button></div>
-   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div></div>
+   <svg class="spark" viewBox="0 0 600 96" preserveAspectRatio="none"></svg><div class="tip"></div><div class="axis"></div></div>
  </div>
+ <h2 style="--sec:#fb7185">Top consumatori · adesso</h2>
+ <div id="topcons" class="topcons"></div>
  <h2 style="--sec:var(--s1)">Storage</h2>
  <div class="donuts" id="donuts"></div>
  <h2 style="--sec:#fbbf24">Temperatura dischi (SMART)</h2>
@@ -2062,8 +2081,8 @@ footer a:hover{text-decoration:underline}
  </div>
 </section>
 
-<section class="page" id="p-apps" style="--sec:#a78bfa">
- <h2 style="--sec:#a78bfa">Apps &mdash; start / stop</h2>
+<section class="page" id="p-apps" style="--sec:#9184c6">
+ <h2 style="--sec:#9184c6">Apps &mdash; start / stop</h2>
  <p class="note">Ogni azione chiede nome + motivo, va nell'audit log e invia una email. Le app con 💾 contengono dati e vengono fermate in modo pulito. <b>Immich, Vaultwarden, NPM, AdGuard, Headscale, PBS, Authentik</b> non sono mai arrestabili da qui.</p>
  <div class="svcbar"><input id="app-search" type="search" placeholder="🔎 Cerca un'app…" autocomplete="off"></div>
  <div class="grid" id="acards"></div>
@@ -2180,13 +2199,16 @@ function fmtWhen(ts){
  return rel+' · '+abs;
 }
 function spark(card,data,color,timestamps){
- const svg=card.querySelector('svg'),tip=card.querySelector('.tip');
- if(!data.length){svg.innerHTML='';return;}
+ const svg=card.querySelector('svg'),tip=card.querySelector('.tip'),axis=card.querySelector('.axis');
+ if(!data.length){svg.innerHTML='';if(axis)axis.innerHTML='';return;}
  const W=600,H=96,P=6,n=data.length,max=Math.max(20,...data),min=0;
+ const se=(D&&D.sample_every)||10;
+ const ts=i=>(timestamps&&timestamps[i]!=null)?timestamps[i]:(Date.now()/1000-(n-1-i)*se);
  const X=i=>P+(W-2*P)*i/Math.max(1,n-1),Y=v=>H-P-(H-2*P)*(v-min)/(max-min);
  let dl='M'+X(0)+','+Y(data[0]);for(let i=1;i<n;i++)dl+=' L'+X(i)+','+Y(data[i]);
  const da=dl+' L'+X(n-1)+','+(H-P)+' L'+X(0)+','+(H-P)+' Z';
  const gid='g'+Math.random().toString(36).slice(2,7);
+ let pk=0;for(let i=1;i<n;i++)if(data[i]>data[pk])pk=i;   // peak index
  svg.innerHTML=`<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1">
   <stop offset="0%" stop-color="${color}" stop-opacity=".28"/><stop offset="100%" stop-color="${color}" stop-opacity="0"/></linearGradient></defs>
   <line x1="${P}" y1="${Y(25)}" x2="${W-P}" y2="${Y(25)}" stroke="${css('--grid')}" stroke-width="1"/>
@@ -2194,22 +2216,33 @@ function spark(card,data,color,timestamps){
   <line x1="${P}" y1="${Y(75)}" x2="${W-P}" y2="${Y(75)}" stroke="${css('--grid')}" stroke-width="1"/>
   <path d="${da}" fill="url(#${gid})"/>
   <path class="line" d="${dl}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round"/>
+  <line x1="${X(pk)}" x2="${X(pk)}" y1="${P}" y2="${H-P}" stroke="${css('--crit')}" stroke-width="1" stroke-dasharray="3 3" opacity=".8"/>
   <circle class="dot" r="4" fill="${color}" stroke="${css('--surface')}" stroke-width="2" style="opacity:0"/>
   <line class="cross" y1="${P}" y2="${H-P}" stroke="${css('--line-strong')}" stroke-width="1" style="opacity:0"/>`;
+ // at-a-glance axis: start time · the peak (value + when) · now. SVG text would
+ // distort under preserveAspectRatio=none, so these are HTML instead.
+ if(axis){const hm=t=>{const d=new Date(t*1000);const span=ts(n-1)-ts(0);
+   return span>86400?d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'})+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'})
+     :d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});};
+  axis.innerHTML=`<span>${hm(ts(0))}</span><span class="pk" title="quando è stato il picco">▲ picco ${data[pk].toFixed(0)}% · ${hm(ts(pk))}</span><span>adesso</span>`;}
  const dot=svg.querySelector('.dot'),cross=svg.querySelector('.cross');
  svg.onmousemove=e=>{
   const r=svg.getBoundingClientRect(),fx=(e.clientX-r.left)/r.width*W;
   const i=Math.round((fx-P)/((W-2*P)/Math.max(1,n-1)));if(i<0||i>=n)return;
   dot.setAttribute('cx',X(i));dot.setAttribute('cy',Y(data[i]));dot.style.opacity=1;
   cross.setAttribute('x1',X(i));cross.setAttribute('x2',X(i));cross.style.opacity=1;
-  const ts=(timestamps&&timestamps[i]!=null)?timestamps[i]:(Date.now()/1000-(n-1-i)*(D?D.sample_every:10));
-  tip.textContent=data[i].toFixed(1)+'%  ·  '+fmtWhen(ts);
-  // position relative to the CARD, not the svg (the svg is offset below the
-  // header + range buttons), and clamp so it never slides past the edges.
+  const _d=new Date(ts(i)*1000);
+  tip.textContent=data[i].toFixed(1)+'% · '+_d.toLocaleDateString('it-IT',{day:'2-digit',month:'2-digit'})+' '+_d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
   const cardTop=card.getBoundingClientRect().top;
   const svgOffsetInCard=r.top-cardTop;
-  tip.style.left=Math.max(14,Math.min(86,X(i)/W*100))+'%';
-  tip.style.top=Math.max(8,svgOffsetInCard+Y(data[i])*(r.height/H)-8)+'px';
+  const pointYpx=svgOffsetInCard+Y(data[i])*(r.height/H);
+  // flip the tip above/below the point so it's ALWAYS inside the chart and
+  // readable while scrubbing: point in the lower half -> tip above it; upper
+  // half -> below it. Never clipped at the top or bottom edge.
+  const lower=Y(data[i])>H*0.5;
+  tip.className='tip '+(lower?'up':'down');
+  tip.style.left=Math.max(16,Math.min(84,X(i)/W*100))+'%';
+  tip.style.top=(lower?pointYpx-7:pointYpx+13)+'px';
   tip.style.opacity=1;};
  svg.onmouseleave=()=>{dot.style.opacity=0;cross.style.opacity=0;tip.style.opacity=0;};
 }
@@ -2240,6 +2273,14 @@ function svcInfo(name){
   +mrow('Monitor',mon?(mon.up?'🟢 UP':'🔴 DOWN')+' · '+mon.name:'— non monitorato direttamente')
   +(g?mrow('Guest',(g.type==='qemu'?'VM ':'LXC ')+g.vmid+' · CPU '+g.cpu.toFixed(1)+'% · RAM '+g.mem_pct.toFixed(1)+'%'):'')
   +`<button class="btn act" onclick="window.open('${it.href}','_blank')">Apri ${it.name} ↗</button>`);
+}
+function toggleHero(e){
+ if(e)e.stopPropagation();
+ const box=$('herobox');if(!box)return;
+ const col=!box.classList.contains('collapsed');
+ box.classList.toggle('collapsed',col);
+ localStorage.setItem('sov-hero-collapsed',col?'1':'0');
+ const b=$('herocol');if(b)b.textContent=col?'▸':'▾';
 }
 function heroInfo(){
  const d=D,down=(d.kuma.monitors||[]).filter(x=>!x.up);
@@ -2273,9 +2314,9 @@ async function loadIam(){
  const nActive=U.filter(u=>u.is_active).length,nAdmin=U.filter(u=>u.is_admin).length;
  $('iam-stats').innerHTML=[
   ['#2dd4a7',U.length,'Utenze totali'],
-  ['#22d3ee',nActive,'Attive'],
+  ['#43b4c4',nActive,'Attive'],
   ['#f5c451',nAdmin,'Amministratori'],
-  ['#a78bfa',A.length,'App con SSO'],
+  ['#9184c6',A.length,'App con SSO'],
   ['#fb7185',dp.length,'Rimozioni programmate']
  ].map(([c,n,l])=>`<div class="iam-stat" style="--sc:${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join('');
  $('iam-ucount').textContent=U.length;$('iam-acount').textContent=A.length;
@@ -2534,6 +2575,11 @@ function render(){
   if(chartRange.cpu==='20m')spark($('c-cpu'),d.cpu_hist,css('--s1'));}
  if(d.mem_hist.length){$('mem-now').textContent=d.mem_hist[d.mem_hist.length-1].toFixed(0);
   if(chartRange.mem==='20m')spark($('c-mem'),d.mem_hist,css('--s2'));}
+ /* top consumers right now (per-instant; per-guest history isn't stored) */
+ const _tc=(key,unit,col)=>d.guests.slice().sort((a,b)=>(b[key]||0)-(a[key]||0)).slice(0,3).map((g,i)=>
+  `<div class="tc-row"><span class="tc-rank">${i+1}</span><span class="tc-name">${g.name||g.vmid}</span><span class="tc-bar"><i style="width:${Math.min(100,g[key]||0).toFixed(0)}%;background:${col}"></i></span><span class="tc-val">${(g[key]||0).toFixed(1)}${unit}</span></div>`).join('');
+ $('topcons').innerHTML=`<div class="tc-col"><div class="tc-h" style="color:var(--s1)">🔥 CPU</div>${_tc('cpu','%','var(--s1)')}</div>`
+  +`<div class="tc-col"><div class="tc-h" style="color:var(--s2)">🧠 RAM</div>${_tc('mem_pct','%','var(--s2)')}</div>`;
  /* donuts */
  $('donuts').innerHTML=d.storages.map(s=>donut(s.name,s.used_pct,gb(s.used)+' / '+gb(s.total))).join('');
  $('disks').innerHTML=(d.disks||[]).map(x=>`<div class="tile" style="--tc:${x.status==='passed'?'var(--led-good)':'var(--led-bad)'}"><div class="k">${x.name}</div><div class="v">${x.temp?x.temp+'°C':'—'}</div><div class="f">${(x.model||'').slice(0,18)} · ${x.status}</div></div>`).join('')||'<div class="foot" style="color:var(--muted);padding:6px">Scrutiny non raggiungibile</div>';
@@ -2560,7 +2606,7 @@ function render(){
  function bapp(it){return `<a class="bapp" href="${it.href}" target="_blank" rel="noopener">
    <button class="inf" title="Info" onclick="event.preventDefault();event.stopPropagation();svcInfo('${it.name.replace(/'/g,"\\'")}')">i</button>
    <span class="led ${dot(it.kw)}"></span><span class="lic">${favImg(it)}</span><span class="bn">${it.name}</span></a>`;}
- const bAcc=['#22d3ee','#60a5fa','#a78bfa','#fbbf24','#2dd4a7','#fb7185'];
+ const bAcc=['#43b4c4','#60a5fa','#9184c6','#fbbf24','#2dd4a7','#fb7185'];
  const upN=(d.kuma.active||0)-(d.kuma.down||0),totN=d.kuma.active||0;
  const downMon=(d.kuma.monitors||[]).filter(x=>!x.up).map(x=>x.name);
  const alert=downMon.length>0;
@@ -2591,8 +2637,10 @@ function render(){
       <button class="btn act" onclick="document.querySelector('.tab[data-p=iam]').click()">&#128273; Gestisci il mio profilo</button>
      </div>`;
  }
+ const heroCol=localStorage.getItem('sov-hero-collapsed')==='1';
  $('hero').innerHTML=
-  `<div class="bento hero${alert?' alert':''}" id="herobox" title="Clicca per il dettaglio">
+  `<div class="bento hero${alert?' alert':''}${heroCol?' collapsed':''}" id="herobox" title="Clicca per il dettaglio">
+     <button class="herocol" id="herocol" title="Comprimi / espandi la panoramica" onclick="toggleHero(event)">${heroCol?'▸':'▾'}</button>
      <div class="hleft"><h3>Panoramica</h3><div class="hnum">${upN}<span style="font-size:1.4rem;opacity:.75">/${totN}</span></div>
        <div class="hsub">servizi online adesso</div><div class="hbar"><i style="width:${totN?Math.round(100*upN/totN):0}%"></i></div></div>
      <div class="hmid">
@@ -2601,7 +2649,7 @@ function render(){
      </div>
      <div class="hstats"><b>${cpuNow}%</b> CPU host<br><b>${ramNow}%</b> RAM host<br><b>${gRun}/${d.guests.length}</b> guest attivi</div>
    </div>`;
- $('herobox').onclick=e=>{if(!e.target.closest('#quick'))heroInfo();};
+ $('herobox').onclick=e=>{if(e.target.closest('#herocol'))return;if(!e.target.closest('#quick'))heroInfo();};
  $('linkgroups').innerHTML=
   `<div class="svcbar"><input id="svc-search" type="search" placeholder="🔎 Cerca un servizio…" autocomplete="off"></div>`
   +d.links.map((g,i)=>`<div class="bento" style="--bc:${bAcc[i%bAcc.length]}"><h3>${g.group}<span class="cnt">${g.items.length}</span></h3>
@@ -2621,7 +2669,7 @@ function render(){
   <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
    <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
    ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
-  <div class="card" style="--sec:#a78bfa"><div class="top"><span class="name">🚑 Emergenza Immich su Windows</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:#a78bfa">🖥️ solo PC Windows</span></div>
+  <div class="card" style="--sec:#9184c6"><div class="top"><span class="name">🚑 Emergenza Immich su Windows</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:#9184c6">🖥️ solo PC Windows</span></div>
    <div class="rows">Agisce <b>solo sul PC Windows</b> (Podman): il <b>server (VM110) e i backup non vengono mai toccati</b>. Podman si avvia da solo se serve.</div>
    ${jobbtn('rebuild-windows',`act('rebuild-windows',null,this,'BACKUP FRESCO + RIALZA: eseguo prima un nuovo backup dal server, poi rialzo Immich sul PC Windows con quel backup nuovo. Richiede diversi minuti; ricrea tutto da zero.')`,'🚀 Backup fresco + Rialza')}
    ${jobbtn('raise-windows',`act('raise-windows',null,this,'RIALZA DAL BACKUP SU WINDOWS: rialzo Immich usando il backup GIÀ presente su questo PC, senza farne uno nuovo. Più veloce.')`,'▶️ Rialza dal backup su Windows')}
@@ -2651,7 +2699,7 @@ function render(){
  /* apps */
  $('acards').innerHTML='';
  for(const a of d.apps){const r=a.overall==='running';
-  const c=document.createElement('div');c.className='card';c.style.setProperty('--sec',a.data?'var(--led-warn)':'#a78bfa');
+  const c=document.createElement('div');c.className='card';c.style.setProperty('--sec',a.data?'var(--led-warn)':'#9184c6');
   c.innerHTML=`<div class="top"><span class="name">${a.data?'💾 ':''}${a.name}
     <button class="inf" style="position:static;opacity:1;width:20px;height:20px;border-radius:50%;border:none;cursor:pointer;font:700 .7rem system-ui;color:var(--muted);background:color-mix(in srgb,var(--muted) 14%,transparent)" title="Info" onclick="appInfo('${a.name}')">i</button></span>
    <span class="state ${r?'up':a.overall==='partial'?'wa':'dn'}"><span class="led"></span>${a.overall}</span></div>
@@ -2781,7 +2829,7 @@ LOGIN_REDIRECT_PAGE = (
     "place-items:center;height:100vh;margin:0'><div style='text-align:center'>"
     "<div style='font-size:2.4rem'>🔐</div><h2>Accesso richiesto</h2>"
     "<p>Entra dalla porta principale:<br>"
-    "<a href='https://dash.internal' style='color:#22d3ee;font-weight:700'>https://dash.internal</a></p>"
+    "<a href='https://dash.internal' style='color:#43b4c4;font-weight:700'>https://dash.internal</a></p>"
     "</div></body></html>"
 )
 
