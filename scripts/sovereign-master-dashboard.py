@@ -131,8 +131,7 @@ def metrics_range(range_key: str) -> dict[str, Any]:
 LINKS: list[dict[str, Any]] = [
     {"group": "Network", "items": [
         {"name": "AdGuard Home", "slug": "adguard", "icon": "\U0001F6E1️", "href": "https://adguard.internal", "desc": "DNS filtering and .internal rewrites", "kw": "adguard"},
-        {"name": "Headscale UI", "slug": "headscale", "icon": "\U0001F511", "href": "https://headscale.internal", "desc": "VPN users, devices, routes", "kw": "headscale"},
-        {"name": "Headplane", "slug": "headplane", "icon": "\U0001F310", "href": "https://headplane.internal/admin", "desc": "VPN console: dispositivi, chiavi, ACL (SSO)", "kw": "headplane"},
+        {"name": "Headplane", "slug": "headplane", "icon": "\U0001F310", "href": "https://headplane.internal/admin", "desc": "Console VPN: dispositivi, utenti, chiavi, ACL (SSO)", "kw": "headscale"},
         {"name": "Nginx Proxy Manager", "slug": "npm", "icon": "\U0001F500", "href": "https://npm.internal", "desc": "Reverse proxy, aliases, certificates", "kw": "proxy"},
     ]},
     {"group": "Admin", "items": [
@@ -2120,7 +2119,10 @@ footer a:hover{text-decoration:underline}
  <div class="iam-panel" id="iam-vpn-panel">
   <div class="iam-phead">
    <span class="iam-ptitle">🌐 Accesso VPN &mdash; chi è fuori casa <span class="iam-count" id="iam-vpncount">·</span></span>
-   <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="vpnAdd()">➕ Aggiungi dispositivo</button>
+   <div class="iam-ptools">
+    <a class="btn" style="width:auto;margin:0;padding:8px 14px;text-decoration:none;display:inline-block" href="https://headplane.internal/admin" target="_blank" rel="noopener">🌐 Console Headplane ↗</a>
+    <button class="btn act" style="width:auto;margin:0;padding:8px 14px" onclick="vpnAdd()">➕ Aggiungi dispositivo</button>
+   </div>
   </div>
   <div id="iam-vpn" style="padding:10px 16px">caricamento…</div>
  </div>
@@ -2151,7 +2153,7 @@ let D=null,first=true;
    for "nice retro icons where they're missing" -- one small cached SVG fetch
    per uncovered service, same pattern many self-hosted dashboards use. */
 const ICON_CDN_BASE='https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@main/svg/';
-const ICON_CDN_FILES={adguard:'adguard-home',headscale:'headscale',npm:'nginx-proxy-manager',proxmox:'proxmox',
+const ICON_CDN_FILES={adguard:'adguard-home',headplane:'headscale',npm:'nginx-proxy-manager',proxmox:'proxmox',
  pbs:'proxmox-backup-server',authentik:'authentik','uptime-kuma':'uptime-kuma',beszel:'beszel',dozzle:'dozzle',
  netalertx:'netalertx',scrutiny:'scrutiny',ntfy:'ntfy',vaultwarden:'vaultwarden',immich:'immich',
  nextcloud:'nextcloud',syncthing:'syncthing',paperless:'paperless-ngx','home-assistant':'home-assistant',
@@ -2395,10 +2397,10 @@ function renderIamVpn(){
  const vpn=(IAM&&IAM.vpn)||{},dv=vpn.devices||[];
  $('iam-vpncount').textContent=dv.length;
  if(vpn.ok===false){$('iam-vpn').innerHTML='<span style="color:var(--led-bad)">Headscale non raggiungibile</span>';return;}
- $('iam-vpn').innerHTML='<div class="note" style="margin:0 0 10px">Dispositivi personali sulla VPN di casa. Aggiungine uno per dare accesso alla rete a chi è fuori: <b>ospite</b> = temporaneo (si rimuove da solo alla disconnessione), <b>nuova persona</b> = permanente.</div>'
+ $('iam-vpn').innerHTML='<div class="note" style="margin:0 0 10px">Dispositivi personali sulla VPN di casa (clicca un nome per aprirlo in Headplane). <b>Ospite</b> = temporaneo e limitato a web+DNS, si rimuove da solo alla disconnessione; <b>nuova persona</b> = dispositivo permanente di casa.</div>'
   +(dv.length?dv.map(x=>{const av=iamAvatar(x.name||'?');return `<div class="iam-urow" style="grid-template-columns:1fr auto;padding:9px 2px">
      <div class="iam-id"><span class="iam-av" style="width:30px;height:30px;font-size:.8rem;background:${av.bg}">${av.initials}</span>
-      <span class="iam-nm"><b>${x.name||'—'}</b><span>${x.guest?'ospite (accesso limitato: solo web+DNS)':'dispositivo di casa'}</span></span></div>
+      <span class="iam-nm"><b><a href="https://headplane.internal/admin/machines/${x.id}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${x.name||'—'}</a></b><span>${x.guest?'ospite (accesso limitato: solo web+DNS)':'dispositivo di casa'}</span></span></div>
      <div style="display:flex;align-items:center;gap:8px">
       <span class="iam-badge ${x.online?'ok':'usr'}">${x.online?'● online':'○ offline'}</span>
       <button class="ibt danger" title="Rimuovi dalla VPN" onclick="vpnRevoke(${x.id},'${(x.name||'').replace(/'/g,"\\'")}')">🗑</button></div>
@@ -2584,8 +2586,10 @@ function render(){
  if(d.mem_hist.length){$('mem-now').textContent=d.mem_hist[d.mem_hist.length-1].toFixed(0);
   if(chartRange.mem==='20m')spark($('c-mem'),d.mem_hist,css('--s2'));}
  /* top consumers right now (per-instant; per-guest history isn't stored) */
- const _tc=(key,unit,col)=>d.guests.slice().sort((a,b)=>(b[key]||0)-(a[key]||0)).slice(0,3).map((g,i)=>
-  `<div class="tc-row"><span class="tc-rank">${i+1}</span><span class="tc-name">${g.name||g.vmid}</span><span class="tc-bar"><i style="width:${Math.min(100,g[key]||0).toFixed(0)}%;background:${col}"></i></span><span class="tc-val">${(g[key]||0).toFixed(1)}${unit}</span></div>`).join('');
+ const _tc=(key,unit,col)=>{const top=d.guests.slice().sort((a,b)=>(b[key]||0)-(a[key]||0)).slice(0,3);
+  const mx=Math.max(1,...top.map(g=>g[key]||0));   // bars scale to the group max, the % label stays truthful
+  return top.map((g,i)=>
+  `<div class="tc-row"><span class="tc-rank">${i+1}</span><span class="tc-name">${g.name||g.vmid}</span><span class="tc-bar"><i style="width:${Math.min(100,(g[key]||0)/mx*100).toFixed(0)}%;background:${col}"></i></span><span class="tc-val">${(g[key]||0).toFixed(1)}${unit}</span></div>`).join('');};
  $('topcons').innerHTML=`<div class="tc-col"><div class="tc-h" style="color:var(--s1)">🔥 CPU</div>${_tc('cpu','%','var(--s1)')}</div>`
   +`<div class="tc-col"><div class="tc-h" style="color:var(--s2)">🧠 RAM</div>${_tc('mem_pct','%','var(--s2)')}</div>`;
  /* donuts */
