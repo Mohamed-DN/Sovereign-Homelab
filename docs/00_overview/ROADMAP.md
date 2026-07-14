@@ -197,6 +197,28 @@ Decision needed: how far to go (1–2 are quick; 3 needs a small extra device).
 
 ---
 
+## 6b. Deep-audit follow-ups (2026-07-14)
+
+Findings from the post-Headplane live audit of LXC 100 / the dashboard. The
+two port exposures were fixed the same day; the rest is queued here:
+
+- 🟢 ~~Headplane host port 3100 published on the LAN~~ — fixed: bound to
+  127.0.0.1 (the LAN path is NPM/HTTPS only).
+- 🟢 ~~Headscale metrics :9090 published on the LAN~~ — fixed: bound to
+  127.0.0.1 (nothing scrapes it; it leaks tailnet topology).
+- ⚪ **Retire headscale-ui (port 8081)** once the owner has validated Headplane
+  in the browser — it is fully redundant now and each retired service is less
+  attack surface. Rollback = re-enable the compose service.
+- ⚪ **Rotate the reused personal admin password** (NPM admin, etc.) now that
+  SSO covers most services — one strong password in Authentik + per-service
+  break-glass secrets in `/root/sovereign-secrets/`.
+- ⚪ **Persist the dashboard's 20-minute metrics window** across service
+  restarts (it lives in RAM, so charts start empty after each deploy; the
+  2h/2d/7d ranges already persist in `metrics-long.jsonl`). Low priority.
+- ⚪ **First Headplane OIDC login must be mohamed** (first login becomes the
+  Headplane *owner*); after that, evaluate giving luna a member login for
+  self-service device management.
+
 ## 7. Other future items
 
 - ⚪ **MFA / passkeys** (WebAuthn/TOTP) for admin accounts in Authentik, enforced
