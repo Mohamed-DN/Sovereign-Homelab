@@ -16,12 +16,8 @@ services:
       - ./headscale/data:/var/lib/headscale
       - ./headscale/policy:/etc/headscale/policy
 
-  headscale-ui:
-    image: ghcr.io/gurucomputing/headscale-ui:${HEADSCALE_UI_TAG}
-    container_name: headscale-ui
-    restart: unless-stopped
-    ports:
-      - "${HEADSCALE_UI_PORT}:8080"
+  # headscale-ui was retired 2026-07-14: Headplane below replaced it (owner
+  # validated it in the browser). headscale.internal now 302s to Headplane.
 
   # Headplane: modern web UI for Headscale (device/user/pre-auth-key management,
   # ACL view, and OIDC login). Reads only Headscale's config.yaml (not its
