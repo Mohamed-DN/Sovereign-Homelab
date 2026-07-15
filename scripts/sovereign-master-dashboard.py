@@ -2356,10 +2356,17 @@ function closeModal(){mask.classList.remove('show');modal.classList.remove('show
 mask.onclick=closeModal;$('m-x').onclick=closeModal;
 addEventListener('keydown',e=>{if(e.key==='Escape')closeModal();});
 function mrow(k,v){return `<div class="mrow"><span>${k}</span><span>${v}</span></div>`;}
+/* Un tile trova il suo monitor Kuma (e il suo guest) confrontando `kw` col nome.
+   I nomi non seguono una convenzione unica -- "Obsidian Sync" ma "app-home-assistant",
+   "ops-ntfy", "home-assistant-os" -- quindi il confronto grezzo falliva su spazio vs
+   trattino e il tile restava grigio pur essendo il servizio UP. Si azzerano separatori
+   e maiuscole da entrambi i lati prima di confrontare. */
+const norm=s=>(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const kwHit=(name,kw)=>norm(name).includes(norm(kw));
 function svcInfo(name){
  const it=(D.links||[]).flatMap(g=>g.items.map(i=>({...i,group:g.group}))).find(x=>x.name===name);if(!it)return;
- const mon=(D.kuma.monitors||[]).find(m=>m.name.toLowerCase().includes(it.kw));
- const g=D.guests.find(x=>(x.name||'').toLowerCase().includes(it.kw))||null;
+ const mon=(D.kuma.monitors||[]).find(m=>kwHit(m.name,it.kw));
+ const g=D.guests.find(x=>kwHit(x.name,it.kw))||null;
  openModal(`<img src="${it.href.replace(/\/$/,'')}/favicon.ico" onerror="this.outerHTML='${it.icon}'">`,it.name,
   `<p style="margin:0 0 10px;color:var(--ink2)">${it.desc}</p>`
   +mrow('Categoria',it.group)+mrow('URL',`<a href="${it.href}" target="_blank" style="color:var(--accent)">${it.href.replace('https://','')}</a>`)
@@ -2687,8 +2694,8 @@ function render(){
   <div class="bar m"><i style="width:0" data-w="${Math.min(100,g.mem_pct)}%"></i></div><div class="bl"><span>RAM</span><span>${g.mem_pct.toFixed(1)}%</span></div></div>`).join('');
  requestAnimationFrame(()=>requestAnimationFrame(()=>{document.querySelectorAll('.guest .bar i').forEach(b=>b.style.width=b.dataset.w);}));
  /* services: app-launcher grid with real favicons + info modals */
- const mons=(d.kuma.monitors||[]).map(x=>({n:x.name.toLowerCase(),up:x.up}));
- function dot(kw){const f=mons.find(x=>x.n.includes(kw));return f?(f.up?'up':'dn'):'nn';}
+ const mons=(d.kuma.monitors||[]).map(x=>({n:x.name,up:x.up}));
+ function dot(kw){const f=mons.find(x=>kwHit(x.n,kw));return f?(f.up?'up':'dn'):'nn';}
  function monoOf(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%360;const ini=n.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   return `<span class=&quot;mono&quot; style=&quot;background:linear-gradient(135deg,hsl(${h} 65% 52%),hsl(${(h+40)%360} 65% 42%))&quot;>${ini}</span>`;}
  function favImg(it){

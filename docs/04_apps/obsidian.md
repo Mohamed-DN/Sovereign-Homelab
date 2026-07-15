@@ -314,11 +314,19 @@ first (the usual fallback chain), because that probe would land on the
 SSO-gated host and hit the Authentik redirect instead of a clean 404.
 
 The tile's live status dot (green/grey) and the hero "servizi online" counter
-are driven entirely by matching `LINKS[].kw` against an Uptime Kuma monitor
-**name** (`monitor.name.toLowerCase().includes(kw)`), not by the `LINKS`
-array itself — `kw` must be a literal substring of the exact Kuma monitor
-name (e.g. `"home assistant"` matches monitor "Home Assistant"). Obsidian's
-`kw` is `"obsidian sync"`, matching the "Obsidian Sync" monitor in §7.
+come from matching `LINKS[].kw` against an Uptime Kuma **monitor name**, not
+from the `LINKS` array itself: a tile whose `kw` matches no monitor renders
+grey even when the service is perfectly healthy. Obsidian's `kw` is
+`"obsidian sync"`, matching the "Obsidian Sync" monitor in §7.
+
+The comparison is normalised on both sides (`norm()` / `kwHit()` in the page
+JS: lowercase, then strip everything outside `[a-z0-9]`). The raw
+`name.toLowerCase().includes(kw)` it replaced was too brittle, because Kuma's
+monitor names follow no single convention here — "Obsidian Sync" and
+"Vaultwarden", but also `app-home-assistant`, `ops-ntfy`, `ops-scrutiny`. A
+`kw` of `"home assistant"` therefore never matched `app-home-assistant`, and
+Home Assistant sat grey on the dashboard while its monitor was green the
+whole time. Normalising makes hyphen-vs-space differences irrelevant.
 
 ## 7. Homepage & Uptime Kuma
 
@@ -594,13 +602,32 @@ authenticated CouchDB user — do not skip it.
   healthy** — it's CouchDB's `require_valid_user` doing its job on the sync
   API root, not a broken deployment. Only `/_utils` should ever redirect to
   Authentik; the rest of the host should 401 straight from CouchDB.
-- **The dashboard's Obsidian tile stays grey and the "servizi online" counter
-  doesn't move**: that counter and every per-tile status dot are driven
-  entirely by Uptime Kuma monitor rows (`kuma.db`), not by the `LINKS` array
-  size — adding an app to the dashboard code never changes the count by
-  itself. The tile only turns green once a Kuma monitor whose name contains
-  the app's `kw` (here, `obsidian`) exists and reports up. See §7 for the
-  exact monitor to create.
+- **A dashboard tile stays grey / the "servizi online" counter doesn't move**:
+  grey means *"no monitor matched"*, which is **not** the same as *"the
+  service is down"* — a down service shows a red dot. Both the counter and
+  the per-tile dot are driven by Uptime Kuma rows (`kuma.db`), never by the
+  `LINKS` array, so adding an app to the dashboard code alone changes
+  nothing. Two distinct causes, both seen here:
+  1. **No monitor exists.** Create it (§7).
+  2. **A monitor exists but the name doesn't match `kw`.** Check by
+     normalising both sides the way the page does — lowercase, strip
+     everything outside `[a-z0-9]`, then substring-test. This is what left
+     Home Assistant grey (`kw` `"home assistant"` vs monitor
+     `app-home-assistant`) while its monitor was green.
+
+  To audit every tile at once against the live API:
+
+  ```bash
+  ssh pve "curl -s http://127.0.0.1:8095/api/overview" | python3 -c '
+  import sys, json, re
+  d = json.load(sys.stdin)
+  norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+  mons = [m["name"] for m in d["kuma"]["monitors"]]
+  for g in d["links"]:
+      for l in g["items"]:
+          if not any(norm(l["kw"]) in norm(n) for n in mons):
+              print("GREY:", l["name"], "| kw =", repr(l["kw"]))'
+  ```
 - **CORS errors in the Obsidian plugin's log**: the origin the plugin sends
   must be one of the three configured in §3
   (`app://obsidian.md`, `capacitor://localhost`, `http://localhost`) — a
