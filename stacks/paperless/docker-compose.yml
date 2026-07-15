@@ -50,6 +50,17 @@ services:
       PAPERLESS_DBUSER: ${PAPERLESS_DB_USER}
       PAPERLESS_DBPASS: ${PAPERLESS_DB_PASSWORD}
       PAPERLESS_TIME_ZONE: ${TZ}
+      # --- OIDC (Authentik SSO) ---
+      PAPERLESS_APPS: ${PAPERLESS_APPS}
+      PAPERLESS_SOCIALACCOUNT_PROVIDERS: ${PAPERLESS_SOCIALACCOUNT_PROVIDERS}
+      PAPERLESS_SOCIAL_AUTO_SIGNUP: ${PAPERLESS_SOCIAL_AUTO_SIGNUP}
+      PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS: ${PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS}
+      PAPERLESS_LOGOUT_REDIRECT_URL: ${PAPERLESS_LOGOUT_REDIRECT_URL}
+      # allauth's `requests`-based OIDC client bundles its own certifi store and
+      # ignores the system CA store urllib/openssl would trust, so it needs the
+      # container's CA bundle pointed out explicitly (see ca-bundle.crt below).
+      REQUESTS_CA_BUNDLE: /etc/ssl/certs/ca-certificates.crt
+      SSL_CERT_FILE: /etc/ssl/certs/ca-certificates.crt
     ports:
     - "${PAPERLESS_PORT}:8000"
     volumes:
@@ -57,6 +68,10 @@ services:
     - paperless_media:/usr/src/paperless/media
     - ./data/paperless/export:/usr/src/paperless/export
     - ./data/paperless/consume:/usr/src/paperless/consume
+    # Internal root CA so allauth's OIDC client can reach https://auth.internal.
+    # Host-local, regenerated after image updates (system bundle + the internal
+    # root CA appended) — same pattern as stacks/forgejo and stacks/jellyfin.
+    - ./ca-bundle.crt:/etc/ssl/certs/ca-certificates.crt:ro
 
     healthcheck:
       test:

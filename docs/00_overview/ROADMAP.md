@@ -25,7 +25,7 @@ Grants stay `access-<slug>` group memberships, managed from the IAM tab.
 ### Tier 1 — data-bearing / high-privilege (do first)
 | # | App | Host | Method | Why first |
 |---|-----|------|--------|-----------|
-| 1 | Paperless-ngx | paper.internal | OIDC (django-allauth) | sensitive documents, real accounts |
+| 1 | ~~Paperless-ngx~~ 🟢 | paper.internal | OIDC (django-allauth) | **DONE 2026-07-15** — sensitive documents, real accounts; see IAM_LDAP_SSO_PLAN.md "Seventh service" |
 | 2 | Proxmox VE | proxmox.internal | OIDC (OpenID Connect realm) | root-level infra; pair with MFA |
 | 3 | PBS | pbs.internal | OIDC (OpenID Connect realm) | the backups themselves |
 
