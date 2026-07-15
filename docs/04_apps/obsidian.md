@@ -123,10 +123,22 @@ sync credentials.
 TZ=Europe/Rome
 OBSIDIAN_COUCHDB_TAG=3.5.2
 OBSIDIAN_COUCHDB_PORT=5984
+
+# server admin -- Fauxton/administration only, never given to a sync client
 OBSIDIAN_COUCHDB_USER=<random, not "admin">
 OBSIDIAN_COUCHDB_PASSWORD=<32-char random>
 OBSIDIAN_COUCHDB_SECRET=<64-char hex random>
+
+# least-privilege account the LiveSync clients use -- see §9
+OBSIDIAN_CLIENT_USER=obsidian_client
+OBSIDIAN_CLIENT_PASSWORD=<28-char random>
+OBSIDIAN_VAULT_DB=obsidiandb
 ```
+
+The compose file only ever receives the **admin** credentials (CouchDB's
+`COUCHDB_USER`/`COUCHDB_PASSWORD` bootstrap the server admin). The client
+account is not a container concern: it is a document in CouchDB's `_users`
+database, created after first boot — see §9.
 
 ## 3. CouchDB Configuration for LiveSync
 
@@ -354,12 +366,21 @@ every additional device takes under a minute.
    in some plugin versions).
 3. Remote type: **CouchDB (and its compatibles)**.
 4. Fill in:
-   - **Server URI**: `https://obsidian.internal`
-   - **Username** / **Password**: the sync credentials (root-only in
-     `/opt/sovereign-homelab/stacks/obsidian/.env` on LXC 102 — retrieve them
-     there, they are not printed anywhere in this repo or its history)
-   - **Database name**: any name you choose (e.g. `main`) — the plugin
-     creates it on first connect using those credentials.
+   - **Server URI**: `https://obsidian.internal` (the data plane — *not*
+     `fauxton.internal`, which is the SSO-gated admin UI and would reject a
+     sync client)
+   - **Username**: `obsidian_client` — the least-privilege account
+     (`OBSIDIAN_CLIENT_USER`), **not** the CouchDB admin. This credential
+     ends up stored on every phone, so it is deliberately scoped to the vault
+     database only (see §9).
+   - **Password**: `OBSIDIAN_CLIENT_PASSWORD`, root-only in
+     `/opt/sovereign-homelab/stacks/obsidian/.env` on LXC 102 — retrieve it
+     there; it is not printed anywhere in this repo or its history.
+   - **Database name**: `obsidiandb` — this exact name (`OBSIDIAN_VAULT_DB`).
+     It is **pre-created**, because a non-admin account cannot create
+     databases. Typing a different name here will fail with a 401/404 rather
+     than silently creating one. To add a *second* vault later, an admin must
+     pre-create its database first — see §9.
 5. Let the wizard test the connection (it will report success against the
    config in §3) and fix anything it flags.
 6. Enable **End-to-end encryption** and set a passphrase. This is a
@@ -400,7 +421,55 @@ first if the phone is away from home, exactly like every other `.internal`
 service, then `obsidian.internal` resolves and behaves identically to being
 on the LAN.
 
-## 9. Backup & Disaster Recovery
+## 9. Accounts & Privileges
+
+CouchDB has **two** accounts here, on purpose.
+
+| Account | Role | Used by | Lives where |
+|---|---|---|---|
+| `obsidian_sync` (`OBSIDIAN_COUCHDB_USER`) | **server admin** (`_admin`) | Fauxton only — NPM injects it after the Authentik gate on `fauxton.internal` (§4b) | NPM's root-only DB, and LXC 102's root-only `.env` |
+| `obsidian_client` (`OBSIDIAN_CLIENT_USER`) | **no roles at all** (`roles: []`), member of `obsidiandb` only | every Obsidian LiveSync client (desktop, phone, tablet) | the `.env`, and **on every synced device** |
+
+The distinction matters because the client credential is copied onto every
+phone and laptop that syncs, and is embedded in the Setup URI/QR code. The
+first deployment used the **admin** account for sync, which meant a lost
+phone handed over full CouchDB administration. It was corrected before any
+device was connected — `_all_dbs` still held only system databases, so there
+was nothing to migrate.
+
+**Proven limits of `obsidian_client`** (tested live, 2026-07-15):
+
+| Attempt | Result |
+|---|---|
+| read `obsidiandb` | `200` |
+| write a document to `obsidiandb` | `201 {"ok":true}` |
+| create another database | `401` |
+| read the `_users` database | `401` |
+| change `chttpd/require_valid_user` | `401` |
+| list all databases (`_all_dbs`) | `401` |
+
+So the worst a stolen device credential can do is read and write the vault it
+already holds a full local copy of — and with end-to-end encryption on (§8,
+step 6), even that content is ciphertext without the separate E2E passphrase.
+
+### Adding another vault later
+
+A non-admin cannot create databases, so a second vault needs an admin to
+pre-create it. From LXC 102:
+
+```bash
+set -a; . /opt/sovereign-homelab/stacks/obsidian/.env; set +a
+NEWDB=seconddb
+AD="$OBSIDIAN_COUCHDB_USER:$OBSIDIAN_COUCHDB_PASSWORD"
+curl -sf -X PUT "http://127.0.0.1:5984/$NEWDB" -u "$AD"
+curl -sf -X PUT "http://127.0.0.1:5984/$NEWDB/_security" -u "$AD"   -H 'Content-Type: application/json'   -d "{\"admins\":{\"names\":[],\"roles\":[]},\"members\":{\"names\":[\"$OBSIDIAN_CLIENT_USER\"],\"roles\":[]}}"
+```
+
+Then point the new vault's LiveSync at `$NEWDB` with the same client account.
+Omitting the `_security` call leaves the database world-readable to any
+authenticated CouchDB user — do not skip it.
+
+## 10. Backup & Disaster Recovery
 
 - **Level 1 (snapshot)**: PBS covers LXC 102 as a whole (daily, per the
   existing schedule) — a full container rollback restores CouchDB's data
@@ -426,7 +495,7 @@ on the LAN.
 3. Remove the Authentik Application/Provider/`access-obsidian` group if the
    service is being decommissioned entirely.
 
-## 10. Troubleshooting
+## 11. Troubleshooting
 
 - **A browser Basic-Auth popup appears saying `https://obsidian.internal`**:
   that dialogue is **CouchDB**, not Authentik — Authentik renders a full
@@ -512,7 +581,7 @@ on the LAN.
   clearing it reverts to NPM's default proxy timeouts, which are too short
   for CouchDB's replication protocol on slow links.
 
-## 11. Official Sources
+## 12. Official Sources
 
 - [Self-hosted LiveSync (plugin repo)](https://github.com/vrtmrz/obsidian-livesync)
 - [Self-hosted LiveSync — Quick Setup](https://github.com/vrtmrz/obsidian-livesync/blob/main/docs/quick_setup.md)
