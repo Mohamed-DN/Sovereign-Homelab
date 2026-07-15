@@ -168,6 +168,6 @@ If an HAOS update or add-on breaks the instance:
 
 ---
 
-**Previous:** [Paperless-ngx](paperless.md)
+**Previous:** [Obsidian Sync](obsidian.md)
 
 **Next:** [Jellyfin](jellyfin.md)

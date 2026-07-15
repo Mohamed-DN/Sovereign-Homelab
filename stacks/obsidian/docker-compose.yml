@@ -1,0 +1,27 @@
+name: obsidian
+
+services:
+  couchdb:
+    image: couchdb:${OBSIDIAN_COUCHDB_TAG}
+    container_name: obsidian-couchdb
+    restart: unless-stopped
+    environment:
+      COUCHDB_USER: ${OBSIDIAN_COUCHDB_USER}
+      COUCHDB_PASSWORD: ${OBSIDIAN_COUCHDB_PASSWORD}
+      COUCHDB_SECRET: ${OBSIDIAN_COUCHDB_SECRET}
+    ports:
+    - "${OBSIDIAN_COUCHDB_PORT}:5984"
+    volumes:
+    - obsidian_data:/opt/couchdb/data
+
+    healthcheck:
+      test:
+      - CMD
+      - curl
+      - -f
+      - http://localhost:5984/_up
+      interval: 30s
+      timeout: 10s
+      retries: 3
+volumes:
+  obsidian_data:

@@ -646,6 +646,39 @@ same fix pattern (rename in place + email-match linking) but via allauth
 - **Rollback:** clear `PAPERLESS_SOCIALACCOUNT_PROVIDERS`/`PAPERLESS_APPS` in
   `.env` and restart; local password login is untouched.
 
+**Eighth service DONE (2026-07-15): Obsidian Sync / CouchDB
+(obsidian.internal) via forward-auth — first *path-scoped* gate, not a
+whole-host one.**
+
+CouchDB backs the Self-hosted LiveSync Obsidian plugin. Its sync API
+authenticates with plain HTTP Basic Auth sent directly by the desktop/mobile
+clients — the same "protocol can't do an interactive OIDC login" constraint
+as Vaultwarden, so the API is deliberately **outside** any Authentik gate and
+relies on CouchDB's own `require_valid_user=true` instead. Only Fauxton
+(CouchDB's web admin UI, under `/_utils`) is a page a human opens in a
+browser, so **only that path** is put behind Authentik forward-auth — every
+prior forward-auth integration (Dashboard, Uptime Kuma) gates the whole host.
+
+- Authentik side is completely ordinary: a `ProxyProvider`
+  (`FORWARD_SINGLE`, `external_host: https://obsidian.internal`) bound to the
+  same embedded outpost as Dashboard/Kuma, an Application (slug `obsidian`),
+  and an `access-obsidian` group — identical to every other forward-auth app.
+- **The path-scoping is entirely on the NPM/nginx side**: the standard
+  `auth_request` block is placed inside `location /_utils` only; the
+  catch-all `location /` has no `auth_request` at all and proxies straight to
+  CouchDB. nginx's longest-prefix matching sends `/_utils/*` to the gated
+  block and everything else falls through — no regex needed.
+- **Verified live**: `GET /` unauthenticated → `401` from CouchDB (API open
+  to Authentik, gated by CouchDB itself); the same path **with** the real
+  sync credentials → `200` through the full NPM → CouchDB chain; `GET
+  /_utils/` unauthenticated → `302` to Authentik's login (Fauxton gated).
+- Full architecture, the CouchDB config (CORS/max-doc-size), and a
+  device-onboarding guide: `docs/04_apps/obsidian.md`.
+- **Rollback:** clear the NPM proxy host's Advanced field to remove the
+  split-auth blocks (falls back to no gate on `/_utils` either — restores
+  CouchDB's own auth as the only barrier, still safe); or delete the
+  Application/Provider/group to remove Authentik's involvement entirely.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
@@ -654,7 +687,7 @@ break-glass after each:
 | A (SSO-native) | Proxmox VE, PBS, Grafana-like, Portainer-like | OIDC | cleanest; keep local root/admin |
 | B (app OIDC) | ~~Nextcloud~~ ~~Immich~~ ~~Paperless~~ ~~Forgejo~~ ~~Jellyfin~~, Karakeep, Open WebUI | OIDC/OAuth2 | most have native OIDC; map the admin group |
 | C (LDAP-only) | Vaultwarden, services without OIDC | LDAP | bind against the Phase-2 outpost |
-| D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard |
+| D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard; use the **path-scoped** variant (`obsidian.internal` §"Eighth service") for any of these that has an API/agent consumer alongside its web UI |
 
 For each: create the Authentik Application+Provider, configure the app, test
 `sole` login, confirm the **local admin still works**, then move on.
