@@ -606,20 +606,43 @@ same fix pattern (rename in place + email-match linking) but via allauth
   `PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS=true`. Internal CA mounted the same
   way as Forgejo/Jellyfin (`stacks/paperless/ca-bundle.crt`, host-local,
   regenerate after image updates).
-- **Account-linking:** renamed the local Django user directly (`sole` →
-  `mohamed`, email → mohamed's real Authentik email) instead of a claims-based
-  uid trick — simpler here because allauth links by verified email match
-  (`filter_users_by_email`, checked against `EmailAddress` then falls back to
-  `User.email`), so once the username/email were updated and the email-verified
-  gotcha above was fixed, the very first SSO login links to the existing
-  superuser account automatically. Documents and permissions intact.
-- **Verified live:** discovery reachable from inside the container (TLS_OK);
-  login page shows "Sovereign SSO"; simulated the CSRF-protected POST login
-  flow end to end → 302 to `auth.internal/application/o/authorize/` with the
-  correct client_id, the exact strict redirect_uri, `scope=profile+openid+email`,
-  PKCE S256; container healthy, no errors in logs after the fixes. Local
-  password login page still reachable (break-glass; `DISABLE_REGULAR_LOGIN`
-  was never set).
+- **Account-linking — a fourth gotcha, only surfaced by a real browser login:**
+  the local Django user was renamed directly (`sole` → `mohamed`, email →
+  mohamed's real Authentik email), on the theory that allauth's email-match
+  linking (`filter_users_by_email` via `EmailAddress` then `User.email`) would
+  then auto-connect the first SSO login to the existing superuser. My own
+  "verified live" check only got as far as the 302 to Authentik's authorize
+  endpoint (curl cannot complete an interactive login), so this theory went
+  untested against a real login — and it was wrong. When the owner actually
+  logged in via the browser, Paperless created a **second, unprivileged
+  duplicate account** (ironically also landing on the username `sole` again)
+  instead of linking to `mohamed`, and the UI then 403'd on `/api/ui_settings/`
+  because the logged-in account had no `is_staff`. Root cause: allauth's email
+  matching is gated by `DefaultSocialAccountAdapter.can_authenticate_by_email`,
+  which reads a **per-app `email_authentication` setting that defaults to
+  `False`** — without it, `_lookup_by_email()` never even attempts the match
+  and always falls through to creating a new account, no matter how "verified"
+  the incoming email claim is.
+  Fixed two ways (defense in depth): (1) added
+  `"email_authentication": true` to the provider's `settings` in
+  `PAPERLESS_SOCIALACCOUNT_PROVIDERS`; (2) more robustly, created the
+  `SocialAccount` (provider `authentik`, uid = mohamed's email) and a verified
+  `EmailAddress` row directly against the `mohamed` user via `manage.py shell`,
+  so linking no longer depends on the email-match path succeeding at all —
+  `_lookup_by_socialaccount()` finds it directly on the next login. The
+  zero-document, zero-permission duplicate account was deleted (checked first:
+  0 documents owned, 0 groups/permissions — safe). The system's one real
+  document (owned by `mohamed`, id 3) was never at risk.
+  **Lesson:** for any allauth-based OIDC integration, verify a login by
+  actually completing one in a browser — a clean redirect to the IdP's
+  authorize endpoint proves the *request* is well-formed, not that the
+  *account-linking* on the way back actually works.
+- **Verified:** discovery reachable from inside the container (TLS_OK); login
+  page shows "Sovereign SSO"; a real browser login (after the fixes above)
+  lands on the correct `mohamed` superuser account via the direct
+  `SocialAccount` link; container healthy, no errors in logs. Local password
+  login page still reachable (break-glass; `DISABLE_REGULAR_LOGIN` was never
+  set).
 - **Rollback:** clear `PAPERLESS_SOCIALACCOUNT_PROVIDERS`/`PAPERLESS_APPS` in
   `.env` and restart; local password login is untouched.
 
