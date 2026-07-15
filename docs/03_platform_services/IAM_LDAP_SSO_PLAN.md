@@ -553,13 +553,83 @@ device/user/key management self-service (see ROADMAP §4):
 - **Rollback:** remove the `oidc:` block (API-key login remains), or stop the
   headplane container; Headscale itself is untouched.
 
+**Seventh service DONE (2026-07-15): Paperless-ngx (paper.internal) via OIDC —
+first Tier-1 (data-bearing) service, existing account linked not duplicated.**
+
+Paperless-ngx 2.20.15 on LXC 102, single existing user `sole` holding all the
+scanned documents. Same risk as Nextcloud (orphaning data into a new account),
+same fix pattern (rename in place + email-match linking) but via allauth
+(`django-allauth`), not a custom uid-mapping trick:
+
+- Authentik: OAuth2/OIDC provider "Paperless OIDC" (signing key, explicit
+  grant_types, `sub_mode=user_email`, redirect **strict** match
+  `https://paper.internal/accounts/oidc/authentik/login/callback/`) bound to
+  the `paperless` Application (bound to `access-paperless`).
+- **Two real gotchas found and fixed, both worth remembering for the next
+  allauth-based OIDC integration:**
+  1. *Authentik's stock "email" scope mapping always emits
+     `email_verified: False`.* allauth's `SocialLogin._lookup_by_email()` only
+     auto-links to an existing local user when the incoming email is
+     `verified`; with the stock mapping every login would have looked
+     "unverified" and allauth would have created a **duplicate** account
+     instead of reusing `sole`. Fixed with a provider-scoped custom scope
+     mapping (`authentik default OAuth Mapping: Paperless-ngx email
+     (verified)`) that emits `email_verified: True`, swapped in for the stock
+     one — the same "provider-isolated custom mapping" pattern as Nextcloud's
+     admin-uid mapping, just fixing a different field.
+  2. *allauth's `requests`-based OIDC client ignores the container's mounted
+     CA bundle.* Unlike Immich/Forgejo/Jellyfin (whose HTTP clients read the
+     OS trust store), `requests` bundles its own `certifi` store and will
+     `SSLCertVerificationError` against `auth.internal` even with the CA
+     mounted at `/etc/ssl/certs/ca-certificates.crt`. Fixed by also setting
+     `REQUESTS_CA_BUNDLE` and `SSL_CERT_FILE` env vars pointing at that same
+     mounted file — `requests` (and most of the Python stdlib `ssl` fallback
+     paths) both honour those explicitly.
+  3. **Process note (self-caught bug):** the first draft of the provider-
+     creation script matched scope mappings by `scope_name` only
+     (`ScopeMapping.objects.filter(scope_name__in=[...])`), which is too
+     broad — it also matched Nextcloud's custom `profile` override and
+     attached it to *both* the new Paperless provider **and, silently, to the
+     already-live Headplane provider* (created earlier the same way). Caught
+     by an explicit sweep across every `OAuth2Provider`, fixed by rebuilding
+     each provider's mapping set from an explicitly-named stock/custom list
+     instead of a broad filter. Headplane's login was re-verified working
+     after the fix (302 to authorize, JWKS still 1 key) — impact had been
+     limited to a cosmetic `preferred_username`/`nickname` override, not a
+     security issue, but the lesson stands: **never attach scope mappings by
+     a bare `scope_name` filter — always name them explicitly per provider.**
+- Paperless side (`.env`, live — not in git except `.env.example`
+  placeholders): `PAPERLESS_APPS=allauth.socialaccount.providers.openid_connect`,
+  `PAPERLESS_SOCIALACCOUNT_PROVIDERS` (single-line JSON: provider_id
+  `authentik`, `server_url` = the app-scoped `.well-known/openid-configuration`,
+  `OAUTH_PKCE_ENABLED: true`), `PAPERLESS_SOCIAL_AUTO_SIGNUP` +
+  `PAPERLESS_SOCIALACCOUNT_ALLOW_SIGNUPS=true`. Internal CA mounted the same
+  way as Forgejo/Jellyfin (`stacks/paperless/ca-bundle.crt`, host-local,
+  regenerate after image updates).
+- **Account-linking:** renamed the local Django user directly (`sole` →
+  `mohamed`, email → mohamed's real Authentik email) instead of a claims-based
+  uid trick — simpler here because allauth links by verified email match
+  (`filter_users_by_email`, checked against `EmailAddress` then falls back to
+  `User.email`), so once the username/email were updated and the email-verified
+  gotcha above was fixed, the very first SSO login links to the existing
+  superuser account automatically. Documents and permissions intact.
+- **Verified live:** discovery reachable from inside the container (TLS_OK);
+  login page shows "Sovereign SSO"; simulated the CSRF-protected POST login
+  flow end to end → 302 to `auth.internal/application/o/authorize/` with the
+  correct client_id, the exact strict redirect_uri, `scope=profile+openid+email`,
+  PKCE S256; container healthy, no errors in logs after the fixes. Local
+  password login page still reachable (break-glass; `DISABLE_REGULAR_LOGIN`
+  was never set).
+- **Rollback:** clear `PAPERLESS_SOCIALACCOUNT_PROVIDERS`/`PAPERLESS_APPS` in
+  `.env` and restart; local password login is untouched.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
 | Wave | Services | Method | Notes |
 |---|---|---|---|
 | A (SSO-native) | Proxmox VE, PBS, Grafana-like, Portainer-like | OIDC | cleanest; keep local root/admin |
-| B (app OIDC) | Nextcloud, Immich, Paperless, Forgejo, Jellyfin, Karakeep, Open WebUI | OIDC/OAuth2 | most have native OIDC; map the admin group |
+| B (app OIDC) | ~~Nextcloud~~ ~~Immich~~ ~~Paperless~~ ~~Forgejo~~ ~~Jellyfin~~, Karakeep, Open WebUI | OIDC/OAuth2 | most have native OIDC; map the admin group |
 | C (LDAP-only) | Vaultwarden, services without OIDC | LDAP | bind against the Phase-2 outpost |
 | D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard |
 
