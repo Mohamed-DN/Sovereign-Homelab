@@ -617,9 +617,7 @@ def do_vpn_invite(actor: str, name: str, kind: str) -> tuple[bool, Any]:
     if not key:
         return False, f"creazione chiave VPN fallita: {out[-150:]}"
     cmd = f"tailscale up --login-server {HEADSCALE_LOGIN_SERVER} --authkey {key}"
-    audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
-           "op": "vpn-invite", "target": f"{label} ({kind})", "reason": "",
-           "result": "ok", "detail": "chiave VPN 24h" + (" ephemeral" if ephemeral else "")})
+    # audited once by the generic POST dispatcher (it picks up p["name"] as target)
     return True, {"vpn": True, "label": label, "kind": kind, "ephemeral": ephemeral,
                   "login_server": HEADSCALE_LOGIN_SERVER, "authkey": key, "command": cmd,
                   "expires": "24 ore"}
@@ -637,9 +635,7 @@ def do_vpn_revoke(actor: str, node_id: str) -> tuple[bool, str]:
         return False, "solo i dispositivi personali possono essere rimossi da qui"
     s, out = _hs(["nodes", "delete", "-i", str(nid), "--force"], timeout=30)
     ok = s == 0
-    audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
-           "op": "vpn-revoke", "target": f"node {nid}", "reason": "",
-           "result": "ok" if ok else "error", "detail": out[-150:]})
+    # audited once by the generic POST dispatcher (it picks up p["node_id"] as target)
     return ok, ("dispositivo rimosso dalla VPN" if ok else f"rimozione fallita: {out[-150:]}")
 
 
@@ -1350,10 +1346,10 @@ def _ver_tuple(tag: str) -> tuple[int, ...]:
     return tuple(int(x) for x in re.findall(r"\d+", tag or "")[:3])
 
 
-def _immich_latest_version() -> str | None:
+def _immich_latest_version(force: bool = False) -> str | None:
     """Latest Immich release tag from GitHub, cached ~6h. Stale/None on failure."""
     with _immich_latest_lock:
-        if _immich_latest["tag"] and time.time() - _immich_latest["ts"] < 6 * 3600:
+        if not force and _immich_latest["tag"] and time.time() - _immich_latest["ts"] < 6 * 3600:
             return _immich_latest["tag"]
     tag = None
     try:
@@ -1502,6 +1498,18 @@ def _immich_rollback_worker(actor: str, reason: str) -> None:
         notify_email("❌ Immich: rollback FALLITO",
                      f"Attore: {actor}\nMotivo: {reason}\nLo snapshot '{snap}' esiste ancora — "
                      f"intervieni a mano: qm rollback 110 {snap}", "#dc2626")
+
+
+def do_immich_check_update(actor: str, reason: str) -> tuple[bool, str]:
+    """Manual, synchronous recheck against GitHub (bypasses the ~6h cache)."""
+    latest = _immich_latest_version(force=True)
+    if not latest:
+        return False, "GitHub non raggiungibile adesso, riprova tra poco"
+    cur = _immich_current_version()
+    # audited once by the generic POST dispatcher
+    if cur and _ver_tuple(latest) > _ver_tuple(cur):
+        return True, f"🆕 nuova versione disponibile: {latest} (attuale {cur})"
+    return True, f"✅ sei già aggiornato ({cur or latest})"
 
 
 def do_immich_update(actor: str, reason: str) -> tuple[bool, str]:
@@ -2667,30 +2675,60 @@ function render(){
   +d.links.map((g,i)=>`<div class="bento" style="--bc:${bAcc[i%bAcc.length]}"><h3>${g.group}<span class="cnt">${g.items.length}</span></h3>
     <div class="bgrid">${g.items.map(bapp).join('')}</div></div>`).join('');
  wireSearch('svc-search','#linkgroups .bapp','.bn');
- /* data & backup */
+ /* data & backup — one consolidated Immich panel (enterprise style, reuses the
+    IAM tab's panel/card language) instead of five loose flat cards */
  const iu=d.immich.update||{};
+ const immOk=!!d.immich.immich_ping;
  $('dcards').innerHTML=`
-  <div class="card" style="--sec:var(--led-warn)"><div class="top"><span class="name">📷 Immich</span><span class="state ${d.immich.immich_ping?'up':'dn'}"><span class="led"></span>${d.immich.immich_ping?'healthy':'CHECK'}</span></div>
-   <div class="rows">File: <b>${d.immich.files??'-'}</b> · ${gb(d.immich.photos_bytes)}<br>Dump protezione: ${ago(d.immich.protection_dump_age_h)}<br><a class="ld" href="https://foto.internal" target="_blank" style="color:var(--accent)">foto.internal ↗</a></div></div>
-  <div class="card" style="--sec:var(--s1)"><div class="top"><span class="name">⬆️ Aggiornamenti Immich</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:var(--s1)">🖧 server VM110</span></div>
-   <div class="rows">Attuale: <b>${iu.current||'?'}</b> · ultima: <b>${iu.latest||'?'}</b><br>
-    ${iu.available?'<span style="color:var(--led-warn);font-weight:700">🆕 aggiornamento disponibile</span>':(iu.current?'<span style="color:var(--led-good)">✅ aggiornato</span>':'stato sconosciuto')}
-    ${iu.snapshot?`<br><span style="color:var(--accent)">↩ rollback disponibile${iu.rollback_until?' · scade '+new Date(iu.rollback_until*1000).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span>`:''}</div>
-   ${iu.available?jobbtn('immich-update',`act('immich-update',null,this,'AGGIORNA IMMICH a ${iu.latest}: prima uno SNAPSHOT di sicurezza di VM110, poi l\\'aggiornamento. Verifico che le foto siano intatte e l\\'API risponda; se qualcosa va storto torno indietro DA SOLO. Lo snapshot resta 1 giorno per il rollback. Foto e backup non vengono mai toccati.')`,'⬆️ Aggiorna a '+(iu.latest||'')):''}
-   ${iu.snapshot?jobbtn('immich-rollback',`act('immich-rollback',null,this,'TORNA INDIETRO: ripristino lo snapshot di VM110 fatto PRIMA dell\\'aggiornamento (versione ${iu.prev_version||'precedente'}). ATTENZIONE: le foto/modifiche caricate DOPO l\\'aggiornamento andrebbero perse.')`,'↩ Torna alla versione precedente'):''}</div>
-  <div class="card" style="--sec:var(--accent)"><div class="top"><span class="name">🪞 Mirror Windows</span><span class="state ${m.configured?(m.age_h>168?'wa':'up'):'wa'}"><span class="led"></span>${m.configured?ago(m.age_h):'non configurato'}</span></div>
-   <div class="rows">Snapshot: <b>${m.snapshot||'-'}</b> · check: ${m.check||'-'}<br>Retention: last 3 · daily 7 · weekly 8 · monthly 12<br>Incrementale quando il PC è online</div>
-   ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}</div>
-  <div class="card" style="--sec:#9184c6"><div class="top"><span class="name">🚑 Emergenza Immich su Windows</span><span class="hchip" style="font-size:.62rem;padding:2px 8px;color:#9184c6">🖥️ solo PC Windows</span></div>
-   <div class="rows">Agisce <b>solo sul PC Windows</b> (Podman): il <b>server (VM110) e i backup non vengono mai toccati</b>. Podman si avvia da solo se serve.</div>
-   ${jobbtn('rebuild-windows',`act('rebuild-windows',null,this,'BACKUP FRESCO + RIALZA: eseguo prima un nuovo backup dal server, poi rialzo Immich sul PC Windows con quel backup nuovo. Richiede diversi minuti; ricrea tutto da zero.')`,'🚀 Backup fresco + Rialza')}
-   ${jobbtn('raise-windows',`act('raise-windows',null,this,'RIALZA DAL BACKUP SU WINDOWS: rialzo Immich usando il backup GIÀ presente su questo PC, senza farne uno nuovo. Più veloce.')`,'▶️ Rialza dal backup su Windows')}
-   ${jobbtn('start-windows',`act('start-windows',null,this,'AVVIA: accendo i container Immich di emergenza GIÀ presenti su questo PC, senza ricrearli. Veloce. Se non esistono ancora, usa prima Rialza.')`,'⏻ Avvia servizio Windows')}
-   ${jobbtn('stop-windows',`act('stop-windows',null,this,'FERMA: spengo i container Immich di emergenza SENZA rimuoverli, così liberi CPU/RAM e li riavvii in pochi secondi con Avvia. I backup non vengono toccati.')`,'⏸ Ferma servizio Windows')}
-   ${jobbtn('teardown-windows',`act('teardown-windows',null,this,'CANCELLA IL SERVIZIO: spengo e rimuovo la copia d\\'emergenza di Immich dal PC Windows per liberarlo. I BACKUP NON VENGONO TOCCATI e puoi rialzarlo quando vuoi.')`,'🗑 Cancella servizio Windows')}</div>
-  <div class="card" style="--sec:var(--led-good)"><div class="top"><span class="name">💾 PBS · Immich VM110</span><span class="state up"><span class="led"></span>${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
-   <div class="rows">Storage: __PBS__ <br>Retention: ${d.retention||''}</div>
-   ${jobbtn('pbs-110',`act('pbs-backup','110',this,'Forzare ORA uno snapshot PBS di VM110?')`,'⚡ Forza backup PBS')}</div>`;
+  <div class="iam-panel" id="immich-panel" style="grid-column:1/-1">
+   <div class="iam-phead">
+    <span class="iam-ptitle">📷 Immich <span class="iam-badge ${immOk?'ok':'off'}">${immOk?'● healthy':'○ CHECK'}</span></span>
+    <div class="iam-ptools">
+     <a class="btn" style="width:auto;margin:0;padding:8px 14px;text-decoration:none;display:inline-block" href="https://foto.internal" target="_blank" rel="noopener">foto.internal ↗</a>
+    </div>
+   </div>
+   <div class="iam-stats" style="margin:14px 18px 0">
+    <div class="iam-stat" style="--sc:var(--led-warn)"><div class="n">${d.immich.files??'-'}</div><div class="l">File · ${gb(d.immich.photos_bytes)}</div></div>
+    <div class="iam-stat" style="--sc:var(--s1)"><div class="n">${ago(d.immich.protection_dump_age_h)}</div><div class="l">Dump protezione</div></div>
+    <div class="iam-stat" style="--sc:var(--accent)"><div class="n">${m.configured?ago(m.age_h):'—'}</div><div class="l">Mirror Windows</div></div>
+    <div class="iam-stat" style="--sc:var(--led-good)"><div class="n">${(d.pbs['110']||'-').slice(5,16).replace('T',' ')}</div><div class="l">PBS VM110</div></div>
+    <div class="iam-stat" style="--sc:${iu.available?'var(--led-warn)':'var(--led-good)'}"><div class="n">${iu.current||'?'}</div><div class="l">${iu.available?'🆕 aggiornamento disp.':'versione aggiornata'}</div></div>
+   </div>
+   <div class="iam-appgrid">
+    <div class="iam-appc">
+     <div class="ah"><span class="an">⬆️ Versione</span><span class="hchip" style="font-size:.6rem;padding:2px 7px;color:var(--s1)">🖧 server</span></div>
+     <div class="cnt">Attuale <b>${iu.current||'?'}</b> · ultima <b>${iu.latest||'?'}</b></div>
+     <div class="mem">${iu.available?'<span class="iam-badge off" style="color:var(--led-warn);background:color-mix(in srgb,var(--led-warn) 16%,transparent)">🆕 nuova versione</span>':'<span class="iam-badge ok">✅ aggiornato</span>'}
+      ${iu.snapshot?`<span class="iam-badge ok" style="color:var(--accent);background:color-mix(in srgb,var(--accent) 14%,transparent)">↩ rollback disponibile${iu.rollback_until?' · scade '+new Date(iu.rollback_until*1000).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):''}</span>`:''}</div>
+     <button class="btn" style="margin-top:auto" onclick="act('immich-check-update',null,this,'Ricontrollare ORA su GitHub se c\\'è una versione più recente di Immich (bypassa la cache)?')">🔍 Cerca aggiornamento</button>
+     ${iu.available?jobbtn('immich-update',`act('immich-update',null,this,'AGGIORNA IMMICH a ${iu.latest}: prima uno SNAPSHOT di sicurezza di VM110, poi l\\'aggiornamento. Verifico che le foto siano intatte e l\\'API risponda; se qualcosa va storto torno indietro DA SOLO. Lo snapshot resta 1 giorno per il rollback. Foto e backup non vengono mai toccati.')`,'⬆️ Aggiorna a '+(iu.latest||'')):''}
+     ${iu.snapshot?jobbtn('immich-rollback',`act('immich-rollback',null,this,'TORNA INDIETRO: ripristino lo snapshot di VM110 fatto PRIMA dell\\'aggiornamento (versione ${iu.prev_version||'precedente'}). ATTENZIONE: le foto/modifiche caricate DOPO l\\'aggiornamento andrebbero perse.')`,'↩ Torna alla versione precedente'):''}
+    </div>
+    <div class="iam-appc">
+     <div class="ah"><span class="an">🪞 Mirror Windows</span><span class="iam-badge ${m.configured?(m.age_h>168?'off':'ok'):'off'}">${m.configured?ago(m.age_h):'non config.'}</span></div>
+     <div class="cnt">Snapshot <b>${m.snapshot||'-'}</b> · check ${m.check||'-'}</div>
+     <div class="mem" style="color:var(--muted);font-size:.72rem">Retention: last 3 · daily 7 · weekly 8 · monthly 12. Incrementale quando il PC è online.</div>
+     ${jobbtn('mirror',`act('mirror-backup',null,this,'Forzare ORA il backup del mirror Windows? Immich resta acceso durante la copia e si ferma solo per pochi secondi per lo snapshot finale (si riavvia da solo).')`,'⚡ Forza backup Windows')}
+    </div>
+    <div class="iam-appc" style="grid-column:span 2">
+     <div class="ah"><span class="an">🚑 Emergenza Immich su Windows</span><span class="hchip" style="font-size:.6rem;padding:2px 7px;color:#9184c6">🖥️ solo PC Windows</span></div>
+     <div class="cnt">Agisce <b>solo sul PC Windows</b> (Podman): il <b>server e i backup non vengono mai toccati</b>. Podman si avvia da solo se serve.</div>
+     <div class="mem" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:8px">
+      ${jobbtn('rebuild-windows',`act('rebuild-windows',null,this,'BACKUP FRESCO + RIALZA: eseguo prima un nuovo backup dal server, poi rialzo Immich sul PC Windows con quel backup nuovo. Richiede diversi minuti; ricrea tutto da zero.')`,'🚀 Backup fresco + Rialza')}
+      ${jobbtn('raise-windows',`act('raise-windows',null,this,'RIALZA DAL BACKUP SU WINDOWS: rialzo Immich usando il backup GIÀ presente su questo PC, senza farne uno nuovo. Più veloce.')`,'▶️ Rialza dal backup su Windows')}
+      ${jobbtn('start-windows',`act('start-windows',null,this,'AVVIA: accendo i container Immich di emergenza GIÀ presenti su questo PC, senza ricrearli. Veloce. Se non esistono ancora, usa prima Rialza.')`,'⏻ Avvia servizio Windows')}
+      ${jobbtn('stop-windows',`act('stop-windows',null,this,'FERMA: spengo i container Immich di emergenza SENZA rimuoverli, così liberi CPU/RAM e li riavvii in pochi secondi con Avvia. I backup non vengono toccati.')`,'⏸ Ferma servizio Windows')}
+      ${jobbtn('teardown-windows',`act('teardown-windows',null,this,'CANCELLA IL SERVIZIO: spengo e rimuovo la copia d\\'emergenza di Immich dal PC Windows per liberarlo. I BACKUP NON VENGONO TOCCATI e puoi rialzarlo quando vuoi.')`,'🗑 Cancella servizio Windows')}
+     </div>
+    </div>
+    <div class="iam-appc">
+     <div class="ah"><span class="an">💾 PBS · VM110</span><span class="iam-badge ok">${(d.pbs['110']||'-').slice(0,16).replace('T',' ')}</span></div>
+     <div class="cnt">Storage __PBS__</div>
+     <div class="mem" style="color:var(--muted);font-size:.72rem">Retention: ${d.retention||''}</div>
+     ${jobbtn('pbs-110',`act('pbs-backup','110',this,'Forzare ORA uno snapshot PBS di VM110?')`,'⚡ Forza backup PBS')}
+    </div>
+   </div>
+  </div>`;
  /* audit + weekly report */
  const abColor=r=>r==='ok'?'var(--led-good)':'var(--led-bad)';
  $('audit').innerHTML=`<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -2941,6 +2979,8 @@ class Handler(BaseHTTPRequestHandler):
             ok, detail = do_start_windows(actor, reason)
         elif op == "stop-windows":
             ok, detail = do_stop_windows(actor, reason)
+        elif op == "immich-check-update":
+            ok, detail = do_immich_check_update(actor, reason)
         elif op == "immich-update":
             ok, detail = do_immich_update(actor, reason)
         elif op == "immich-rollback":
@@ -2975,7 +3015,8 @@ class Handler(BaseHTTPRequestHandler):
         elif op == "iam-request-access":
             ok, detail = do_iam_request_access(actor, str(p.get("app_slug", "")), str(p.get("message", "")))
         audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"), "actor": actor,
-               "op": op, "target": p.get("service") or p.get("vmid") or p.get("username") or p.get("app_slug") or "",
+               "op": op, "target": (p.get("service") or p.get("vmid") or p.get("username")
+                                     or p.get("app_slug") or p.get("name") or p.get("node_id") or ""),
                "reason": reason, "result": "ok" if ok else "error", "detail": detail if not ok else ""})
         with _lock:
             _cache["ts"] = 0
