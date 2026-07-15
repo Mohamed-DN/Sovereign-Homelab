@@ -2168,6 +2168,11 @@ const ICON_CDN_FILES={adguard:'adguard-home',headplane:'headscale',npm:'nginx-pr
  jellyfin:'jellyfin',freshrss:'freshrss',karakeep:'karakeep',searxng:'searxng',forgejo:'forgejo',
  'open-webui':'open-webui'};
 const ICON_CDN=Object.fromEntries(Object.entries(ICON_CDN_FILES).map(([slug,f])=>[slug,ICON_CDN_BASE+f+'.svg']));
+/* Paperless-ngx's real brand mark (own favicon + the CDN icon) is a very dark
+   forest green (#17541f) that all but disappears on the dashboard's dark
+   tiles. Same leaf glyph, recoloured to a lighter, legible green, inlined so
+   it never depends on an external fetch. */
+const ICON_OVERRIDE={paperless:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbDpzcGFjZT0icHJlc2VydmUiIHZpZXdCb3g9IjQzLjM4IDAuMTQgNDI1LjMyIDUxMi4wMiI+PHBhdGggZD0iTTEzNi44IDQ1OS42Yy0yLjMtMTAuOC02LjktMzIuNS03LjQtMzIuNS05Ni41LTU3LjctODUuMS0xNTcuNi01My4xLTIxNC43IDYuOSA3MS45IDEzNC4yIDEyMS42IDYwIDIwOS42LS42IDEuMSAzLjQgMTQuOCA2LjkgMjcuNCAxNC44LTI1LjEgMzcuMS01NS40IDM2LTU4LjItOTEuNC0yMjIuNyAxOTQuMS0yMzkuOCAyNTMuNS0zNzggMjYuOCAxMzMuNi0xMy43IDM0MC4zLTI0My4zIDM5Mi45LTEuMS42LTQxLjcgNzEuOS00My40IDcyLjUgMC0xLjEtMTcuMS0uNi0xNC44LTYuMyAxLjEtMy42IDMuMy04LjEgNS42LTEyLjdtNTYuNi05OC44Yy0zNi04NS4xIDY5LjctMTc4LjcgMTIyLjItMjAyLjFDMjA4LjIgMjU0LjYgMTg5LjkgMzI2IDE5My40IDM2MC44TTEzNCA0MDUuOWMyOS4xLTMzLjctNS4xLTkxLjQtMjUuNy0xMTAuMiAzNC44IDYwIDMyLjUgOTQuOCAyNS43IDExMC4yIiBzdHlsZT0iZmlsbDojN2VjYjhmIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUuMzA2IC0xNC4zNzkpc2NhbGUoMS4xMDAxNykiLz48L3N2Zz4="};
 /* ---------- theme ---------- */
 const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
@@ -2616,6 +2621,8 @@ function render(){
  function monoOf(n){let h=0;for(const c of n)h=(h*31+c.charCodeAt(0))%360;const ini=n.split(/\s+/).map(w=>w[0]).join('').slice(0,2).toUpperCase();
   return `<span class=&quot;mono&quot; style=&quot;background:linear-gradient(135deg,hsl(${h} 65% 52%),hsl(${(h+40)%360} 65% 42%))&quot;>${ini}</span>`;}
  function favImg(it){
+  const override=ICON_OVERRIDE[it.slug];
+  if(override)return `<img src="${override}" loading="lazy" alt="">`;
   const cdn=ICON_CDN[it.slug];
   const onerr=cdn?`this.onerror=function(){this.outerHTML='${monoOf(it.name)}'};this.src='${cdn}'`
               :`this.outerHTML='${monoOf(it.name)}'`;
