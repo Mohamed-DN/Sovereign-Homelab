@@ -442,6 +442,13 @@ def overview(force: bool = False) -> dict[str, Any]:
     return data
 
 
+def _norm(s: str) -> str:
+    """Lowercase and drop everything outside [a-z0-9] — the Python twin of the
+    page's norm(), so a tile matches its Kuma monitor whether the names use
+    spaces, hyphens or neither."""
+    return re.sub(r"[^a-z0-9]", "", (s or "").lower())
+
+
 def overview_for(w: dict[str, Any]) -> dict[str, Any]:
     """Shape the overview payload by role: admins get everything; normal users
     get only their granted services plus an overall up/down summary — no host
@@ -458,9 +465,14 @@ def overview_for(w: dict[str, Any]) -> dict[str, Any]:
         items = [it for it in g["items"] if it.get("slug") in slugs]
         if items:
             links.append({"group": g["group"], "items": items})
-    kws = {it["kw"] for g in links for it in g["items"]}
+    # Same normalisation the page JS uses (norm/kwHit): Kuma's monitor names
+    # follow no single convention ("Obsidian Sync" but "app-home-assistant"),
+    # so a raw substring test silently dropped a user's monitor -- and with it
+    # their up/down count -- whenever kw and the monitor name disagreed on
+    # hyphen vs space.
+    kws = {_norm(it["kw"]) for g in links for it in g["items"]}
     mons = [m for m in data["kuma"].get("monitors", [])
-            if any(k in m["name"].lower() for k in kws)]
+            if any(k in _norm(m["name"]) for k in kws)]
     return {"generated": data["generated"], "me": data["me"], "links": links,
             "kuma": {"active": len(mons), "down": sum(1 for m in mons if not m["up"]),
                      "monitors": mons},
@@ -1907,6 +1919,7 @@ section.page>h2{border:none;background:transparent;padding:0 4px;min-height:28px
 /* role gating: normal users see only their personal home on Overview */
 body.role-user #p-overview>h2,body.role-user #p-overview .tiles,body.role-user #p-overview .charts,
 body.role-user #p-overview .donuts,body.role-user #p-overview #disks,body.role-user #p-overview .guests,
+body.role-user #p-overview #topcons,
 body.role-user .bento.hero .hstats{display:none}
 #userhome{display:none}
 body.role-user #userhome{display:block}
@@ -2072,7 +2085,7 @@ footer a:hover{text-decoration:underline}
 
 <section class="page on" id="p-overview" style="--sec:var(--accent)">
  <div id="userhome"></div>
- <h2 class="adminonly">Stato del sistema</h2>
+ <h2>Stato del sistema</h2>
  <div class="tiles" id="tiles"></div>
  <div class="charts">
   <div class="chart" id="c-cpu" style="--sec:var(--s1)"><div class="t"><span class="n">CPU host</span><span><span class="now" id="cpu-now">-</span><span class="u">%</span></span></div>
@@ -2865,6 +2878,21 @@ function QAset(){
  const m=d.immich.mirror||{},down=d.kuma.down||0;
  const hs=(d.storages||[]).slice().sort((a,b)=>b.used_pct-a.used_pct)[0];
  const ht=(d.disks||[]).slice().sort((a,b)=>(b.temp||0)-(a.temp||0))[0];
+ /* Le domande sotto parlano di storage, dischi, mirror, backup e stop dei
+    servizi: tutta roba da admin. A un utente normale il server svuota quei dati,
+    quindi le risposte uscivano vuote o -- peggio -- false ("mirror non
+    configurato" quando invece lo e'), e indicavano tab che lui non ha.
+    Un utente ha un set suo, sulle sole cose che puo' davvero fare. */
+ if(d.me&&d.me.is_admin===false){
+  const mine=(d.links||[]).flatMap(g=>g.items).map(x=>x.name);
+  return [
+   ['I miei servizi funzionano?', down?('<b>'+down+'</b> dei tuoi servizi non risponde adesso. Riprova fra poco: se resta cos&igrave;, avvisa l\'amministratore.'):('S&igrave; ✅ tutti i tuoi servizi rispondono ('+(d.kuma.active||0)+' controllati).')],
+   ['A cosa ho accesso?', mine.length?('Hai accesso a: <b>'+mine.join('</b>, <b>')+'</b>. Clicca un riquadro nella Home per entrare: sei gi&agrave; autenticato, non serve una seconda password.'):'Non hai ancora servizi assegnati. Usa <b>IAM → Chiedi accesso</b>.'],
+   ['Come chiedo un nuovo servizio?', 'Tab <b>IAM</b> → <b>Chiedi accesso</b>: scegli il servizio e scrivi il motivo. Arriva una mail all\'amministratore, che pu&ograve; darti l\'accesso senza crearti un altro account.'],
+   ['Come cambio la mia password?', 'Tab <b>IAM</b> → <b>Cambia la mia password</b>. &Egrave; la stessa password per tutti i servizi del homelab: cambiandola qui, cambia ovunque.'],
+   ['Devo ricordare altre password?', 'No. Entri una volta e i servizi a cui hai accesso si aprono gi&agrave; autenticati (SSO). L\'unica password da ricordare &egrave; questa.'],
+  ];
+ }
  return [
   ['Le mie foto sono al sicuro?', d.immich.immich_ping?('Sì ✅ Immich risponde, protetto da <b>PBS</b> giornaliero, <b>dump</b> app-aware e <b>mirror Windows</b> ('+ago(m.age_h)+'). Restore test superato: 110 GiB.'):'<b>Attenzione:</b> Immich non risponde. Apri la tab Dati.'],
   ['Cosa è giù adesso?', down?('<b>'+down+'</b> monitor giù. Apri Uptime Kuma (tab Servizi) per i dettagli.'):'Tutto verde ✅ ('+d.kuma.active+' monitor OK).'],
