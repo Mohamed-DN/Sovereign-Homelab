@@ -224,15 +224,24 @@ no regex or `^~` needed.
 ## 5. Authentik — Fauxton Gate
 
 - **Provider**: "Obsidian Fauxton forward-auth", `ProxyMode.FORWARD_SINGLE`,
-  `external_host: https://obsidian.internal`. Bound to the **same embedded
-  outpost** that already serves the Dashboard and Uptime Kuma forward-auth
-  (no new outpost needed).
+  `external_host: https://obsidian.internal`, `authorization_flow` =
+  `default-provider-authorization-implicit-consent`, `invalidation_flow` =
+  `default-provider-invalidation-flow` — i.e. field-for-field identical to
+  the Dashboard/Uptime Kuma providers except for the host. Bound to the
+  **same embedded outpost** that already serves those two (no new outpost).
 - **Application**: slug `obsidian`, launch URL
   `https://obsidian.internal/_utils`.
-- **Access**: group `access-obsidian` (mohamed granted), enforced via an
-  `ExpressionPolicy` bound to the Application — same
-  create-user/grant-access/revoke flow as every other app, manageable from
-  the Sovereign Dashboard's IAM tab.
+- **Access**: a direct **Group → Application PolicyBinding** on
+  `access-obsidian` (mohamed granted) — the house pattern, identical to
+  `access-uptime-kuma`. This deliberately is *not* an `ExpressionPolicy`:
+  the Sovereign Dashboard's IAM console (`do_iam_grant_access` /
+  `do_iam_revoke_access` in `scripts/sovereign-master-dashboard.py`) creates
+  and reads direct group bindings and has no notion of expression policies,
+  so an app gated by one would be un-manageable from the IAM tab. The first
+  deploy mistakenly used an `ExpressionPolicy` wrapping
+  `ak_is_group_member(request.user, name="access-obsidian")`; it was
+  functionally equivalent but off-pattern, and was replaced with the plain
+  group binding.
 - Only the `/_utils` location's `auth_request` actually invokes this
   provider — the provider/Application configuration itself is otherwise
   identical to a normal whole-host forward-auth setup; the path-scoping is
@@ -362,16 +371,48 @@ on the LAN.
 
 ## 10. Troubleshooting
 
-- **Authentik shows "Redirect URI Error" when opening `/_utils`**: the
-  ProxyProvider's `redirect_uris` list is empty or wrong. Every forward-auth
-  ProxyProvider in this homelab needs two `STRICT` entries —
-  `https://<host>/outpost.goauthentik.io/callback?X-authentik-auth-callback=true`
-  and `https://<host>?X-authentik-auth-callback=true` — mirroring the
-  Dashboard and Uptime Kuma providers. When a provider is created via `ak
-  shell` scripting instead of the setup wizard, this field does not
-  auto-populate and must be set explicitly; this is exactly what happened on
-  first deploy and was fixed the same way (`ProxyProvider.redirect_uris =
-  [RedirectURI(...), RedirectURI(...)]`, then `.save()`).
+- **A ProxyProvider created via `ak shell` is incomplete by default — diff it
+  against a working one instead of fixing fields one at a time.** The
+  Authentik setup *wizard* silently populates several required fields that
+  direct `ProxyProvider.objects.create(...)` scripting leaves unset. On first
+  deploy this produced two failures in a row, each only visible after the
+  previous one was fixed:
+  1. `redirect_uris = []` → Authentik renders **"Redirect URI Error"**.
+  2. `authorization_flow = None` and `invalidation_flow = None` → Authentik
+     renders a generic **"Server Error"**, with the real cause only in the
+     server log: `AttributeError: 'NoneType' object has no attribute 'slug'`
+     at `authentik/flows/planner.py` (it tries to plan a flow that is `None`).
+
+  Chasing these one-by-one is a trap — the fix is to diff every field against
+  a known-good provider and align them all at once. This catches the next
+  missing field before a user does:
+
+  ```python
+  # inside: docker exec -i authentik-server ak shell
+  from authentik.providers.proxy.models import ProxyProvider
+  good = ProxyProvider.objects.get(name="Uptime Kuma forward-auth")
+  bad  = ProxyProvider.objects.get(name="Obsidian Fauxton forward-auth")
+  # host-specific fields are *expected* to differ; everything else must not
+  skip = {"id", "name", "external_host", "redirect_uris", "_redirect_uris",
+          "client_id", "client_secret", "cookie_secret", "application",
+          "provider_ptr", "oauth2provider_ptr"}
+  for f in good._meta.get_fields():
+      n = f.name
+      if n in skip or (f.is_relation and f.many_to_many) or f.one_to_many:
+          continue
+      gv, bv = getattr(good, n, None), getattr(bad, n, None)
+      if gv != bv:
+          print("DIFF", n, "| good=", repr(gv), "| bad=", repr(bv))
+  ```
+
+  A correct forward-auth provider here has: two `STRICT` `redirect_uris`
+  (`https://<host>/outpost.goauthentik.io/callback?X-authentik-auth-callback=true`
+  and `https://<host>?X-authentik-auth-callback=true`), `authorization_flow`
+  = `default-provider-authorization-implicit-consent`, `invalidation_flow` =
+  `default-provider-invalidation-flow`, and `access_token_validity` =
+  `hours=24`. After `.save()`, the embedded outpost needs a few seconds to
+  pick the change up — a 500 immediately after saving is usually just that
+  propagation delay, so re-test before debugging further.
 - **A 401 on `https://obsidian.internal` (bare host, no path) is expected and
   healthy** — it's CouchDB's `require_valid_user` doing its job on the sync
   API root, not a broken deployment. Only `/_utils` should ever redirect to

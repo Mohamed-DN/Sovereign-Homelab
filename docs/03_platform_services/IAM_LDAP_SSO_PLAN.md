@@ -679,6 +679,27 @@ prior forward-auth integration (Dashboard, Uptime Kuma) gates the whole host.
   CouchDB's own auth as the only barrier, still safe); or delete the
   Application/Provider/group to remove Authentik's involvement entirely.
 
+**Lesson learned (applies to every future Proxy provider, Wave D below):
+a ProxyProvider created by `ak shell` scripting is incomplete — diff it
+against a working one before declaring it done.** The setup *wizard*
+populates fields that direct `objects.create(...)` leaves unset. On the
+Obsidian rollout this surfaced as two consecutive user-visible failures,
+each hidden behind the previous one:
+
+| Unset field | What the user sees | Real cause |
+|---|---|---|
+| `redirect_uris = []` | "Redirect URI Error" | no allowed callback registered |
+| `authorization_flow = None`, `invalidation_flow = None` | generic **"Server Error"** | `AttributeError: 'NoneType' object has no attribute 'slug'` in `flows/planner.py` — planning a `None` flow |
+
+Fixing these one at a time means the user finds the next one. The reliable
+move is a field-by-field diff against a known-good provider (full script in
+`docs/04_apps/obsidian.md` §10), aligning everything in one pass. A correct
+forward-auth provider here has two `STRICT` `redirect_uris`,
+`authorization_flow` = `default-provider-authorization-implicit-consent`,
+`invalidation_flow` = `default-provider-invalidation-flow`, and
+`access_token_validity` = `hours=24`. Prefer cloning a working provider's
+values over hand-specifying them.
+
 Order for the rest, by value and safety, one at a time, verifying login +
 break-glass after each:
 
