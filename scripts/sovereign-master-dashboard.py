@@ -1867,6 +1867,17 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #modal .mb .mrow{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--line)}
 #modal .mb .mrow span:first-child{color:var(--muted)}
 #modal .mb .btn{margin-top:14px}
+/* guide operative (GUIDES) -- lette col telefono in mano, quindi passi grandi e leggibili */
+#modal .mb .gsec{margin:18px 0 8px;font-size:.68rem;font-weight:800;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--accent)}
+#modal .mb .glist{margin:0;padding-left:18px}
+#modal .mb .glist li{margin:0 0 8px}
+#modal .mb .gkv{display:flex;flex-wrap:wrap;gap:4px 8px;margin:6px 0;padding:6px 9px;border-radius:8px;
+ background:color-mix(in srgb,var(--muted) 8%,transparent)}
+#modal .mb .gkv>span:first-child{flex:0 0 84px;color:var(--muted);font-size:.76rem;text-transform:uppercase;
+ letter-spacing:.05em;font-weight:700}
+#modal .mb code{padding:1px 5px;border-radius:5px;font-size:.78rem;word-break:break-word;
+ background:color-mix(in srgb,var(--accent) 13%,transparent);color:var(--ink)}
 /* bento-ize every individual card/tile across all tabs (parity with Servizi) */
 #audit{
  border-radius:22px;border:1px solid var(--line);padding:16px;
@@ -2179,6 +2190,59 @@ const ICON_OVERRIDE={paperless:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cD
     login redirect instead of a clean 404 -- skip straight to the CDN
     brand icon. */
  obsidian:ICON_CDN_BASE+'obsidian.svg'};
+/* ---------- guide operative, per slug ----------
+   Istruzioni che servono col telefono in mano: stanno qui, non solo sul repo.
+   Mai mettere password qui dentro: si dice DOVE prenderle. */
+const GUIDES={obsidian:`
+<p style="margin:0 0 12px;color:var(--ink2)">Le note si sincronizzano da sole fra tutti i dispositivi.
+Il primo lo configuri a mano una volta; gli altri si collegano scansionando un QR code.</p>
+
+<div class="gsec">1 · Primo dispositivo (una volta sola)</div>
+<ol class="glist">
+<li>In Obsidian: <b>Impostazioni → Plugin della community → Sfoglia</b>, cerca
+    <b>Self-hosted LiveSync</b>, installa e attiva.</li>
+<li>Apri le impostazioni del plugin e premi <b>Setup wizard</b>.</li>
+<li>Remote type: <b>CouchDB</b>.</li>
+<li>Compila:
+  <div class="gkv"><span>Server URI</span><code>https://obsidian.internal</code></div>
+  <div class="gkv"><span>Username</span><code>obsidian_client</code></div>
+  <div class="gkv"><span>Password</span><div style="flex:1;min-width:0"><code>OBSIDIAN_CLIENT_PASSWORD</code>
+      <div style="margin-top:3px;color:var(--muted);font-size:.75rem">nel file
+      <code>/opt/sovereign-homelab/stacks/obsidian/.env</code> su LXC&nbsp;102</div></div></div>
+  <div class="gkv"><span>Database</span><code>obsidiandb</code> — esattamente questo</div>
+</li>
+<li>Fai il test della connessione.</li>
+<li><b>Attiva la crittografia end-to-end</b> e scegli una passphrase.</li>
+<li>Alla fine il plugin mostra un <b>Setup URI / QR code</b>: tienilo a portata
+    per il prossimo dispositivo (o salvalo in Vaultwarden).</li>
+</ol>
+
+<div class="gsec">2 · Ogni altro dispositivo (un minuto)</div>
+<ol class="glist">
+<li>Installa Obsidian + il plugin Self-hosted LiveSync.</li>
+<li>Scegli <b>“Use the copied setup URI”</b> e scansiona il QR (o incolla l'URI).</li>
+<li>Inserisci la passphrase del Setup URI.</li>
+<li>Scegli <b>“Set it up as secondary device”</b>.</li>
+<li>Inserisci la passphrase della crittografia E2E.</li>
+<li>Aspetta la prima sincronizzazione. Fatto.</li>
+</ol>
+
+<div class="gsec">Da sapere</div>
+<ul class="glist">
+<li><b>Tre segreti diversi</b>, non confonderli: la <i>password CouchDB</i> (accesso al
+    server), la <i>passphrase E2E</i> (cifra le note prima che partano dal dispositivo —
+    <b>non è recuperabile</b> e deve essere identica ovunque: salvala in Vaultwarden), e la
+    <i>passphrase del Setup URI</i> (protegge solo il QR code).</li>
+<li>Usa <code>obsidian.internal</code> (sync). <code>fauxton.internal</code> è
+    l'amministrazione dietro SSO: un client di sync lì viene rifiutato.</li>
+<li><b>Fuori casa</b>: collega prima la VPN Headscale, poi <code>obsidian.internal</code>
+    funziona come da casa.</li>
+<li>Non esiste una versione web di Obsidian: è un'app nativa (desktop/mobile).
+    Fauxton non serve a leggere le note — con la E2E attiva lì vedi solo testo cifrato.</li>
+<li>Per un <b>secondo vault</b> serve creare prima il suo database da admin
+    (un utente non-admin non può): procedura in <code>docs/04_apps/obsidian.md</code> §9.</li>
+</ul>`};
+function openGuide(slug,title){openModal('📱',title,GUIDES[slug]);}
 /* ---------- theme ---------- */
 const root=document.documentElement,tbtn=$('themebtn');
 function setTheme(t){root.dataset.theme=t;tbtn.innerHTML=t==='dark'?'&#127769;':'&#9728;&#65039;';localStorage.setItem('sov-theme',t);}
@@ -2301,7 +2365,8 @@ function svcInfo(name){
   +mrow('Categoria',it.group)+mrow('URL',`<a href="${it.href}" target="_blank" style="color:var(--accent)">${it.href.replace('https://','')}</a>`)
   +mrow('Monitor',mon?(mon.up?'🟢 UP':'🔴 DOWN')+' · '+mon.name:'— non monitorato direttamente')
   +(g?mrow('Guest',(g.type==='qemu'?'VM ':'LXC ')+g.vmid+' · CPU '+g.cpu.toFixed(1)+'% · RAM '+g.mem_pct.toFixed(1)+'%'):'')
-  +`<button class="btn act" onclick="window.open('${it.href}','_blank')">Apri ${it.name} ↗</button>`);
+  +`<button class="btn act" onclick="window.open('${it.href}','_blank')">Apri ${it.name} ↗</button>`
+  +(GUIDES[it.slug]?`<button class="btn" style="margin-top:8px" onclick="openGuide('${it.slug}','${it.name} · collegare un dispositivo')">📱 Come collegare i dispositivi</button>`:''));
 }
 function toggleHero(e){
  if(e)e.stopPropagation();
