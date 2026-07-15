@@ -747,6 +747,56 @@ For each: create the Authentik Application+Provider, configure the app, test
 - Session policy, brute-force protection, and access-group per application.
 - Weekly review of Authentik events.
 
+## Estate-wide audit (2026-07-15)
+
+After the Obsidian rollout surfaced two provider-config bugs that were only
+visible one at a time, every Authentik provider and application was audited
+with the same method — diff against a known-good peer, and ask the **policy
+engine** rather than reasoning about group names:
+
+```python
+# docker exec -i authentik-server ak shell
+from authentik.policies.engine import PolicyEngine
+e = PolicyEngine(app, user); e.use_cache = False; e.build(); print(e.result.passing)
+```
+
+**Result: mohamed passes all 29 applications.** Two carry no `access-*`
+grant, and that is **correct, not a gap** — do not "fix" them by adding
+redundant grants:
+
+- `ldap-directory` — passes via the `authentik Admins` binding.
+- `sovereign-dashboard` — deliberately has **zero** bindings: any
+  authenticated user may load it, and what they see is role-driven inside the
+  app (he is in `dashboard-admins`).
+
+### Fixed: two apps were gated by an ExpressionPolicy instead of a group
+
+`headplane` and `paperless` were each bound to an `ExpressionPolicy` wrapping
+`ak_is_group_member(request.user, name="access-<slug>")` — functionally
+identical to a plain Group binding, but off-pattern, and **`headplane` was
+therefore un-manageable from the dashboard's IAM tab**: `do_iam_grant_access`
+/ `do_iam_revoke_access` only create and read direct group bindings and have
+no notion of expression policies. (`paperless` already had the group binding
+too; its expression was pure redundancy.)
+
+Both were normalised to a direct Group → Application PolicyBinding. The swap
+was done add-first-then-remove: with `policy_engine_mode = any` the two
+bindings OR together, so access never had a gap. Verified before, during and
+after with the policy engine, and from **both** sides — `mohamed: True`,
+`luna` (no grant): `False` — because "the owner still gets in" only proves
+half of a gate. No `ExpressionPolicy` now gates any application; the ones
+that remain are all Authentik's own built-in `default-*` flow policies.
+
+### Known debt, deliberately not touched
+
+- **`LDAP` provider has `invalidation_flow = None`** — the only one of ten
+  providers missing it. LDAP is the identity backbone (every service's login
+  ultimately rests on it) and runs with zero errors in its outpost; there are
+  no `bind_flow`/`unbind_flow` fields in this version, so `authorization_flow`
+  is the bind flow and `invalidation_flow` would be the unbind flow. The
+  risk/benefit of aligning a cosmetic field on a working, critical component
+  is poor. Recorded here rather than changed. Owner's call, 2026-07-15.
+
 ## Guardrails
 
 - One service at a time; verify SSO **and** local break-glass before the next.
