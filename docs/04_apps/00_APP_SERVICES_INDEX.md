@@ -45,7 +45,7 @@ Live means the service has an alias or documented protocol endpoint, NPM rule wh
 | Nextcloud AIO | [nextcloud.md](nextcloud.md) | `stacks/nextcloud` | `files.internal` |
 | Syncthing | [syncthing.md](syncthing.md) | `stacks/syncthing` | `sync.internal` |
 | Paperless-ngx | [paperless.md](paperless.md) | `stacks/paperless` | `paper.internal` |
-| Obsidian Sync (CouchDB) | [obsidian.md](obsidian.md) | `stacks/obsidian` | `obsidian.internal` (`/_utils` gated by SSO, sync API open) |
+| Obsidian Sync (CouchDB) | [obsidian.md](obsidian.md) | `stacks/obsidian` | `obsidian.internal` (sync API, CouchDB Basic Auth) + `fauxton.internal` (admin UI, SSO) |
 | Home Assistant OS | [home_assistant.md](home_assistant.md) | VM appliance | `ha.internal` |
 | Jellyfin | [jellyfin.md](jellyfin.md) | `stacks/jellyfin` | `media.internal` |
 | FreshRSS | [freshrss.md](freshrss.md) | `stacks/freshrss` | `rss.internal` |

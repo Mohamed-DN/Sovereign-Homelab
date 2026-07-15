@@ -24,25 +24,52 @@ vault against it.
   setting is therefore the real access-control boundary for the sync API, and
   it is **always on**.
 - **What Authentik protects instead: Fauxton**, CouchDB's built-in web admin
-  UI, served under the `/_utils` path. Unlike the sync API, a human opening
-  Fauxton in a browser *can* do an interactive OIDC login, so that specific
-  path is put behind Authentik forward-auth. This is a **path-scoped**
-  forward-auth gate (new pattern in this repo — every previous forward-auth
-  integration, Dashboard and Uptime Kuma, gates the *entire* host). See §4.
+  UI. A human opening Fauxton in a browser *can* do an interactive OIDC
+  login, so it is put behind Authentik forward-auth — but on its **own
+  hostname**, `fauxton.internal`, not as a path on the sync host. See below
+  for why, and §4 for the config.
+- **Two hostnames, one CouchDB — data plane vs admin plane.** Both names
+  proxy to the same container; what differs is the auth in front of them.
 
 ```
-Obsidian client (desktop/mobile)
-  → HTTPS obsidian.internal/<db>/...    (Basic Auth, CouchDB's own auth)
-  → NPM (no auth_request on this path)
-  → CouchDB :5984
+DATA plane  —  Obsidian clients (desktop/mobile)
+  → HTTPS obsidian.internal/<db>/...
+  → NPM: no auth_request at all
+  → CouchDB :5984, which enforces its own Basic Auth (require_valid_user)
+     (a 401 with WWW-Authenticate: Basic realm="couchdb" here is CORRECT)
 
-Browser, human admin
-  → HTTPS obsidian.internal/_utils      (Fauxton)
-  → NPM location /_utils: auth_request → Authentik embedded outpost
-  → 302 to Authentik login if not authenticated, else
-  → CouchDB :5984/_utils (Fauxton itself still also asks for its own login —
-    defense in depth, same as every other Basic-Auth-protected CouchDB path)
+ADMIN plane  —  a human in a browser
+  → HTTPS fauxton.internal/_utils/
+  → NPM: auth_request → Authentik embedded outpost (whole host gated)
+  → 302 to the Authentik login if not authenticated; once authenticated and
+     a member of access-obsidian, NPM *injects* CouchDB's Basic credentials
+  → CouchDB :5984 — Fauxton opens straight away. ONE login, not two.
 ```
+
+**Why two hostnames instead of gating `/_utils` on the sync host** — the
+first cut of this deployment did exactly that, and it was wrong twice over:
+
+1. **It produced a double login.** CouchDB's `require_valid_user=true`
+   applies to `/_utils` as well, so after passing Authentik the browser
+   immediately hit CouchDB's own `WWW-Authenticate: Basic realm="couchdb"`
+   and demanded a *second*, different password (the CouchDB one — Authentik
+   accounts are meaningless to CouchDB). That defeats the point of an SSO
+   gate. The fix is for the proxy to present CouchDB's credentials on the
+   authenticated operator's behalf.
+2. **Path-scoping cannot work here at all.** Fauxton is a single-page app: it
+   is served from `/_utils` but its XHRs go to `/_session`, `/_all_dbs`,
+   `/_config` — the very same root paths the sync API uses. Injecting
+   credentials on those paths on the sync host would hand CouchDB admin to
+   anyone; not injecting them leaves Fauxton broken. Admin and sync traffic
+   are not separable by path on one host, only by hostname.
+
+The credential injection is safe because it lives *inside* the location that
+`auth_request` guards: nginx only reaches the `proxy_set_header
+Authorization` line after Authentik has authenticated the request and the
+`access-obsidian` binding has authorised it. An unauthenticated request is
+302'd away long before. The trade-off is that every Fauxton operator acts as
+the same CouchDB identity (`obsidian_sync`); Authentik's logs, not CouchDB's,
+record *who* opened it.
 
 ## 2. Directory & Deployment
 
@@ -131,25 +158,55 @@ with the real credentials → `200`; a `GET /` with an `Origin: app://obsidian.m
 header returns `access-control-allow-origin: app://obsidian.md` and
 `access-control-allow-credentials: true`.
 
-## 4. NPM — Split-Auth Reverse Proxy
+## 4. NPM — Two Proxy Hosts (data plane + admin plane)
 
-**DNS / alias**: no new AdGuard rewrite was needed. The existing `*.internal
-→ 192.168.1.50` wildcard rewrite (the same one every `.internal` host in this
-homelab relies on) already resolves `obsidian.internal` to NPM; only the NPM
-proxy host and the certificate SAN (below) were new.
+**DNS / aliases**: no new AdGuard rewrites were needed. The existing
+`*.internal → 192.168.1.50` wildcard rewrite (the same one every `.internal`
+host in this homelab relies on) already resolves both `obsidian.internal` and
+`fauxton.internal` to NPM. What *was* needed: both names added to the shared
+**Sovereign Internal Wildcard** certificate's SAN list (see
+`scripts/sovereign-renew-npm-internal-certs.sh`, `aliases=(... obsidian
+fauxton)`), then a forced re-issue.
 
-Created via the NPM API (never hand-edited, per this repo's rule — see
-`doc_03_nginx_proxy_manager.md`): domain `obsidian.internal`, forward to
-`192.168.1.52:5984`, certificate = the shared **Sovereign Internal Wildcard**
-(re-issued to add `obsidian.internal` to its SAN list — see
-`scripts/sovereign-renew-npm-internal-certs.sh`), Force SSL, HTTP/2,
-`allow_websocket_upgrade` on.
+Both hosts are created via the NPM API (never hand-edited, per this repo's
+rule — see `doc_03_nginx_proxy_manager.md`), both forward to
+`192.168.1.52:5984`, both use certificate id 2, Force SSL, HTTP/2 and
+`allow_websocket_upgrade`.
 
-The **Advanced** tab carries three `location` blocks — this is the part that
-makes "Fauxton gated, sync API open" actually work:
+### 4a. `obsidian.internal` (NPM host id 30) — the data plane
+
+No Authentik. One `location /`. Its only real job beyond proxying is raising
+the timeouts, because CouchDB's continuous replication feed would otherwise be
+cut by NPM's default ~60s proxy timeout.
 
 ```nginx
-# /_utils (Fauxton) — gated by Authentik forward-auth
+location / {
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Real-IP $remote_addr;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection $http_connection;
+    proxy_read_timeout 3600s;
+    proxy_send_timeout 3600s;
+    proxy_buffering off;
+
+    proxy_pass http://192.168.1.52:5984;
+}
+```
+
+### 4b. `fauxton.internal` (NPM host id 31) — the admin plane
+
+Standard whole-host Authentik forward-auth (identical in shape to
+`status.internal`), plus the one line that makes it a *single* login: the
+`Authorization` header injection. Note it sits **inside** the location that
+`auth_request` guards, and is deliberately absent from the
+`/outpost.goauthentik.io` block — sending CouchDB's credentials to Authentik
+would leak them.
+
+```nginx
 location /outpost.goauthentik.io {
     proxy_pass http://192.168.1.51:9000/outpost.goauthentik.io;
     proxy_set_header Host $host;
@@ -169,68 +226,58 @@ location @goauthentik_proxy_signin {
     return 302 /outpost.goauthentik.io/start?rd=$scheme://$http_host$request_uri;
 }
 
-location /_utils {
+location / {
     auth_request /outpost.goauthentik.io/auth/nginx;
     error_page 401 = @goauthentik_proxy_signin;
     auth_request_set $auth_cookie $upstream_http_set_cookie;
     add_header Set-Cookie $auth_cookie;
+
+    # Only ever reached once auth_request above has passed. Presents CouchDB's
+    # own credentials for the already-authenticated operator, so Fauxton does
+    # not demand a second, different password. The value is
+    # base64("<user>:<password>") from LXC 102's root-only
+    # /opt/sovereign-homelab/stacks/obsidian/.env -- it is NOT in this repo,
+    # and lives only in NPM's (root-only) database.
+    proxy_set_header Authorization "Basic <base64 user:password>";
+
     proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Real-IP $remote_addr;
-    proxy_pass http://192.168.1.52:5984;
-}
-
-# Everything else (the CouchDB sync API) — NO auth_request. LiveSync clients
-# send Basic Auth directly; CouchDB's require_valid_user is the real gate.
-location / {
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Real-IP $remote_addr;
-
-    # WebSocket headers (harmless if unused — CouchDB's continuous _changes
-    # feed is actually HTTP long-polling/chunked, not a WS upgrade, but these
-    # cost nothing and future-proof any WS-based tooling) + long timeouts for
-    # continuous replication feeds, which would otherwise be cut by NPM's
-    # default ~60s proxy timeout.
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection $http_connection;
-    proxy_read_timeout 3600s;
-    proxy_send_timeout 3600s;
-    proxy_buffering off;
-
     proxy_pass http://192.168.1.52:5984;
 }
 ```
 
-nginx resolves `/_utils/...` to the more specific `location /_utils` block
-(longest-prefix match) and everything else falls through to `location /` —
-no regex or `^~` needed.
+**Verified live** (2026-07-15), by logging a real Authentik user in through
+the flow-executor API rather than assuming:
 
-**Verified live, in order**:
-1. `https://obsidian.internal/` (no creds) → `401` from CouchDB — API path
-   open to Authentik, gated by CouchDB.
-2. `https://obsidian.internal/_all_dbs` with the real Basic Auth creds → `200`
-   — the **full** client → NPM → CouchDB chain works end to end.
-3. `https://obsidian.internal/_utils/` (no session) → `302` to Authentik's
-   login — Fauxton is gated.
-4. CORS headers present and correct (see §3).
-5. Five pre-existing routes (`foto`, `auth`, `paper`, `headplane.internal`,
-   etc.) spot-checked unaffected after the certificate re-issue and the new
-   proxy host.
+| Check | Result |
+|---|---|
+| `obsidian.internal/` no creds | `401` + `WWW-Authenticate: Basic realm="couchdb"` — CouchDB's own gate |
+| `obsidian.internal/_utils` no creds | `401` from CouchDB (no Authentik on this host at all) |
+| `obsidian.internal/_all_dbs` with real Basic creds | `200` — full client → NPM → CouchDB chain works |
+| `fauxton.internal/_utils/` no session | `302` to Authentik |
+| `fauxton.internal/_utils/` **after** Authentik login | `200`, body is Fauxton, **zero** `WWW-Authenticate` headers |
+| `fauxton.internal/_session` after login | `200` `{"userCtx":{"name":"obsidian_sync","roles":["_admin"]}}` — injection reached CouchDB |
+| `fauxton.internal/_all_dbs` as a user **not** in `access-obsidian` | denied, no database list returned |
 
 ## 5. Authentik — Fauxton Gate
 
 - **Provider**: "Obsidian Fauxton forward-auth", `ProxyMode.FORWARD_SINGLE`,
-  `external_host: https://obsidian.internal`, `authorization_flow` =
+  `external_host: https://fauxton.internal`, `authorization_flow` =
   `default-provider-authorization-implicit-consent`, `invalidation_flow` =
   `default-provider-invalidation-flow` — i.e. field-for-field identical to
   the Dashboard/Uptime Kuma providers except for the host. Bound to the
   **same embedded outpost** that already serves those two (no new outpost).
+  `external_host` must match the hostname the browser uses: the outpost
+  routes by `Host` header, and a mismatch makes `auth_request` return **404**,
+  which nginx surfaces as a bare `500` (`auth request unexpected status: 404`
+  in the proxy-host error log).
 - **Application**: slug `obsidian`, launch URL
-  `https://obsidian.internal/_utils`.
+  `https://fauxton.internal/_utils/`.
 - **Access**: a direct **Group → Application PolicyBinding** on
   `access-obsidian` (mohamed granted) — the house pattern, identical to
   `access-uptime-kuma`. This deliberately is *not* an `ExpressionPolicy`:
@@ -242,21 +289,17 @@ no regex or `^~` needed.
   `ak_is_group_member(request.user, name="access-obsidian")`; it was
   functionally equivalent but off-pattern, and was replaced with the plain
   group binding.
-- Only the `/_utils` location's `auth_request` actually invokes this
-  provider — the provider/Application configuration itself is otherwise
-  identical to a normal whole-host forward-auth setup; the path-scoping is
-  entirely an NPM-side (nginx) decision, not an Authentik-side one.
+- The gate covers the whole of `fauxton.internal`; the sync host has no
+  Authentik involvement whatsoever.
 
 ## 6. Dashboard
 
 Added to the **Critical Data** group in `scripts/sovereign-master-dashboard.py`
-(`LINKS`), slug `obsidian`, linking straight to
-`https://obsidian.internal/_utils` (the actual place an admin would go — the
-raw CouchDB root has nothing useful to show a human). Icon: the CDN brand
-icon is used directly rather than probing the app's own `favicon.ico` first
-(the usual fallback chain), because that probe would land on `/_utils/favicon.ico`
-under the SSO-gated path and hit the Authentik redirect instead of a clean
-404.
+(`LINKS`), slug `obsidian`, linking to `https://fauxton.internal/_utils/` —
+the admin plane, the only place with something to show a human. Icon: the CDN
+brand icon is used directly rather than probing the app's own `favicon.ico`
+first (the usual fallback chain), because that probe would land on the
+SSO-gated host and hit the Authentik redirect instead of a clean 404.
 
 The tile's live status dot (green/grey) and the hero "servizi online" counter
 are driven entirely by matching `LINKS[].kw` against an Uptime Kuma monitor
@@ -271,17 +314,31 @@ Per this repo's app-layer rule ("add every web UI to NPM, Homepage, and
 Uptime Kuma" in `docs/04_apps/00_APP_SERVICES_INDEX.md`), Obsidian Sync is
 registered in all three:
 
-- **NPM**: proxy host covered in §4.
+- **NPM**: both proxy hosts covered in §4.
 - **Homepage**: added to `stacks/observability/homepage/services.yaml`,
-  "Critical Data" group, id `data-obsidian`, `href`/`siteMonitor` pointing at
-  `https://obsidian.internal/_utils` and `https://obsidian.internal`
-  respectively. A 401 on the bare host is expected and healthy — it means
+  "Critical Data" group, id `data-obsidian`, `href` →
+  `https://fauxton.internal/_utils/` (admin plane), `siteMonitor` →
+  `https://obsidian.internal` (data plane — that is the thing whose health
+  actually matters). A 401 there is expected and healthy: it means
   `chttpd/require_valid_user` is doing its job.
-- **Uptime Kuma**: monitor `Obsidian Sync` (id 47), type HTTP(s), URL
-  `https://obsidian.internal`, accepted status codes `200-399,401` (401 is
-  the correct "up" response for the unauthenticated sync API root — see
-  Troubleshooting below), checked from the internal network like every other
-  monitor in this repo. Live and green as of 2026-07-15.
+- **Uptime Kuma**, two monitors, because the two planes fail independently:
+  - `Obsidian Sync` (id 47) — `https://obsidian.internal`, accepts
+    `200-399,401`. Watches the **data plane**: is CouchDB serving sync?
+  - `Fauxton SSO gate` (id 48) — `https://fauxton.internal/_utils/`, accepts
+    **`302` only**, `maxredirects=0`. Watches the **gate**: a `500` means the
+    ProxyProvider is misconfigured (see §10), a `200` would mean the gate has
+    vanished and Fauxton is exposed. This monitor exists specifically because
+    the first deployment's SSO gate was broken while the sync API was
+    perfectly healthy — the data-plane monitor stayed green throughout and
+    told us nothing.
+
+  Note this deviates from the house convention for SSO-gated services
+  (`Dashboard`, `Uptime Kuma`), whose monitors point at the backend directly
+  and bypass the gate to avoid false alarms. That convention leaves the gate
+  itself unmonitored, which is exactly the failure that hit here; watching
+  for the precise `302` gives gate coverage without the false-alarm problem.
+
+  Both live and green as of 2026-07-15.
 
 ## 8. Connecting Devices (Desktop, Phone, Tablet)
 
@@ -371,6 +428,26 @@ on the LAN.
 
 ## 10. Troubleshooting
 
+- **A browser Basic-Auth popup appears saying `https://obsidian.internal`**:
+  that dialogue is **CouchDB**, not Authentik — Authentik renders a full
+  login *page*, never a native browser popup. Authentik usernames/passwords
+  will never work in it, because CouchDB has its own user database and knows
+  nothing about Authentik. If you see this on `fauxton.internal`, the
+  `proxy_set_header Authorization "Basic ..."` injection (§4b) is missing,
+  wrong, or the CouchDB password was rotated without updating NPM. If you see
+  it on `obsidian.internal`, it is **correct and expected** — that host is
+  the data plane and is supposed to ask for CouchDB's credentials.
+- **"Server Error" from Authentik, or nginx logs `auth request unexpected
+  status: 404`**: the ProxyProvider's `external_host` does not match the
+  hostname in the browser. The embedded outpost routes by `Host` header and
+  returns 404 for hosts it does not know; nginx turns that into a 500. Fix
+  `external_host` (and the `redirect_uris`) to the exact host, then give the
+  outpost a few seconds to resync.
+- **Logins suddenly stop working after repeated failed attempts**: Authentik's
+  reputation/brute-force protection is doing its job. Check with
+  `Reputation.objects.all()` in `ak shell`; a negative score for a
+  username/IP pair will block it. This bites when scripting logins for
+  testing — it did during this deployment's verification.
 - **A ProxyProvider created via `ak shell` is incomplete by default — diff it
   against a working one instead of fixing fields one at a time.** The
   Authentik setup *wizard* silently populates several required fields that

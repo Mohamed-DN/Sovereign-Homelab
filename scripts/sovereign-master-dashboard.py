@@ -156,7 +156,7 @@ LINKS: list[dict[str, Any]] = [
         {"name": "Nextcloud", "slug": "nextcloud", "icon": "☁️", "href": "https://files.internal", "desc": "Personal cloud", "kw": "nextcloud"},
         {"name": "Syncthing", "slug": "syncthing", "icon": "\U0001F501", "href": "https://sync.internal", "desc": "Peer-to-peer sync", "kw": "syncthing"},
         {"name": "Paperless-ngx", "slug": "paperless", "icon": "\U0001F4C4", "href": "https://paper.internal", "desc": "OCR document archive", "kw": "paperless"},
-        {"name": "Obsidian Sync", "slug": "obsidian", "icon": "\U0001F5C2️", "href": "https://obsidian.internal/_utils", "desc": "CouchDB per Self-hosted LiveSync (Fauxton dietro SSO)", "kw": "obsidian sync"},
+        {"name": "Obsidian Sync", "slug": "obsidian", "icon": "\U0001F5C2️", "href": "https://fauxton.internal/_utils/", "desc": "CouchDB per Self-hosted LiveSync (admin Fauxton via SSO; sync su obsidian.internal)", "kw": "obsidian sync"},
     ]},
     {"group": "Apps", "items": [
         {"name": "Home Assistant", "slug": "home-assistant", "icon": "\U0001F3E1", "href": "https://ha.internal", "desc": "Home automation", "kw": "home assistant"},
@@ -2174,10 +2174,10 @@ const ICON_CDN=Object.fromEntries(Object.entries(ICON_CDN_FILES).map(([slug,f])=
    tiles. Same leaf glyph, recoloured to a lighter, legible green, inlined so
    it never depends on an external fetch. */
 const ICON_OVERRIDE={paperless:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHhtbDpzcGFjZT0icHJlc2VydmUiIHZpZXdCb3g9IjQzLjM4IDAuMTQgNDI1LjMyIDUxMi4wMiI+PHBhdGggZD0iTTEzNi44IDQ1OS42Yy0yLjMtMTAuOC02LjktMzIuNS03LjQtMzIuNS05Ni41LTU3LjctODUuMS0xNTcuNi01My4xLTIxNC43IDYuOSA3MS45IDEzNC4yIDEyMS42IDYwIDIwOS42LS42IDEuMSAzLjQgMTQuOCA2LjkgMjcuNCAxNC44LTI1LjEgMzcuMS01NS40IDM2LTU4LjItOTEuNC0yMjIuNyAxOTQuMS0yMzkuOCAyNTMuNS0zNzggMjYuOCAxMzMuNi0xMy43IDM0MC4zLTI0My4zIDM5Mi45LTEuMS42LTQxLjcgNzEuOS00My40IDcyLjUgMC0xLjEtMTcuMS0uNi0xNC44LTYuMyAxLjEtMy42IDMuMy04LjEgNS42LTEyLjdtNTYuNi05OC44Yy0zNi04NS4xIDY5LjctMTc4LjcgMTIyLjItMjAyLjFDMjA4LjIgMjU0LjYgMTg5LjkgMzI2IDE5My40IDM2MC44TTEzNCA0MDUuOWMyOS4xLTMzLjctNS4xLTkxLjQtMjUuNy0xMTAuMiAzNC44IDYwIDMyLjUgOTQuOCAyNS43IDExMC4yIiBzdHlsZT0iZmlsbDojN2VjYjhmIiB0cmFuc2Zvcm09InRyYW5zbGF0ZSgtMTUuMzA2IC0xNC4zNzkpc2NhbGUoMS4xMDAxNykiLz48L3N2Zz4=",
- /* obsidian.internal's href points at /_utils (Fauxton, SSO-gated) so the
-    usual "try the app's own /favicon.ico first" probe would hit the
-    Authentik login redirect instead of a clean 404 -- skip straight to the
-    CDN brand icon. */
+ /* the Obsidian tile points at fauxton.internal (SSO-gated) so the usual
+    "try the app's own /favicon.ico first" probe would hit the Authentik
+    login redirect instead of a clean 404 -- skip straight to the CDN
+    brand icon. */
  obsidian:ICON_CDN_BASE+'obsidian.svg'};
 /* ---------- theme ---------- */
 const root=document.documentElement,tbtn=$('themebtn');
