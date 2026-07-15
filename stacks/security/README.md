@@ -34,13 +34,18 @@ If NPM lives elsewhere, update `NPM_LOG_DIR` in `.env`.
 
 ## Remediation
 
-First phase:
+First phase (done):
 
 - detection only;
 - check alerts and false positives.
 
-Second phase:
+Second phase — **done, live 2026-07-15**:
 
-- add the appropriate bouncer;
-- test blocking with a controlled IP;
-- document rollback.
+- `crowdsec-firewall-bouncer-iptables` installed as an OS-level systemd
+  service on the LXC hosting this stack + NPM (not a container — needs direct
+  netfilter access), hooked into `DOCKER-USER` so it blocks traffic to NPM's
+  published ports without touching Docker's own rules. Verified enforcing
+  (local bans + the 31k-entry CAPI community blocklist both loaded into the
+  live ipset) with zero impact on legitimate traffic. Full details, exact
+  config, and rollback: `docs/06_operations_security/doc_11_security_operations.md`
+  Phase E.
