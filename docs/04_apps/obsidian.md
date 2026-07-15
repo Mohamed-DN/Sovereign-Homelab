@@ -497,6 +497,37 @@ authenticated CouchDB user — do not skip it.
 
 ## 11. Troubleshooting
 
+- **⚠️ Never change the admin password from inside Fauxton ("Your Account →
+  Change Password"), and never use "Setup → Create Server Admin".** The
+  credential injection (§4b) is a *copy* of `obsidian_sync`'s password held in
+  NPM's config. Rotating the password in Fauxton updates CouchDB but **not**
+  NPM, so the next request injects the stale password and Fauxton locks
+  itself out with a 401 — with no hint as to why. Fauxton's "Log Out" link is
+  equally pointless: NPM re-injects the header on the very next request.
+  Rotate the admin password **only** via the `.env` + NPM together:
+
+  ```bash
+  # on LXC 102 -- change it in CouchDB and in the .env
+  set -a; . /opt/sovereign-homelab/stacks/obsidian/.env; set +a
+  NEW='<new long random>'
+  curl -sf -X PUT "http://127.0.0.1:5984/_node/_local/_config/admins/$OBSIDIAN_COUCHDB_USER" \\
+    -u "$OBSIDIAN_COUCHDB_USER:$OBSIDIAN_COUCHDB_PASSWORD" -d "\\"$NEW\\""
+  sed -i "s|^OBSIDIAN_COUCHDB_PASSWORD=.*|OBSIDIAN_COUCHDB_PASSWORD=$NEW|" \\
+    /opt/sovereign-homelab/stacks/obsidian/.env
+  # then update the Authorization header on NPM proxy host 31 with the new
+  # base64("$OBSIDIAN_COUCHDB_USER:$NEW") -- see §4b. Both, or neither.
+  ```
+
+  If Fauxton is already locked out this way, nothing is lost: the sync plane
+  is unaffected (it uses `obsidian_client`), and the fix is to re-sync NPM's
+  injected value with whatever the password now is.
+- **Fauxton shows `obsidian_sync`, not your Authentik username**: expected.
+  The proxy presents CouchDB's service credential once Authentik has
+  authenticated you; CouchDB speaks only Basic Auth and has no notion of
+  Authentik identities. You still hold `roles: ["_admin"]` — full access. Who
+  actually opened Fauxton is recorded in **Authentik's** logs, not CouchDB's.
+  Making Fauxton display a human name would mean putting that human's
+  password into NPM's config, which is a worse trade than a cosmetic label.
 - **A browser Basic-Auth popup appears saying `https://obsidian.internal`**:
   that dialogue is **CouchDB**, not Authentik — Authentik renders a full
   login *page*, never a native browser popup. Authentik usernames/passwords
