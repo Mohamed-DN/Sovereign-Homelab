@@ -347,6 +347,36 @@ docker compose logs --tail=100 authentik-server
 curl -I https://auth.internal/if/flow/initial-setup/
 ```
 
+## Phase K: Brand Logo/Favicon (live fix, 2026-07-15)
+
+The login page showed a broken image instead of the brand logo. Root cause,
+found by reading Authentik's own source in the running container:
+
+- `Brand.branding_logo` is a `FileField`; the API always serves it through
+  `get_file_manager(FileUsage.MEDIA).file_url(...)`, which either passes an
+  `http(s)://`/`fa://` value straight through (`PassthroughBackend`) or treats
+  **any other value as a relative path inside Authentik's own file storage**
+  and wraps it in a signed `/files/media/<schema>/<name>?token=...` URL. A raw
+  `data:image/svg+xml;base64,...` value does not match either case, so it fell
+  into the file-storage path and got served as
+  `/files/media/public/data:image/svg+xml;base64,...` — not a valid URL.
+- Fixing that by actually saving a file hit a second issue:
+  `AUTHENTIK_STORAGE__MEDIA__FILE__PATH` was never set, so the storage
+  backend's default (`./data`, resolving to a plain, non-mounted directory)
+  didn't match the `media_data` volume that is actually mounted at `/media` —
+  `FileBackend.manageable` requires the storage root to be a real mount point,
+  so it returned `False` and any save attempt raised "No file management
+  backend configured."
+
+**Fix**: set `AUTHENTIK_STORAGE__MEDIA__FILE__PATH: /media` on both
+`authentik-server` and `authentik-worker` (both already mount `media_data:
+/media`) and restart; then save the logo as a real file through Authentik's
+file manager (`get_file_manager(FileUsage.MEDIA).save_file(name, bytes)`) and
+point `Brand.branding_logo`/`branding_favicon` at that relative filename —
+never a `data:` URI. Verified live: `branding_logo` now resolves to a signed
+`/files/media/public/<name>?token=...` URL returning `200` with
+`content-type: image/svg+xml`, and the login page renders the crest.
+
 ---
 
 ## Reference
