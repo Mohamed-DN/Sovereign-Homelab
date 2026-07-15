@@ -646,38 +646,66 @@ same fix pattern (rename in place + email-match linking) but via allauth
 - **Rollback:** clear `PAPERLESS_SOCIALACCOUNT_PROVIDERS`/`PAPERLESS_APPS` in
   `.env` and restart; local password login is untouched.
 
-**Eighth service DONE (2026-07-15): Obsidian Sync / CouchDB
-(obsidian.internal) via forward-auth — first *path-scoped* gate, not a
-whole-host one.**
+**Eighth service DONE (2026-07-15): Obsidian Sync / CouchDB via forward-auth
+— first *split-plane* app: two hostnames, one backend.**
+
+> **Superseded design note.** This started as this repo's first *path-scoped*
+> gate (`auth_request` on `/_utils` only, sync API open on the same host).
+> That design shipped and was wrong; it is documented as a warning, not a
+> pattern, in `docs/04_apps/obsidian.md` §1. Two reasons it cannot work:
+> (1) CouchDB's `require_valid_user` applies to `/_utils` too, so the user
+> passed Authentik and then hit CouchDB's own Basic-Auth popup — two logins,
+> the opposite of SSO; (2) Fauxton is a SPA whose XHRs hit `/_session`,
+> `/_all_dbs`, `/_config` — the same root paths the sync API uses — so admin
+> and sync traffic are not separable by path at all. **Do not reach for
+> path-scoped forward-auth to split an admin UI from an API.**
 
 CouchDB backs the Self-hosted LiveSync Obsidian plugin. Its sync API
 authenticates with plain HTTP Basic Auth sent directly by the desktop/mobile
 clients — the same "protocol can't do an interactive OIDC login" constraint
 as Vaultwarden, so the API is deliberately **outside** any Authentik gate and
-relies on CouchDB's own `require_valid_user=true` instead. Only Fauxton
-(CouchDB's web admin UI, under `/_utils`) is a page a human opens in a
-browser, so **only that path** is put behind Authentik forward-auth — every
-prior forward-auth integration (Dashboard, Uptime Kuma) gates the whole host.
+relies on CouchDB's own `require_valid_user=true` instead.
+
+The shipped design splits the two planes by **hostname**:
+
+- `obsidian.internal` — data plane. No Authentik. CouchDB's own Basic Auth.
+- `fauxton.internal` — admin plane. Whole-host forward-auth (the ordinary
+  pattern), and after the gate NPM **injects** CouchDB's Basic credentials
+  (`proxy_set_header Authorization "Basic …"`, inside the `auth_request`-
+  guarded location) so an `access-obsidian` member gets one login, not two.
+
+This "gate the host, inject the app's own credential behind it" shape is the
+reusable lesson: it is how to put Authentik in front of anything that only
+speaks Basic Auth and has no OIDC support.
 
 - Authentik side is completely ordinary: a `ProxyProvider`
   (`FORWARD_SINGLE`, `external_host: https://obsidian.internal`) bound to the
   same embedded outpost as Dashboard/Kuma, an Application (slug `obsidian`),
   and an `access-obsidian` group — identical to every other forward-auth app.
-- **The path-scoping is entirely on the NPM/nginx side**: the standard
-  `auth_request` block is placed inside `location /_utils` only; the
-  catch-all `location /` has no `auth_request` at all and proxies straight to
-  CouchDB. nginx's longest-prefix matching sends `/_utils/*` to the gated
-  block and everything else falls through — no regex needed.
-- **Verified live**: `GET /` unauthenticated → `401` from CouchDB (API open
-  to Authentik, gated by CouchDB itself); the same path **with** the real
-  sync credentials → `200` through the full NPM → CouchDB chain; `GET
-  /_utils/` unauthenticated → `302` to Authentik's login (Fauxton gated).
+- **The split is by hostname, on the NPM side**: `obsidian.internal` (host
+  id 30) has no `auth_request` at all; `fauxton.internal` (host id 31) has
+  the ordinary whole-host forward-auth block plus the credential injection
+  inside the guarded `location /`.
+- **Verified live** by driving a real Authentik login through the
+  flow-executor API, not by assuming: `obsidian.internal/` unauthenticated →
+  `401` from CouchDB; the same with real sync credentials → `200` through the
+  full NPM → CouchDB chain; `fauxton.internal/_utils/` with no session →
+  `302` to Authentik; **after** login → `200` serving Fauxton with **zero**
+  `WWW-Authenticate` headers, and `/_session` reporting
+  `{"userCtx":{"name":"obsidian_sync","roles":["_admin"]}}` — proving the
+  injection lands; a logged-in user **without** `access-obsidian` → denied,
+  no database list.
+- **Monitoring covers the gate, not just the app**: Kuma monitor `Fauxton SSO
+  gate` accepts **only** `302` on `fauxton.internal/_utils/`. The first
+  deployment's gate was broken (500) while the data-plane monitor stayed
+  green — a gate nobody watches is a gate that fails silently.
 - Full architecture, the CouchDB config (CORS/max-doc-size), and a
   device-onboarding guide: `docs/04_apps/obsidian.md`.
-- **Rollback:** clear the NPM proxy host's Advanced field to remove the
-  split-auth blocks (falls back to no gate on `/_utils` either — restores
-  CouchDB's own auth as the only barrier, still safe); or delete the
-  Application/Provider/group to remove Authentik's involvement entirely.
+- **Rollback:** delete the `fauxton.internal` proxy host — sync on
+  `obsidian.internal` is untouched and keeps working; Fauxton then simply has
+  no route (CouchDB's own Basic Auth remains reachable only from the LAN
+  port). Or delete the Application/Provider/group to remove Authentik
+  entirely. Nothing in this rollback can lock a sync client out.
 
 **Lesson learned (applies to every future Proxy provider, Wave D below):
 a ProxyProvider created by `ak shell` scripting is incomplete — diff it
@@ -708,7 +736,7 @@ break-glass after each:
 | A (SSO-native) | Proxmox VE, PBS, Grafana-like, Portainer-like | OIDC | cleanest; keep local root/admin |
 | B (app OIDC) | ~~Nextcloud~~ ~~Immich~~ ~~Paperless~~ ~~Forgejo~~ ~~Jellyfin~~, Karakeep, Open WebUI | OIDC/OAuth2 | most have native OIDC; map the admin group |
 | C (LDAP-only) | Vaultwarden, services without OIDC | LDAP | bind against the Phase-2 outpost |
-| D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard; use the **path-scoped** variant (`obsidian.internal` §"Eighth service") for any of these that has an API/agent consumer alongside its web UI |
+| D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard. If one of these also has an API/agent consumer that cannot do OIDC, split it by **hostname** (admin plane vs data plane) as done for Obsidian — do NOT try to path-scope the gate on a single host, see the superseded-design note under §"Eighth service" |
 
 For each: create the Authentik Application+Provider, configure the app, test
 `sole` login, confirm the **local admin still works**, then move on.

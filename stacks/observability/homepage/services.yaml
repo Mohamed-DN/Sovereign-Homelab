@@ -178,9 +178,9 @@
     - Obsidian Sync:
         id: data-obsidian
         icon: obsidian.png
-        href: https://obsidian.internal/_utils
+        href: https://fauxton.internal/_utils/
         siteMonitor: https://obsidian.internal
-        description: CRITICAL DATA - CouchDB backend for Self-hosted LiveSync (401 on the bare host is expected and healthy, chttpd/require_valid_user is on)
+        description: CRITICAL DATA - CouchDB backend for Self-hosted LiveSync. Sync data plane on obsidian.internal (401 there is expected and healthy, require_valid_user is on); Fauxton admin UI on fauxton.internal behind SSO
 
 - Apps:
     - Home Assistant:
