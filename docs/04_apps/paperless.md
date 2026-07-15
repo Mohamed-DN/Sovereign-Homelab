@@ -163,4 +163,4 @@ Do not combine a newer database with older media or run migrations repeatedly wh
 
 **Previous:** [Syncthing](syncthing.md)
 
-**Next:** [Home Assistant OS](home_assistant.md)
+**Next:** [Obsidian Sync](obsidian.md)

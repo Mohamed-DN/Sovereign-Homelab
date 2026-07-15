@@ -14,7 +14,7 @@ This index is the entry point for the application layer. Deploy one app at a tim
 
 | Target | Services |
 |---|---|
-| LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo |
+| LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, Obsidian Sync (CouchDB) |
 | VM 110 `immich` | Immich, healthy on `foto.internal`; PBS boot/service restore drill and app-aware baseline passed; gated for large photo import until offsite backup and representative restore rehearsal |
 | VM 120 `nextcloud-aio` | Nextcloud AIO, healthy on `files.internal`; restore drill passed; gated for irreplaceable files until internal certificate trust and offsite backup |
 | VM 130 `home-assistant-os` | Home Assistant OS |
@@ -24,11 +24,11 @@ This index is the entry point for the application layer. Deploy one app at a tim
 
 ## Current Live App State
 
-Last checked: 2026-07-03.
+Last checked: 2026-07-15.
 
 | State | Services |
 |---|---|
-| Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI |
+| Live on LXC 102 `apps-light` | Vaultwarden, Syncthing, Paperless-ngx, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, Open WebUI, Obsidian Sync (CouchDB) |
 | Gated on VM 110 `immich` | Immich: VM, alias, scheduled app-aware jobs, PBS checkpoint, SHA-256 baseline, isolated DB restore, and PBS sample-asset restore are healthy; the planned 2 TB removable SSD and a later offsite copy are still required before deleting phone originals |
 | Gated on VM 120 `nextcloud-aio` | Nextcloud AIO: VM exists, AIO containers are healthy, `https://files.internal` returns the real login redirect, and restore drill passed; internal certificate trust and offsite backup are still required before irreplaceable files |
 | Live on VM 130 `home-assistant-os` | Home Assistant OS: VM exists, `ha.internal` works through NPM, PBS backup exists, native HA backup exists, and full boot/service restore drill passed |
@@ -45,6 +45,7 @@ Live means the service has an alias or documented protocol endpoint, NPM rule wh
 | Nextcloud AIO | [nextcloud.md](nextcloud.md) | `stacks/nextcloud` | `files.internal` |
 | Syncthing | [syncthing.md](syncthing.md) | `stacks/syncthing` | `sync.internal` |
 | Paperless-ngx | [paperless.md](paperless.md) | `stacks/paperless` | `paper.internal` |
+| Obsidian Sync (CouchDB) | [obsidian.md](obsidian.md) | `stacks/obsidian` | `obsidian.internal` (`/_utils` gated by SSO, sync API open) |
 | Home Assistant OS | [home_assistant.md](home_assistant.md) | VM appliance | `ha.internal` |
 | Jellyfin | [jellyfin.md](jellyfin.md) | `stacks/jellyfin` | `media.internal` |
 | FreshRSS | [freshrss.md](freshrss.md) | `stacks/freshrss` | `rss.internal` |

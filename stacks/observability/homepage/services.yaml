@@ -175,6 +175,12 @@
         href: https://paper.internal
         siteMonitor: https://paper.internal
         description: CRITICAL DATA - OCR documents and personal archive
+    - Obsidian Sync:
+        id: data-obsidian
+        icon: obsidian.png
+        href: https://obsidian.internal/_utils
+        siteMonitor: https://obsidian.internal
+        description: CRITICAL DATA - CouchDB backend for Self-hosted LiveSync (401 on the bare host is expected and healthy, chttpd/require_valid_user is on)
 
 - Apps:
     - Home Assistant:
