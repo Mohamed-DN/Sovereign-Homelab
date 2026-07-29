@@ -132,7 +132,84 @@ tar -czvf /backups/jellyfin_config_$(date +%F).tar.gz -C ${JELLYFIN_CONFIG_PATH}
 5. Remount your `/mnt/media` drive.
 6. Run `docker compose up -d`. Jellyfin will start with all users, passwords, and watch progress intact.
 
-## 8. Troubleshooting
+## 8. SSO identity binding — the username-reuse hazard
+
+**A reused username let a normal user inherit the owner's admin account.**
+Recorded here because the same trap applies to any app whose SSO plugin binds
+on a *name* rather than a stable identifier.
+
+### What happened
+
+The owner's Authentik account was bootstrapped as `sole` and renamed to
+`mohamed` on 2026-07-12. Jellyfin's SSO plugin had already recorded, in
+`plugins/configurations/SSO-Auth.xml`:
+
+```xml
+<CanonicalLinks>
+  <item>
+    <key><string>sole</string></key>       <!-- OIDC username -->
+    <value><guid>4ca306ec-…</guid></value> <!-- the owner's Jellyfin account -->
+  </item>
+</CanonicalLinks>
+```
+
+The rename freed the name `sole`, which was later given to a **different
+person**. On her first Jellyfin login the plugin matched that stale link and
+signed her straight into the owner's account — which was the only account on
+the server, and an administrator. She did not get her own profile; she got his.
+
+### Why the other SSO apps were not affected
+
+Audited 2026-07-29, all six OIDC integrations:
+
+| App | Binds identity on | Verdict |
+|---|---|---|
+| Jellyfin | **OIDC username** (`CanonicalLinks`) | **vulnerable — this bug** |
+| Immich | `sub` (Authentik's stable UUID) | safe |
+| Headplane | `sub` | safe |
+| Paperless | email | safe (the two accounts have different emails) |
+| Forgejo | `sub`, links by email | safe (no external link rows yet) |
+| Nextcloud | — | clean (zero OIDC logins so far) |
+
+The three forward-auth apps (Dashboard, Uptime Kuma, Obsidian/Fauxton) hold no
+local accounts at all: the identity arrives in a header and groups are resolved
+live from Authentik on every request, so there is nothing to go stale.
+
+**Rule for future integrations: bind on `sub`, never on username.** `sub` is a
+UUID Authentik never reuses; usernames and emails can both be freed and handed
+to someone else. Where an app only offers name binding (as Jellyfin does),
+treat any username change as requiring a matching cleanup in that app.
+
+### How it was fixed
+
+Removing the single stale link was not provably sufficient — a scripted login
+probe could not complete far enough to prove the `sole` case — and Jellyfin
+held nothing worth keeping (the media directory was empty), so the certain fix
+was a rebuild with an empty user database:
+
+1. Config directory moved aside, not deleted:
+   `data/jellyfin/config.bak-rebuild-<UTC stamp>/`.
+2. Fresh instance, first-run wizard completed via `/Startup/*`.
+3. **Only** the SSO plugin binaries and its OIDC client id/secret restored from
+   the backup, by a textual edit that empties the `<CanonicalLinks>` block and
+   leaves everything else byte-for-byte — so the secret never transits a log.
+   (A first attempt round-tripped the XML through Python's ElementTree and
+   silently dropped the whole `<OidConfigs>` subtree, leaving the plugin with
+   `System.ArgumentException: Provider does not exist`. Do not reserialise this
+   file; edit it textually.)
+4. A break-glass local admin `jellyfin-admin` created — the same pattern as
+   Forgejo's `homelab-admin` — so a broken Authentik cannot lock the household
+   out. Its password is in `stacks/jellyfin/.env`
+   (`JELLYFIN_LOCAL_ADMIN_PASSWORD`, root-only, never committed).
+
+After the rebuild **no personal account exists at all**: every user, the owner
+included, is created by the plugin on their first SSO login. The owner returns
+as an administrator automatically — Authentik's `profile` scope emits
+`groups`, the plugin's `RoleClaim` is `groups`, and its `AdminRoles` contains
+`authentik Admins`, of which he is a member. A user holding only
+`access-jellyfin` gets an ordinary, non-admin profile.
+
+## 9. Troubleshooting
 
 | Issue | Resolution |
 |-------|------------|
@@ -141,7 +218,7 @@ tar -czvf /backups/jellyfin_config_$(date +%F).tar.gz -C ${JELLYFIN_CONFIG_PATH}
 | **Clients Unsyncing / Not Pausing** | Verify that **WebSockets** are enabled in Nginx Proxy Manager. Jellyfin requires WebSockets for real-time client-server communication. |
 | **Out of Space Errors** | Check your Cache directory size. If `/cache` is on a small root partition, transcoding large 4K files can fill it up. Move the cache to a larger disk. |
 
-## 9. Rollback
+## 10. Rollback
 
 If a Jellyfin update breaks playback or metadata:
 
@@ -151,7 +228,7 @@ If a Jellyfin update breaks playback or metadata:
 4. Start the previous image tag.
 5. Verify login, library scan, one direct-play stream, and one transcode stream.
 
-## 10. Official Sources
+## 11. Official Sources
 
 - Jellyfin container documentation: <https://jellyfin.org/docs/general/installation/container/>
 
