@@ -4,6 +4,9 @@
 > chiesto e tutto quello che è emerso costruendo, in un ordine che tiene conto
 > di cosa dipende da cosa. Ogni fase è verificabile da sola.
 
+> **Indice di tutto**: [PIANO_MASTER.md](PIANO_MASTER.md) — se cerchi una cosa
+> e non e' qui dentro, e' elencata la'.
+
 ---
 
 ## Come leggere questo piano
