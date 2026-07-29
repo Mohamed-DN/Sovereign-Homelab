@@ -202,6 +202,35 @@ was a rebuild with an empty user database:
    out. Its password is in `stacks/jellyfin/.env`
    (`JELLYFIN_LOCAL_ADMIN_PASSWORD`, root-only, never committed).
 
+### The login page needs an SSO button — it is not automatic
+
+The plugin serves `/sso/OID/start/<provider>` but adds **nothing** to the login
+screen, so a rebuilt instance shows only the username/password form and the
+household has no way in short of memorising a URL. This was missed on the first
+rebuild and only surfaced when the owner reached the login page.
+
+Jellyfin's supported hook is the branding **login disclaimer**, which renders
+raw HTML beneath the form. Set once via the API (authenticate as the break-glass
+admin, then `POST /System/Configuration/branding`):
+
+```html
+<form action="/sso/OID/start/authentik" method="get">
+  <button type="submit" class="raised block emby-button button-submit">
+    Accedi con SSO (Authentik)
+  </button>
+</form>
+```
+
+Verify it actually reaches the browser rather than just being stored — the web
+client reads it from the **public** endpoint:
+
+```bash
+curl -sk https://media.internal/Branding/Configuration | grep -o 'sso/OID/start/authentik'
+```
+
+The username/password form stays visible on purpose: it is the break-glass path
+for `jellyfin-admin` when Authentik is unavailable.
+
 After the rebuild **no personal account exists at all**: every user, the owner
 included, is created by the plugin on their first SSO login. The owner returns
 as an administrator automatically — Authentik's `profile` scope emits
