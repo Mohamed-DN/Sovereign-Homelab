@@ -15,9 +15,12 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=full
 ProtectHome=read-only
-# Hermes reads secrets from /root/sovereign-secrets/hermes and writes only its
-# own conversation store; nothing else on disk needs to be writable.
+# Hermes writes only its conversation store, its backend configuration, and the
+# API keys typed into the settings panel. ProtectHome=read-only would otherwise
+# make /root/sovereign-secrets read-only and saving a key would fail.
 ReadWritePaths=/var/lib/sovereign-hermes
+ReadWritePaths=/root/sovereign-secrets/hermes
+ReadWritePaths=/opt/sovereign-hermes
 
 [Install]
 WantedBy=multi-user.target

@@ -413,6 +413,123 @@ def load_backends() -> list[dict[str, Any]]:
     return DEFAULT_BACKENDS
 
 
+# Suggerimenti mostrati nel pannello. Le dimensioni sono quelle dichiarate da
+# Ollama; il limite pratico su una GPU da 16 GB e' ~14 GB, per lasciare spazio
+# al contesto.
+RECOMMENDED_MODELS = [
+    {"model": "qwen3.5:9b", "size": "6,6 GB", "note": "Consigliato: veloce, 256K di contesto, capisce le immagini", "fits16": True},
+    {"model": "gpt-oss:20b", "size": "14 GB", "note": "Ragiona meglio, ma riempie quasi tutta la VRAM", "fits16": True},
+    {"model": "qwen3.5:4b", "size": "3,4 GB", "note": "Piccolo: adatto alla CPU del server", "fits16": True},
+    {"model": "gemma4:12b", "size": "~8 GB", "note": "Alternativa equilibrata", "fits16": True},
+    {"model": "qwen3.5:27b", "size": "17 GB", "note": "NON ci sta in 16 GB: finisce in RAM e crolla", "fits16": False},
+    {"model": "deepseek-r1:14b", "size": "~9 GB", "note": "Ragionamento; tieni think disattivato", "fits16": True},
+]
+
+SECRETS_DIR = Path(os.environ.get("HERMES_SECRETS_DIR", "/root/sovereign-secrets/hermes"))
+
+
+def backend_models(backend: dict[str, Any]) -> list[str]:
+    """Model names a backend actually has loaded (Ollama only)."""
+    if backend.get("type") == "openai":
+        return []
+    ok, data = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=5)
+    if not ok or not isinstance(data, dict):
+        return []
+    return sorted(m.get("name", "") for m in data.get("models", []) if m.get("name"))
+
+
+def backends_public() -> list[dict[str, Any]]:
+    """Backend list for the settings page: never includes a key, only whether
+    one is present."""
+    out = []
+    for b in load_backends_all():
+        entry = {k: v for k, v in b.items() if k != "api_key"}
+        entry["has_key"] = bool(read_secret(b.get("api_key_file", "")))
+        entry["healthy"] = backend_healthy(b) if b.get("enabled", True) else False
+        entry["available_models"] = backend_models(b) if entry["healthy"] else []
+        out.append(entry)
+    return out
+
+
+def load_backends_all() -> list[dict[str, Any]]:
+    """Every backend, including the disabled ones (the settings page needs them)."""
+    try:
+        data = json.loads(BACKENDS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return DEFAULT_BACKENDS
+
+
+def save_backends(rows: Any) -> tuple[bool, str]:
+    """Validate and persist the backend list. Keys go to root-only files, never
+    into the JSON, so the configuration stays safe to read and to copy."""
+    if not isinstance(rows, list) or not rows:
+        return False, "serve almeno un motore"
+    if len(rows) > 12:
+        return False, "troppi motori (massimo 12)"
+    cleaned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in rows:
+        if not isinstance(raw, dict):
+            return False, "voce non valida"
+        name = re.sub(r"[^a-zA-Z0-9._-]", "", str(raw.get("name", "")))[:40]
+        if not name:
+            return False, "ogni motore deve avere un nome"
+        if name in seen:
+            return False, f"nome duplicato: {name}"
+        seen.add(name)
+        kind = str(raw.get("type", "ollama"))
+        if kind not in {"ollama", "openai"}:
+            return False, f"tipo non valido per {name}"
+        url = str(raw.get("url", "")).strip()
+        if not re.match(r"^https?://[^\s\"']+$", url):
+            return False, f"indirizzo non valido per {name}"
+        entry: dict[str, Any] = {
+            "name": name,
+            "label": str(raw.get("label", name))[:80],
+            "type": kind,
+            "url": url,
+            "model": str(raw.get("model", ""))[:120],
+            "think": bool(raw.get("think", False)),
+            "enabled": bool(raw.get("enabled", True)),
+        }
+        opts = raw.get("options")
+        if isinstance(opts, dict):
+            entry["options"] = {k: v for k, v in opts.items()
+                                if isinstance(k, str) and isinstance(v, (int, float, str))}
+        comment = str(raw.get("comment", ""))[:400]
+        if comment:
+            entry["comment"] = comment
+        # A key typed into the form is written to its own root-only file; the
+        # path is derived from the name so a caller cannot choose where to write.
+        key = str(raw.get("api_key") or "").strip()
+        key_path = SECRETS_DIR / f"key-{name}"
+        if key:
+            try:
+                SECRETS_DIR.mkdir(parents=True, exist_ok=True)
+                # Opened 0600 from the start: writing then chmod would leave a
+                # window in which the key is world-readable.
+                fd = os.open(key_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                    fh.write(key)
+                os.chmod(key_path, 0o600)
+            except OSError as exc:
+                return False, f"non riesco a salvare la chiave di {name}: {exc}"
+        if kind == "openai":
+            existing = str(raw.get("api_key_file") or "")
+            entry["api_key_file"] = str(key_path) if (key or not existing) else existing
+        cleaned.append(entry)
+
+    try:
+        BACKENDS_FILE.write_text(json.dumps(cleaned, indent=2, ensure_ascii=False) + "\n",
+                                 encoding="utf-8")
+    except OSError as exc:
+        return False, f"scrittura fallita: {exc}"
+    return True, f"{len(cleaned)} motori salvati"
+
+
 def backend_healthy(backend: dict[str, Any]) -> bool:
     if backend.get("type") == "openai":
         return bool(read_secret(backend.get("api_key_file", "")))
@@ -698,6 +815,12 @@ fetch('api/state').then(r=>r.json()).then(d=>{
   $('p-vault').className='pill '+(d.vault_notes>0?'on':'off');
   $('hint').textContent=d.backends.map(x=>(x.healthy?'● ':'○ ')+x.label).join('   ');
   if(d.greeting) add('bot',d.greeting);
+  if(d.is_admin){const s=document.createElement('span');s.className='pill';
+    s.innerHTML='<a href="impostazioni">impostazioni</a>';
+    document.querySelector('header .grow').after(s);}
+  // Arriving from the dashboard's assistant with a question already typed.
+  const q=new URLSearchParams(location.search).get('q');
+  if(q){$('q').value=q; history.replaceState({},'',location.pathname); send();}
 }).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
 
 function send(){
@@ -727,6 +850,123 @@ $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.prevent
 $('q').addEventListener('input',e=>{e.target.style.height='auto';
   e.target.style.height=Math.min(e.target.scrollHeight,140)+'px';});
 $('q').focus();
+</script></body></html>"""
+
+
+SETTINGS_PAGE = """<!doctype html><html lang=it><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Hermes · impostazioni</title><style>
+*{box-sizing:border-box}
+body{margin:0;background:#06080b;color:#e5e7eb;font:15px/1.6 'Segoe UI',system-ui,sans-serif}
+header{padding:14px 20px;background:#0d1218;border-bottom:1px solid #1f2937;display:flex;
+ align-items:center;gap:12px}
+h1{margin:0;font-size:17px}h1 span{color:#f0d264}
+main{max-width:900px;margin:0 auto;padding:22px 18px 60px}
+.card{background:#0d1218;border:1px solid #1f2937;border-radius:12px;padding:16px;margin-bottom:14px}
+.card.off{opacity:.55}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:9px}
+label{font-size:12px;color:#9aa8b8;display:block;margin-bottom:3px}
+input,select{background:#06080b;border:1px solid #1f2937;color:#e5e7eb;border-radius:8px;
+ padding:7px 10px;font:inherit;font-size:13px;min-width:0}
+input[type=checkbox]{width:auto;min-width:auto}
+.f{flex:1;min-width:150px}
+button{background:#43b4c4;color:#06222a;border:0;border-radius:8px;padding:8px 16px;
+ font-weight:700;cursor:pointer;font-size:13px}
+button.ghost{background:#111a22;color:#9aa8b8;border:1px solid #1f2937}
+button.danger{background:#3b1418;color:#fca5a5;border:1px solid #7f1d1d}
+.pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid #1f2937;color:#9aa8b8}
+.pill.on{color:#6ee7b7;border-color:#065f46}.pill.off{color:#fca5a5;border-color:#7f1d1d}
+.bar{position:sticky;bottom:0;background:#0d1218;border-top:1px solid #1f2937;padding:12px 18px;
+ display:flex;gap:10px;align-items:center;margin:0 -18px}
+.hint{color:#6b7a8d;font-size:12px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+td,th{text-align:left;padding:5px 8px;border-bottom:1px solid #131c25}
+th{color:#9aa8b8;font-weight:600}
+.no{color:#fca5a5}.yes{color:#6ee7b7}
+a{color:#43b4c4}
+#msg{font-size:13px}
+</style></head><body>
+<header><h1>⚙ Hermes · <span>impostazioni</span></h1>
+ <span style="flex:1"></span><a href=".">torna alla chat</a></header>
+<main>
+ <p class=hint>L'ordine conta: Hermes usa <b>il primo motore che risponde</b>.
+ Trascina non serve — usa le frecce. Le chiavi API non vengono mai mostrate:
+ si scrivono in file leggibili solo da root.</p>
+ <div id=list></div>
+ <button class=ghost id=add>+ aggiungi motore</button>
+
+ <div class=card style="margin-top:18px">
+  <b>Modelli consigliati per la RTX 5070 Ti (16 GB)</b>
+  <table><tr><th>modello</th><th>peso</th><th>ci sta</th><th>note</th></tr>
+  <tbody id=recs></tbody></table>
+ </div>
+</main>
+<div class=bar><button id=save>Salva</button><button class=ghost id=reload>Ricarica</button>
+ <span id=msg class=hint></span></div>
+<script>
+const $=i=>document.getElementById(i);
+let data=[];
+function card(b,i){
+ const d=document.createElement('div');d.className='card'+(b.enabled?'':' off');
+ const models=(b.available_models||[]);
+ d.innerHTML=
+  '<div class=row><b>'+(i+1)+'.</b>'
+  +'<span class="pill '+(b.healthy?'on':'off')+'">'+(b.healthy?'risponde':'non risponde')+'</span>'
+  +'<span style="flex:1"></span>'
+  +'<button class=ghost data-a=up>↑</button><button class=ghost data-a=down>↓</button>'
+  +'<button class=danger data-a=del>elimina</button></div>'
+  +'<div class=row><div class=f><label>nome interno</label><input data-k=name value="'+(b.name||'')+'"></div>'
+  +'<div class=f><label>etichetta</label><input data-k=label value="'+(b.label||'')+'"></div></div>'
+  +'<div class=row><div class=f><label>tipo</label><select data-k=type>'
+  +'<option value=ollama'+(b.type==='ollama'?' selected':'')+'>Ollama (GPU locale)</option>'
+  +'<option value=openai'+(b.type==='openai'?' selected':'')+'>API compatibile OpenAI</option>'
+  +'</select></div>'
+  +'<div class=f style="flex:2"><label>indirizzo</label><input data-k=url value="'+(b.url||'')+'"></div></div>'
+  +'<div class=row><div class=f><label>modello</label>'
+  +(models.length
+     ? '<select data-k=model>'+models.map(m=>'<option'+(m===b.model?' selected':'')+'>'+m+'</option>').join('')
+       +(models.includes(b.model)?'':'<option selected>'+(b.model||'')+'</option>')+'</select>'
+     : '<input data-k=model value="'+(b.model||'')+'">')
+  +'</div>'
+  +'<div class=f><label>chiave API'+(b.has_key?' (già impostata)':'')+'</label>'
+  +'<input data-k=api_key type=password placeholder="'+(b.has_key?'••••• lascia vuoto per non cambiarla':'solo per le API')+'"></div></div>'
+  +'<div class=row><label style="margin:0"><input type=checkbox data-k=enabled '+(b.enabled?'checked':'')+'> attivo</label>'
+  +'<label style="margin:0"><input type=checkbox data-k=think '+(b.think?'checked':'')+'> ragionamento (think)</label>'
+  +'<span class=hint>lascia think spento: i modelli di ragionamento svuotano la risposta</span></div>';
+ d.querySelector('[data-a=del]').onclick=()=>{collect();data.splice(i,1);render();};
+ d.querySelector('[data-a=up]').onclick=()=>{if(i>0){collect();[data[i-1],data[i]]=[data[i],data[i-1]];render();}};
+ d.querySelector('[data-a=down]').onclick=()=>{if(i<data.length-1){collect();[data[i+1],data[i]]=[data[i],data[i+1]];render();}};
+ return d;
+}
+function render(){
+ const L=$('list');L.innerHTML='';data.forEach((b,i)=>L.appendChild(card(b,i)));
+}
+function collect(){
+ [...$('list').children].forEach((d,i)=>{
+  d.querySelectorAll('[data-k]').forEach(el=>{
+   const k=el.dataset.k;
+   data[i][k]= el.type==='checkbox' ? el.checked : el.value;
+  });
+ });
+}
+function load(){
+ fetch('api/backends').then(r=>r.json()).then(d=>{data=d.backends;render();
+  $('recs').innerHTML=d.recommended.map(m=>'<tr><td><code>'+m.model+'</code></td><td>'+m.size
+   +'</td><td class='+(m.fits16?'yes>si':'no>no')+'</td><td>'+m.note+'</td></tr>').join('');
+  $('msg').textContent='';});
+}
+$('add').onclick=()=>{collect();data.push({name:'nuovo',label:'Nuovo motore',type:'ollama',
+ url:'http://192.168.1.100:11434',model:'',think:false,enabled:false});render();};
+$('reload').onclick=load;
+$('save').onclick=()=>{
+ collect();$('msg').textContent='salvataggio…';
+ fetch('api/backends',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({backends:data})})
+  .then(r=>r.json()).then(d=>{$('msg').textContent=d.ok?('✓ '+d.message):('✗ '+d.message);
+   if(d.ok) setTimeout(load,600);})
+  .catch(e=>$('msg').textContent='✗ '+e);
+};
+load();
 </script></body></html>"""
 
 
@@ -792,6 +1032,18 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.flush()
             except (BrokenPipeError, ConnectionResetError):
                 pass  # the reader navigated away mid-answer
+        elif route.path in {"/impostazioni", "/impostazioni/"}:
+            if not user["is_admin"]:
+                self._send(403, b"solo l'amministratore", "text/plain; charset=utf-8")
+                return
+            self._send(200, SETTINGS_PAGE.encode(), "text/html; charset=utf-8")
+        elif route.path == "/api/backends":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            self._send(200, json.dumps({"backends": backends_public(),
+                                        "recommended": RECOMMENDED_MODELS}).encode(),
+                       "application/json; charset=utf-8")
         elif route.path == "/api/reset":
             try:
                 chat_path(user["username"]).unlink(missing_ok=True)
@@ -800,6 +1052,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, b'{"ok":true}', "application/json; charset=utf-8")
         else:
             self._send(404, b"non trovato", "text/plain; charset=utf-8")
+
+    def do_POST(self) -> None:  # noqa: N802 - stdlib signature
+        route = urllib.parse.urlparse(self.path)
+        user = who(self)
+        if user is None:
+            self._send(401, b'{"error":"non autenticato"}', "application/json; charset=utf-8")
+            return
+        if route.path != "/api/backends":
+            self._send(404, b'{"error":"non trovato"}', "application/json; charset=utf-8")
+            return
+        if not user["is_admin"]:
+            self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+            return
+        length = int(self.headers.get("Content-Length", "0") or 0)
+        if length < 1 or length > 200_000:
+            self._send(413, b'{"error":"richiesta troppo grande"}', "application/json; charset=utf-8")
+            return
+        try:
+            payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            ok, message = save_backends(payload.get("backends"))
+        except Exception as exc:  # noqa: BLE001 - report, never crash the service
+            ok, message = False, str(exc)
+        if ok:
+            print(f"[hermes] motori aggiornati da {user['username']}: {message}")
+        self._send(200 if ok else 400,
+                   json.dumps({"ok": ok, "message": message}).encode(),
+                   "application/json; charset=utf-8")
 
     def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A002 - stdlib signature
         print(f"{self.client_address[0]} - {fmt % args}")

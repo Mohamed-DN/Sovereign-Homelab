@@ -181,8 +181,37 @@ Verifica eseguita dopo la modifica:
 
 ## 7. Aggiungere un motore (GPU futura, o una API)
 
-Si modifica **solo** `/opt/sovereign-hermes/backends.json`. L'ordine dell'elenco
-è l'ordine di preferenza; il primo che risponde viene usato.
+### Dal pannello, senza toccare file — `https://hermes.internal/impostazioni`
+
+Visibile **solo all'amministratore** (un altro utente riceve 403 sia sulla
+pagina sia sull'API, verificato). Da lì si può:
+
+- aggiungere, togliere e **riordinare** i motori (l'ordine è la preferenza);
+- cambiare modello scegliendolo da un menu con **i modelli davvero presenti**
+  su quel backend, letti da `/api/tags`;
+- attivare o disattivare un motore senza cancellarlo;
+- accendere o spegnere il `think` per motore;
+- incollare una **chiave API**.
+
+La chiave non finisce mai nel JSON: viene scritta in
+`/root/sovereign-secrets/hermes/key-<nome>`, creata direttamente con permessi
+`0600` (aperta con `os.open(..., 0o600)`, non scritta e poi corretta: altrimenti
+esisterebbe un istante in cui è leggibile da tutti). Il pannello mostra soltanto
+*se* una chiave c'è, mai il suo valore. Il percorso è derivato dal nome del
+motore, quindi chi invia la richiesta non può scegliere dove scrivere.
+
+Il pannello mostra anche una tabella dei **modelli consigliati per la 5070 Ti**,
+con il peso e se ci stanno nei 16 GB.
+
+> **Nota sull'irrigidimento systemd**: l'unità usa `ProtectHome=read-only`, che
+> rende `/root` di sola lettura — il primo tentativo di salvare una chiave è
+> fallito con *Read-only file system*. Servono le righe `ReadWritePaths` per
+> `/root/sovereign-secrets/hermes` e `/opt/sovereign-hermes`, e nient'altro.
+
+### A mano
+
+Si modifica `/opt/sovereign-hermes/backends.json`. L'ordine dell'elenco è
+l'ordine di preferenza; il primo che risponde viene usato.
 
 ```json
 {
@@ -204,6 +233,25 @@ non lo decidi tu.
 Dopo la modifica: `systemctl restart sovereign-hermes` su LXC 102.
 
 ---
+
+## 7-bis. Il pulsante nella dashboard
+
+L'orb dell'assistente in `dash.internal` non mostra più l'onda sonora ma una
+**testa di robot pixel in oro e argento, senza occhi**: solo una visiera scura
+con una barra che scandaglia, animata al posto dell'equalizzatore (e ferma se il
+sistema chiede meno animazioni).
+
+Nella bolla restano le risposte pronte — istantanee e valide anche con Hermes
+spento — e sotto compaiono due strade verso Hermes:
+
+- **Chiedi a Hermes**, che apre la chat;
+- un campo di testo: quello che scrivi arriva a Hermes già pronto, tramite
+  `hermes.internal/?q=…`, e parte da solo.
+
+Perché passare dall'URL invece di chiamare Hermes via XHR dalla dashboard: sono
+due host diversi, quindi servirebbe CORS **e** un modo per far credere a Hermes
+l'identità asserita dalla dashboard. Aprire la pagina non aggiunge nessuna
+relazione di fiducia nuova: ci pensa il solito login unico.
 
 ## 8. La personalità e la memoria
 
