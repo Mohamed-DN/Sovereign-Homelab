@@ -354,7 +354,73 @@ def web_fetch(url: str) -> str:
 
 # ------------------------------------------------------------------- tools
 
+RELAY_NOTIFY = os.environ.get("HERMES_RELAY_NOTIFY", "http://192.168.1.51:8099/notify")
+RELAY_TOKEN_FILE = os.environ.get("HERMES_RELAY_TOKEN_FILE",
+                                  "/root/sovereign-secrets/hermes/relay-token")
+OWNER_EMAIL_FILE = os.environ.get("HERMES_OWNER_EMAIL_FILE",
+                                  "/root/sovereign-secrets/hermes/owner-email")
+
+
+def send_mail(subject: str, body: str, html: str = "") -> str:
+    """Send mail through the estate relay, to the owner only.
+
+    The recipient is never taken from the model: it is read from a root-only
+    file. Otherwise a prompt could talk Hermes into mailing anyone, which is how
+    an assistant becomes someone else's spam cannon.
+    """
+    token = read_secret(RELAY_TOKEN_FILE)
+    if not token:
+        return "Il relay email non è configurato: manca il token."
+    to = read_secret(OWNER_EMAIL_FILE)
+    if not to:
+        return "Il relay email non è configurato: manca l'indirizzo del proprietario."
+    subject = re.sub(r"[\r\n]+", " ", subject or "").strip()[:180] or "Messaggio da Hermes"
+    payload: dict[str, Any] = {"to": to, "subject": subject, "text": body[:20000]}
+    if html:
+        payload["html"] = html[:200000]
+    # The relay answers 202 with the plain text "accepted", not JSON, so success
+    # is judged on the status code. Parsing the body would report a delivered
+    # mail as failed -- which it did, until this was fixed.
+    req = urllib.request.Request(
+        RELAY_NOTIFY, data=json.dumps(payload).encode(), method="POST",
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {token}"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            if 200 <= resp.status < 300:
+                return f"Email inviata a {to} con oggetto «{subject}»."
+            return f"Invio fallito: il relay ha risposto {resp.status}."
+    except urllib.error.HTTPError as exc:
+        return f"Invio fallito: HTTP {exc.code} — {exc.read()[:200].decode('utf-8', 'replace')}"
+    except Exception as exc:  # noqa: BLE001
+        return f"Invio fallito: {exc}"
+
+
 TOOLS: dict[str, dict[str, Any]] = {
+    "send_mail": {
+        "admin_only": True,
+        "run": lambda args, ctx: send_mail(str(args.get("subject", "")),
+                                           str(args.get("body", "")),
+                                           str(args.get("html", ""))),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "send_mail",
+                "description": ("Manda una email al proprietario. Usalo quando ti chiede di "
+                                "mandargli qualcosa per email: un riassunto, un report, una "
+                                "pagina HTML. Il destinatario e' sempre lui, non serve chiederlo."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "subject": {"type": "string", "description": "oggetto"},
+                        "body": {"type": "string", "description": "testo del messaggio"},
+                        "html": {"type": "string",
+                                 "description": "versione HTML, se serve una pagina formattata"},
+                    },
+                    "required": ["subject", "body"],
+                },
+            },
+        },
+    },
     "web_search": {
         "admin_only": False,
         "run": lambda args, ctx: web_search(str(args.get("query", "")),
@@ -963,7 +1029,11 @@ def converse(user: dict[str, Any], question: str,
     # decides to. Small models are confident about prices and versions and skip
     # the tool; qwen3.5:9b does exactly that, while it calls estate_status
     # happily. Doing it here makes the capability deterministic on any model.
-    if prefs.get("web"):
+    # Un saluto non ha bisogno di una ricerca su internet ne' di una squadra di
+    # agenti. Gli interruttori restano accesi fra un messaggio e l'altro, quindi
+    # senza questo filtro OGNI "ciao" faceva partire tutto.
+    trivial = len(question) < 25 and not question.rstrip().endswith("?")
+    if prefs.get("web") and not trivial:
         yield {"event": "tool", "data": "web_search"}
         found = web_search(question, 6)
         messages.append({"role": "tool", "name": "web_search", "content": found})
@@ -972,7 +1042,7 @@ def converse(user: dict[str, Any], question: str,
     if prefs.get("think") is not None:
         backend = dict(backend, think=bool(prefs["think"]))
 
-    if prefs.get("swarm"):
+    if prefs.get("swarm") and not trivial:
         yield {"event": "tool", "data": "swarm_plan"}
         plan = plan_subtasks(backend, question)
         roles = {r["id"]: r for r in load_roles()}
@@ -1141,6 +1211,11 @@ fetch('api/state').then(r=>r.json()).then(d=>{
   if(d.is_admin){$('l-full').hidden=false;const s=document.createElement('span');s.className='pill';
     s.innerHTML='<a href="impostazioni">impostazioni</a>';
     document.querySelector('header .grow').after(s);}
+  // Ricarica la conversazione: il server la conserva, la pagina la mostrava vuota.
+  fetch('api/history').then(r=>r.json()).then(h=>{
+    (h.messages||[]).forEach(m=>add(m.role==='user'?'me':'bot', m.content));
+    if((h.messages||[]).length) add('sys','— conversazione ripresa —');
+  }).catch(()=>{});
   // Arriving from the dashboard's assistant with a question already typed.
   const q=new URLSearchParams(location.search).get('q');
   if(q){$('q').value=q; history.replaceState({},'',location.pathname); send();}
@@ -1406,6 +1481,9 @@ class Handler(BaseHTTPRequestHandler):
                 return
             self._send(200, json.dumps({"backends": backends_public(),
                                         "recommended": RECOMMENDED_MODELS}).encode(),
+                       "application/json; charset=utf-8")
+        elif route.path == "/api/history":
+            self._send(200, json.dumps({"messages": load_chat(user["username"])}).encode(),
                        "application/json; charset=utf-8")
         elif route.path == "/api/reset":
             try:
