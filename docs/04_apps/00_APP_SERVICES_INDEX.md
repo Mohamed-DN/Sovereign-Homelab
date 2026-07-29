@@ -48,6 +48,7 @@ Live means the service has an alias or documented protocol endpoint, NPM rule wh
 | Obsidian Sync (CouchDB) | [obsidian.md](obsidian.md) | `stacks/obsidian` | `obsidian.internal` (sync API, CouchDB Basic Auth) + `fauxton.internal` (admin UI, SSO) |
 | Home Assistant OS | [home_assistant.md](home_assistant.md) | VM appliance | `ha.internal` |
 | Jellyfin | [jellyfin.md](jellyfin.md) | `stacks/jellyfin` | `media.internal` |
+| Hermes (assistente) | [hermes.md](hermes.md) | `scripts/hermes` | `hermes.internal` (SSO; inferenza sulla GPU del PC) |
 | FreshRSS | [freshrss.md](freshrss.md) | `stacks/freshrss` | `rss.internal` |
 | Karakeep | [karakeep.md](karakeep.md) | `stacks/karakeep` | `bookmarks.internal` |
 | SearXNG | [searxng.md](searxng.md) | `stacks/searxng` | `search.internal` |

@@ -1,0 +1,23 @@
+[Unit]
+Description=Sovereign Hermes (assistente: chat, stato infrastruttura, vault Obsidian)
+After=network-online.target docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/sovereign-hermes
+ExecStart=/usr/bin/python3 /opt/sovereign-hermes/sovereign-hermes.py
+Restart=on-failure
+RestartSec=5s
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+# Hermes reads secrets from /root/sovereign-secrets/hermes and writes only its
+# own conversation store; nothing else on disk needs to be writable.
+ReadWritePaths=/var/lib/sovereign-hermes
+
+[Install]
+WantedBy=multi-user.target
