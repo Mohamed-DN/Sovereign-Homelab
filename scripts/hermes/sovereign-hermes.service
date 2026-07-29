@@ -9,6 +9,18 @@ User=root
 Group=root
 WorkingDirectory=/opt/sovereign-hermes
 ExecStart=/usr/bin/python3 /opt/sovereign-hermes/sovereign-hermes.py
+# Hermes deve stare in ascolto sulla LAN perche' NPM vive su un altro host, ma
+# nessun altro deve nemmeno poter bussare: il gate SSO e' l'unica via d'ingresso.
+# Le regole sono rimesse a ogni avvio perche' iptables non sopravvive al riavvio.
+ExecStartPost=-/bin/sh -c 'for ip in 127.0.0.1 192.168.1.50 192.168.1.150; do \
+  while iptables -D INPUT -p tcp --dport 8093 -s $ip -j ACCEPT 2>/dev/null; do :; done; done; \
+  while iptables -D INPUT -p tcp --dport 8093 -j DROP 2>/dev/null; do :; done; \
+  iptables -I INPUT 1 -p tcp --dport 8093 -j DROP; \
+  for ip in 192.168.1.150 192.168.1.50 127.0.0.1; do \
+    iptables -I INPUT 1 -p tcp --dport 8093 -s $ip -j ACCEPT; done'
+ExecStopPost=-/bin/sh -c 'while iptables -D INPUT -p tcp --dport 8093 -j DROP 2>/dev/null; do :; done; \
+  for ip in 127.0.0.1 192.168.1.50 192.168.1.150; do \
+    while iptables -D INPUT -p tcp --dport 8093 -s $ip -j ACCEPT 2>/dev/null; do :; done; done'
 Restart=on-failure
 RestartSec=5s
 NoNewPrivileges=true
