@@ -1889,6 +1889,14 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:.5}
 #orb .wv{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);display:flex;gap:2.5px;align-items:center}
 #orb .wv i{width:3px;background:#04222e;border-radius:3px;opacity:.85}
+/* Hermes: testa pixel in oro e argento. Niente occhi, solo la visiera. */
+#orb .bot{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%)}
+#orb .bot .sil{fill:#c6cad0}
+#orb .bot .hi{fill:#eef1f5}
+#orb .bot .dk{fill:#7d838a}
+#orb .bot .ant{fill:#f0d264}
+#orb .bot .vis{fill:#131a20}
+#orb .bot .scan{fill:#f0d264}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
  padding:12px 14px;font-size:.83rem;line-height:1.5;box-shadow:var(--shadow);opacity:0;transform:translateY(10px) scale(.96);
  transform-origin:bottom right;transition:all .28s cubic-bezier(.22,1,.36,1);pointer-events:none}
@@ -1896,6 +1904,17 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #bubble b{color:var(--accent)}
 #bubble .x{float:right;margin-left:10px;color:var(--muted);cursor:pointer;font-weight:800}
 #bubble .hint{display:block;margin-top:8px;color:var(--muted);font-size:.72rem}
+/* Hermes: oro e argento, per distinguerlo dalle risposte gia' pronte qui sopra */
+#qa .hermes-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;
+ margin-top:8px;border-color:#8a6d1f;color:#f4de8a;
+ background:linear-gradient(180deg,rgba(201,162,39,.20),rgba(150,150,158,.12));font-weight:700}
+#qa .hermes-btn:hover{border-color:#c9a227;background:linear-gradient(180deg,rgba(201,162,39,.34),rgba(180,182,190,.18))}
+#qa .hermes-ask{display:flex;gap:6px;margin-top:6px}
+#qa .hermes-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
+ border-radius:8px;color:var(--fg);padding:6px 9px;font:inherit;font-size:.78rem}
+#qa .hermes-ask input:focus{outline:1px solid #c9a227;outline-offset:-1px}
+#qa .hermes-go{display:flex;align-items:center;justify-content:center;padding:6px 9px;
+ border-color:#8a6d1f;background:rgba(201,162,39,.16)}
 #asst.off #bubble{display:none}#asst.off #orb{opacity:.55;filter:grayscale(.5)}
 @media(prefers-reduced-motion:no-preference){
  #orb::before{animation:ring 2.8s ease-out infinite}#orb::after{animation:ring 2.8s ease-out .9s infinite}
@@ -1903,6 +1922,10 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  #orb .wv i{animation:eq 1.1s ease-in-out infinite}
  #orb .wv i:nth-child(2){animation-delay:.15s}#orb .wv i:nth-child(3){animation-delay:.3s}#orb .wv i:nth-child(4){animation-delay:.45s}
  @keyframes eq{0%,100%{height:6px}50%{height:20px}}
+ /* la visiera scandaglia, come faceva l'onda */
+ #orb .bot .scan{animation:scan 2.4s steps(4,end) infinite}
+ @keyframes scan{0%,100%{transform:translateX(0)}25%{transform:translateX(2px)}
+  50%{transform:translateX(4px)}75%{transform:translateX(2px)}}
 }
 @media(prefers-reduced-motion:reduce){#orb .wv i{height:12px}}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);padding:12px 18px;border-radius:10px;background:var(--raised);border:1px solid var(--line-strong);font-size:.85rem;opacity:0;transition:all .25s ease;pointer-events:none;max-width:92vw;box-shadow:var(--shadow);z-index:60}
@@ -2317,7 +2340,7 @@ footer a:hover{text-decoration:underline}
  <div class="mb" id="m-b"></div>
 </div>
 <div id="asst">
- <button id="orb" title="Assistente Sovereign" aria-label="Assistente"><span class="wv"><i></i><i></i><i></i><i></i></span></button>
+ <button id="orb" title="Chiedi a Hermes" aria-label="Chiedi a Hermes"><svg class="bot" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><rect class="ant" x="5" y="0" width="2" height="1"/><rect class="ant" x="5" y="1" width="2" height="1"/><rect class="sil" x="1" y="2" width="10" height="8"/><rect class="hi" x="1" y="2" width="10" height="1"/><rect class="vis" x="2" y="4" width="8" height="3"/><rect class="scan" x="3" y="5" width="3" height="1"/><rect class="dk" x="4" y="8" width="4" height="1"/><rect class="sil" x="0" y="4" width="1" height="3"/><rect class="sil" x="11" y="4" width="1" height="3"/></svg></button>
  <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Ciao! Chiedimi qualcosa 👇</span><div id="qa"></div><span class="hint">Scegli una domanda &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
@@ -3048,11 +3071,37 @@ function QAset(){
   ['Se casca il server?', 'Sul PC apri <b>C:\\Sovereign-Restore\\LEGGIMI-EMERGENZA-IMMICH.txt</b>: ricrei Immich dai dati del backup (restore già testato).'],
  ];
 }
+// Pixel robot, gold and silver: Hermes' face in the console. Drawn as crisp
+// rectangles so it stays pixel-art at any size instead of blurring.
+const HERMES_BOT='<svg viewBox="0 0 11 11" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true">'
+ +'<rect x="5" y="0" width="1" height="1" fill="#f4de8a"/><rect x="5" y="1" width="1" height="1" fill="#c9a227"/>'
+ +'<rect x="2" y="2" width="7" height="5" fill="#b9bec5"/><rect x="2" y="2" width="7" height="1" fill="#eef1f5"/>'
+ +'<rect x="3" y="4" width="2" height="2" fill="#f0d264"/><rect x="6" y="4" width="2" height="2" fill="#f0d264"/>'
+ +'<rect x="4" y="6" width="3" height="1" fill="#7d838a"/>'
+ +'<rect x="3" y="8" width="5" height="3" fill="#a3a8af"/><rect x="3" y="8" width="5" height="1" fill="#d9dce1"/>'
+ +'<rect x="5" y="9" width="1" height="1" fill="#c9a227"/>'
+ +'<rect x="1" y="8" width="1" height="2" fill="#7d838a"/><rect x="9" y="8" width="1" height="2" fill="#7d838a"/></svg>';
+
+// The canned answers stay: they are instant and work with Hermes offline.
+// Anything they do not cover goes to Hermes, which reads the live system.
+function askHermes(q){
+ const u='https://hermes.internal/'+(q?('?q='+encodeURIComponent(q)):'');
+ window.open(u,'_blank','noopener');
+}
 function assistantTips(){
  if(!qa)return;qa.innerHTML='';
  QAset().forEach(([q,a])=>{const b=document.createElement('button');b.textContent=q;b.onclick=()=>{amsg.innerHTML='<b>'+q+'</b><br>'+a;speak(q+'. '+a);};qa.appendChild(b);});
  const v=document.createElement('button');v.textContent=voiceOn?'🔊 voce':'🔇 voce';
  v.onclick=()=>{voiceOn=!voiceOn;localStorage.setItem('sov-voice',voiceOn?'on':'off');v.textContent=voiceOn?'🔊 voce':'🔇 voce';};qa.appendChild(v);
+ const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Chiedi a Hermes</span>';
+ h.title='Apre Hermes: legge lo stato reale del server e i tuoi appunti';
+ h.onclick=()=>askHermes('');qa.appendChild(h);
+ const row=document.createElement('div');row.className='hermes-ask';
+ const inp=document.createElement('input');inp.type='text';inp.placeholder='…oppure scrivi a Hermes';
+ const go=document.createElement('button');go.className='hermes-go';go.innerHTML=HERMES_BOT;go.title='Manda a Hermes';
+ const send=()=>{const q=inp.value.trim();if(q){askHermes(q);inp.value='';}};
+ go.onclick=send;inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
+ row.appendChild(inp);row.appendChild(go);qa.appendChild(row);
 }
 function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Ciao! Chiedimi qualcosa 👇';bubble.classList.add('show');}
 $('orb').onclick=openAsst;
