@@ -253,6 +253,44 @@ due host diversi, quindi servirebbe CORS **e** un modo per far credere a Hermes
 l'identità asserita dalla dashboard. Aprire la pagina non aggiunge nessuna
 relazione di fiducia nuova: ci pensa il solito login unico.
 
+## 7-ter. Lo sciame di agenti
+
+Con la casella **«sciame di agenti»** Hermes smette di rispondere da solo:
+
+1. **divide** la richiesta in sotto-compiti indipendenti (al massimo 3);
+2. **assegna** ogni sotto-compito a un agente separato, che ha i suoi strumenti
+   e vede solo il proprio pezzo;
+3. **ricuce** i risultati in una risposta unica — e in quella fase gli strumenti
+   sono disattivati, così la sintesi non può inventare fatti nuovi.
+
+Prova reale: *«Dimmi come sta il server, e separatamente cosa ho scritto negli
+appunti su Oracle»* → piano in due compiti, un agente sullo stato e uno sul
+vault, sintesi con dati veri di entrambi.
+
+### Quanto è davvero parallelo
+
+Qui l'onestà conta più dell'effetto: **Ollama serve una richiesta alla volta**
+salvo alzare `OLLAMA_NUM_PARALLEL`. Con il valore di default gli agenti si
+mettono in coda e lo sciame è solo una divisione logica del lavoro, non un
+guadagno di tempo. Sul PC la variabile è stata portata a 2, e ogni motore
+dichiara il proprio limite in `backends.json`:
+
+| Motore | `parallel` | Perché |
+|---|---|---|
+| PC · RTX 5070 Ti | 2 | due contesti da 16K stanno nella VRAM insieme al modello |
+| Server · CPU | 1 | è già lento con una richiesta sola |
+| API remota | 3 | il parallelismo non costa nulla di locale |
+
+Alzare `parallel` oltre quello che la GPU regge non rende più veloce: fa
+scambiare memoria e rallenta tutto.
+
+### Quando usarlo (e quando no)
+
+Su una domanda secca lo sciame **costa solo tempo**: c'è un giro in più per
+pianificare e uno per ricucire. Serve su richieste larghe, che contengono
+davvero più domande. Per questo è una casella, spenta di default, e non il
+comportamento normale.
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e

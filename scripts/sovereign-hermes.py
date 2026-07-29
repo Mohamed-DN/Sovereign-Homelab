@@ -24,6 +24,7 @@ import os
 import re
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -791,6 +792,90 @@ def save_chat(username: str, messages: list[dict[str, Any]]) -> None:
         print(f"chat save failed for {username}: {exc}")
 
 
+# ------------------------------------------------------------------- swarm
+# Invece di un solo modello che fa tutto, la domanda viene spezzata in
+# sotto-compiti indipendenti, ognuno eseguito da un agente con i suoi strumenti,
+# e infine ricucita. Ha senso su domande larghe ("confronta X e Y e dimmi come
+# sta il server"), non su una domanda secca: per quelle costa solo tempo.
+
+SWARM_MAX_AGENTS = int(os.environ.get("HERMES_SWARM_MAX_AGENTS", "3"))
+
+
+def backend_parallelism(backend: dict[str, Any]) -> int:
+    """How many agents may run at once on this engine.
+
+    A local Ollama answers one request at a time unless OLLAMA_NUM_PARALLEL is
+    raised, so more threads would just queue. A remote API has no such limit.
+    """
+    if backend.get("parallel"):
+        return max(1, min(int(backend["parallel"]), SWARM_MAX_AGENTS))
+    return SWARM_MAX_AGENTS if backend.get("type") == "openai" else 2
+
+
+def plan_subtasks(backend: dict[str, Any], question: str) -> list[str]:
+    """Ask the model to split the question. Falls back to no split."""
+    prompt = (
+        "Spezza la richiesta dell'utente in sotto-domande indipendenti, al massimo "
+        f"{SWARM_MAX_AGENTS}. Ognuna deve poter essere risolta da sola.\n"
+        "Se la richiesta e' gia' semplice, restituisci una sola voce.\n"
+        'Rispondi SOLO con un array JSON di stringhe, niente altro.\n\n'
+        f"Richiesta: {question}"
+    )
+    messages = [{"role": "user", "content": prompt}]
+    try:
+        text = ""
+        for event in chat_once(dict(backend, think=False), messages, [], stream=False):
+            if "message" in event:
+                text = event["message"].get("content") or ""
+    except Exception:  # noqa: BLE001 - a failed plan is not fatal
+        return [question]
+    match = re.search(r"\[.*\]", text, re.S)
+    if not match:
+        return [question]
+    try:
+        rows = json.loads(match.group(0))
+    except json.JSONDecodeError:
+        return [question]
+    tasks = [str(r).strip() for r in rows if isinstance(r, (str, int)) and str(r).strip()]
+    return tasks[:SWARM_MAX_AGENTS] or [question]
+
+
+def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
+              tools: list[dict[str, Any]]) -> str:
+    """One agent: a short tool-using conversation about a single sub-task."""
+    messages = [
+        {"role": "system", "content":
+         "Sei un agente specializzato del Sovereign Homelab. Risolvi SOLO il compito "
+         "che ti viene dato, con gli strumenti se servono. Rispondi in modo compatto "
+         "e fattuale, senza preamboli."},
+        {"role": "user", "content": task},
+    ]
+    for _ in range(MAX_TOOL_ROUNDS):
+        message: dict[str, Any] = {}
+        try:
+            for event in chat_once(backend, messages, tools, stream=False):
+                if "message" in event:
+                    message = event["message"]
+        except Exception as exc:  # noqa: BLE001
+            return f"({task}) errore: {exc}"
+        calls = message.get("tool_calls") or []
+        if not calls:
+            return message.get("content") or "(nessuna risposta)"
+        messages.append({"role": "assistant", "content": message.get("content") or "",
+                         "tool_calls": calls})
+        for call in calls:
+            fn = call.get("function") or {}
+            args = fn.get("arguments") or {}
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            messages.append({"role": "tool", "name": fn.get("name", ""),
+                             "content": run_tool(fn.get("name", ""), args, user)})
+    return "(l'agente non ha concluso in tempo)"
+
+
 # ------------------------------------------------------------------ the loop
 
 def converse(user: dict[str, Any], question: str,
@@ -836,8 +921,32 @@ def converse(user: dict[str, Any], question: str,
     if prefs.get("think") is not None:
         backend = dict(backend, think=bool(prefs["think"]))
 
+    if prefs.get("swarm"):
+        yield {"event": "tool", "data": "swarm_plan"}
+        tasks = plan_subtasks(backend, question)
+        yield {"event": "swarm", "data": json.dumps(tasks)}
+        workers = backend_parallelism(backend)
+        results: list[str] = []
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = [pool.submit(run_agent, backend, user, t, tools) for t in tasks]
+            for task, fut in zip(tasks, futures):
+                try:
+                    results.append(f"### {task}\n{fut.result()}")
+                except Exception as exc:  # noqa: BLE001
+                    results.append(f"### {task}\n(errore: {exc})")
+        messages.append({"role": "user", "content":
+                         "Ecco il lavoro degli agenti. Ricucilo in una risposta unica, "
+                         "senza ripetere le domande e senza inventare nulla:\n\n"
+                         + "\n\n".join(results)})
+        # only the synthesis is streamed to the page
+        tasks_done = True
+    else:
+        tasks_done = False
+
     answer = ""
     for _ in range(MAX_TOOL_ROUNDS):
+        if tasks_done:
+            tools = []  # la sintesi non deve richiamare strumenti
         message: dict[str, Any] = {}
         streamed = ""
         try:
@@ -943,6 +1052,7 @@ a{color:#43b4c4}
   <label><input type=checkbox id=o-think> ragionamento</label>
   <label><input type=checkbox id=o-tools checked> strumenti (server, appunti)</label>
   <label><input type=checkbox id=o-web> cerca sul web</label>
+  <label><input type=checkbox id=o-swarm> sciame di agenti</label>
   <label>motore: <select id=o-backend><option value="">automatico</option></select></label>
   <label><input type=checkbox id=o-voice> voce</label>
   <button class=mini id=o-reset>azzera conversazione</button>
@@ -974,7 +1084,7 @@ fetch('api/state').then(r=>r.json()).then(d=>{
 }).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
 
 // Le preferenze restano nel browser di chi le imposta: ognuno ha le sue.
-const PREF=['think','tools','web','voice','backend'];
+const PREF=['think','tools','web','swarm','voice','backend'];
 function prefLoad(){PREF.forEach(k=>{const el=$('o-'+k),v=localStorage.getItem('hermes-'+k);
   if(v===null||!el)return; if(el.type==='checkbox')el.checked=(v==='1'); else el.value=v;});}
 function prefSave(){PREF.forEach(k=>{const el=$('o-'+k);if(!el)return;
@@ -995,16 +1105,20 @@ function send(){
   add('me',q); cur=null;
   const p=new URLSearchParams({q:q,
     think:$('o-think').checked?'1':'0', tools:$('o-tools').checked?'1':'0',
-    web:$('o-web').checked?'1':'0'});
+    web:$('o-web').checked?'1':'0', swarm:$('o-swarm').checked?'1':'0'});
   if($('o-backend').value) p.set('backend',$('o-backend').value);
   const es=new EventSource('api/chat?'+p.toString());
   es.addEventListener('backend',e=>{const b=JSON.parse(e.data);
     $('p-backend').textContent='motore: '+b.label+' · '+b.model; $('p-backend').className='pill on';});
-  es.addEventListener('tool',e=>{const names={estate_status:'sto guardando lo stato del server…',
+  es.addEventListener('tool',e=>{const names={swarm_plan:'sto dividendo il lavoro fra gli agenti…',estate_status:'sto guardando lo stato del server…',
     vault_search:'sto cercando fra i tuoi appunti…',vault_read:'sto leggendo una nota…',
     vault_list:'sto elencando le note…',access_overview:'sto controllando gli accessi…'};
     const d=document.createElement('div');d.className='msg tool';
     d.textContent='⚙ '+(names[e.data]||e.data);log.appendChild(d);log.scrollTop=log.scrollHeight;});
+  es.addEventListener('swarm',e=>{const t=JSON.parse(e.data);
+    const d=document.createElement('div');d.className='msg tool';
+    d.textContent='⚙ sciame: '+t.length+' agenti — '+t.join(' | ');
+    log.appendChild(d);log.scrollTop=log.scrollHeight;});
   es.addEventListener('reset',()=>{if(cur){cur.remove();cur=null;}});
   es.addEventListener('delta',e=>{if(!cur)cur=add('bot','');cur.textContent+=e.data;
     log.scrollTop=log.scrollHeight;});
@@ -1192,6 +1306,8 @@ class Handler(BaseHTTPRequestHandler):
                 prefs["think"] = params["think"][0] == "1"
             if params.get("tools"):
                 prefs["tools"] = params["tools"][0] == "1"
+            if params.get("swarm"):
+                prefs["swarm"] = params["swarm"][0] == "1"
             if params.get("web"):
                 prefs["web"] = params["web"][0] == "1"
             if params.get("backend"):
