@@ -282,6 +282,40 @@ Esito atteso di `/api/state`: entrambi i motori `healthy: true` e
 
 ---
 
+## 13-bis. Un ProxyProvider creato via ORM nasce incompleto
+
+Creando il provider con `ProxyProvider.objects.get_or_create(...)` la pagina
+rispondeva **"Redirect URI Error"**. Tre campi che l'interfaccia grafica
+compila da sola restano vuoti quando si passa dall'ORM:
+
+| Campo | Se manca | Sintomo |
+|---|---|---|
+| `redirect_uris` | l'outpost non ha un callback valido | *Redirect URI Error* |
+| `property_mappings` | la richiesta parte **senza `scope`** | `invalid_request` |
+| `grant_types` | `authorization_code` non è permesso | `invalid_request`, "The request is otherwise malformed" |
+
+I primi due sono stati corretti uno alla volta senza risolvere; il problema è
+stato chiuso solo **confrontando campo per campo con il provider della
+dashboard**, che funziona. È la stessa lezione già imparata con Obsidian: di
+fronte a un provider che non va, non si indovina un campo alla volta — si fa il
+diff con uno che funziona.
+
+Valori corretti (identici a `Sovereign Dashboard forward-auth`):
+
+```python
+redirect_uris   = ["https://hermes.internal/outpost.goauthentik.io/callback?X-authentik-auth-callback=true",
+                   "https://hermes.internal?X-authentik-auth-callback=true"]   # entrambi STRICT
+property_mappings = le 5 mappature di default (openid, email, profile, proxy outpost, entitlements)
+grant_types     = ["authorization_code", "client_credentials", "password"]
+```
+
+Dopo ogni modifica va risalvato l'outpost incorporato, che rilegge la
+configurazione.
+
+**Verifica finale eseguita**: login reale come `mohamed` attraverso il flow
+executor, poi `GET https://hermes.internal/` → **HTTP 200** con la pagina di
+Hermes, e `/api/state` che risponde `is_admin: true`.
+
 ## 14. Troubleshooting e Rollback
 
 | Problema | Rimedio |
