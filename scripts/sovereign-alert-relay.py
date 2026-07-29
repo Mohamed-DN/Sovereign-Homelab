@@ -13,6 +13,7 @@ import hashlib
 import html
 import json
 import os
+import re
 import smtplib
 import ssl
 import string
@@ -74,7 +75,51 @@ SMTP_FROM = os.environ.get("ALERT_SMTP_FROM", SMTP_USERNAME)
 SMTP_TO = os.environ.get("ALERT_EMAIL_TO", "")
 SMTP_STARTTLS = os.environ.get("ALERT_SMTP_STARTTLS", "true").lower() in {"1", "true", "yes"}
 
+# /notify addresses a named person (account created, access granted/revoked...),
+# unlike /report and /webhook which always go to the estate owner. Holding the
+# relay token must not turn the mailbox into an open relay, so a recipient must
+# be a single well-formed address, optionally restricted to known-good domains,
+# and the endpoint is rate limited.
+NOTIFY_ALLOWED_DOMAINS = {
+    d.strip().lower()
+    for d in os.environ.get("ALERT_NOTIFY_ALLOWED_DOMAINS", "").split(",")
+    if d.strip()
+}
+NOTIFY_MAX_PER_HOUR = int(os.environ.get("ALERT_NOTIFY_MAX_PER_HOUR", "60"))
+_ADDRESS_RE = re.compile(r"^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]+(\.[A-Za-z0-9-]+)+$")
+_notify_sends: list[float] = []
+
 LOCK = threading.Lock()
+
+
+def header_safe(value: Any, limit: int = 200) -> str:
+    """Collapse anything that could start a new header line.
+
+    A subject or recipient carrying CR/LF would let a caller append their own
+    headers (a second Bcc, say). Folding them to spaces removes that entirely.
+    """
+    return re.sub(r"[\r\n\t]+", " ", str(value)).strip()[:limit]
+
+
+def valid_recipient(address: Any) -> str:
+    """Return a single safe recipient, or "" when the address is unacceptable."""
+    candidate = header_safe(address, 254)
+    if not _ADDRESS_RE.match(candidate):
+        return ""
+    if NOTIFY_ALLOWED_DOMAINS and candidate.rsplit("@", 1)[1].lower() not in NOTIFY_ALLOWED_DOMAINS:
+        return ""
+    return candidate
+
+
+def notify_rate_ok() -> bool:
+    """Cap /notify volume so a loop upstream cannot empty the sending quota."""
+    now = time.time()
+    with LOCK:
+        _notify_sends[:] = [t for t in _notify_sends if now - t < 3600]
+        if len(_notify_sends) >= NOTIFY_MAX_PER_HOUR:
+            return False
+        _notify_sends.append(now)
+        return True
 
 
 def load_state() -> dict[str, Any]:
@@ -230,9 +275,13 @@ def render_incident(event: str, incident: dict[str, Any], now: int) -> tuple[str
     return subject, text_body, html_body
 
 
-def send_email(subject: str, text_body: str, html_body: str | None = None) -> None:
+def send_email(subject: str, text_body: str, html_body: str | None = None,
+               to: str | None = None) -> None:
+    """Send one message. `to` defaults to the estate owner (ALERT_EMAIL_TO)."""
+    recipient = to or SMTP_TO
     if DRY_RUN:
-        print(json.dumps({"subject": subject, "text": text_body, "has_html": bool(html_body)}, indent=2))
+        print(json.dumps({"subject": subject, "to": recipient, "text": text_body,
+                          "has_html": bool(html_body)}, indent=2))
         return
     missing = [
         name
@@ -241,7 +290,7 @@ def send_email(subject: str, text_body: str, html_body: str | None = None) -> No
             "ALERT_SMTP_USERNAME": SMTP_USERNAME,
             "ALERT_SMTP_PASSWORD or ALERT_SMTP_PASSWORD_FILE": SMTP_PASSWORD,
             "ALERT_SMTP_FROM": SMTP_FROM,
-            "ALERT_EMAIL_TO": SMTP_TO,
+            "ALERT_EMAIL_TO": recipient,
         }.items()
         if not value
     ]
@@ -250,8 +299,8 @@ def send_email(subject: str, text_body: str, html_body: str | None = None) -> No
 
     message = EmailMessage()
     message["From"] = SMTP_FROM
-    message["To"] = SMTP_TO
-    message["Subject"] = subject
+    message["To"] = header_safe(recipient, 254)
+    message["Subject"] = header_safe(subject)
     message.set_content(text_body)
     if html_body:
         message.add_alternative(html_body, subtype="html")
@@ -394,7 +443,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(b"ok\n")
 
     def do_POST(self) -> None:
-        if self.path not in {"/webhook", "/kuma", "/report", "/suppress"}:
+        if self.path not in {"/webhook", "/kuma", "/report", "/suppress", "/notify"}:
             self.send_error(404)
             return
         if not authenticated(self.headers):
@@ -408,6 +457,15 @@ class Handler(BaseHTTPRequestHandler):
             payload = json.loads(self.rfile.read(length).decode("utf-8"))
             if self.path == "/report":
                 send_email(str(payload["subject"]), str(payload["text"]), str(payload["html"]))
+            elif self.path == "/notify":
+                recipient = valid_recipient(payload.get("to"))
+                if not recipient:
+                    raise ValueError("recipient rejected: not a single valid address")
+                if not notify_rate_ok():
+                    raise RuntimeError(f"notify rate limit reached ({NOTIFY_MAX_PER_HOUR}/hour)")
+                send_email(str(payload["subject"]), str(payload["text"]),
+                           str(payload.get("html") or "") or None, to=recipient)
+                print(f"notify sent to {recipient}")
             elif self.path == "/suppress":
                 set_suppression(str(payload["match"]), int(payload.get("minutes", 0)))
             else:

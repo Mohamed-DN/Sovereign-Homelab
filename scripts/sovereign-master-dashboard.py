@@ -22,6 +22,8 @@ never exposed to a browser; app control always goes through the agent.
 
 from __future__ import annotations
 
+import hmac
+import html
 import json
 import os
 import re
@@ -166,6 +168,7 @@ LINKS: list[dict[str, Any]] = [
         {"name": "SearXNG", "slug": "searxng", "icon": "\U0001F50E", "href": "https://search.internal", "desc": "Private metasearch", "kw": "searxng"},
         {"name": "Forgejo", "slug": "forgejo", "icon": "\U0001F33F", "href": "https://git.internal", "desc": "Git repositories", "kw": "forgejo"},
         {"name": "Open WebUI", "slug": "open-webui", "icon": "\U0001F916", "href": "https://ai.internal", "desc": "Local AI chat", "kw": "webui"},
+        {"name": "Hermes", "slug": "hermes", "icon": "⚡", "href": "https://hermes.internal", "desc": "Assistente della casa: conosce lo stato dei servizi e i tuoi appunti Obsidian; usa la GPU del PC quando e acceso", "kw": "hermes"},
     ]},
 ]
 
@@ -710,6 +713,16 @@ def do_iam_create_user(username: str, name: str, email: str, password: str,
     if not ok2:
         return False, f"utenza creata ma password non impostata: {res2}"
     print(f"[iam] utenza '{username}' creata da {actor}: {reason}")
+    # The password is deliberately NOT in this email: it travels through an
+    # external mail provider, so it is handed over in person instead.
+    notify_user(username, "🎉 Il tuo account Sovereign è pronto", (
+        f"È stato creato il tuo account personale sul Sovereign Homelab.\n\n"
+        f"Nome utente: {username}\n"
+        f"La password te la comunica {actor} di persona: per sicurezza non viaggia mai via email.\n\n"
+        f"Entra da: https://dash.internal\n"
+        f"Lo stesso nome utente e la stessa password valgono su tutti i servizi a cui ti verrà dato accesso.\n"
+        f"Puoi cambiare la password quando vuoi dalla dashboard, sezione IAM."
+    ), "#059669", email=email)
     return True, f"utenza '{username}' creata; stessa password valida su LDAP e ovunque sia collegato"
 
 
@@ -742,6 +755,13 @@ def do_iam_grant_access(username: str, app_slug: str, actor: str, reason: str) -
     authz_invalidate()
     deprov_cancel(username, app_slug)  # re-granted within grace -> keep the account
     print(f"[iam] {actor} ha concesso a '{username}' accesso a '{app_slug}': {reason}")
+    app_name, app_url = _app_meta(app_slug)
+    notify_user(username, f"✅ Ora hai accesso a {app_name}", (
+        f"Ti è stato dato accesso a {app_name}.\n\n"
+        + (f"Indirizzo: {app_url}\n" if app_url else "")
+        + "Entra con il tuo nome utente e la tua password di sempre: il servizio ti riconosce da solo.\n"
+          "Se è la prima volta, il tuo account sul servizio viene creato al primo accesso."
+    ), "#059669")
     return True, f"'{username}' ora ha accesso a '{a.get('name', app_slug)}' (stessa password LDAP)"
 
 
@@ -761,6 +781,13 @@ def do_iam_revoke_access(username: str, app_slug: str, actor: str) -> tuple[bool
         return False, f"revoca fallita: {res}"
     authz_invalidate()
     deprov_schedule(username, app_slug, actor, "accesso revocato")
+    app_name, _ = _app_meta(app_slug)
+    notify_user(username, f"🚫 Accesso a {app_name} rimosso", (
+        f"Il tuo accesso a {app_name} è stato rimosso.\n\n"
+        f"Il tuo account personale e gli altri servizi restano attivi.\n"
+        f"Se pensi sia un errore, puoi chiedere di nuovo l'accesso dalla dashboard "
+        f"(https://dash.internal), sezione IAM → Chiedi accesso."
+    ), "#dc2626")
     return True, (f"accesso a '{app_slug}' revocato per '{username}'; "
                   f"l'account sul servizio verrà rimosso fra {DEPROV_GRACE_DAYS} giorni "
                   f"(riassegna l'accesso per annullare)")
@@ -774,10 +801,19 @@ def do_iam_delete_user(username: str, actor: str) -> tuple[bool, str]:
     pk = _find_user_pk(username)
     if pk is None:
         return False, "utente non trovato"
+    # Grab the address while the identity still exists; after the DELETE there
+    # is nothing left in Authentik to look it up from.
+    email, _ = _user_email(username)
     ok, res = ak_api(f"/core/users/{pk}/", "DELETE")
     if not ok:
         return False, f"eliminazione fallita: {res}"
     authz_invalidate()
+    notify_user(username, "Il tuo account è stato chiuso", (
+        f"Il tuo account sul Sovereign Homelab è stato eliminato da {actor}.\n\n"
+        f"Da adesso non potrai più accedere ai servizi. Gli account che avevi sui "
+        f"singoli servizi verranno rimossi entro {DEPROV_GRACE_DAYS} giorni.\n\n"
+        f"Se si tratta di un errore, contatta subito l'amministratore."
+    ), "#dc2626", email=email)
     # Deleting the identity also schedules cleanup of every service account it
     # had, after the grace window (so files aren't yanked instantly).
     for slug in slugs:
@@ -910,10 +946,24 @@ def do_iam_set_active(username: str, active: bool, actor: str) -> tuple[bool, st
     pk = _find_user_pk(username)
     if pk is None:
         return False, "utente non trovato"
+    # Read the address before the change, so a user being disabled is still
+    # reachable in the snapshot when the notice goes out.
+    email, _ = _user_email(username)
     ok, res = ak_api(f"/core/users/{pk}/", "PATCH", {"is_active": bool(active)})
     if not ok:
         return False, f"modifica fallita: {res}"
     authz_invalidate()
+    if active:
+        notify_user(username, "✅ Il tuo account è stato riattivato", (
+            "Il tuo account sul Sovereign Homelab è di nuovo attivo.\n\n"
+            "Puoi rientrare da https://dash.internal con le credenziali di sempre."
+        ), "#059669", email=email)
+    else:
+        notify_user(username, "⏸️ Il tuo account è stato sospeso", (
+            "Il tuo account sul Sovereign Homelab è stato temporaneamente sospeso: "
+            "per ora non potrai accedere ai servizi.\n\n"
+            "I tuoi dati restano al loro posto. Per chiarimenti rivolgiti all'amministratore."
+        ), "#d97706", email=email)
     return True, f"utenza '{username}' {'riattivata' if active else 'disattivata'}"
 
 
@@ -928,6 +978,13 @@ def do_iam_reset_password(username: str, password: str, actor: str) -> tuple[boo
     ok, res = ak_api(f"/core/users/{pk}/set_password/", "POST", {"password": password})
     if not ok:
         return False, f"reset fallito: {res}"
+    # As with account creation, the new password is handed over in person.
+    notify_user(username, "🔑 La tua password è stata reimpostata", (
+        f"Un amministratore ({actor}) ha reimpostato la password del tuo account.\n\n"
+        f"La nuova password ti viene comunicata di persona: per sicurezza non viaggia mai via email.\n"
+        f"Vale subito su tutti i servizi collegati.\n\n"
+        f"Se non hai richiesto tu questo cambio, avvisa subito l'amministratore."
+    ), "#d97706")
     return True, f"password di '{username}' aggiornata (vale subito anche su LDAP)"
 
 
@@ -946,6 +1003,17 @@ def do_iam_set_admin(username: str, admin: bool, actor: str) -> tuple[bool, str]
     if not ok:
         return False, f"modifica ruolo fallita: {res}"
     authz_invalidate()
+    if admin:
+        notify_user(username, "🛡️ Sei ora amministratore", (
+            "Il tuo account è stato promosso ad amministratore della dashboard.\n\n"
+            "Da https://dash.internal vedrai lo stato completo dell'infrastruttura e "
+            "potrai gestire utenti e accessi. Usa questo potere con attenzione."
+        ), "#7c3aed")
+    else:
+        notify_user(username, "Ruolo amministratore rimosso", (
+            "Il tuo account non è più amministratore della dashboard.\n\n"
+            "Continui ad accedere normalmente ai servizi che ti sono stati assegnati."
+        ), "#6b7a8d")
     return True, f"'{username}' ora {'È' if admin else 'NON è più'} amministratore della dashboard"
 
 
@@ -958,6 +1026,13 @@ def do_iam_change_my_password(username: str, password: str) -> tuple[bool, str]:
     ok, res = ak_api(f"/core/users/{pk}/set_password/", "POST", {"password": password})
     if not ok:
         return False, f"cambio password fallito: {res}"
+    # Self-service change: the notice is what makes a stolen session visible.
+    notify_user(username, "🔑 La tua password è stata cambiata", (
+        "La password del tuo account Sovereign Homelab è appena stata cambiata.\n\n"
+        "Se sei stato tu, non devi fare nulla.\n"
+        "Se NON sei stato tu, avvisa subito l'amministratore: qualcuno potrebbe "
+        "aver avuto accesso al tuo account."
+    ), "#d97706")
     return True, "password aggiornata: vale subito per la dashboard e per tutti i servizi collegati"
 
 
@@ -974,6 +1049,8 @@ def do_iam_request_access(username: str, app_slug: str, message: str) -> tuple[b
 
 RELAY_URL = os.environ.get("DASH_RELAY_URL", "http://192.168.1.51:8099/report")
 RELAY_TOKEN_FILE = os.environ.get("DASH_RELAY_TOKEN_FILE", "/root/sovereign-secrets/alert-relay-token")
+ESTATE_TOKEN_FILE = os.environ.get("DASH_ESTATE_TOKEN_FILE",
+                                   "/root/sovereign-secrets/dashboard/estate-read-token")
 RETENTION = "keep-daily=7, keep-weekly=4, keep-monthly=6 (auto-prune dopo ogni backup riuscito)"
 
 # Background job registry: at most one job per key ("mirror", "pbs-<vmid>").
@@ -984,6 +1061,14 @@ _jobs_lock = threading.Lock()
 def relay_token() -> str:
     try:
         return Path(RELAY_TOKEN_FILE).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def estate_token() -> str:
+    """Shared secret that lets Hermes read the estate snapshot. Read-only."""
+    try:
+        return Path(ESTATE_TOKEN_FILE).read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -1010,6 +1095,65 @@ def notify_email(subject: str, text: str, color: str = "#059669") -> None:
         urllib.request.urlopen(req, timeout=20).read()
     except Exception as exc:  # noqa: BLE001
         print(f"outcome email failed: {exc}")
+
+
+def _app_meta(slug: str) -> tuple[str, str]:
+    """Human name and launch URL for an app slug, falling back to the slug."""
+    for item in LINKS:
+        if item.get("slug") == slug:
+            return item.get("name", slug), item.get("href", "")
+    return slug, ""
+
+
+def _user_email(username: str) -> tuple[str, str]:
+    """(email, display name) for a user, from the cached Authentik snapshot."""
+    snap = authz_snapshot()
+    info = (snap or {}).get("users", {}).get(username, {})
+    return info.get("email", ""), info.get("name", "") or username
+
+
+def notify_user(username: str, subject: str, body: str, color: str = "#059669",
+                email: str = "") -> None:
+    """Tell a person about a change to their own account. Never raises.
+
+    Distinct from notify_email(), which reports to the estate owner. Silently
+    does nothing when the user has no address on file — an account without an
+    email is normal here and must not break the IAM operation that triggered it.
+    `email` overrides the lookup, for the moment a user is created and the
+    cached snapshot does not know them yet.
+    """
+    looked_up, display = _user_email(username)
+    email = email or looked_up
+    if not email:
+        print(f"[iam] nessuna email per '{username}': notifica saltata")
+        return
+    token = relay_token()
+    if not token:
+        print("relay token missing; user notification skipped")
+        return
+    greeting = f"Ciao {display},"
+    text = f"{greeting}\n\n{body}\n\n— Sovereign Homelab"
+    html_body = (
+        f'<div style="font-family:Segoe UI,Arial,sans-serif;background:#06080b;color:#e5e7eb;padding:22px">'
+        f'<div style="max-width:560px;margin:auto;background:#0d1218;border:1px solid #1f2937;'
+        f'border-left:4px solid {color};border-radius:10px;overflow:hidden">'
+        f'<div style="background:{color};padding:16px 22px;color:#fff;font-size:18px;font-weight:800">'
+        f'{html.escape(subject)}</div>'
+        f'<div style="padding:16px 22px;font-size:14px;line-height:1.7;white-space:pre-line">'
+        f'{html.escape(greeting)}\n\n{html.escape(body)}</div>'
+        f'<div style="padding:12px 22px;background:#06080b;color:#6b7a8d;font-size:12px;border-top:1px solid #1f2937">'
+        f'Sovereign Homelab &middot; messaggio automatico, non rispondere</div></div></div>'
+    )
+    url = RELAY_URL.rsplit("/", 1)[0] + "/notify"
+    payload = json.dumps({"to": email, "subject": subject, "text": text, "html": html_body}).encode()
+    req = urllib.request.Request(url, data=payload, method="POST",
+                                 headers={"Content-Type": "application/json",
+                                          "Authorization": f"Bearer {token}"})
+    try:
+        urllib.request.urlopen(req, timeout=20).read()
+        print(f"[iam] notifica inviata a '{username}'")
+    except Exception as exc:  # noqa: BLE001 - a failed email must not fail the action
+        print(f"user notification failed for '{username}': {exc}")
 
 
 def suppress_monitor(match: str, minutes: int) -> None:
@@ -3011,6 +3155,23 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         if self.path == "/health":
             self._send(200, b'{"status":"ok"}', "application/json")
+            return
+        # Read-only feeds for machine consumers (Hermes). Authorised by a shared
+        # token rather than a session, because the caller is a service on another
+        # host with no Authentik login of its own. Read-only by construction:
+        # this branch never dispatches an action. Serving identity from here also
+        # means Hermes needs no Authentik credential of its own.
+        if self.path in {"/api/estate", "/api/iam-read"}:
+            token = estate_token()
+            offered = (self.headers.get("Authorization") or "").removeprefix("Bearer ").strip()
+            if not token or not hmac.compare_digest(offered, token):
+                self._send(401, b'{"error":"token non valido"}', "application/json")
+                return
+            try:
+                snap = overview(force=False) if self.path == "/api/estate" else iam_data()
+                self._send(200, json.dumps(snap).encode("utf-8"), "application/json")
+            except Exception as exc:  # noqa: BLE001
+                self._send(500, json.dumps({"error": str(exc)}).encode("utf-8"), "application/json")
             return
         w = who(self)
         if self.path in {"/", "/index.html"}:

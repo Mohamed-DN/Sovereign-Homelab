@@ -24,6 +24,65 @@ split "console" idea. Homepage remains at `homepage.internal` as a rollback.
   [IAM / LDAP / SSO Plan](IAM_LDAP_SSO_PLAN.md#dashboard-iam-console) for the
   scoped service-account permissions behind it.
 
+## Notifiche email agli utenti (2026-07-29)
+
+Fino a oggi il relay email scriveva solo al proprietario. Ora la console avvisa
+**la persona interessata** quando qualcosa cambia sul suo account:
+
+| Evento | Email inviata a chi subisce il cambiamento |
+|---|---|
+| Utenza creata | benvenuto, nome utente, dove entrare |
+| Accesso concesso | «ora hai accesso a *X*», con l'indirizzo del servizio |
+| Accesso revocato | avviso, e come richiederlo di nuovo |
+| Password reimpostata dall'admin | avviso di sicurezza |
+| Password cambiata da sé | avviso — è ciò che rende visibile un furto di sessione |
+| Account sospeso / riattivato | avviso |
+| Promosso / rimosso da amministratore | avviso |
+| Utenza eliminata | avviso, con i giorni di tolleranza prima della pulizia |
+
+### La password non viaggia mai via email
+
+Né alla creazione né al reset l'email contiene la password: passa da un
+provider esterno (Gmail) e resterebbe nella casella per sempre. Il messaggio
+dice esplicitamente che la password viene consegnata di persona.
+
+### Come è protetto il nuovo endpoint
+
+Il relay ha guadagnato `POST /notify`, che a differenza di `/report` accetta un
+**destinatario**. Poter indicare il destinatario significa poter trasformare la
+casella in un ripetitore per spam, quindi:
+
+- il token bearer resta obbligatorio (senza → `401`);
+- il destinatario deve essere **un solo** indirizzo sintatticamente valido;
+- CR/LF vengono ripiegati a spazio in destinatario e oggetto, così nessuno può
+  iniettare header propri (per esempio un secondo `Bcc:`);
+- limite di volume (`ALERT_NOTIFY_MAX_PER_HOUR`, 60 di default);
+- opzionale `ALERT_NOTIFY_ALLOWED_DOMAINS` per restringere i domini ammessi.
+
+Verificato in produzione:
+
+```
+destinatario valido        -> HTTP 202
+"a@b.com\r\nBcc: evil@..." -> HTTP 500  "recipient rejected"
+senza token                -> HTTP 401
+```
+
+Un errore di invio **non** fa fallire l'operazione IAM: chi non ha un indirizzo
+email registrato viene semplicemente saltato, con una riga di log.
+
+## Letture per i servizi: `/api/estate` e `/api/iam-read`
+
+Due endpoint di **sola lettura** autorizzati da un token condiviso
+(`/root/sovereign-secrets/dashboard/estate-read-token`), pensati per un
+consumatore che non ha una sessione Authentik propria — oggi Hermes.
+
+- `/api/estate` → la stessa panoramica della dashboard;
+- `/api/iam-read` → utenti, ruoli e concessioni.
+
+Il confronto del token usa `hmac.compare_digest`. Il ramo non instrada nessuna
+azione: da qui non si può cambiare nulla. Grazie a questi, Hermes **non ha
+bisogno di credenziali Authentik proprie**.
+
 ## Purpose
 
 - One page for daily operations: host CPU/RAM history, storage, per-guest load,

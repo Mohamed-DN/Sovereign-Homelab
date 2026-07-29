@@ -14,7 +14,7 @@ LOGDIR="${LOGDIR:-/root/sovereign-secrets/logs}"
 aliases=(
   adguard npm headscale headplane proxmox pbs auth dash homepage status monitor logs
   pwd sync paper rss bookmarks search git foto media ai files
-  netalert disks alerts ha trust obsidian fauxton
+  netalert disks alerts ha trust obsidian fauxton hermes
 )
 
 mkdir -p "$WORKDIR" "$LOGDIR"

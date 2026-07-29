@@ -1,0 +1,825 @@
+#!/usr/bin/env python3
+"""Hermes — the Sovereign Homelab's own assistant.
+
+Hermes runs on the server but does no inference itself: it routes each request
+to the first healthy backend in a priority list. Normally that is the owner's
+desktop GPU (an RTX 5070 Ti reachable over the LAN); when the desktop is off it
+falls back to the server's own Ollama, and then to an optional remote API. Add a
+future GPU box by adding one entry to backends.json — no code change.
+
+What makes it Hermes rather than a generic chat box is context: it can look up
+the live state of the estate, the access grants in Authentik, and the owner's
+Obsidian vault, and it is told who it is talking to. Every one of those lookups
+is a tool call the model makes explicitly, so the answers are grounded in the
+real system instead of invented.
+
+Standard library only, matching the rest of the estate's services.
+"""
+
+from __future__ import annotations
+
+import json
+import os
+import re
+import threading
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from typing import Any, Iterator
+
+BASE = Path(os.environ.get("HERMES_BASE", "/opt/sovereign-hermes"))
+BIND = os.environ.get("HERMES_BIND", "0.0.0.0")
+PORT = int(os.environ.get("HERMES_PORT", "8093"))
+# Only NPM (LXC 100) may assert an authenticated identity: it performs the
+# Authentik forward-auth login before anything reaches this port.
+TRUSTED_PROXIES = set(os.environ.get("HERMES_TRUSTED_PROXIES", "192.168.1.50").split(","))
+ADMIN_GROUPS = {"dashboard-admins", "authentik Admins"}
+
+ESTATE_URL = os.environ.get("HERMES_ESTATE_URL", "http://192.168.1.150:8095/api/estate")
+ESTATE_TOKEN_FILE = os.environ.get(
+    "HERMES_ESTATE_TOKEN_FILE", "/root/sovereign-secrets/hermes/estate-token")
+
+COUCH_URL = os.environ.get("HERMES_COUCH_URL", "http://127.0.0.1:5984")
+COUCH_DB = os.environ.get("HERMES_COUCH_DB", "obsidiandb")
+COUCH_USER = os.environ.get("HERMES_COUCH_USER", "hermes_reader")
+COUCH_PASSWORD_FILE = os.environ.get(
+    "HERMES_COUCH_PASSWORD_FILE", "/root/sovereign-secrets/hermes/couchdb-password")
+
+BACKENDS_FILE = Path(os.environ.get("HERMES_BACKENDS_FILE", str(BASE / "backends.json")))
+PERSONA_FILE = Path(os.environ.get("HERMES_PERSONA_FILE", str(BASE / "persona.md")))
+CHATS_DIR = Path(os.environ.get("HERMES_CHATS_DIR", "/var/lib/sovereign-hermes/chats"))
+
+MAX_TOOL_ROUNDS = int(os.environ.get("HERMES_MAX_TOOL_ROUNDS", "4"))
+MAX_HISTORY_TURNS = int(os.environ.get("HERMES_MAX_HISTORY_TURNS", "20"))
+VAULT_REFRESH_SECONDS = int(os.environ.get("HERMES_VAULT_REFRESH_SECONDS", "300"))
+GENERATION_TIMEOUT = int(os.environ.get("HERMES_GENERATION_TIMEOUT", "300"))
+
+
+def read_secret(path: str) -> str:
+    try:
+        return Path(path).read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def now_stamp() -> str:
+    return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+
+
+def http_json(url: str, *, method: str = "GET", payload: Any = None,
+              headers: dict[str, str] | None = None, timeout: int = 20) -> tuple[bool, Any]:
+    """One JSON round trip. Returns (ok, parsed-or-error-string)."""
+    data = json.dumps(payload).encode() if payload is not None else None
+    head = {"Content-Type": "application/json", "Accept": "application/json"}
+    head.update(headers or {})
+    req = urllib.request.Request(url, data=data, method=method, headers=head)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            body = resp.read().decode("utf-8", "replace")
+        return True, (json.loads(body) if body.strip() else None)
+    except urllib.error.HTTPError as exc:
+        return False, f"HTTP {exc.code}: {exc.read()[:200].decode('utf-8', 'replace')}"
+    except Exception as exc:  # noqa: BLE001 - callers degrade gracefully
+        return False, str(exc)
+
+
+# ----------------------------------------------------------------- identity
+
+_iam_cache: dict[str, Any] = {"at": 0.0, "data": None}
+_iam_lock = threading.Lock()
+
+
+def dashboard_read(path: str, timeout: int = 25) -> tuple[bool, Any]:
+    """Read one of the dashboard's token-authorised, read-only feeds.
+
+    Hermes deliberately holds no Authentik credential: the dashboard already
+    resolves roles and grants, so identity is read from there and Hermes keeps
+    exactly one secret instead of two.
+    """
+    token = read_secret(ESTATE_TOKEN_FILE)
+    if not token:
+        return False, "token di lettura non configurato"
+    base = ESTATE_URL.rsplit("/", 1)[0]
+    return http_json(f"{base}{path}", headers={"Authorization": f"Bearer {token}"}, timeout=timeout)
+
+
+def iam_snapshot(force: bool = False) -> dict[str, Any] | None:
+    """Users with their admin flag and app grants, cached for a minute."""
+    with _iam_lock:
+        if not force and _iam_cache["data"] and time.time() - _iam_cache["at"] < 60:
+            return _iam_cache["data"]
+    ok, data = dashboard_read("/iam-read")
+    if not ok or not isinstance(data, dict):
+        return _iam_cache["data"]
+    snap = {u["username"]: u for u in data.get("users", [])}
+    with _iam_lock:
+        _iam_cache.update({"at": time.time(), "data": snap})
+    return snap
+
+
+def who(handler: Any) -> dict[str, Any] | None:
+    """Resolve the caller, or None when the request is not authenticated.
+
+    Same trust model as the master dashboard: localhost is the break-glass
+    console, and only NPM may assert an identity. Roles come from the IAM
+    snapshot, never from a client header.
+    """
+    ip = handler.client_address[0]
+    if ip in {"127.0.0.1", "::1"}:
+        return {"username": "root-console", "is_admin": True, "apps": [], "via": "console"}
+    if ip in TRUSTED_PROXIES:
+        name = (handler.headers.get("X-authentik-username") or "").strip()[:150]
+        if name:
+            info = (iam_snapshot() or {}).get(name, {})
+            # Unknown user => treated as a plain user, never as an admin.
+            return {"username": name, "is_admin": bool(info.get("is_admin")),
+                    "apps": info.get("apps", []), "via": "sso"}
+    return None
+
+
+# ------------------------------------------------------------ vault (Obsidian)
+# LiveSync stores one document per note holding an ordered list of chunk ids;
+# the text lives in those chunks. Content is not end-to-end encrypted on this
+# vault, so the server can read it. Hermes only ever issues GETs, and its
+# CouchDB account is additionally denied writes by a validate_doc_update.
+
+_vault: dict[str, Any] = {"at": 0.0, "notes": {}, "error": ""}
+_vault_lock = threading.Lock()
+
+
+def _couch(path: str, timeout: int = 30) -> tuple[bool, Any]:
+    password = read_secret(COUCH_PASSWORD_FILE)
+    if not password:
+        return False, "password CouchDB non configurata"
+    import base64
+    token = base64.b64encode(f"{COUCH_USER}:{password}".encode()).decode()
+    return http_json(f"{COUCH_URL}{path}", headers={"Authorization": f"Basic {token}"},
+                     timeout=timeout)
+
+
+def vault_refresh(force: bool = False) -> dict[str, str]:
+    """Rebuild the path -> text index of the vault. Returns {path: text}."""
+    with _vault_lock:
+        fresh = time.time() - _vault["at"] < VAULT_REFRESH_SECONDS
+        if _vault["notes"] and not force and fresh:
+            return _vault["notes"]
+    ok, listing = _couch(f"/{COUCH_DB}/_all_docs?include_docs=true&limit=20000")
+    if not ok:
+        with _vault_lock:
+            _vault["error"] = str(listing)
+        return _vault["notes"]
+
+    chunks: dict[str, str] = {}
+    notes_meta: list[dict[str, Any]] = []
+    for row in listing.get("rows", []):
+        doc = row.get("doc") or {}
+        doc_id = row.get("id", "")
+        if doc_id.startswith("_design"):
+            continue
+        if doc.get("type") == "leaf" or doc_id.startswith("h:"):
+            chunks[doc_id] = doc.get("data", "")
+        elif doc.get("path") and not doc.get("deleted"):
+            notes_meta.append(doc)
+
+    notes: dict[str, str] = {}
+    for doc in notes_meta:
+        path = str(doc.get("path", ""))
+        if not path.lower().endswith((".md", ".txt", ".canvas")):
+            continue
+        text = "".join(chunks.get(cid, "") for cid in (doc.get("children") or []))
+        if text.strip():
+            notes[path] = text
+    with _vault_lock:
+        _vault.update({"at": time.time(), "notes": notes, "error": ""})
+    return notes
+
+
+def vault_search(query: str, limit: int = 5) -> str:
+    """Keyword search across the vault; returns the best-matching excerpts."""
+    notes = vault_refresh()
+    if not notes:
+        return f"Il vault non è leggibile in questo momento. {_vault.get('error', '')}".strip()
+    terms = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
+    if not terms:
+        return "Query troppo generica: usa almeno una parola di 3 lettere."
+    scored: list[tuple[int, str]] = []
+    for path, text in notes.items():
+        low = text.lower()
+        score = sum(low.count(t) for t in terms) + 3 * sum(t in path.lower() for t in terms)
+        if score:
+            scored.append((score, path))
+    if not scored:
+        return f"Nessuna nota contiene {terms}. Note disponibili: {len(notes)}."
+    scored.sort(reverse=True)
+    out = []
+    for _, path in scored[:limit]:
+        text = notes[path]
+        idx = min((text.lower().find(t) for t in terms if t in text.lower()), default=0)
+        start = max(0, idx - 200)
+        out.append(f"### {path}\n{text[start:start + 1200]}")
+    return "\n\n".join(out)
+
+
+def vault_read(path: str) -> str:
+    notes = vault_refresh()
+    if path in notes:
+        return f"### {path}\n{notes[path][:8000]}"
+    matches = [p for p in notes if path.lower() in p.lower()]
+    if len(matches) == 1:
+        return f"### {matches[0]}\n{notes[matches[0]][:8000]}"
+    if matches:
+        return "Più note corrispondono, sii più preciso:\n" + "\n".join(matches[:20])
+    return "Nota non trovata. Usa vault_list per vedere i titoli disponibili."
+
+
+def vault_list() -> str:
+    notes = vault_refresh()
+    if not notes:
+        return f"Vault non leggibile. {_vault.get('error', '')}".strip()
+    return f"{len(notes)} note nel vault:\n" + "\n".join(sorted(notes))
+
+
+# ------------------------------------------------------------- estate status
+
+def estate_status(is_admin: bool = False) -> str:
+    """Live health of the estate, read from the master dashboard.
+
+    A household user gets only up/down for the services; the internals of the
+    machine (storage, disks, backups, VMs) are the owner's business alone.
+    """
+    ok, data = dashboard_read("/estate")
+    if not ok or not isinstance(data, dict):
+        return f"Dashboard non raggiungibile: {data}"
+    services = data.get("services") or []
+    down = [s for s in services if not s.get("up")]
+    lines = [f"Aggiornato: {now_stamp()}",
+             f"Servizi monitorati: {len(services)}, giù: {len(down)}"]
+    if down:
+        lines.append("GIÙ: " + ", ".join(s.get("name", "?") for s in down))
+    elif services:
+        lines.append("Tutti i servizi rispondono regolarmente.")
+    if not is_admin:
+        return "\n".join(lines)
+    for key, label in (("host", "Host"), ("guests", "VM/LXC"), ("storages", "Storage"),
+                       ("disks", "Dischi"), ("pbs", "Backup")):
+        if data.get(key):
+            lines.append(f"{label}: {json.dumps(data[key], ensure_ascii=False)[:900]}")
+    return "\n".join(lines)
+
+
+def access_overview(target: str = "") -> str:
+    """Who may use what. Admin-only tool."""
+    snap = iam_snapshot(force=True)
+    if not snap:
+        return "Elenco accessi non disponibile: la dashboard non risponde."
+    if target:
+        info = snap.get(target)
+        if not info:
+            return f"Utente '{target}' non trovato."
+        return (f"{target} ({info.get('name')}, {info.get('email') or 'senza email'})\n"
+                f"attivo: {info.get('is_active')} · amministratore: {info.get('is_admin')}\n"
+                f"accessi: {', '.join(info.get('apps') or []) or 'nessuno'}")
+    rows = []
+    for name in sorted(snap):
+        info = snap[name]
+        role = " [admin]" if info.get("is_admin") else ""
+        rows.append(f"- {name}{role}: {', '.join(info.get('apps') or []) or 'nessun accesso'}")
+    return "Utenti e accessi:\n" + "\n".join(rows)
+
+
+# ------------------------------------------------------------------- tools
+
+TOOLS: dict[str, dict[str, Any]] = {
+    "estate_status": {
+        "admin_only": False,
+        "run": lambda args, ctx: estate_status(ctx["is_admin"]),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "estate_status",
+                "description": ("Stato in tempo reale dell'infrastruttura: quali servizi sono su o "
+                                "giù, VM e container, storage, dischi, backup. Usalo per qualunque "
+                                "domanda su come sta il server adesso."),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    },
+    "vault_search": {
+        "admin_only": True,
+        "run": lambda args, ctx: vault_search(str(args.get("query", "")),
+                                              int(args.get("limit", 5) or 5)),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "vault_search",
+                "description": ("Cerca fra gli appunti Obsidian del proprietario e restituisce gli "
+                                "estratti più pertinenti. Usalo quando la domanda riguarda note, "
+                                "progetti, appunti o cose che il proprietario ha scritto."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "parole chiave da cercare"},
+                        "limit": {"type": "integer", "description": "quante note (max 5)"},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+    },
+    "vault_read": {
+        "admin_only": True,
+        "run": lambda args, ctx: vault_read(str(args.get("path", ""))),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "vault_read",
+                "description": "Leggi per intero una nota Obsidian, dato il suo percorso o titolo.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {"path": {"type": "string", "description": "percorso o titolo"}},
+                    "required": ["path"],
+                },
+            },
+        },
+    },
+    "vault_list": {
+        "admin_only": True,
+        "run": lambda args, ctx: vault_list(),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "vault_list",
+                "description": "Elenca i titoli di tutte le note presenti nel vault Obsidian.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    },
+    "access_overview": {
+        "admin_only": True,
+        "run": lambda args, ctx: access_overview(str(args.get("username", ""))),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "access_overview",
+                "description": ("Chi ha accesso a quali servizi, secondo Authentik. Senza argomenti "
+                                "elenca tutti gli utenti; con username dà il dettaglio di uno."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {"username": {"type": "string"}},
+                },
+            },
+        },
+    },
+}
+
+
+def tools_for(user: dict[str, Any]) -> list[dict[str, Any]]:
+    return [t["schema"] for t in TOOLS.values() if user["is_admin"] or not t["admin_only"]]
+
+
+def run_tool(name: str, args: dict[str, Any], user: dict[str, Any]) -> str:
+    tool = TOOLS.get(name)
+    if not tool:
+        return f"Strumento '{name}' inesistente."
+    if tool["admin_only"] and not user["is_admin"]:
+        return "Non hai i permessi per questa informazione."
+    try:
+        return str(tool["run"](args, user))[:12000]
+    except Exception as exc:  # noqa: BLE001 - a broken tool must not kill the chat
+        return f"Errore nello strumento '{name}': {exc}"
+
+
+# ----------------------------------------------------------------- backends
+
+DEFAULT_BACKENDS = [
+    {"name": "pc-mohamed", "label": "PC di Mohamed · RTX 5070 Ti", "type": "ollama",
+     "url": "http://192.168.1.100:11434", "model": "qwen3.5:9b", "enabled": True},
+    {"name": "server", "label": "Server · Ollama locale", "type": "ollama",
+     "url": "http://127.0.0.1:11434", "model": "qwen3.5:4b", "enabled": True},
+]
+
+
+def load_backends() -> list[dict[str, Any]]:
+    try:
+        data = json.loads(BACKENDS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list) and data:
+            return [b for b in data if b.get("enabled", True)]
+    except (OSError, json.JSONDecodeError):
+        pass
+    return DEFAULT_BACKENDS
+
+
+def backend_healthy(backend: dict[str, Any]) -> bool:
+    if backend.get("type") == "openai":
+        return bool(read_secret(backend.get("api_key_file", "")))
+    ok, _ = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=4)
+    return ok
+
+
+def pick_backend() -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """First healthy backend in priority order, plus the full status list."""
+    status = []
+    chosen = None
+    for backend in load_backends():
+        healthy = backend_healthy(backend)
+        status.append({"name": backend["name"], "label": backend.get("label", backend["name"]),
+                       "model": backend.get("model", ""), "healthy": healthy})
+        if healthy and chosen is None:
+            chosen = backend
+    return chosen, status
+
+
+def chat_once(backend: dict[str, Any], messages: list[dict[str, Any]],
+              tools: list[dict[str, Any]], stream: bool) -> Iterator[dict[str, Any]]:
+    """Yield events from one model call.
+
+    Events: {"delta": str} for streamed text, {"message": {...}} once at the end.
+    Both Ollama and OpenAI-compatible endpoints are normalised to that shape.
+    """
+    if backend.get("type") == "openai":
+        yield from _chat_openai(backend, messages, tools, stream)
+        return
+    url = f"{backend['url'].rstrip('/')}/api/chat"
+    payload: dict[str, Any] = {"model": backend.get("model", ""), "messages": messages,
+                               "stream": bool(stream)}
+    # Reasoning models put their scratchpad in a separate `thinking` field and
+    # can burn the whole context window on it, returning empty content. Hermes
+    # wants answers, not deliberation, so thinking is off unless a backend asks.
+    payload["think"] = bool(backend.get("think", False))
+    if tools:
+        payload["tools"] = tools
+    if backend.get("options"):
+        payload["options"] = backend["options"]
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST",
+                                 headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=GENERATION_TIMEOUT) as resp:
+        if not stream:
+            body = json.loads(resp.read().decode("utf-8", "replace"))
+            yield {"message": body.get("message", {})}
+            return
+        acc: dict[str, Any] = {"role": "assistant", "content": "", "tool_calls": []}
+        for raw in resp:
+            line = raw.decode("utf-8", "replace").strip()
+            if not line:
+                continue
+            try:
+                chunk = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            msg = chunk.get("message") or {}
+            piece = msg.get("content") or ""
+            if piece:
+                acc["content"] += piece
+                yield {"delta": piece}
+            for call in msg.get("tool_calls") or []:
+                acc["tool_calls"].append(call)
+            if chunk.get("done"):
+                break
+        yield {"message": acc}
+
+
+def _chat_openai(backend: dict[str, Any], messages: list[dict[str, Any]],
+                 tools: list[dict[str, Any]], stream: bool) -> Iterator[dict[str, Any]]:
+    """OpenAI-compatible path — covers OpenRouter, vLLM, LM Studio, OpenAI.
+
+    `stream` is accepted for a signature shared with the Ollama path but not
+    honoured: remote answers arrive fast enough that the whole reply is emitted
+    as a single delta, which keeps the tool-call parsing simple and reliable.
+    """
+    key = read_secret(backend.get("api_key_file", ""))
+    url = backend["url"].rstrip("/") + "/chat/completions"
+    payload: dict[str, Any] = {"model": backend.get("model", ""), "messages": messages,
+                               "stream": False}
+    if tools:
+        payload["tools"] = tools
+    ok, data = http_json(url, method="POST", payload=payload,
+                         headers={"Authorization": f"Bearer {key}"}, timeout=GENERATION_TIMEOUT)
+    if not ok:
+        raise RuntimeError(str(data))
+    choice = (data.get("choices") or [{}])[0].get("message", {})
+    message = {"role": "assistant", "content": choice.get("content") or "",
+               "tool_calls": [{"function": {"name": c["function"]["name"],
+                                            "arguments": json.loads(c["function"]["arguments"] or "{}")}}
+                              for c in (choice.get("tool_calls") or [])]}
+    if message["content"]:
+        yield {"delta": message["content"]}
+    yield {"message": message}
+
+
+# ------------------------------------------------------------------ persona
+
+DEFAULT_PERSONA = """Ti chiami Hermes. Sei l'assistente personale del Sovereign Homelab,
+l'infrastruttura di casa di Mohamed. Parli italiano, in modo diretto e concreto.
+Sei sintetico: rispondi a quello che ti viene chiesto senza giri di parole.
+Non inventi mai: se non sai una cosa, la cerchi con gli strumenti che hai, e se
+non la trovi lo dici chiaramente."""
+
+
+def persona_text() -> str:
+    try:
+        return PERSONA_FILE.read_text(encoding="utf-8").strip() or DEFAULT_PERSONA
+    except OSError:
+        return DEFAULT_PERSONA
+
+
+def system_prompt(user: dict[str, Any]) -> str:
+    role = ("Stai parlando con Mohamed, il proprietario: ha accesso a tutto e può "
+            "chiederti qualunque dettaglio dell'infrastruttura."
+            if user["is_admin"] else
+            f"Stai parlando con {user['username']}, un utente della casa (non amministratore). "
+            f"Ha accesso solo a questi servizi: {', '.join(user['apps']) or 'nessuno'}. "
+            f"Non rivelare dettagli interni dell'infrastruttura, password, indirizzi IP "
+            f"o informazioni sugli altri utenti.")
+    return (f"{persona_text()}\n\n{role}\n\n"
+            f"Data e ora attuali: {now_stamp()}.\n"
+            f"Hai degli strumenti per leggere lo stato reale del sistema e le note "
+            f"Obsidian del proprietario: usali invece di tirare a indovinare.")
+
+
+# ------------------------------------------------------------- conversations
+
+def chat_path(username: str) -> Path:
+    safe = re.sub(r"[^a-zA-Z0-9._-]", "_", username)[:64] or "anon"
+    return CHATS_DIR / f"{safe}.json"
+
+
+def load_chat(username: str) -> list[dict[str, Any]]:
+    try:
+        return json.loads(chat_path(username).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return []
+
+
+def save_chat(username: str, messages: list[dict[str, Any]]) -> None:
+    CHATS_DIR.mkdir(parents=True, exist_ok=True)
+    keep = [m for m in messages if m.get("role") in {"user", "assistant"}][-MAX_HISTORY_TURNS * 2:]
+    path = chat_path(username)
+    try:
+        path.write_text(json.dumps(keep, ensure_ascii=False), encoding="utf-8")
+        path.chmod(0o600)
+    except OSError as exc:
+        print(f"chat save failed for {username}: {exc}")
+
+
+# ------------------------------------------------------------------ the loop
+
+def converse(user: dict[str, Any], question: str) -> Iterator[dict[str, Any]]:
+    """Run one exchange, yielding SSE-shaped events as things happen."""
+    backend, status = pick_backend()
+    if backend is None:
+        offline = ", ".join(s["label"] for s in status) or "nessuno configurato"
+        yield {"event": "error",
+               "data": ("Nessun motore AI raggiungibile in questo momento.\n\n"
+                        f"Backend provati: {offline}.\n"
+                        "Se volevi usare la GPU del PC, accendilo e assicurati che Ollama "
+                        "sia in ascolto sulla rete.")}
+        return
+    yield {"event": "backend", "data": json.dumps(
+        {"name": backend["name"], "label": backend.get("label", backend["name"]),
+         "model": backend.get("model", "")})}
+
+    history = load_chat(user["username"])
+    messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt(user)}]
+    messages += history
+    messages.append({"role": "user", "content": question})
+    tools = tools_for(user)
+
+    answer = ""
+    for _ in range(MAX_TOOL_ROUNDS):
+        message: dict[str, Any] = {}
+        streamed = ""
+        try:
+            for event in chat_once(backend, messages, tools, stream=True):
+                if "delta" in event:
+                    streamed += event["delta"]
+                    yield {"event": "delta", "data": event["delta"]}
+                elif "message" in event:
+                    message = event["message"]
+        except Exception as exc:  # noqa: BLE001 - report, do not crash the service
+            yield {"event": "error", "data": f"Il motore AI ha risposto con un errore: {exc}"}
+            return
+
+        calls = message.get("tool_calls") or []
+        if not calls:
+            answer = message.get("content") or streamed
+            break
+
+        # The model asked for data. Any text it streamed alongside the call was
+        # only preamble, so tell the page to drop it and show progress instead.
+        if streamed:
+            yield {"event": "reset", "data": ""}
+        messages.append({"role": "assistant", "content": message.get("content") or "",
+                         "tool_calls": calls})
+        for call in calls:
+            fn = (call.get("function") or {})
+            name = fn.get("name", "")
+            args = fn.get("arguments") or {}
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            yield {"event": "tool", "data": name}
+            result = run_tool(name, args, user)
+            messages.append({"role": "tool", "content": result, "name": name})
+    else:
+        answer = answer or "Ho fatto troppi passaggi senza arrivare a una risposta."
+
+    if answer:
+        save_chat(user["username"], history + [{"role": "user", "content": question},
+                                               {"role": "assistant", "content": answer}])
+    yield {"event": "done", "data": json.dumps({"answer": answer})}
+
+
+# --------------------------------------------------------------------- page
+
+PAGE = """<!doctype html><html lang=it><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>Hermes · Sovereign Homelab</title><style>
+*{box-sizing:border-box}
+body{margin:0;background:#06080b;color:#e5e7eb;font:15px/1.65 'Segoe UI',system-ui,sans-serif;
+ display:flex;flex-direction:column;height:100vh}
+header{padding:12px 18px;background:#0d1218;border-bottom:1px solid #1f2937;display:flex;
+ align-items:center;gap:12px;flex-wrap:wrap}
+h1{margin:0;font-size:17px;letter-spacing:.5px}
+h1 span{color:#43b4c4}
+.pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid #1f2937;color:#9aa8b8;
+ background:#06080b;white-space:nowrap}
+.pill.on{color:#6ee7b7;border-color:#065f46}
+.pill.off{color:#fca5a5;border-color:#7f1d1d}
+.grow{flex:1}
+#log{flex:1;overflow-y:auto;padding:22px 18px;display:flex;flex-direction:column;gap:16px}
+.msg{max-width:min(760px,92%);padding:12px 16px;border-radius:12px;white-space:pre-wrap;
+ word-wrap:break-word;border:1px solid #1f2937}
+.me{align-self:flex-end;background:#12313a;border-color:#1e4d5a}
+.bot{align-self:flex-start;background:#0d1218}
+.sys{align-self:center;font-size:12px;color:#6b7a8d;border:0;background:none;padding:2px}
+.tool{align-self:flex-start;font-size:12px;color:#43b4c4;background:#06080b;border-color:#123;
+ padding:6px 12px;border-radius:999px}
+footer{padding:12px 18px;background:#0d1218;border-top:1px solid #1f2937;display:flex;gap:10px}
+textarea{flex:1;resize:none;background:#06080b;border:1px solid #1f2937;color:#e5e7eb;
+ border-radius:10px;padding:11px 14px;font:inherit;max-height:140px}
+textarea:focus{outline:2px solid #43b4c4;outline-offset:-1px}
+button{background:#43b4c4;color:#06222a;border:0;border-radius:10px;padding:0 20px;font-weight:800;
+ cursor:pointer;font-size:14px}
+button:disabled{opacity:.45;cursor:default}
+.hint{padding:0 18px 10px;color:#4b5a6b;font-size:12px}
+a{color:#43b4c4}
+</style></head><body>
+<header>
+  <h1>⚡ <span>Hermes</span></h1>
+  <span class=pill id=p-user>…</span>
+  <span class=pill id=p-backend>motore: …</span>
+  <span class=pill id=p-vault>vault: …</span>
+  <span class=grow></span>
+  <span class=pill><a href="https://dash.internal">dashboard</a></span>
+</header>
+<div id=log></div>
+<div class=hint id=hint></div>
+<footer>
+  <textarea id=q rows=1 placeholder="Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)"></textarea>
+  <button id=send>Invia</button>
+</footer>
+<script>
+const $=i=>document.getElementById(i), log=$('log');
+let busy=false, cur=null;
+function add(cls,txt){const d=document.createElement('div');d.className='msg '+cls;d.textContent=txt;
+  log.appendChild(d);log.scrollTop=log.scrollHeight;return d;}
+fetch('api/state').then(r=>r.json()).then(d=>{
+  $('p-user').textContent=(d.is_admin?'👑 ':'👤 ')+d.username;
+  const b=d.backends.find(x=>x.healthy);
+  $('p-backend').textContent='motore: '+(b?b.label+' · '+b.model:'nessuno disponibile');
+  $('p-backend').className='pill '+(b?'on':'off');
+  $('p-vault').textContent='vault: '+(d.vault_notes>0?d.vault_notes+' note':'non leggibile');
+  $('p-vault').className='pill '+(d.vault_notes>0?'on':'off');
+  $('hint').textContent=d.backends.map(x=>(x.healthy?'● ':'○ ')+x.label).join('   ');
+  if(d.greeting) add('bot',d.greeting);
+}).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
+
+function send(){
+  const q=$('q').value.trim(); if(!q||busy) return;
+  $('q').value=''; busy=true; $('send').disabled=true;
+  add('me',q); cur=null;
+  const es=new EventSource('api/chat?q='+encodeURIComponent(q));
+  es.addEventListener('backend',e=>{const b=JSON.parse(e.data);
+    $('p-backend').textContent='motore: '+b.label+' · '+b.model; $('p-backend').className='pill on';});
+  es.addEventListener('tool',e=>{const names={estate_status:'sto guardando lo stato del server…',
+    vault_search:'sto cercando fra i tuoi appunti…',vault_read:'sto leggendo una nota…',
+    vault_list:'sto elencando le note…',access_overview:'sto controllando gli accessi…'};
+    const d=document.createElement('div');d.className='msg tool';
+    d.textContent='⚙ '+(names[e.data]||e.data);log.appendChild(d);log.scrollTop=log.scrollHeight;});
+  es.addEventListener('reset',()=>{if(cur){cur.remove();cur=null;}});
+  es.addEventListener('delta',e=>{if(!cur)cur=add('bot','');cur.textContent+=e.data;
+    log.scrollTop=log.scrollHeight;});
+  es.addEventListener('done',e=>{const a=JSON.parse(e.data).answer;
+    if(a&&(!cur||!cur.textContent)) {if(cur)cur.remove(); add('bot',a);}
+    es.close(); busy=false; $('send').disabled=false; $('q').focus();});
+  es.addEventListener('error',e=>{if(e.data) add('sys',e.data);
+    es.close(); busy=false; $('send').disabled=false;});
+  es.onerror=()=>{es.close(); busy=false; $('send').disabled=false;};
+}
+$('send').onclick=send;
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
+$('q').addEventListener('input',e=>{e.target.style.height='auto';
+  e.target.style.height=Math.min(e.target.scrollHeight,140)+'px';});
+$('q').focus();
+</script></body></html>"""
+
+
+LOGIN_HINT = ("<meta charset=utf-8><body style='background:#06080b;color:#e5e7eb;"
+              "font-family:Segoe UI,sans-serif;text-align:center;padding:60px'>"
+              "<h2>⚡ Hermes</h2><p>Questa pagina si apre da "
+              "<a href='https://hermes.internal' style='color:#43b4c4'>hermes.internal</a>, "
+              "dopo il login unico.</p>")
+
+
+class Handler(BaseHTTPRequestHandler):
+    server_version = "SovereignHermes"
+
+    def _send(self, code: int, body: bytes, ctype: str) -> None:
+        self.send_response(code)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("X-Content-Type-Options", "nosniff")
+        self.end_headers()
+        self.wfile.write(body)
+
+    def do_GET(self) -> None:  # noqa: N802 - stdlib signature
+        route = urllib.parse.urlparse(self.path)
+        if route.path == "/health":
+            self._send(200, b"ok\n", "text/plain; charset=utf-8")
+            return
+
+        user = who(self)
+        if user is None:
+            self._send(401, LOGIN_HINT.encode(), "text/html; charset=utf-8")
+            return
+
+        if route.path in {"/", "/index.html"}:
+            self._send(200, PAGE.encode(), "text/html; charset=utf-8")
+        elif route.path == "/api/state":
+            _, status = pick_backend()
+            notes = vault_refresh()
+            greeting = (f"Ciao {user['username']}. Sono Hermes. Conosco lo stato del server "
+                        f"e i tuoi appunti: chiedimi pure.") if user["is_admin"] else \
+                       (f"Ciao {user['username']}. Sono Hermes, l'assistente di casa. "
+                        f"Posso dirti se i servizi funzionano e aiutarti con quello che usi.")
+            self._send(200, json.dumps({
+                "username": user["username"], "is_admin": user["is_admin"],
+                "apps": user["apps"], "backends": status, "vault_notes": len(notes),
+                "greeting": greeting,
+            }).encode(), "application/json; charset=utf-8")
+        elif route.path == "/api/chat":
+            question = urllib.parse.parse_qs(route.query).get("q", [""])[0].strip()[:4000]
+            if not question:
+                self._send(400, b"domanda vuota", "text/plain; charset=utf-8")
+                return
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            try:
+                for event in converse(user, question):
+                    payload = event["data"].replace("\r", "")
+                    block = f"event: {event['event']}\n"
+                    block += "".join(f"data: {line}\n" for line in payload.split("\n"))
+                    self.wfile.write((block + "\n").encode("utf-8"))
+                    self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the reader navigated away mid-answer
+        elif route.path == "/api/reset":
+            try:
+                chat_path(user["username"]).unlink(missing_ok=True)
+            except OSError:
+                pass
+            self._send(200, b'{"ok":true}', "application/json; charset=utf-8")
+        else:
+            self._send(404, b"non trovato", "text/plain; charset=utf-8")
+
+    def log_message(self, fmt: str, *args: Any) -> None:  # noqa: A002 - stdlib signature
+        print(f"{self.client_address[0]} - {fmt % args}")
+
+
+def vault_warmer() -> None:
+    while True:
+        try:
+            vault_refresh(force=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"vault refresh failed: {exc}")
+        time.sleep(VAULT_REFRESH_SECONDS)
+
+
+def main() -> None:
+    CHATS_DIR.mkdir(parents=True, exist_ok=True)
+    threading.Thread(target=vault_warmer, daemon=True).start()
+    print(f"sovereign-hermes listening on {BIND}:{PORT}")
+    ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
+
+
+if __name__ == "__main__":
+    main()
