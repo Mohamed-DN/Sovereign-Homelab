@@ -314,8 +314,8 @@ tools_for(utente)   ->  cosa il RUOLO DELLA PERSONA permette   (sempre attiva)
 role_tools(agente)  ->  cosa il MESTIERE dell'agente permette  (questa si toglie)
 ```
 
-Se `sole` spuntasse la casella (non le compare nemmeno) non otterrebbe il vault:
-la prima barriera resta. E "accesso completo" **non** significa eseguire comandi
+Se un altro utente spuntasse la casella (non gli compare nemmeno) non otterrebbe
+il vault: la prima barriera resta. E "accesso completo" **non** significa eseguire comandi
 sul server: Hermes resta in sola lettura. Dare a un modello la possibilità di
 eseguire comandi è una decisione separata, che va progettata con un elenco di
 azioni permesse e una conferma umana — non con un interruttore.
