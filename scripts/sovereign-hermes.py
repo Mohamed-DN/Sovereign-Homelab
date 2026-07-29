@@ -18,6 +18,7 @@ Standard library only, matching the rest of the estate's services.
 
 from __future__ import annotations
 
+import html as html_module
 import json
 import os
 import re
@@ -291,9 +292,110 @@ def access_overview(target: str = "") -> str:
     return "Utenti e accessi:\n" + "\n".join(rows)
 
 
+# ---------------------------------------------------------------------- web
+# Ricerca e lettura di pagine passando dal SearXNG di casa: le query di Hermes
+# non finiscono a un motore che le profila, e non serve nessuna chiave.
+
+SEARX_URL = os.environ.get("HERMES_SEARX_URL", "http://127.0.0.1:8084")
+WEB_FETCH_MAX = int(os.environ.get("HERMES_WEB_FETCH_MAX", "400000"))
+_TAG_RE = re.compile(r"<(script|style|noscript)[^>]*>.*?</\1>", re.S | re.I)
+
+
+def web_search(query: str, limit: int = 6) -> str:
+    query = (query or "").strip()[:300]
+    if not query:
+        return "Serve qualcosa da cercare."
+    url = f"{SEARX_URL}/search?q={urllib.parse.quote(query)}&format=json&safesearch=0"
+    ok, data = http_json(url, timeout=25)
+    if not ok or not isinstance(data, dict):
+        return f"Ricerca non riuscita: {data}"
+    rows = data.get("results") or []
+    if not rows:
+        return f"Nessun risultato per «{query}»."
+    out = [f"Risultati per «{query}»:"]
+    for r in rows[:max(1, min(limit, 10))]:
+        out.append(f"- {r.get('title', '(senza titolo)')}\n  {r.get('url', '')}\n"
+                   f"  {(r.get('content') or '').strip()[:280]}")
+    return "\n".join(out)
+
+
+def web_fetch(url: str) -> str:
+    """Fetch a page and return readable text. Public http(s) only."""
+    url = (url or "").strip()
+    if not re.match(r"^https?://", url):
+        return "Serve un indirizzo che inizi con http:// o https://"
+    host = (urllib.parse.urlparse(url).hostname or "").lower()
+    # Hermes sits inside the estate: without this it would be a way to make the
+    # server fetch its own private services on behalf of whoever is chatting.
+    if (host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".internal")
+            or re.match(r"^(10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.)", host)):
+        return "Non leggo indirizzi interni: per lo stato di casa usa gli strumenti dedicati."
+    req = urllib.request.Request(url, headers={
+        "User-Agent": "Mozilla/5.0 (compatible; SovereignHermes/1.0)",
+        "Accept": "text/html,text/plain;q=0.9",
+    })
+    try:
+        with urllib.request.urlopen(req, timeout=25) as resp:
+            ctype = (resp.headers.get("Content-Type") or "").lower()
+            if not any(t in ctype for t in ("text/html", "text/plain", "application/json",
+                                            "application/xhtml")):
+                return f"Tipo di contenuto non leggibile ({ctype or 'sconosciuto'})."
+            raw = resp.read(WEB_FETCH_MAX).decode("utf-8", "replace")
+    except Exception as exc:  # noqa: BLE001
+        return f"Non sono riuscito a scaricare la pagina: {exc}"
+    text = _TAG_RE.sub(" ", raw)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html_module.unescape(text)
+    text = re.sub(r"[ \t\r\f\v]+", " ", text)
+    text = re.sub(r"\n\s*\n\s*", "\n\n", text).strip()
+    return f"Contenuto di {url}:\n\n{text[:9000]}"
+
+
 # ------------------------------------------------------------------- tools
 
 TOOLS: dict[str, dict[str, Any]] = {
+    "web_search": {
+        "admin_only": False,
+        "run": lambda args, ctx: web_search(str(args.get("query", "")),
+                                            int(args.get("limit", 6) or 6)),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "web_search",
+                "description": ("Cerca su internet ORA e restituisce titoli, indirizzi ed "
+                                "estratti reali. OBBLIGATORIO ogni volta che la domanda riguarda "
+                                "fatti attuali: prezzi, notizie, versioni di software, prodotti, "
+                                "eventi, date, disponibilita'. Le tue conoscenze interne sono "
+                                "ferme all'addestramento e quindi SBAGLIATE su questi argomenti: "
+                                "non rispondere a memoria, chiama questo strumento."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "cosa cercare"},
+                        "limit": {"type": "integer", "description": "quanti risultati (max 10)"},
+                    },
+                    "required": ["query"],
+                },
+            },
+        },
+    },
+    "web_fetch": {
+        "admin_only": False,
+        "run": lambda args, ctx: web_fetch(str(args.get("url", ""))),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "web_fetch",
+                "description": ("Apri un indirizzo internet e leggine il testo. Usalo dopo "
+                                "web_search per approfondire una pagina specifica."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {"url": {"type": "string", "description": "indirizzo http(s)"}},
+                    "required": ["url"],
+                },
+            },
+        },
+    },
     "estate_status": {
         "admin_only": False,
         "run": lambda args, ctx: estate_status(ctx["is_admin"]),
@@ -537,17 +639,24 @@ def backend_healthy(backend: dict[str, Any]) -> bool:
     return ok
 
 
-def pick_backend() -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
-    """First healthy backend in priority order, plus the full status list."""
+def pick_backend(prefer: str | None = None) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """First healthy backend in priority order, plus the full status list.
+
+    `prefer` names an engine the person picked in the page; if it is healthy it
+    wins, otherwise the normal order applies so a chat never dead-ends.
+    """
     status = []
     chosen = None
+    picked = None
     for backend in load_backends():
         healthy = backend_healthy(backend)
         status.append({"name": backend["name"], "label": backend.get("label", backend["name"]),
                        "model": backend.get("model", ""), "healthy": healthy})
         if healthy and chosen is None:
             chosen = backend
-    return chosen, status
+        if healthy and prefer and backend["name"] == prefer:
+            picked = backend
+    return (picked or chosen), status
 
 
 def chat_once(backend: dict[str, Any], messages: list[dict[str, Any]],
@@ -684,9 +793,17 @@ def save_chat(username: str, messages: list[dict[str, Any]]) -> None:
 
 # ------------------------------------------------------------------ the loop
 
-def converse(user: dict[str, Any], question: str) -> Iterator[dict[str, Any]]:
-    """Run one exchange, yielding SSE-shaped events as things happen."""
-    backend, status = pick_backend()
+def converse(user: dict[str, Any], question: str,
+             prefs: dict[str, Any] | None = None) -> Iterator[dict[str, Any]]:
+    """Run one exchange, yielding SSE-shaped events as things happen.
+
+    `prefs` carries the choices the person made in the page: which engine to
+    use, whether the model may think out loud, and whether tools are allowed
+    at all. They only ever narrow what happens -- a preference cannot grant
+    access to a tool the user's role does not already allow.
+    """
+    prefs = prefs or {}
+    backend, status = pick_backend(prefs.get("backend"))
     if backend is None:
         offline = ", ".join(s["label"] for s in status) or "nessuno configurato"
         yield {"event": "error",
@@ -703,7 +820,21 @@ def converse(user: dict[str, Any], question: str) -> Iterator[dict[str, Any]]:
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt(user)}]
     messages += history
     messages.append({"role": "user", "content": question})
-    tools = tools_for(user)
+    # A preference can only take capability away, never add it.
+    tools = [] if prefs.get("tools") is False else tools_for(user)
+
+    # "Cerca sul web" runs the search up front instead of hoping the model
+    # decides to. Small models are confident about prices and versions and skip
+    # the tool; qwen3.5:9b does exactly that, while it calls estate_status
+    # happily. Doing it here makes the capability deterministic on any model.
+    if prefs.get("web"):
+        yield {"event": "tool", "data": "web_search"}
+        found = web_search(question, 6)
+        messages.append({"role": "tool", "name": "web_search", "content": found})
+        messages.append({"role": "user", "content":
+                         "Rispondi usando i risultati di ricerca qui sopra e cita le fonti."})
+    if prefs.get("think") is not None:
+        backend = dict(backend, think=bool(prefs["think"]))
 
     answer = ""
     for _ in range(MAX_TOOL_ROUNDS):
@@ -785,6 +916,13 @@ button{background:#43b4c4;color:#06222a;border:0;border-radius:10px;padding:0 20
  cursor:pointer;font-size:14px}
 button:disabled{opacity:.45;cursor:default}
 .hint{padding:0 18px 10px;color:#4b5a6b;font-size:12px}
+.opts{display:flex;flex-wrap:wrap;gap:14px;align-items:center;padding:9px 18px;
+ background:#0a0f14;border-top:1px solid #131c25;color:#8b98a8;font-size:12px}
+.opts label{display:flex;align-items:center;gap:5px;cursor:pointer}
+.opts select{background:#06080b;border:1px solid #1f2937;color:#cbd5e1;border-radius:6px;
+ padding:3px 6px;font:inherit;font-size:12px}
+.opts .mini{background:#111a22;color:#8b98a8;border:1px solid #1f2937;padding:4px 10px;
+ font-size:12px;font-weight:600}
 a{color:#43b4c4}
 </style></head><body>
 <header>
@@ -801,6 +939,14 @@ a{color:#43b4c4}
   <textarea id=q rows=1 placeholder="Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)"></textarea>
   <button id=send>Invia</button>
 </footer>
+<div class=opts>
+  <label><input type=checkbox id=o-think> ragionamento</label>
+  <label><input type=checkbox id=o-tools checked> strumenti (server, appunti)</label>
+  <label><input type=checkbox id=o-web> cerca sul web</label>
+  <label>motore: <select id=o-backend><option value="">automatico</option></select></label>
+  <label><input type=checkbox id=o-voice> voce</label>
+  <button class=mini id=o-reset>azzera conversazione</button>
+</div>
 <script>
 const $=i=>document.getElementById(i), log=$('log');
 let busy=false, cur=null;
@@ -814,6 +960,10 @@ fetch('api/state').then(r=>r.json()).then(d=>{
   $('p-vault').textContent='vault: '+(d.vault_notes>0?d.vault_notes+' note':'non leggibile');
   $('p-vault').className='pill '+(d.vault_notes>0?'on':'off');
   $('hint').textContent=d.backends.map(x=>(x.healthy?'● ':'○ ')+x.label).join('   ');
+  const sel=$('o-backend');
+  d.backends.forEach(x=>{const o=document.createElement('option');o.value=x.name;
+    o.textContent=x.label+(x.healthy?'':' (spento)');sel.appendChild(o);});
+  prefLoad();
   if(d.greeting) add('bot',d.greeting);
   if(d.is_admin){const s=document.createElement('span');s.className='pill';
     s.innerHTML='<a href="impostazioni">impostazioni</a>';
@@ -823,11 +973,31 @@ fetch('api/state').then(r=>r.json()).then(d=>{
   if(q){$('q').value=q; history.replaceState({},'',location.pathname); send();}
 }).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
 
+// Le preferenze restano nel browser di chi le imposta: ognuno ha le sue.
+const PREF=['think','tools','web','voice','backend'];
+function prefLoad(){PREF.forEach(k=>{const el=$('o-'+k),v=localStorage.getItem('hermes-'+k);
+  if(v===null||!el)return; if(el.type==='checkbox')el.checked=(v==='1'); else el.value=v;});}
+function prefSave(){PREF.forEach(k=>{const el=$('o-'+k);if(!el)return;
+  localStorage.setItem('hermes-'+k, el.type==='checkbox'?(el.checked?'1':'0'):el.value);});}
+PREF.forEach(k=>{const el=$('o-'+k); if(el) el.addEventListener('change',prefSave);});
+$('o-reset').onclick=()=>{fetch('api/reset').then(()=>{log.innerHTML='';
+  add('sys','Conversazione azzerata: Hermes non ricorda più gli scambi precedenti.');});};
+function speak(text){
+  if(!$('o-voice').checked||!window.speechSynthesis||!text) return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(text.slice(0,600));
+  u.lang='it-IT'; speechSynthesis.speak(u);
+}
+
 function send(){
   const q=$('q').value.trim(); if(!q||busy) return;
   $('q').value=''; busy=true; $('send').disabled=true;
   add('me',q); cur=null;
-  const es=new EventSource('api/chat?q='+encodeURIComponent(q));
+  const p=new URLSearchParams({q:q,
+    think:$('o-think').checked?'1':'0', tools:$('o-tools').checked?'1':'0',
+    web:$('o-web').checked?'1':'0'});
+  if($('o-backend').value) p.set('backend',$('o-backend').value);
+  const es=new EventSource('api/chat?'+p.toString());
   es.addEventListener('backend',e=>{const b=JSON.parse(e.data);
     $('p-backend').textContent='motore: '+b.label+' · '+b.model; $('p-backend').className='pill on';});
   es.addEventListener('tool',e=>{const names={estate_status:'sto guardando lo stato del server…',
@@ -840,6 +1010,7 @@ function send(){
     log.scrollTop=log.scrollHeight;});
   es.addEventListener('done',e=>{const a=JSON.parse(e.data).answer;
     if(a&&(!cur||!cur.textContent)) {if(cur)cur.remove(); add('bot',a);}
+    speak(a||(cur?cur.textContent:''));
     es.close(); busy=false; $('send').disabled=false; $('q').focus();});
   es.addEventListener('error',e=>{if(e.data) add('sys',e.data);
     es.close(); busy=false; $('send').disabled=false;});
@@ -1014,7 +1185,17 @@ class Handler(BaseHTTPRequestHandler):
                 "greeting": greeting,
             }).encode(), "application/json; charset=utf-8")
         elif route.path == "/api/chat":
-            question = urllib.parse.parse_qs(route.query).get("q", [""])[0].strip()[:4000]
+            params = urllib.parse.parse_qs(route.query)
+            question = params.get("q", [""])[0].strip()[:4000]
+            prefs: dict[str, Any] = {}
+            if params.get("think"):
+                prefs["think"] = params["think"][0] == "1"
+            if params.get("tools"):
+                prefs["tools"] = params["tools"][0] == "1"
+            if params.get("web"):
+                prefs["web"] = params["web"][0] == "1"
+            if params.get("backend"):
+                prefs["backend"] = params["backend"][0][:40]
             if not question:
                 self._send(400, b"domanda vuota", "text/plain; charset=utf-8")
                 return
@@ -1024,7 +1205,7 @@ class Handler(BaseHTTPRequestHandler):
             self.send_header("X-Accel-Buffering", "no")
             self.end_headers()
             try:
-                for event in converse(user, question):
+                for event in converse(user, question, prefs):
                     payload = event["data"].replace("\r", "")
                     block = f"event: {event['event']}\n"
                     block += "".join(f"data: {line}\n" for line in payload.split("\n"))

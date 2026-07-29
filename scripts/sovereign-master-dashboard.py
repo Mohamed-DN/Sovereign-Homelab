@@ -1746,7 +1746,7 @@ def do_pbs_backup(vmid: str, actor: str, reason: str) -> tuple[bool, str]:
 # ---------------------------------------------------------------- UI
 
 PAGE = r"""<!doctype html><html lang="en" data-theme="dark"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sovereign Dashboard</title><style>
+<meta name="viewport" content="width=device-width, initial-scale=1"><title>Sovereign Dashboard</title><link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' shape-rendering='crispEdges'%3E%3Crect width='12' height='12' fill='%230d1218'/%3E%3Crect x='5' y='1' width='2' height='1' fill='%23f0d264'/%3E%3Crect x='1' y='2' width='10' height='8' fill='%23c6cad0'/%3E%3Crect x='1' y='2' width='10' height='1' fill='%23eef1f5'/%3E%3Crect x='2' y='4' width='8' height='3' fill='%23131a20'/%3E%3Crect x='3' y='5' width='3' height='1' fill='%23f0d264'/%3E%3Crect x='4' y='8' width='4' height='1' fill='%237d838a'/%3E%3C/svg%3E"><style>
 :root, :root[data-theme="dark"]{
  --bg:#06080b;--plane:#0a0e13;--surface:#0d1218;--raised:#121922;--glass:rgba(13,18,24,.72);
  --line:rgba(148,163,184,.16);--line-strong:rgba(148,163,184,.32);
@@ -1885,8 +1885,8 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 /* Assistant: a faceless animated orb that speaks tips (toggle-able) */
 #asst{position:fixed;right:20px;bottom:20px;z-index:55;display:flex;align-items:flex-end;gap:12px;flex-direction:row-reverse}
 #orb{width:58px;height:58px;border-radius:50%;cursor:pointer;flex:0 0 auto;position:relative;border:none;
- background:radial-gradient(circle at 32% 30%, #7ff0ff, var(--accent) 42%, #1b6ea3 78%);box-shadow:0 0 0 1px var(--line-strong),0 10px 30px rgba(0,0,0,.4),0 0 26px var(--glow)}
-#orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid var(--accent);opacity:.5}
+ background:radial-gradient(circle at 32% 28%, #fbf1c7, #e8d48a 34%, #c9a227 62%, #8a7a5c 100%);box-shadow:0 0 0 1px #6d5a1e,0 10px 30px rgba(0,0,0,.45),0 0 26px rgba(201,162,39,.45)}
+#orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid #d7c07a;opacity:.45}
 #orb .wv{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);display:flex;gap:2.5px;align-items:center}
 #orb .wv i{width:3px;background:#04222e;border-radius:3px;opacity:.85}
 /* Hermes: testa pixel in oro e argento. Niente occhi, solo la visiera. */
@@ -2341,7 +2341,7 @@ footer a:hover{text-decoration:underline}
 </div>
 <div id="asst">
  <button id="orb" title="Chiedi a Hermes" aria-label="Chiedi a Hermes"><svg class="bot" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><rect class="ant" x="5" y="0" width="2" height="1"/><rect class="ant" x="5" y="1" width="2" height="1"/><rect class="sil" x="1" y="2" width="10" height="8"/><rect class="hi" x="1" y="2" width="10" height="1"/><rect class="vis" x="2" y="4" width="8" height="3"/><rect class="scan" x="3" y="5" width="3" height="1"/><rect class="dk" x="4" y="8" width="4" height="1"/><rect class="sil" x="0" y="4" width="1" height="3"/><rect class="sil" x="11" y="4" width="1" height="3"/></svg></button>
- <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Ciao! Chiedimi qualcosa 👇</span><div id="qa"></div><span class="hint">Scegli una domanda &middot; la &times; nasconde l'assistente</span></div>
+ <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Sono Hermes.</span><div id="qa"></div><span class="hint">Le risposte arrivano da Hermes &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -3090,10 +3090,7 @@ function askHermes(q){
 }
 function assistantTips(){
  if(!qa)return;qa.innerHTML='';
- QAset().forEach(([q,a])=>{const b=document.createElement('button');b.textContent=q;b.onclick=()=>{amsg.innerHTML='<b>'+q+'</b><br>'+a;speak(q+'. '+a);};qa.appendChild(b);});
- const v=document.createElement('button');v.textContent=voiceOn?'🔊 voce':'🔇 voce';
- v.onclick=()=>{voiceOn=!voiceOn;localStorage.setItem('sov-voice',voiceOn?'on':'off');v.textContent=voiceOn?'🔊 voce':'🔇 voce';};qa.appendChild(v);
- const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Chiedi a Hermes</span>';
+  const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Chiedi a Hermes</span>';
  h.title='Apre Hermes: legge lo stato reale del server e i tuoi appunti';
  h.onclick=()=>askHermes('');qa.appendChild(h);
  const row=document.createElement('div');row.className='hermes-ask';
@@ -3103,7 +3100,7 @@ function assistantTips(){
  go.onclick=send;inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
  row.appendChild(inp);row.appendChild(go);qa.appendChild(row);
 }
-function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Ciao! Chiedimi qualcosa 👇';bubble.classList.add('show');}
+function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Sono Hermes. Guardo lo stato del server, i tuoi appunti e il web.';bubble.classList.add('show');}
 $('orb').onclick=openAsst;
 $('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb');};
 setTimeout(()=>{if(!asst.classList.contains('off'))openAsst();},2500);
