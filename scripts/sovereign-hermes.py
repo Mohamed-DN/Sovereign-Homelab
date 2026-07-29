@@ -798,7 +798,7 @@ def save_chat(username: str, messages: list[dict[str, Any]]) -> None:
 # e infine ricucita. Ha senso su domande larghe ("confronta X e Y e dimmi come
 # sta il server"), non su una domanda secca: per quelle costa solo tempo.
 
-SWARM_MAX_AGENTS = int(os.environ.get("HERMES_SWARM_MAX_AGENTS", "3"))
+SWARM_MAX_AGENTS = int(os.environ.get("HERMES_SWARM_MAX_AGENTS", "4"))
 
 
 def backend_parallelism(backend: dict[str, Any]) -> int:
@@ -812,42 +812,93 @@ def backend_parallelism(backend: dict[str, Any]) -> int:
     return SWARM_MAX_AGENTS if backend.get("type") == "openai" else 2
 
 
-def plan_subtasks(backend: dict[str, Any], question: str) -> list[str]:
-    """Ask the model to split the question. Falls back to no split."""
+ROLES_FILE = Path(os.environ.get("HERMES_ROLES_FILE", str(BASE / "roles.json")))
+
+DEFAULT_ROLE = {
+    "id": "generalista", "titolo": "Generalista",
+    "quando": "tutto il resto",
+    "prompt": "Sei un agente del Sovereign Homelab. Risolvi il compito assegnato in "
+              "modo compatto e fattuale, usando gli strumenti se servono.",
+    "tools": [],
+}
+
+
+def load_roles() -> list[dict[str, Any]]:
+    """The team Hermes can draw on. Editing the file changes the team."""
+    try:
+        rows = json.loads(ROLES_FILE.read_text(encoding="utf-8"))
+        if isinstance(rows, list) and rows:
+            return rows
+    except (OSError, json.JSONDecodeError):
+        pass
+    return [DEFAULT_ROLE]
+
+
+def role_tools(role: dict[str, Any], user: dict[str, Any],
+               full_access: bool = False) -> list[dict[str, Any]]:
+    """Tools this role may use.
+
+    Two gates, in this order: the user's role decides what is possible at all,
+    then the agent's job narrows it further. `full_access` drops only the second
+    gate -- an agent can never reach past what the person is allowed.
+    """
+    allowed = tools_for(user)
+    if full_access:
+        return allowed
+    wanted = set(role.get("tools") or [])
+    if not wanted:
+        return allowed
+    return [t for t in allowed if t["function"]["name"] in wanted]
+
+
+def plan_subtasks(backend: dict[str, Any], question: str) -> list[dict[str, str]]:
+    """Split the question and assign each piece to a role."""
+    roles = load_roles()
+    catalogue = "\n".join(f"- {r['id']}: {r.get('quando', '')}" for r in roles)
     prompt = (
-        "Spezza la richiesta dell'utente in sotto-domande indipendenti, al massimo "
-        f"{SWARM_MAX_AGENTS}. Ognuna deve poter essere risolta da sola.\n"
-        "Se la richiesta e' gia' semplice, restituisci una sola voce.\n"
-        'Rispondi SOLO con un array JSON di stringhe, niente altro.\n\n'
+        "Sei il coordinatore di una squadra di agenti. Spezza la richiesta in "
+        f"sotto-compiti indipendenti, al massimo {SWARM_MAX_AGENTS}, e assegna "
+        "ognuno al ruolo piu' adatto.\n\nRuoli disponibili:\n" + catalogue +
+        "\n\nSe la richiesta e' gia' semplice, restituisci un solo compito.\n"
+        'Rispondi SOLO con un array JSON di oggetti {"ruolo": "...", "compito": "..."}.\n\n'
         f"Richiesta: {question}"
     )
-    messages = [{"role": "user", "content": prompt}]
+    ids = {r["id"] for r in roles}
     try:
         text = ""
-        for event in chat_once(dict(backend, think=False), messages, [], stream=False):
+        for event in chat_once(dict(backend, think=False),
+                               [{"role": "user", "content": prompt}], [], stream=False):
             if "message" in event:
                 text = event["message"].get("content") or ""
     except Exception:  # noqa: BLE001 - a failed plan is not fatal
-        return [question]
+        return [{"ruolo": "generalista", "compito": question}]
     match = re.search(r"\[.*\]", text, re.S)
     if not match:
-        return [question]
+        return [{"ruolo": "generalista", "compito": question}]
     try:
         rows = json.loads(match.group(0))
     except json.JSONDecodeError:
-        return [question]
-    tasks = [str(r).strip() for r in rows if isinstance(r, (str, int)) and str(r).strip()]
-    return tasks[:SWARM_MAX_AGENTS] or [question]
+        return [{"ruolo": "generalista", "compito": question}]
+    plan = []
+    for row in rows[:SWARM_MAX_AGENTS]:
+        if not isinstance(row, dict):
+            continue
+        task = str(row.get("compito") or row.get("task") or "").strip()
+        if not task:
+            continue
+        rid = str(row.get("ruolo") or row.get("role") or "").strip()
+        plan.append({"ruolo": rid if rid in ids else "generalista", "compito": task})
+    return plan or [{"ruolo": "generalista", "compito": question}]
 
 
 def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
-              tools: list[dict[str, Any]]) -> str:
+              tools: list[dict[str, Any]], role: dict[str, Any] | None = None) -> str:
     """One agent: a short tool-using conversation about a single sub-task."""
+    role = role or DEFAULT_ROLE
     messages = [
         {"role": "system", "content":
-         "Sei un agente specializzato del Sovereign Homelab. Risolvi SOLO il compito "
-         "che ti viene dato, con gli strumenti se servono. Rispondi in modo compatto "
-         "e fattuale, senza preamboli."},
+         role.get("prompt", DEFAULT_ROLE["prompt"]) +
+         "\n\nRisolvi SOLO il compito che ti viene dato, senza preamboli."},
         {"role": "user", "content": task},
     ]
     for _ in range(MAX_TOOL_ROUNDS):
@@ -923,17 +974,28 @@ def converse(user: dict[str, Any], question: str,
 
     if prefs.get("swarm"):
         yield {"event": "tool", "data": "swarm_plan"}
-        tasks = plan_subtasks(backend, question)
-        yield {"event": "swarm", "data": json.dumps(tasks)}
+        plan = plan_subtasks(backend, question)
+        roles = {r["id"]: r for r in load_roles()}
+        full = bool(prefs.get("full")) and user["is_admin"]
+        yield {"event": "swarm", "data": json.dumps(
+            [{"ruolo": roles.get(p["ruolo"], DEFAULT_ROLE).get("titolo", p["ruolo"]),
+              "compito": p["compito"]} for p in plan])}
+        if full:
+            print(f"[hermes] accesso completo attivo per {user['username']}")
         workers = backend_parallelism(backend)
         results: list[str] = []
         with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = [pool.submit(run_agent, backend, user, t, tools) for t in tasks]
-            for task, fut in zip(tasks, futures):
+            futures = []
+            for p in plan:
+                role = roles.get(p["ruolo"], DEFAULT_ROLE)
+                futures.append(pool.submit(run_agent, backend, user, p["compito"],
+                                           role_tools(role, user, full), role))
+            for p, fut in zip(plan, futures):
+                title = roles.get(p["ruolo"], DEFAULT_ROLE).get("titolo", p["ruolo"])
                 try:
-                    results.append(f"### {task}\n{fut.result()}")
+                    results.append(f"### {title} — {p['compito']}\n{fut.result()}")
                 except Exception as exc:  # noqa: BLE001
-                    results.append(f"### {task}\n(errore: {exc})")
+                    results.append(f"### {title} — {p['compito']}\n(errore: {exc})")
         messages.append({"role": "user", "content":
                          "Ecco il lavoro degli agenti. Ricucilo in una risposta unica, "
                          "senza ripetere le domande e senza inventare nulla:\n\n"
@@ -1053,6 +1115,7 @@ a{color:#43b4c4}
   <label><input type=checkbox id=o-tools checked> strumenti (server, appunti)</label>
   <label><input type=checkbox id=o-web> cerca sul web</label>
   <label><input type=checkbox id=o-swarm> sciame di agenti</label>
+  <label id=l-full hidden><input type=checkbox id=o-full> accesso completo (a tuo rischio)</label>
   <label>motore: <select id=o-backend><option value="">automatico</option></select></label>
   <label><input type=checkbox id=o-voice> voce</label>
   <button class=mini id=o-reset>azzera conversazione</button>
@@ -1075,7 +1138,7 @@ fetch('api/state').then(r=>r.json()).then(d=>{
     o.textContent=x.label+(x.healthy?'':' (spento)');sel.appendChild(o);});
   prefLoad();
   if(d.greeting) add('bot',d.greeting);
-  if(d.is_admin){const s=document.createElement('span');s.className='pill';
+  if(d.is_admin){$('l-full').hidden=false;const s=document.createElement('span');s.className='pill';
     s.innerHTML='<a href="impostazioni">impostazioni</a>';
     document.querySelector('header .grow').after(s);}
   // Arriving from the dashboard's assistant with a question already typed.
@@ -1084,7 +1147,7 @@ fetch('api/state').then(r=>r.json()).then(d=>{
 }).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
 
 // Le preferenze restano nel browser di chi le imposta: ognuno ha le sue.
-const PREF=['think','tools','web','swarm','voice','backend'];
+const PREF=['think','tools','web','swarm','full','voice','backend'];
 function prefLoad(){PREF.forEach(k=>{const el=$('o-'+k),v=localStorage.getItem('hermes-'+k);
   if(v===null||!el)return; if(el.type==='checkbox')el.checked=(v==='1'); else el.value=v;});}
 function prefSave(){PREF.forEach(k=>{const el=$('o-'+k);if(!el)return;
@@ -1105,7 +1168,8 @@ function send(){
   add('me',q); cur=null;
   const p=new URLSearchParams({q:q,
     think:$('o-think').checked?'1':'0', tools:$('o-tools').checked?'1':'0',
-    web:$('o-web').checked?'1':'0', swarm:$('o-swarm').checked?'1':'0'});
+    web:$('o-web').checked?'1':'0', swarm:$('o-swarm').checked?'1':'0',
+    full:$('o-full').checked?'1':'0'});
   if($('o-backend').value) p.set('backend',$('o-backend').value);
   const es=new EventSource('api/chat?'+p.toString());
   es.addEventListener('backend',e=>{const b=JSON.parse(e.data);
@@ -1117,7 +1181,7 @@ function send(){
     d.textContent='⚙ '+(names[e.data]||e.data);log.appendChild(d);log.scrollTop=log.scrollHeight;});
   es.addEventListener('swarm',e=>{const t=JSON.parse(e.data);
     const d=document.createElement('div');d.className='msg tool';
-    d.textContent='⚙ sciame: '+t.length+' agenti — '+t.join(' | ');
+    d.textContent='⚙ squadra: '+t.map(x=>x.ruolo).join(', ');
     log.appendChild(d);log.scrollTop=log.scrollHeight;});
   es.addEventListener('reset',()=>{if(cur){cur.remove();cur=null;}});
   es.addEventListener('delta',e=>{if(!cur)cur=add('bot','');cur.textContent+=e.data;
@@ -1306,6 +1370,8 @@ class Handler(BaseHTTPRequestHandler):
                 prefs["think"] = params["think"][0] == "1"
             if params.get("tools"):
                 prefs["tools"] = params["tools"][0] == "1"
+            if params.get("full"):
+                prefs["full"] = params["full"][0] == "1"
             if params.get("swarm"):
                 prefs["swarm"] = params["swarm"][0] == "1"
             if params.get("web"):
