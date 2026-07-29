@@ -858,6 +858,48 @@ def save_chat(username: str, messages: list[dict[str, Any]]) -> None:
         print(f"chat save failed for {username}: {exc}")
 
 
+# ------------------------------------------------------------------ allegati
+# Un file caricato resta in attesa finche' non parte il messaggio successivo,
+# che se lo porta dietro. Le immagini vanno al modello come immagini (qwen3.5 e'
+# multimodale); il testo viene incollato nel messaggio.
+
+UPLOAD_MAX_BYTES = int(os.environ.get("HERMES_UPLOAD_MAX_BYTES", str(12 * 1024 * 1024)))
+IMAGE_TYPES = {"image/png", "image/jpeg", "image/webp", "image/gif"}
+TEXT_SUFFIXES = (".txt", ".md", ".log", ".json", ".yaml", ".yml", ".conf", ".ini",
+                 ".csv", ".py", ".sh", ".sql", ".xml", ".html")
+_pending: dict[str, dict[str, Any]] = {}
+_pending_lock = threading.Lock()
+
+
+def stash_upload(username: str, filename: str, ctype: str, blob: bytes) -> str:
+    """Hold one file for the next message of this user. Returns a description."""
+    import base64
+    name = re.sub(r"[^A-Za-z0-9._-]", "_", filename or "file")[:80]
+    entry: dict[str, Any] = {"name": name, "at": time.time()}
+    if ctype in IMAGE_TYPES:
+        entry["image"] = base64.b64encode(blob).decode()
+        note = f"immagine «{name}» ({len(blob) // 1024} KB)"
+    elif ctype.startswith("text/") or name.lower().endswith(TEXT_SUFFIXES):
+        entry["text"] = blob.decode("utf-8", "replace")[:60000]
+        note = f"file di testo «{name}» ({len(blob) // 1024} KB)"
+    else:
+        return (f"Non so leggere «{name}» ({ctype or 'tipo sconosciuto'}). "
+                f"Per ora capisco immagini e file di testo. "
+                f"Audio e video arriveranno con la trascrizione.")
+    with _pending_lock:
+        _pending[username] = entry
+    return f"Ho caricato {note}. Scrivimi cosa vuoi che ne faccia."
+
+
+def take_upload(username: str) -> dict[str, Any] | None:
+    """Consume the pending file, if it is still fresh (10 minutes)."""
+    with _pending_lock:
+        entry = _pending.pop(username, None)
+    if entry and time.time() - entry["at"] < 600:
+        return entry
+    return None
+
+
 # ------------------------------------------------------------------- swarm
 # Invece di un solo modello che fa tutto, la domanda viene spezzata in
 # sotto-compiti indipendenti, ognuno eseguito da un agente con i suoi strumenti,
@@ -1021,7 +1063,20 @@ def converse(user: dict[str, Any], question: str,
     history = load_chat(user["username"])
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt(user)}]
     messages += history
-    messages.append({"role": "user", "content": question})
+    user_msg: dict[str, Any] = {"role": "user", "content": question}
+    attached = take_upload(user["username"])
+    if attached:
+        if attached.get("image"):
+            # Ollama vuole le immagini sul messaggio, in base64
+            user_msg["images"] = [attached["image"]]
+            user_msg["content"] = (
+                f"{question}\n\n(allegata l'immagine «{attached['name']}»)")
+        elif attached.get("text"):
+            user_msg["content"] = (
+                f"{question}\n\n--- contenuto di «{attached['name']}» ---\n"
+                f"{attached['text']}")
+        yield {"event": "tool", "data": "allegato"}
+    messages.append(user_msg)
     # A preference can only take capability away, never add it.
     tools = [] if prefs.get("tools") is False else tools_for(user)
 
@@ -1149,7 +1204,8 @@ h1 span{color:#43b4c4}
 .sys{align-self:center;font-size:12px;color:#6b7a8d;border:0;background:none;padding:2px}
 .tool{align-self:flex-start;font-size:12px;color:#43b4c4;background:#06080b;border-color:#123;
  padding:6px 12px;border-radius:999px}
-footer{padding:12px 18px;background:#0d1218;border-top:1px solid #1f2937;display:flex;gap:10px}
+footer{padding:12px 18px;background:#0d1218;border-top:1px solid #1f2937;display:flex;gap:8px;align-items:flex-end}
+#clip{background:#111a22;color:#9aa8b8;border:1px solid #1f2937;padding:9px 12px;font-size:15px}
 textarea{flex:1;resize:none;background:#06080b;border:1px solid #1f2937;color:#e5e7eb;
  border-radius:10px;padding:11px 14px;font:inherit;max-height:140px}
 textarea:focus{outline:2px solid #43b4c4;outline-offset:-1px}
@@ -1178,6 +1234,8 @@ a{color:#43b4c4}
 <div class=hint id=hint></div>
 <footer>
   <textarea id=q rows=1 placeholder="Chiedi qualcosa… (Invio per inviare, Shift+Invio per andare a capo)"></textarea>
+  <input type=file id=file hidden accept="image/*,text/*,.md,.log,.json,.yaml,.csv,.py,.sh,.sql">
+  <button id=clip class=mini title="Allega un'immagine o un file di testo">📎</button>
   <button id=send>Invia</button>
 </footer>
 <div class=opts>
@@ -1269,6 +1327,14 @@ function send(){
     es.close(); busy=false; $('send').disabled=false;});
   es.onerror=()=>{es.close(); busy=false; $('send').disabled=false;};
 }
+$('clip').onclick=()=>$('file').click();
+$('file').onchange=e=>{const f=e.target.files[0]; if(!f) return;
+  add('sys','Carico '+f.name+'…');
+  fetch('api/upload',{method:'POST',body:f,
+    headers:{'X-File-Name':encodeURIComponent(f.name).replace(/%/g,'_'),'X-File-Type':f.type||''}})
+   .then(r=>r.json()).then(d=>add('sys',d.message))
+   .catch(err=>add('sys','Caricamento fallito: '+err));
+  e.target.value='';};
 $('send').onclick=send;
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();}});
 $('q').addEventListener('input',e=>{e.target.style.height='auto';
@@ -1499,6 +1565,18 @@ class Handler(BaseHTTPRequestHandler):
         user = who(self)
         if user is None:
             self._send(401, b'{"error":"non autenticato"}', "application/json; charset=utf-8")
+            return
+        if route.path == "/api/upload":
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length < 1 or length > UPLOAD_MAX_BYTES:
+                self._send(413, json.dumps({"ok": False, "message": "file troppo grande"}).encode(),
+                           "application/json; charset=utf-8")
+                return
+            ctype = (self.headers.get("X-File-Type") or "").split(";")[0].strip().lower()
+            fname = (self.headers.get("X-File-Name") or "file").strip()
+            note = stash_upload(user["username"], fname, ctype, self.rfile.read(length))
+            self._send(200, json.dumps({"ok": True, "message": note}).encode(),
+                       "application/json; charset=utf-8")
             return
         if route.path != "/api/backends":
             self._send(404, b'{"error":"non trovato"}', "application/json; charset=utf-8")
