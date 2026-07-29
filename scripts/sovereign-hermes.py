@@ -546,8 +546,37 @@ TOOLS: dict[str, dict[str, Any]] = {
 }
 
 
-def tools_for(user: dict[str, Any]) -> list[dict[str, Any]]:
-    return [t["schema"] for t in TOOLS.values() if user["is_admin"] or not t["admin_only"]]
+# Strumenti che restituiscono roba di casa. Un motore non privato -- cioe' un
+# fornitore esterno, che con ogni probabilita' si addestra sui prompt -- non deve
+# mai vederne il risultato. Mandare il vault a un piano gratuito equivale a
+# pubblicarlo.
+PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "estate_status",
+                 "access_overview", "send_mail"}
+
+
+def tools_for(user: dict[str, Any], backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Tools available to this person, on this engine.
+
+    Two independent filters: the person's role, and whether the engine is
+    trusted with household data. A backend is private unless it says otherwise,
+    so forgetting the flag fails closed.
+    """
+    allowed = [t for name, t in TOOLS.items() if user["is_admin"] or not t["admin_only"]]
+    if backend is not None and not backend_is_private(backend):
+        allowed = [t for name, t in TOOLS.items()
+                   if (user["is_admin"] or not t["admin_only"]) and name not in PRIVATE_TOOLS]
+    return [t["schema"] for t in allowed]
+
+
+def backend_is_private(backend: dict[str, Any]) -> bool:
+    """True when this engine may see household data.
+
+    Local engines are private by default; anything of type `openai` points at
+    somebody else's computer and must opt in explicitly.
+    """
+    if "private" in backend:
+        return bool(backend["private"])
+    return backend.get("type") != "openai"
 
 
 def run_tool(name: str, args: dict[str, Any], user: dict[str, Any]) -> str:
@@ -943,14 +972,15 @@ def load_roles() -> list[dict[str, Any]]:
 
 
 def role_tools(role: dict[str, Any], user: dict[str, Any],
-               full_access: bool = False) -> list[dict[str, Any]]:
+               full_access: bool = False,
+               backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """Tools this role may use.
 
     Two gates, in this order: the user's role decides what is possible at all,
     then the agent's job narrows it further. `full_access` drops only the second
     gate -- an agent can never reach past what the person is allowed.
     """
-    allowed = tools_for(user)
+    allowed = tools_for(user, backend)
     if full_access:
         return allowed
     wanted = set(role.get("tools") or [])
@@ -1078,7 +1108,7 @@ def converse(user: dict[str, Any], question: str,
         yield {"event": "tool", "data": "allegato"}
     messages.append(user_msg)
     # A preference can only take capability away, never add it.
-    tools = [] if prefs.get("tools") is False else tools_for(user)
+    tools = [] if prefs.get("tools") is False else tools_for(user, backend)
 
     # "Cerca sul web" runs the search up front instead of hoping the model
     # decides to. Small models are confident about prices and versions and skip
@@ -1114,7 +1144,7 @@ def converse(user: dict[str, Any], question: str,
             for p in plan:
                 role = roles.get(p["ruolo"], DEFAULT_ROLE)
                 futures.append(pool.submit(run_agent, backend, user, p["compito"],
-                                           role_tools(role, user, full), role))
+                                           role_tools(role, user, full, backend), role))
             for p, fut in zip(plan, futures):
                 title = roles.get(p["ruolo"], DEFAULT_ROLE).get("titolo", p["ruolo"])
                 try:
