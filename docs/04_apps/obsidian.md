@@ -651,3 +651,30 @@ authenticated CouchDB user — do not skip it.
 **Previous:** [Paperless-ngx](paperless.md)
 
 **Next:** [Home Assistant OS](home_assistant.md)
+
+## Time Garden (installato 2026-07-29)
+
+Il pacchetto *Time Garden Vault v1.1.3* è un **vault completo**, non un plugin:
+porta con sé una propria cartella `.obsidian`. Estrarlo tal quale nel vault vivo
+avrebbe sovrascritto la configurazione locale — **compresa quella di LiveSync**,
+cioè le credenziali di sincronizzazione.
+
+Procedura seguita, ripetibile:
+
+1. estratto **tutto tranne `.obsidian/`** dentro `VaultMohamed`;
+2. copiati **solo i fogli di stile** (`*.css`) nella cartella `snippets` esistente;
+3. create a mano le cartelle vuote che il sistema si aspetta
+   (`01 Daily` … `05 Yearly`), perché gli archivi zip non portano le cartelle vuote;
+4. verificato con SHA-256 che `plugins/obsidian-livesync/data.json` fosse
+   **identico** prima e dopo.
+
+Esito: 149 file di contenuto, 11 fogli di stile, **zero collisioni** con note
+esistenti, configurazione di sincronizzazione intatta.
+
+> **Da sapere**: il pacchetto pesa ~35 MB di `mp3` e `gif` nei template. Il
+> database CouchDB è passato da 1,2 MB a **48,5 MB**, e quella roba viene
+> scaricata da **ogni** dispositivo sincronizzato, telefono compreso. Se non
+> servono, la cartella `06 Templates/Images` si può escludere con
+> `syncIgnoreRegEx` nelle impostazioni di LiveSync.
+
+Hermes vede le nuove note: l'indice è passato da 33 a **124**.
