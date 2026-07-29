@@ -267,6 +267,59 @@ Prova reale: *«Dimmi come sta il server, e separatamente cosa ho scritto negli
 appunti su Oracle»* → piano in due compiti, un agente sullo stato e uno sul
 vault, sintesi con dati veri di entrambi.
 
+### La squadra (ispirata a ChatDev / MetaGPT)
+
+Gli agenti non sono anonimi: sono **ruoli**, definiti in
+`/opt/sovereign-hermes/roles.json`. Il coordinatore legge l'elenco, spezza la
+richiesta e assegna ogni pezzo al ruolo più adatto.
+
+| Ruolo | Quando viene chiamato |
+|---|---|
+| Direttore (CEO) | decisioni, priorità, se una cosa vale la pena |
+| Architetto (CTO) | come è fatto o come andrebbe fatto, compromessi, rischi |
+| Sistemista (SRE) | stato dei servizi, guasti, backup, spazio disco |
+| Sicurezza (CISO) | permessi, accessi, esposizioni, privacy |
+| Ricercatore | informazioni attuali: prezzi, versioni, notizie |
+| Archivista | cosa ha scritto il proprietario nel vault |
+| Sviluppatore | codice, script, configurazioni, query |
+| Debugger | un errore, un log, una causa da trovare |
+| Revisore | rileggere e trovare i problemi |
+| Qualità (QA) | come si dimostra che una cosa funziona |
+| DBA | Oracle, RAC, Data Guard, GoldenGate, prestazioni |
+| Documentalista | scrivere o sistemare documentazione |
+| Generalista | ripiego, quando nulla calza |
+
+Ogni ruolo ha **il suo prompt e i suoi strumenti**: il Ricercatore vede solo il
+web, l'Archivista solo il vault, il Sistemista solo lo stato. Non è estetica —
+un agente con meno strumenti sbaglia meno bersaglio.
+
+Prova reale, *«il monitor di Nextcloud va rosso col 502 ma il servizio
+funziona: trova la causa, dimmi come verificarla e scrivimi il controllo»* →
+squadra assemblata da sola: **Sistemista + Debugger + Sviluppatore**.
+
+Per cambiare la squadra si modifica `roles.json` e si riavvia il servizio.
+Aggiungere un ruolo è aggiungere un oggetto: nessun codice da toccare.
+
+### «Accesso completo», e cosa vuol dire davvero
+
+La casella **accesso completo** compare **solo all'amministratore** e toglie la
+restrizione per ruolo: ogni agente può usare tutti gli strumenti, non solo
+quelli del suo mestiere. Ogni attivazione finisce nel log del servizio.
+
+Quello che **non** fa, ed è deliberato: non concede niente che l'utente non
+abbia già. Le due barriere sono in serie —
+
+```
+tools_for(utente)   ->  cosa il RUOLO DELLA PERSONA permette   (sempre attiva)
+role_tools(agente)  ->  cosa il MESTIERE dell'agente permette  (questa si toglie)
+```
+
+Se `sole` spuntasse la casella (non le compare nemmeno) non otterrebbe il vault:
+la prima barriera resta. E "accesso completo" **non** significa eseguire comandi
+sul server: Hermes resta in sola lettura. Dare a un modello la possibilità di
+eseguire comandi è una decisione separata, che va progettata con un elenco di
+azioni permesse e una conferma umana — non con un interruttore.
+
 ### Quanto è davvero parallelo
 
 Qui l'onestà conta più dell'effetto: **Ollama serve una richiesta alla volta**
