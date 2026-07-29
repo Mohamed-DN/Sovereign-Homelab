@@ -89,6 +89,52 @@ la sincronizzazione degli altri dispositivi non si rompe.
 
 ## FASE 5 — La regola `private` e i motori gratuiti
 
+> **Aggiornato dopo aver letto i repo del proprietario.** La regola `private` e'
+> **gia' fatta e verificata** (vedi sotto); resta da collegare il gateway, e il
+> gateway non e' piu' LiteLLM ma **OmniRoute**.
+
+### La guardia: fatta
+
+Ogni motore ha un attributo `private`. Un motore **non privato** — cioe' un
+fornitore esterno, che con ogni probabilita' si addestra sui prompt — non riceve
+mai gli strumenti che toccano roba di casa: vault, stato infrastruttura,
+accessi, email.
+
+Due dettagli di disegno che contano:
+
+- **Chiude in caso di dimenticanza**: un motore e' privato *salvo prova
+  contraria*, e qualunque motore di tipo `openai` (cioe' il computer di
+  qualcun altro) e' considerato non privato finche' non lo dichiari.
+- I filtri sono **due e indipendenti**: il ruolo della persona, e la fiducia nel
+  motore. Nessuno dei due puo' aggirare l'altro.
+
+Verifica eseguita:
+
+| Motore | privato | strumenti offerti |
+|---|---|---|
+| locale (Ollama) | si | 8 |
+| API esterna | **no** | **2** (solo web) |
+| API dichiarata `private: true` (es. vLLM tuo) | si | 8 |
+
+### OmniRoute al posto di LiteLLM
+
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) fa quello che serviva, meglio:
+
+- endpoint **compatibile OpenAI** su `localhost:20128/v1` → entra in
+  `backends.json` come qualunque altro motore, **senza codice nuovo**;
+- **290+ fornitori**, di cui **40+ gratuiti permanenti** senza carta;
+- **resilienza a tre livelli**: circuit breaker per fornitore, backoff per
+  chiave, isolamento del singolo modello che fallisce — cioe' esattamente
+  *«quando finisce il credito continuo a lavorare»*;
+- chiavi cifrate **AES-256-GCM** a riposo, nessuna telemetria;
+- MIT, self-hosted, Node.js o Docker.
+
+Lo useranno **sia Hermes sia Claude Code**. Va installato su LXC 102 e
+dichiarato `private: false`, cosi' la guardia sopra lo tiene lontano dai dati di
+casa in automatico.
+
+
+
 - Ogni motore porta `private: true/false`. Un motore **non privato** non riceve
   mai memoria personale, vault, o stato dell'infrastruttura.
 - Solo dopo: **LiteLLM** come router unico davanti a tutto, con i provider
@@ -122,6 +168,24 @@ tutto finisce nel registro.
 
 *Verifica*: una `DELETE` viene rifiutata; un controllo notturno arriva la
 mattina dopo.
+
+## FASE 7-bis — agent-reach: arrivare dove SearXNG non arriva
+
+[agent-reach](https://github.com/Panniantong/agent-reach) risolve un problema
+diverso da quello che pensavo. Non migliora il *ranking* della ricerca — quello
+lo risolve Qdrant nella Fase 1. Serve ad **arrivare su piattaforme che una
+ricerca normale non legge**: trascrizioni YouTube, thread Reddit, Twitter/X,
+issue GitHub, feed RSS.
+
+E' una CLI Python con un'architettura che vale la pena copiare: **canali** (un
+modulo per piattaforma), **backend multipli con ricaduta** (cambiare metodo di
+accesso = riordinare una lista, non riscrivere codice) e `doctor` che dice quali
+backend funzionano. E' lo stesso schema di `backends.json`, applicato al web.
+
+Integrazione prevista: uno strumento `web_reach(piattaforma, query)` che invoca
+la CLI sul server. Da valutare con attenzione perche' porta dipendenze
+(`yt-dlp`, `gh`, MCP server) e alcuni backend richiedono chiavi; si parte dai
+canali senza chiave (YouTube, RSS, GitHub) e si aggiunge il resto solo se serve.
 
 ## FASE 8 — Il resto
 
