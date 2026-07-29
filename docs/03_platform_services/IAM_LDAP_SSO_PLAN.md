@@ -797,6 +797,53 @@ that remain are all Authentik's own built-in `default-*` flow policies.
   risk/benefit of aligning a cosmetic field on a working, critical component
   is poor. Recorded here rather than changed. Owner's call, 2026-07-15.
 
+## Identity binding: bind on `sub`, never on a username (2026-07-29)
+
+A **renamed account freed a username, and the next person to get it inherited
+the owner's admin account.** The owner was bootstrapped as `sole` and renamed
+to `mohamed` on 2026-07-12 (see the top of this document). Jellyfin's SSO
+plugin had cached `sole → <owner's Jellyfin account>`; a new household user
+called `sole` was created on 2026-07-15 and, on first login, landed inside the
+owner's administrator profile rather than getting one of her own.
+
+Authentik's `sub` is a UUID it never reuses. Usernames and email addresses can
+both be released and reassigned. Therefore:
+
+- **When integrating a new app, bind on `sub`.** Immich and Headplane both do,
+  and both were provably unaffected: their stored `sub` for the owner is
+  `9373a9ee…`, while the new `sole` carries `f6f1fa96…`.
+- **When an app can only bind on a name** — Jellyfin's plugin keys its
+  `CanonicalLinks` on the OIDC username — the binding must be cleaned in that
+  app whenever a username changes. Nothing in Authentik can reach into an
+  app's own database to do this.
+- **Prefer never reusing a freed username at all.** It costs nothing to pick a
+  different one, and it removes the whole class of problem.
+
+Audited across every integration on 2026-07-29:
+
+| App | Binds on | Verdict |
+|---|---|---|
+| Jellyfin | OIDC username | **was vulnerable — rebuilt clean** |
+| Immich | `sub` | safe |
+| Headplane | `sub` | safe |
+| Paperless | email | safe |
+| Forgejo | `sub` (+ email linking) | safe |
+| Nextcloud | — | clean, no OIDC logins yet |
+| Dashboard / Uptime Kuma / Obsidian | header, resolved live | safe by construction |
+
+Two latent hazards recorded while auditing, neither currently exploitable:
+
+- **Forgejo** runs `ACCOUNT_LINKING = auto`, which merges an OIDC login into an
+  existing local account **with the same email**. Two Authentik users sharing
+  an email address would collapse into one Forgejo account.
+- **Immich** still holds an orphan account for a deleted Authentik user
+  (`luna222@gmail.com`). It cannot be logged into — the Authentik user is
+  gone — but it is worth removing when convenient.
+
+Full incident detail, including the rebuild procedure and the ElementTree trap
+that silently destroyed the plugin's `<OidConfigs>`: `docs/04_apps/jellyfin.md`
+§8.
+
 ## Guardrails
 
 - One service at a time; verify SSO **and** local break-glass before the next.
