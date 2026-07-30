@@ -144,6 +144,7 @@ Ognuna di queste è costata tempo reale. Sono scritte perché non si ripeta.
 | Il pannello impostazioni | i campi messi a mano sparivano al salvataggio | `save_backends` scartava in silenzio `private`, `parallel`, `extra` |
 | `*secret*` nel `.gitignore` | uno script citato nei runbook non è nel repo | esclude anche gli script che *generano* i segreti |
 | Templater + journals | la nota giornaliera contiene il template grezzo | **corsa all'avvio**: `openOnStartup` crea la nota prima che Templater sia caricato |
+| `\n` dentro il JS scritto in una tripla-stringa Python | il pannello sembrava vuoto: nessun motore, nessun modello, nessun fornitore, in silenzio | Python lo trasforma in un vero a-capo **prima** che il browser veda il file: uno `<script>` che fallisce al parse non dà errore visibile, smette solo di fare qualunque cosa. Va scritto `\\n`, e ogni pagina nuova va passata a un parser JS vero (`node --check`), non solo a `python3 -m py_compile` |
 
 ## 7. Come si verifica che è tutto in piedi
 
