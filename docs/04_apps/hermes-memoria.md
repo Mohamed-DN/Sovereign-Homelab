@@ -116,6 +116,57 @@ Il fuso ora è **dichiarato nel codice** (`Europe/Rome`), non ereditato da dove
 il processo gira, e ogni data letta dal database viene riportata in quel fuso
 prima di finire sotto gli occhi di qualcuno.
 
+## 4-bis. Cosa c'è dentro l'indice, e perché è spezzato
+
+L'indice non contiene solo i fatti. Tre origini, filtrate per proprietario:
+
+| Origine | Cosa | Chi la vede |
+|---|---|---|
+| `fatto` | i ricordi salvati con `ricorda` | solo il suo proprietario |
+| `vault` | le note Obsidian | solo il proprietario del vault |
+| `runbook` | **la documentazione di questo repository** | tutti |
+
+L'origine `runbook` è l'idea presa da Nexi DBA AI, che davanti a un allarme
+chiede *«l'abbiamo già visto? qual è la procedura?»*. Qui i runbook esistevano
+già ed erano buoni: semplicemente Hermes non li leggeva. Adesso a *«cosa fare se
+Immich perde le foto»* risponde con
+`docs/05_backup_dr/IMMICH_RECOVERY_RUNBOOK.md` (somiglianza 0.615) e con il
+pezzo giusto — quello che dice di non cancellare gli originali dal telefono
+finché due ripristini indipendenti non sono riusciti.
+
+Il repository sta su LXC 102 in `/opt/sovereign-repo`, **non** in
+`/opt/sovereign-homelab`: là ci sono i file `.env` con i segreti in uso, e un
+`git pull` sopra non è una cosa da fare. Il timer notturno aggiorna il clone
+prima di indicizzare, così l'indice riflette la procedura di oggi.
+
+### Spezzato, non troncato
+
+La prima versione vettorizzava il documento **troncato a 4000 caratteri**: la
+coda di una nota lunga era irraggiungibile. Difetto mio, trovato leggendo il
+`TextChunker` del loro repository.
+
+Ora ogni documento viene diviso in pezzi da 1000 caratteri con 200 di
+sovrapposizione, tagliando su un separatore (paragrafo, riga, punto, spazio) e
+solo in ultima istanza a metà parola. La sovrapposizione serve perché una frase
+spezzata fra due pezzi resti cercabile in almeno uno dei due.
+
+| | Documenti | Punti nell'indice |
+|---|---|---|
+| Vault | 125 note | **601 pezzi** |
+| Repository | 102 documenti | **1227 pezzi** |
+
+La ricerca chiede tre volte i risultati che servono e poi accorpa i pezzi dello
+stesso documento, tenendo il migliore: altrimenti una nota lunga occuperebbe
+tutta la prima pagina con sé stessa. E mostra **il pezzo che ha corrisposto**,
+non l'inizio del documento — se la risposta sta a pagina tre, l'intestazione non
+serve a nessuno.
+
+> **Attenzione per il futuro**: l'impronta salvata copre il *testo*, non il
+> *modo* in cui è stato indicizzato. Cambiando lo spezzettamento i documenti
+> risultano invariati e vengono saltati tutti, lasciando nell'indice i punti
+> vecchi. Per questo esiste `--force`, ed è la prima cosa da usare quando si
+> tocca `chunk_text`.
+
 ## 5. La ricerca nel vault, prima e dopo
 
 Il difetto annotato: cercando «time garden» uscivano query Oracle piene di
@@ -176,9 +227,17 @@ docker exec -i hermes-postgres psql -U hermes -d hermes_memory -v ON_ERROR_STOP=
 docker exec ollama ollama pull embeddinggemma     # server
 ollama pull embeddinggemma                        # PC
 
-# prima indicizzazione del vault
-cd /opt/sovereign-hermes && python3 sovereign-hermes.py --index-vault
+# il repository, da cui vengono indicizzati i runbook
+git clone --depth 1 https://github.com/Mohamed-DN/Sovereign-Homelab.git /opt/sovereign-repo
+
+# prima indicizzazione
+cd /opt/sovereign-hermes
+python3 sovereign-hermes.py --index-repo      # 102 documenti -> 1227 pezzi, 186 s
+python3 sovereign-hermes.py --index-vault     # 125 note      ->  601 pezzi,  92 s
 systemctl enable --now sovereign-hermes-index-vault.timer
+
+# quando cambia il MODO di indicizzare (non i documenti)
+python3 sovereign-hermes.py --index-vault --force
 ```
 
 Lo script dei segreti è **idempotente per necessità**: rigenerare la password di

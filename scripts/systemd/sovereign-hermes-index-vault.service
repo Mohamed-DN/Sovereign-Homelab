@@ -1,5 +1,5 @@
 [Unit]
-Description=Embed the Obsidian vault into the Hermes semantic index
+Description=Embed the vault and the repository runbooks into the Hermes semantic index
 After=network-online.target docker.service sovereign-hermes.service
 Wants=network-online.target
 
@@ -8,10 +8,16 @@ Type=oneshot
 User=root
 Group=root
 WorkingDirectory=/opt/sovereign-hermes
+# The repository is the written procedure: pulled first so the index reflects
+# what is documented today, not what was documented when the clone was made.
+# `-` prefix: no network, no problem - the vault still gets indexed.
+ExecStartPre=-/usr/bin/git -C /opt/sovereign-repo pull --quiet origin main
+ExecStart=/usr/bin/python3 /opt/sovereign-hermes/sovereign-hermes.py --index-repo
 ExecStart=/usr/bin/python3 /opt/sovereign-hermes/sovereign-hermes.py --index-vault
-# Embedding 124 notes on a CPU is not fast; give it room rather than have the
-# timer kill a run halfway and leave the index half stale.
-TimeoutStartSec=3600
+# Embedding on the server's CPU is slow (see docs/04_apps/hermes-memoria.md §6):
+# give the run room rather than have the timer kill it half done and leave the
+# index partly stale.
+TimeoutStartSec=7200
 NoNewPrivileges=true
 PrivateTmp=true
 
