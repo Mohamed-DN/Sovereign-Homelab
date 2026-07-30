@@ -1,6 +1,6 @@
 # PIANO MASTER — l'indice di tutto
 
-> Aggiornato il 2026-07-29. **Questo è il file da cui partire.** I piani erano
+> Aggiornato il 2026-07-30. **Questo è il file da cui partire.** I piani erano
 > finiti sparsi su cinque documenti: qui c'è l'elenco completo di tutto ciò che
 > è stato chiesto, proposto o scoperto, con lo stato e il link a dove è
 > descritto per esteso. Se una cosa non è in questa tabella, è stata dimenticata.
@@ -16,6 +16,8 @@
 | [PIANO_HERMES_ESPANSO.md](PIANO_HERMES_ESPANSO.md) | Voce, web, LLM gratuiti, assistente realtime, creazione contenuti, n8n |
 | [PIANO_HERMES_CANALI_E_DB.md](PIANO_HERMES_CANALI_E_DB.md) | Motori oltre Ollama, Telegram, **perché no WhatsApp**, database, controlli |
 | [hermes.md](../04_apps/hermes.md) | Il runbook del servizio: com'è fatto, come si ripara |
+| [hermes-memoria.md](../04_apps/hermes-memoria.md) | **La memoria**: i tre archivi, le due bugie chiuse, il costo misurato degli embedding |
+| [omniroute.md](../04_apps/omniroute.md) | **Il gateway** verso i fornitori esterni: cosa funziona e cosa manca |
 | [PRIVACY_E_VISIBILITA_DATI.md](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) | Chi vede cosa, servizio per servizio (la domanda su Immich) |
 | [ESPOSIZIONE_E_SEGRETI.md](../06_operations_security/ESPOSIZIONE_E_SEGRETI.md) | Cosa si vede da internet, dove stanno i segreti, idea da M-DNVault |
 
@@ -41,20 +43,28 @@
 | **S2** | Vault Obsidian riservato al proprietario (era leggibile da altri utenti) | §3 |
 | **S3** | Porta di Hermes chiusa a chi non passa dal login | [esposizione](../06_operations_security/ESPOSIZIONE_E_SEGRETI.md) §2 |
 | **S4** | `web_fetch` rifiuta gli indirizzi interni (SSRF) | §2 |
+| 13 | **Memoria fuori dal modello**: Postgres + Qdrant + Valkey, con `ricorda`, `ricorda_cerca`, `dimentica`, `agenda_aggiungi`, `agenda_leggi` | [memoria](../04_apps/hermes-memoria.md) |
+| 14 | **Ricerca nel vault per significato**: 125 note indicizzate, «time garden» non trova più query Oracle | [memoria](../04_apps/hermes-memoria.md) §5 |
+| 15 | **La bugia «ho salvato» è chiusa**: gli ordini espliciti li esegue il codice, e una pretesa non verificata viene dichiarata all'utente | [memoria](../04_apps/hermes-memoria.md) §4 |
+| 16 | **Fuso orario**: l'agenda e l'orologio di Hermes erano due ore indietro (il container gira su UTC) | [memoria](../04_apps/hermes-memoria.md) §4 |
+| 17 | **OmniRoute** installato, dietro SSO, con `/v1` esente e chiave API. Motore non privato in `backends.json` | [omniroute](../04_apps/omniroute.md) |
+| **S5** | Porte di OmniRoute chiuse alla LAN (`DOCKER-USER`): erano aperte a chiunque conoscesse la password condivisa | [omniroute](../04_apps/omniroute.md) §6 |
+| **S6** | Archivi della memoria in ascolto **solo** su loopback, con password e chiave API anche lì | [memoria](../04_apps/hermes-memoria.md) §1 |
 
 ---
 
 ## 3. DA FARE — l'elenco completo, niente escluso
 
-### Fase 1 — Memoria e database
+### Fase 1 — Memoria e database ✅ FATTA
 
 | Cosa | Perché | Stato |
 |---|---|---|
-| **PostgreSQL** — fatti strutturati: persone, impegni, preferenze | i dati sono relazionali, e il proprietario è DBA | da fare |
-| **Qdrant** — ricerca per significato (embeddings) | «cosa mi aveva detto sul lavoro?» non si risolve con `LIKE`; risolve anche la ricerca scadente nel vault | da fare |
-| **Valkey** — cache e code | opzionale: serve quando ci saranno controlli programmati e code di lavoro | valutare |
-| Strumenti `ricorda`, `ricorda_cerca`, `dimentica`, `agenda_aggiungi`, `agenda_leggi` | — | da fare |
-| Memoria **fuori dal modello**, con data e origine di ogni voce | cambiando modello non si perde nulla | da fare |
+| **PostgreSQL** — fatti strutturati: persone, impegni, preferenze | i dati sono relazionali, e il proprietario è DBA | ✅ live |
+| **Qdrant** — ricerca per significato (embeddings) | «cosa mi aveva detto sul lavoro?» non si risolve con `LIKE`; risolve anche la ricerca scadente nel vault | ✅ live, 125 note |
+| **Valkey** — cache e code | serve già adesso: un embedding sulla CPU del server costa 18 s | ✅ live (cache embedding) |
+| Strumenti `ricorda`, `ricorda_cerca`, `dimentica`, `agenda_aggiungi`, `agenda_leggi` | — | ✅ live |
+| Memoria **fuori dal modello**, con data e origine di ogni voce | cambiando modello non si perde nulla | ✅ verificata col riavvio |
+| Reindicizzazione notturna del vault | una nota scritta oggi è cercabile domani | ✅ timer 03:20 |
 
 ### Fase 2 — Voce
 
@@ -141,10 +151,12 @@
 
 | Difetto | Nota |
 |---|---|
-| Il modello **finge di usare gli strumenti** | `qwen3.5:9b` a volte dice «cerco…» senza chiamare nulla. `gpt-oss:20b` è più disciplinato |
-| La ricerca nel vault è **primitiva** | conta parole: «time garden» trova query Oracle coi timestamp. Lo risolve Qdrant (fase 1) |
-| Gli strumenti dei sotto-agenti non sono visibili in pagina | si vede il piano, non le singole chiamate |
+| Il modello **finge di usare gli strumenti** | **mitigato, non guarito.** Gli ordini espliciti ora li esegue il codice, e una pretesa non verificata viene dichiarata all'utente ([memoria](../04_apps/hermes-memoria.md) §4). Ma su una richiesta indiretta `qwen3.5:9b` può ancora saltare uno strumento senza che nessuno se ne accorga |
+| ~~La ricerca nel vault è **primitiva**~~ | **risolta**: 125 note indicizzate in Qdrant, cerca per significato. La ricerca a parole resta come ripiego dichiarato |
+| Gli strumenti dei sotto-agenti non sono visibili in pagina | si vede il piano, non le singole chiamate. Lo risolverebbe **Langfuse** (vedi il piano di aggiornamento) |
 | Il pulsante voce non registra | vedi fase 2: non è un bug, è una parte mai costruita |
+| Il **motore degli embedding sulla CPU è 180× più lento** della GPU | 18 s contro 97 ms per la stessa frase. Con il PC spento la prima ricerca è lentissima. Non indagato a fondo ([memoria](../04_apps/hermes-memoria.md) §6) |
+| Il database di OmniRoute **non è cifrato** a riposo | nonostante `STORAGE_ENCRYPTION_KEY`. Le chiavi dei fornitori dentro invece lo sono ([omniroute](../04_apps/omniroute.md) §6) |
 
 ---
 

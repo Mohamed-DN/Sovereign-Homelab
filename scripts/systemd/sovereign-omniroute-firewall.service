@@ -1,0 +1,19 @@
+[Unit]
+Description=Restrict the OmniRoute ports to NPM, the PC and the Proxmox host
+# Must run after docker, because the DOCKER-USER chain only exists once the
+# daemon has built it - and docker flushes it when it starts.
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+User=root
+Group=root
+ExecStart=/opt/sovereign-omniroute/sovereign-omniroute-firewall.sh
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,43 @@
+name: omniroute
+
+services:
+  omniroute:
+    image: diegosouzapw/omniroute:${OMNIROUTE_TAG}
+    container_name: omniroute
+    restart: unless-stopped
+    # 40s: the app flushes SQLite and closes provider streams on SIGTERM.
+    stop_grace_period: 40s
+    environment:
+    # Secrets: session signing, provider-key encryption, SQLite encryption at rest.
+    - JWT_SECRET=${OMNIROUTE_JWT_SECRET}
+    - API_KEY_SECRET=${OMNIROUTE_API_KEY_SECRET}
+    - STORAGE_ENCRYPTION_KEY=${OMNIROUTE_STORAGE_ENCRYPTION_KEY}
+    - INITIAL_PASSWORD=${OMNIROUTE_INITIAL_PASSWORD}
+    # The dashboard is reached over HTTPS through NPM, so the session cookie
+    # carries the Secure flag: a browser will not even keep it over plain http.
+    # A script would, which is why the port itself is firewalled - see
+    # scripts/sovereign-omniroute-firewall.sh.
+    - AUTH_COOKIE_SECURE=true
+    # Every /v1/* call needs an OmniRoute API key: that path is deliberately
+    # exempt from the SSO gate, because a program cannot follow a login redirect.
+    - REQUIRE_API_KEY=true
+    - ALLOW_API_KEY_REVEAL=false
+    - MACHINE_ID_SALT=${OMNIROUTE_MACHINE_ID_SALT}
+    - DATA_DIR=/app/data
+    - NODE_ENV=production
+    - PORT=20128
+    # Live monitoring WebSocket: served on the LAN and proxied by NPM under
+    # /live-ws, so the browser opens wss://omniroute.internal/live-ws.
+    - LIVE_WS_HOST=0.0.0.0
+    - LIVE_WS_PORT=20132
+    - LIVE_WS_ALLOWED_ORIGINS=https://omniroute.internal
+    - LIVE_WS_ALLOWED_HOSTS=omniroute.internal,192.168.1.52
+    - NEXT_PUBLIC_LIVE_WS_PUBLIC_URL=wss://omniroute.internal/live-ws
+    ports:
+    - "${OMNIROUTE_PORT}:20128"
+    - "${OMNIROUTE_LIVE_WS_PORT}:20132"
+    volumes:
+    - omniroute_data:/app/data
+
+volumes:
+  omniroute_data:

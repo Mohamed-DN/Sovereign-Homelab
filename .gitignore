@@ -21,6 +21,12 @@ sovereign-secrets/
 *.secret
 *.secrets
 !docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md
+# The `*secret*` pattern above also swallows the scripts that GENERATE the
+# secrets - they contain none, and the runbooks tell the reader to run them by
+# name. Excluding them silently would leave those instructions pointing at
+# files that are not in the repository.
+!scripts/sovereign-omniroute-secrets.sh
+!scripts/sovereign-hermes-memory-secrets.sh
 
 # Generated public-CA onboarding artifacts are rendered from the live CA.
 stacks/trust-portal/site/downloads/*
