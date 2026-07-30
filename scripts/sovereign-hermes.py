@@ -1476,11 +1476,20 @@ def backends_public() -> list[dict[str, Any]]:
     """Backend list for the settings page: never includes a key, only whether
     one is present."""
     out = []
+    with _backend_metrics_lock:
+        latency = dict(_backend_latency_ms)
+        inflight = dict(_backend_inflight)
     for b in load_backends_all():
         entry = {k: v for k, v in b.items() if k != "api_key"}
         entry["has_key"] = bool(read_secret(b.get("api_key_file", "")))
         entry["healthy"] = backend_healthy(b) if b.get("enabled", True) else False
         entry["available_models"] = backend_models(b) if entry["healthy"] else []
+        # W3: badges the panel shows without a separate call -- private/not,
+        # and the metrics W2.3's strategies actually use, so "piu_veloce" and
+        # "meno_carico" are not a black box.
+        entry["is_private"] = backend_is_private(b)
+        entry["latency_ms"] = round(latency[b["name"]]) if b["name"] in latency else None
+        entry["inflight"] = inflight.get(b["name"], 0)
         out.append(entry)
     return out
 
@@ -2586,7 +2595,11 @@ body{margin:0;background:#06080b;color:#e5e7eb;font:15px/1.6 'Segoe UI',system-u
 header{padding:14px 20px;background:#0d1218;border-bottom:1px solid #1f2937;display:flex;
  align-items:center;gap:12px}
 h1{margin:0;font-size:17px}h1 span{color:#f0d264}
-main{max-width:900px;margin:0 auto;padding:22px 18px 110px}
+nav.tabs{display:flex;gap:6px;padding:10px 18px 0;flex-wrap:wrap;max-width:900px;margin:0 auto}
+.tabbtn{background:#111a22;color:#9aa8b8;border:1px solid #1f2937;border-bottom:0;
+ border-radius:8px 8px 0 0;padding:8px 14px;font-size:13px;cursor:pointer;font-weight:600}
+.tabbtn.active{background:#0d1218;color:#43b4c4}
+main{max-width:900px;margin:0 auto;padding:14px 18px 110px}
 .card{background:#0d1218;border:1px solid #1f2937;border-radius:12px;padding:16px;margin-bottom:14px}
 .card.off{opacity:.55}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:9px}
@@ -2605,61 +2618,136 @@ button.danger{background:#3b1418;color:#fca5a5;border:1px solid #7f1d1d}
    in fondo al DOCUMENTO, quindi il pulsante Salva finiva sotto la tabella dei
    modelli consigliati e per trovarlo bisognava scorrere fino in fondo. Il
    proprietario l'ha segnalato come «manca il pulsante invio»: c'era, non si
-   vedeva. `main` ha il padding in fondo per non finirci sotto. */
+   vedeva. `main` ha il padding in fondo per non finirci sotto. Riguarda solo
+   la sezione Motori: le altre sezioni hanno un pulsante proprio, in cima, non
+   in fondo a un elenco che può crescere. */
 .bar{position:fixed;left:0;right:0;bottom:0;z-index:20;
  background:#0d1218;border-top:1px solid #1f2937;padding:12px 18px;
  display:flex;gap:10px;align-items:center;margin:0 -18px}
 .hint{color:#6b7a8d;font-size:12px}
-table{width:100%;border-collapse:collapse;font-size:13px}
-td,th{text-align:left;padding:5px 8px;border-bottom:1px solid #131c25}
-th{color:#9aa8b8;font-weight:600}
-.no{color:#fca5a5}.yes{color:#6ee7b7}
 a{color:#43b4c4}
 #msg{font-size:13px}
 </style></head><body>
 <header><h1>⚙ Hermes · <span>impostazioni</span></h1>
  <span style="flex:1"></span><a href=".">torna alla chat</a></header>
+<nav class=tabs>
+ <button class=tabbtn data-tab=motori>Motori</button>
+ <button class=tabbtn data-tab=modelli>Modelli</button>
+ <button class=tabbtn data-tab=fornitori>Fornitori</button>
+ <button class=tabbtn data-tab=rotte>Rotte</button>
+ <button class=tabbtn data-tab=memoria>Memoria</button>
+ <button class=tabbtn data-tab=rubrica>Rubrica</button>
+</nav>
 <main>
- <p class=hint>L'ordine conta: Hermes usa <b>il primo motore che risponde</b>.
- Trascina non serve — usa le frecce. Le chiavi API non vengono mai mostrate:
- si scrivono in file leggibili solo da root.</p>
- <div id=list></div>
- <button class=ghost id=add>+ aggiungi motore</button>
+ <section id=tab-motori>
+  <p class=hint>L'ordine conta: Hermes usa <b>il primo motore che risponde</b>.
+  Trascina non serve — usa le frecce. Le chiavi API non vengono mai mostrate:
+  si scrivono in file leggibili solo da root.</p>
+  <div id=list></div>
+  <button class=ghost id=add>+ aggiungi motore</button>
+ </section>
 
- <div class=card style="margin-top:18px">
-  <b>Fornitori</b>
-  <p class=hint>Scegli un fornitore, incolla solo la chiave e premi Salva — l'indirizzo
-  e il modello li mette il preset.</p>
-  <div class=row>
-   <div class=f><label>fornitore</label><select id=p-preset></select></div>
-   <button id=p-add>aggiungi</button>
+ <section id=tab-modelli hidden>
+  <div class=card>
+   <b>Modelli</b>
+   <div class=row>
+    <div class=f><label>motore</label><select id=m-engine></select></div>
+    <div class=f><label>ruolo</label><select id=m-role><option value="">tutti</option>
+     <option>chat</option><option>reasoning</option><option>coding</option>
+     <option>vision</option><option>tools</option><option>embedding</option>
+     <option>small</option><option>multilingual</option></select></div>
+   </div>
+   <div id=models></div>
   </div>
-  <div id=p-note class=hint></div>
- </div>
+ </section>
 
- <div class=card style="margin-top:18px">
-  <b>Modelli</b>
-  <div class=row>
-   <div class=f><label>motore</label><select id=m-engine></select></div>
-   <div class=f><label>ruolo</label><select id=m-role><option value="">tutti</option>
-    <option>chat</option><option>reasoning</option><option>coding</option>
-    <option>vision</option><option>tools</option><option>embedding</option>
-    <option>small</option><option>multilingual</option></select></div>
+ <section id=tab-fornitori hidden>
+  <div class=card>
+   <b>Fornitori</b>
+   <p class=hint>Scegli un fornitore, incolla solo la chiave e premi Salva (nella
+   sezione Motori) — l'indirizzo e il modello li mette il preset.</p>
+   <div class=row>
+    <div class=f><label>fornitore</label><select id=p-preset></select></div>
+    <button id=p-add>aggiungi</button>
+   </div>
+   <div id=p-note class=hint></div>
   </div>
-  <div id=models></div>
- </div>
+ </section>
+
+ <section id=tab-rotte hidden>
+  <div class=card>
+   <b>Rotte per intenti</b>
+   <p class=hint>«privato» non può mai cadere su un motore non privato, anche
+   se lo forzi dal menu motore in chat. Il nome di ogni rotta è fisso; motore
+   primario e ripiego sono nomi di motori, separati da virgola.</p>
+   <div class=row>
+    <div class=f><label>strategia di scelta</label><select id=r-strategy>
+     <option value=ordine>ordine (di default)</option>
+     <option value=piu_veloce>più veloce (latenza dell'ultima chiamata)</option>
+     <option value=meno_carico>meno carico (chiamate in volo)</option>
+    </select></div>
+    <button id=r-save>Salva rotte</button>
+    <span id=r-msg class=hint></span>
+   </div>
+  </div>
+  <div id=routes></div>
+ </section>
+
+ <section id=tab-memoria hidden>
+  <div class=card>
+   <b>Stato della memoria</b>
+   <div id=mem-status class=hint>caricamento…</div>
+   <div class=row style="margin-top:10px">
+    <button class=ghost id=mem-reindex>reindicizza vault e runbook</button>
+    <span id=mem-msg class=hint></span>
+   </div>
+  </div>
+ </section>
+
+ <section id=tab-rubrica hidden>
+  <div class=card>
+   <b>Aggiungi un contatto</b>
+   <div class=row>
+    <div class=f><label>nome</label><input id=c-name></div>
+    <div class=f><label>email</label><input id=c-email></div>
+    <div class=f><label>nota</label><input id=c-note></div>
+   </div>
+   <div class=row><button id=c-add>aggiungi</button><span id=c-msg class=hint></span></div>
+  </div>
+  <div id=contacts></div>
+ </section>
 </main>
 <div class=bar><button id=save>Salva</button><button class=ghost id=reload>Ricarica</button>
  <span id=msg class=hint></span></div>
 <script>
 const $=i=>document.getElementById(i);
 let data=[];
+
+// --- schede -------------------------------------------------------------
+const TABS=['motori','modelli','fornitori','rotte','memoria','rubrica'];
+function showTab(name){
+ if(!TABS.includes(name)) name='motori';
+ TABS.forEach(t=>{$('tab-'+t).hidden=(t!==name);});
+ document.querySelectorAll('.tabbtn').forEach(b=>b.classList.toggle('active',b.dataset.tab===name));
+ $('save').style.display=(name==='motori')?'':'none';
+ localStorage.setItem('hermes-tab',name);
+ if(name==='rotte'&&!routesLoaded) loadRoutes();
+ if(name==='memoria') loadMemory();
+ if(name==='rubrica'&&!contactsLoaded) loadContacts();
+}
+document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
+
 function card(b,i){
  const d=document.createElement('div');d.className='card'+(b.enabled?'':' off');
  const models=(b.available_models||[]);
  d.innerHTML=
   '<div class=row><b>'+(i+1)+'.</b>'
   +'<span class="pill '+(b.healthy?'on':'off')+'">'+(b.healthy?'risponde':'non risponde')+'</span>'
+  +'<span class="pill '+(b.is_private?'on':'off')+'" title="'
+  +(b.is_private?'vede vault, memoria, stato e accessi':'la guardia gli nega vault, memoria, stato e accessi')
+  +'">'+(b.is_private?'privato':'non privato')+'</span>'
+  +(b.latency_ms!=null?'<span class=pill>'+b.latency_ms+' ms</span>':'')
+  +(b.inflight?'<span class=pill>'+b.inflight+' in corso</span>':'')
   +'<span style="flex:1"></span>'
   +'<button class=ghost data-a=up>↑</button><button class=ghost data-a=down>↓</button>'
   +'<button class=danger data-a=del>elimina</button></div>'
@@ -2758,9 +2846,9 @@ function pullModel(name,status){
    (function pump(){reader.read().then(({done,value})=>{
      if(done){status.textContent='fatto';loadModels();return;}
      buf+=dec.decode(value,{stream:true});
-     const parts=buf.split('\n\n');buf=parts.pop();
+     const parts=buf.split('\\n\\n');buf=parts.pop();
      parts.forEach(p=>{
-       const line=p.split('\n').find(l=>l.startsWith('data: '));
+       const line=p.split('\\n').find(l=>l.startsWith('data: '));
        if(!line) return;
        try{const j=JSON.parse(line.slice(6));
          if(j.error) status.textContent='✗ '+j.error;
@@ -2814,16 +2902,115 @@ $('p-preset').onchange=showPresetNote;
 $('p-add').onclick=()=>{
  const p=presets.find(x=>x.name===$('p-preset').value);
  if(!p) return;
- if(p.configured){$('msg').textContent=p.label+' è già configurato: modificalo nell\'elenco sopra.';return;}
+ if(p.configured){$('msg').textContent=p.label+' è già configurato: modificalo nella sezione Motori.';return;}
  collect();
  data.push({name:p.name,label:p.label,type:'openai',url:p.url,model:p.model||'',
    think:false,enabled:true,extra:p.extra||{}});
  render();
+ showTab('motori');
  $('msg').textContent='incolla la chiave nel campo e premi Invio (o Salva)';
 };
+
+// --- W2.2/W2.3: rotte per intenti + strategia di scelta -----------------
+let routes=[], routesLoaded=false;
+function routeCard(r,i){
+ const d=document.createElement('div');d.className='card';
+ d.innerHTML=
+  '<div class=row><b>'+r.name+'</b>'
+  +(r.solo_privati?'<span class="pill on">solo motori privati</span>':'')
+  +'<span style="flex:1"></span>'
+  +'<button class=ghost data-a=up>↑</button><button class=ghost data-a=down>↓</button></div>'
+  +'<div class=row><div class=f><label>descrizione</label><input data-k=descrizione value="'+(r.descrizione||'')+'"></div></div>'
+  +'<div class=row><div class=f><label>motore primario</label><input data-k=primary value="'+(r.primary||'')+'"></div>'
+  +'<div class=f><label>ripiego (nomi separati da virgola)</label><input data-k=fallback value="'+(r.fallback||[]).join(', ')+'"></div></div>';
+ d.querySelector('[data-a=up]').onclick=()=>{if(i>0){collectRoutes();[routes[i-1],routes[i]]=[routes[i],routes[i-1]];renderRoutes();}};
+ d.querySelector('[data-a=down]').onclick=()=>{if(i<routes.length-1){collectRoutes();[routes[i+1],routes[i]]=[routes[i],routes[i+1]];renderRoutes();}};
+ return d;
+}
+function renderRoutes(){
+ const L=$('routes');L.innerHTML='';routes.forEach((r,i)=>L.appendChild(routeCard(r,i)));
+}
+function collectRoutes(){
+ [...$('routes').children].forEach((d,i)=>{
+  d.querySelectorAll('[data-k]').forEach(el=>{
+   if(el.dataset.k==='fallback') routes[i].fallback=el.value.split(',').map(s=>s.trim()).filter(Boolean);
+   else routes[i][el.dataset.k]=el.value;
+  });
+ });
+}
+function loadRoutes(){
+ fetch('api/routes').then(r=>r.json()).then(d=>{
+  routes=d.routes||[];$('r-strategy').value=d.strategy||'ordine';
+  renderRoutes();routesLoaded=true;
+ });
+}
+$('r-save').onclick=()=>{
+ collectRoutes();$('r-msg').textContent='salvataggio…';
+ fetch('api/routes',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({routes:routes,strategy:$('r-strategy').value})})
+  .then(r=>r.json()).then(d=>{$('r-msg').textContent=d.ok?('✓ '+d.message):('✗ '+d.message);
+   if(d.ok) setTimeout(loadRoutes,600);})
+  .catch(e=>$('r-msg').textContent='✗ '+e);
+};
+
+// --- W3: memoria -----------------------------------------------------
+function loadMemory(){
+ $('mem-status').textContent='caricamento…';
+ fetch('api/memory/status').then(r=>r.json()).then(d=>{
+  if(!d.configurata){$('mem-status').textContent='Memoria non configurata: manca il DSN di Postgres.';return;}
+  $('mem-status').innerHTML=
+   'Postgres: <b>'+(d.postgres?'su':'giù')+'</b> · fatti: '+(d.fatti??'?')+' · impegni: '+(d.impegni??'?')
+   +' · procedure: '+(d.procedure??'?')+' · vettori: '+(d.vettori??'?')+'<br>'
+   +'Qdrant: <b>'+(d.qdrant?'su':'giù')+'</b>'+(d.qdrant_punti!=null?(' ('+d.qdrant_punti+' punti)'):'')
+   +' · Valkey: <b>'+(d.valkey?'su':'giù')+'</b>'
+   +' · embedding: '+(d.embedding?d.embedding_ms+' ms':'<span class="pill off">non disponibile</span>');
+ }).catch(()=>{$('mem-status').textContent='non raggiungibile';});
+}
+$('mem-reindex').onclick=()=>{
+ $('mem-msg').textContent='reindicizzo… può metterci fino a un paio di minuti';
+ fetch('api/memory/reindex',{method:'POST'}).then(r=>r.json()).then(d=>{
+  $('mem-msg').textContent=(d.ok?'✓ ':'✗ ')+d.message;loadMemory();
+ }).catch(e=>$('mem-msg').textContent='✗ '+e);
+};
+
+// --- W4: rubrica -------------------------------------------------------
+let contactsLoaded=false;
+function contactRow(c){
+ const d=document.createElement('div');d.className='row';
+ d.innerHTML='<div class=f><b>'+c.nome+'</b> — '+c.email
+   +(c.nota?' <span class=hint>('+c.nota+')</span>':'')+'</div>'
+   +'<span class="pill '+(c.attivo?'on':'off')+'">'+(c.attivo?'attivo':'disattivato')+'</span>'
+   +'<span class=hint>usato '+c.usato_volte+' volte</span>';
+ return d;
+}
+function loadContacts(){
+ fetch('api/contacts').then(r=>r.json()).then(d=>{
+  const L=$('contacts');L.innerHTML='';
+  const rows=d.contacts||[];
+  rows.forEach(c=>L.appendChild(contactRow(c)));
+  if(!rows.length) L.innerHTML='<p class=hint>Rubrica vuota: aggiungi il primo contatto qui sopra.</p>';
+  contactsLoaded=true;
+ });
+}
+$('c-add').onclick=()=>{
+ const nome=$('c-name').value.trim(), email=$('c-email').value.trim(), nota=$('c-note').value.trim();
+ if(!nome||!email){$('c-msg').textContent='servono nome ed email';return;}
+ fetch('api/contacts',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({nome:nome,email:email,nota:nota})})
+  .then(r=>r.json()).then(d=>{
+   $('c-msg').textContent=d.ok?'✓ aggiunto':'✗ '+(d.error||'errore');
+   if(d.ok){$('c-name').value='';$('c-email').value='';$('c-note').value='';loadContacts();}
+  }).catch(e=>$('c-msg').textContent='✗ '+e);
+};
+
 document.addEventListener('keydown',e=>{
  if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){
-  e.preventDefault();$('save').click();}});
+  e.preventDefault();
+  const active=document.querySelector('.tabbtn.active').dataset.tab;
+  if(active==='rubrica'){$('c-add').click();}
+  else if(active==='rotte'){$('r-save').click();}
+  else{$('save').click();}
+ }});
 $('reload').onclick=load;
 $('save').onclick=()=>{
  collect();$('msg').textContent='salvataggio…';
@@ -2834,6 +3021,7 @@ $('save').onclick=()=>{
   .catch(e=>$('msg').textContent='✗ '+e);
 };
 load();
+showTab(localStorage.getItem('hermes-tab')||'motori');
 </script></body></html>"""
 
 
@@ -2981,6 +3169,22 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"routes": load_routes(),
                                         "strategy": load_router_strategy()}).encode(),
                        "application/json; charset=utf-8")
+        elif route.path == "/api/memory/status":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            store = memory()
+            body = store.status() if store is not None else {
+                "configurata": False, "errore": _memory_error or "memoria assente"}
+            self._send(200, json.dumps(body).encode(), "application/json; charset=utf-8")
+        elif route.path == "/api/contacts":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            store = memory()
+            contacts = store.contact_list(user["username"]) if store is not None else []
+            self._send(200, json.dumps({"contacts": contacts}).encode(),
+                       "application/json; charset=utf-8")
         elif route.path == "/api/history":
             self._send(200, json.dumps({"messages": load_chat(user["username"])}).encode(),
                        "application/json; charset=utf-8")
@@ -3083,6 +3287,49 @@ class Handler(BaseHTTPRequestHandler):
                 print(f"[hermes] rotte aggiornate da {user['username']}: {message}")
             self._send(200 if ok else 400,
                        json.dumps({"ok": ok, "message": message}).encode(),
+                       "application/json; charset=utf-8")
+            return
+        if route.path == "/api/memory/reindex":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            if memory() is None:
+                self._send(200, json.dumps({"ok": False, "message": _memory_unavailable()}).encode(),
+                           "application/json; charset=utf-8")
+                return
+            # Reuses the same functions the nightly timer calls -- one code
+            # path for "runs by itself" and "the owner asked for it now".
+            vault_ok = index_vault(force=False) == 0
+            repo_ok = index_repo(force=False) == 0
+            ok = vault_ok and repo_ok
+            message = ("vault e runbook reindicizzati" if ok else
+                      f"vault: {'ok' if vault_ok else 'fallito'}, runbook: {'ok' if repo_ok else 'fallito'}")
+            print(f"[hermes] reindicizzazione richiesta da {user['username']}: {message}")
+            self._send(200, json.dumps({"ok": ok, "message": message}).encode(),
+                       "application/json; charset=utf-8")
+            return
+        if route.path == "/api/contacts":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            store = memory()
+            if store is None:
+                self._send(200, json.dumps({"ok": False, "error": _memory_unavailable()}).encode(),
+                           "application/json; charset=utf-8")
+                return
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length < 1 or length > 5_000:
+                self._send(413, b'{"error":"richiesta troppo grande"}', "application/json; charset=utf-8")
+                return
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send(400, b'{"error":"corpo non valido"}', "application/json; charset=utf-8")
+                return
+            result = store.contact_add(user["username"], str(payload.get("nome", "")),
+                                       str(payload.get("email", "")),
+                                       note=str(payload.get("nota", "") or ""))
+            self._send(200 if result.get("ok") else 400, json.dumps(result).encode(),
                        "application/json; charset=utf-8")
             return
         if route.path != "/api/backends":

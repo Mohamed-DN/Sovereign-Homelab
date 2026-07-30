@@ -65,6 +65,7 @@
 | 26 | **Router per intenti (W2.2)**: 5 rotte, `privato` non può mai cadere su un motore non privato — verificato anche contro un tentativo esplicito di forzarlo dal menu motore | [hermes.md](../04_apps/hermes.md) §7-sexies |
 | 27 | **Strategie di scelta (W2.3)**: `ordine`/`piu_veloce`/`meno_carico`, default invariato | [hermes.md](../04_apps/hermes.md) §7-sexies |
 | 28 | **Rubrica (W4)**: tabella `contacts`, `rubrica_aggiungi/cerca/elenco`, `send_mail` con `destinatario` per nome. Un indirizzo mai visto viene rifiutato, mai inventato. Verificati dal vivo tutti e cinque i percorsi (aggiunta, ricerca per nome/email, invio riuscito, doppio rifiuto) | [hermes.md](../04_apps/hermes.md) §7-septies |
+| 29 | **Pannello a schede (W3)**: Motori/Modelli/Fornitori/Rotte/Memoria/Rubrica, badge privato+latenza sui motori, editor rotte, stato memoria con reindicizza, rubrica con form. **Trovato e chiuso un difetto che aveva reso l'intero pannello vuoto dal vivo dal momento di W1**: `\n` scritto in una tripla-stringa Python diventava un a-capo vero nel JS, mandando in crash l'intero `<script>` al parse — nessun errore visibile, solo un pannello che sembrava aver perso tutti i motori | [hermes.md](../04_apps/hermes.md) §7-octies |
 
 ---
 

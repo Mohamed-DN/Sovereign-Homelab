@@ -472,6 +472,46 @@ nome, ricerca per email, invio riuscito a un contatto in rubrica, e i due
 rifiuti (nome sconosciuto, indirizzo sconosciuto) — nessuno dei due tocca il
 relay, quindi nessun invio parte finché il contatto non esiste davvero.
 
+## 7-octies. Il pannello rifatto a sezioni (W3)
+
+`/impostazioni` era una pagina sola, sempre più lunga a ogni fase (W1 ha
+aggiunto il catalogo, W2 i fornitori). Ora è una barra di schede — **Motori,
+Modelli, Fornitori, Rotte, Memoria, Rubrica** — ognuna il proprio `<section>`,
+nascosta con l'attributo `hidden` invece di essere rimossa dal DOM (più
+semplice, nessun framework). La scheda **Motori** mantiene il pulsante Salva
+`position:fixed` in fondo, invariato; le altre schede hanno un pulsante proprio
+in cima alla sezione (Rotte) o azioni puntuali (Modelli, Fornitori, Rubrica),
+perché non c'è nulla da salvare in blocco lì.
+
+Novità per scheda:
+- **Motori**: ogni scheda motore ora mostra anche **privato/non privato**
+  (con tooltip su cosa cambia) e, se già misurate, **latenza dell'ultima
+  chiamata** e **chiamate in corso** — gli stessi numeri che W2.3 usa per
+  `piu_veloce`/`meno_carico`, non più un dato invisibile.
+- **Rotte**: editor per le 5 rotte (descrizione, motore primario, ripiego) più
+  il selettore di strategia; salva con `POST /api/routes`.
+- **Memoria**: `GET /api/memory/status` (gli stessi numeri di
+  `--memory-status`) e un pulsante **reindicizza** che chiama le stesse
+  funzioni del timer notturno (`index_vault`/`index_repo`), non una copia.
+- **Rubrica**: form di aggiunta più elenco, su `GET`/`POST /api/contacts`.
+
+> **Una bugia da manuale, trovata solo aprendo il JS con un parser vero.**
+> Due righe scritte per W1 (`buf.split('\n\n')` dentro il parsing del
+> progresso SSE) erano state digitate con `\n` **dentro una stringa Python
+> triplice non raw**: Python le trasformava in un vero a-capo prima che il
+> browser vedesse una riga sola. Il risultato non era un avviso — era uno
+> `<script>` che falliva silenziosamente al primo parse, **da quando W1 è
+> stato distribuito**: nessun motore, nessun fornitore, nessun modello si
+> caricava più in pagina, e sembrava tutto sparito. `curl` sul JSON delle API
+> (quello che avevo verificato) non lo mostrava perché le API funzionavano
+> benissimo — il problema era solo nel browser. Il proprietario l'ha trovato
+> aprendo la pagina; il fix è stato verificato per davvero solo dopo aver
+> passato il JS servito dal vivo a `node --check`, non rileggendo il sorgente
+> a occhio. **Lezione**: `\n`/`\r` dentro una stringa JS scritta in una
+> tripla-stringa Python va **sempre** raddoppiato (`\\n`), e ogni pagina nuova
+> va controllata con un parser JS vero, non solo con `python3 -m py_compile`
+> (che valida solo il Python, non il JavaScript incorporato).
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e
