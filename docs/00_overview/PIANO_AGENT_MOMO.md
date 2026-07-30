@@ -97,10 +97,35 @@ Regola che vale per tutte: **l'Hermes attuale resta acceso e intatto** su
 `hermes.internal` finché Momo non ha passato le verifiche. Nessun giorno senza
 assistente. Decisione del proprietario, 2026-07-30.
 
-### Fase 1 — Momo respira
-Container isolato su LXC 102, **zero credenziali di casa**, puntato all'Ollama
-del PC via il provider `custom`. Porta diversa da 8093.
-*Verifica*: risponde a un «ciao» usando la GPU del PC.
+### Fase 1 — Momo respira ✅ **FATTA E VERIFICATA (2026-07-30)**
+
+Ambiente isolato su LXC 102, **zero credenziali di casa**: venv in
+`/opt/momo/venv`, `HOME=/opt/momo/home` e `HERMES_HOME=/opt/momo/home/.hermes`,
+così `~/.hermes` non può collidere né confondersi con nulla che l'Hermes vivo
+possieda. Provider `custom` puntato a `http://192.168.1.100:11434/v1`.
+
+*Verifica passata*: `hermes -z "Rispondi solo con la parola: pronto"` →
+**`pronto`**, generato dalla GPU del PC. E, nello stesso momento,
+`sovereign-hermes` **ancora `active`** con `/health` a 200: i due convivono
+senza toccarsi.
+
+**Tre cose imparate installando, che il report non poteva sapere:**
+
+1. **Il progetto rifiuta di proposito `pip install .`** — il loro
+   `pyproject.toml` alza un `RuntimeError`: *«Building wheels or sdists for
+   hermes-agent is not supported. Hermes is distributed via the shell
+   installer, Docker image, or Nix»*, e indica l'**editable install** per lo
+   sviluppo. Che è esattamente il nostro caso: `pip install -e .` funziona, ed
+   è anche la forma giusta per iterare su un plugin.
+2. **62 dipendenze entrate, nessuna pesante** — niente torch, niente
+   transformers, niente numpy obbligatorio. Le uniche con codice compilato
+   sono `Pillow`, `cryptography`, `pydantic-core`, `uvloop`.
+3. **`/opt/hermes-agent-study` non è più solo uno studio**: l'editable install
+   punta lì, quindi quella directory *è* l'installazione. Il nome resta per
+   ora ma va ricordato: aggiornare quel clone aggiorna Momo.
+
+Nota sulla CLI: il flag per una domanda non interattiva è **`-z`** (non `-q`),
+e `hermes model` **pretende un terminale vero** — non è usabile da script.
 
 ### Fase 2 — Momo ha la memoria
 Il nostro Postgres + Qdrant + Valkey come `MemoryProvider`
