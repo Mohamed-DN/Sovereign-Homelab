@@ -118,6 +118,25 @@ CREATE INDEX IF NOT EXISTS procedures_search ON procedures USING GIN (search);
 CREATE INDEX IF NOT EXISTS procedures_tags ON procedures USING GIN (tags);
 CREATE INDEX IF NOT EXISTS procedures_owner ON procedures (owner, name);
 
+-- La rubrica (W4): send_mail non prende piu' un indirizzo dal modello, lo
+-- risolve qui da un NOME. `allowed` e' l'interruttore manuale per un contatto
+-- che non va piu' scritto senza cancellare la storia di quante volte gli si
+-- e' scritto - lo stesso principio di `memory_log` per i fatti dimenticati.
+CREATE TABLE IF NOT EXISTS contacts (
+    id           BIGSERIAL PRIMARY KEY,
+    owner        TEXT        NOT NULL,
+    name         TEXT        NOT NULL,
+    email        TEXT        NOT NULL,
+    note         TEXT,
+    allowed      BOOLEAN     NOT NULL DEFAULT true,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    last_used_at TIMESTAMPTZ,
+    times_used   INTEGER     NOT NULL DEFAULT 0,
+    CONSTRAINT contacts_no_duplicates UNIQUE (owner, email)
+);
+
+CREATE INDEX IF NOT EXISTS contacts_owner_name ON contacts (owner, name);
+
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
     NEW.updated_at := now();

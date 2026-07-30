@@ -64,6 +64,7 @@
 | 25 | **Fornitori come preset (W2.1)**: 9 preset, menu "+ fornitore" al posto del bottone unico Bedrock. Solo Groq verificato con chiave reale, gli altri dichiarati "letti, non provati" | [hermes.md](../04_apps/hermes.md) §7-sexies |
 | 26 | **Router per intenti (W2.2)**: 5 rotte, `privato` non può mai cadere su un motore non privato — verificato anche contro un tentativo esplicito di forzarlo dal menu motore | [hermes.md](../04_apps/hermes.md) §7-sexies |
 | 27 | **Strategie di scelta (W2.3)**: `ordine`/`piu_veloce`/`meno_carico`, default invariato | [hermes.md](../04_apps/hermes.md) §7-sexies |
+| 28 | **Rubrica (W4)**: tabella `contacts`, `rubrica_aggiungi/cerca/elenco`, `send_mail` con `destinatario` per nome. Un indirizzo mai visto viene rifiutato, mai inventato. Verificati dal vivo tutti e cinque i percorsi (aggiunta, ricerca per nome/email, invio riuscito, doppio rifiuto) | [hermes.md](../04_apps/hermes.md) §7-septies |
 
 ---
 

@@ -11,14 +11,14 @@
 
 | Archivio | Cosa tiene | Perché proprio lui |
 |---|---|---|
-| **PostgreSQL 16** | fatti, agenda, registro | I dati sono relazionali e il proprietario è DBA: può interrogarli con SQL senza chiedere niente a nessuno |
+| **PostgreSQL 16** | fatti, agenda, registro, rubrica | I dati sono relazionali e il proprietario è DBA: può interrogarli con SQL senza chiedere niente a nessuno |
 | **Qdrant 1.18** | i vettori, cioè il significato | «cosa mi aveva detto Luna sul lavoro?» non si risolve con `LIKE`. È anche la cura del difetto della ricerca nel vault |
 | **Valkey 9.1** | cache degli embedding | Ogni ricerca vettorizza la domanda. Sul server quel calcolo costa 18 secondi: rifarlo due volte per la stessa frase è spreco puro |
 
 ```
 Hermes (systemd, LXC 102)
    │
-   ├── 127.0.0.1:5432  Postgres   facts · agenda · memory_log · vector_index
+   ├── 127.0.0.1:5432  Postgres   facts · agenda · memory_log · vector_index · contacts
    ├── 127.0.0.1:6333  Qdrant     collezione "hermes_knowledge" (768 dim, Cosine)
    └── 127.0.0.1:6379  Valkey     emb:<sha256>  → vettore, 30 giorni
                 │
@@ -54,6 +54,9 @@ altro. Il campo `owner` è la chiave di tutto.
 | `dimentica` | tutti | Cancella, senza possibilità di recupero |
 | `agenda_aggiungi` | tutti | Un impegno con data e ora |
 | `agenda_leggi` | tutti | Gli impegni in arrivo |
+| `rubrica_aggiungi` | solo proprietario | Aggiunge o aggiorna una persona (nome, email, nota) — W4 |
+| `rubrica_cerca` | solo proprietario | Cerca per nome o email esatta — usata anche da `send_mail` per risolvere un `destinatario` |
+| `rubrica_elenco` | solo proprietario | Elenca la rubrica |
 
 Sono tutti in `PRIVATE_TOOLS`: un motore esterno non li vede nemmeno. La
 memoria è la cosa più personale che Hermes possiede e non esce di casa.

@@ -444,6 +444,34 @@ con meno chiamate in volo. Entrambe le metriche sono tenute in memoria attorno a
 `chat_once()` — si perdono a un riavvio, e va bene così: significa solo un giro
 senza preferenza, non una risposta sbagliata.
 
+## 7-septies. Rubrica: email alle persone, non solo al proprietario (W4)
+
+**Il vincolo di prima**: `send_mail` non aveva nemmeno un parametro `to` nello
+schema esposto al modello — il destinatario era sempre letto da
+`OWNER_EMAIL_FILE`. Il relay (`sovereign-alert-relay.py`, endpoint `/notify`)
+era già pronto per un destinatario arbitrario: il vincolo andava tolto solo
+lato Hermes, e solo nel modo giusto.
+
+**La forma scelta**: una tabella `contacts` in Postgres (`owner, name, email,
+note, allowed, created_at, last_used_at, times_used`), tre strumenti riservati
+all'amministratore (`rubrica_aggiungi`, `rubrica_cerca`, `rubrica_elenco`, in
+`PRIVATE_TOOLS` e `rubrica_aggiungi` anche in `WRITE_TOOLS` — la stessa guardia
+anti-bugia che copre `ricorda`/`agenda_aggiungi` copre anche questo), e
+`send_mail` che guadagna un parametro **`destinatario`** che è un **nome**, mai
+un indirizzo scritto dal modello:
+
+- vuoto → va al proprietario, come prima;
+- un nome trovato in rubrica → risolto e mandato;
+- un nome **non** trovato → rifiutato, con l'invito ad aggiungerlo;
+- un **indirizzo** (non un nome) mai visto in rubrica → rifiutato con un
+  messaggio diverso ("non è nella rubrica: non mando a un indirizzo mai
+  visto"), per rendere chiaro che l'assenza non è un errore di battitura.
+
+Verificato dal vivo, tutti e cinque i percorsi: aggiunta contatto, ricerca per
+nome, ricerca per email, invio riuscito a un contatto in rubrica, e i due
+rifiuti (nome sconosciuto, indirizzo sconosciuto) — nessuno dei due tocca il
+relay, quindi nessun invio parte finché il contatto non esiste davvero.
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e
