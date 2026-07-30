@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import socket
 import threading
 import time
@@ -109,6 +110,7 @@ def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) 
 
 KINDS = ("fatto", "persona", "preferenza", "progetto", "luogo", "abitudine", "scadenza")
 SOURCES = ("detto", "dedotto")
+_EMAIL_RE = re.compile(r"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$")
 
 
 def house_time(moment: datetime | None) -> str:
@@ -640,6 +642,62 @@ class MemoryStore:
             return {"ok": False, "error": "procedura non trovata"}
         return {"ok": True, "id": row["id"], "nome": row["name"],
                 "usata_volte": row["times_used"]}
+
+    # -- contacts (W4) -------------------------------------------------------
+
+    def contact_add(self, owner: str, name: str, email: str, *, note: str = "") -> dict[str, Any]:
+        name = (name or "").strip()[:120]
+        email = (email or "").strip().lower()[:200]
+        if not name or not email:
+            return {"ok": False, "error": "servono nome ed email"}
+        if not _EMAIL_RE.match(email):
+            return {"ok": False, "error": f"«{email}» non sembra un indirizzo email valido"}
+        row = self._query(
+            """INSERT INTO contacts (owner, name, email, note)
+               VALUES (%s, %s, %s, %s)
+               ON CONFLICT (owner, email) DO UPDATE
+                   SET name = EXCLUDED.name, note = EXCLUDED.note
+               RETURNING id""",
+            (owner, name, email, (note or "").strip()[:500] or None), fetch="one")
+        self._log(owner, "rubrica_aggiungi", ref_id=row["id"], subject=name)
+        return {"ok": True, "id": row["id"], "nome": name, "email": email}
+
+    def contact_find(self, owner: str, query: str) -> dict[str, Any] | None:
+        """Exact email match first, then a name search. Only `allowed` contacts
+        come back: the column exists so a contact can be switched off without
+        losing how many times he was written to."""
+        query = (query or "").strip()
+        if not query:
+            return None
+        row = self._query(
+            """SELECT id, name, email, note, times_used FROM contacts
+                WHERE owner = %s AND allowed AND email = %s""",
+            (owner, query.lower()), fetch="one")
+        if not row:
+            row = self._query(
+                """SELECT id, name, email, note, times_used FROM contacts
+                    WHERE owner = %s AND allowed AND name ILIKE %s
+                 ORDER BY times_used DESC, last_used_at DESC NULLS LAST LIMIT 1""",
+                (owner, f"%{query}%"), fetch="one")
+        if not row:
+            return None
+        return {"id": row["id"], "name": row["name"], "email": row["email"],
+                "note": row["note"], "times_used": row["times_used"]}
+
+    def contact_used(self, owner: str, contact_id: int) -> None:
+        self._query(
+            """UPDATE contacts SET times_used = times_used + 1, last_used_at = now()
+                WHERE owner = %s AND id = %s""",
+            (owner, contact_id), fetch="none")
+
+    def contact_list(self, owner: str, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._query(
+            """SELECT id, name, email, note, allowed, times_used, created_at
+                 FROM contacts WHERE owner = %s
+             ORDER BY name LIMIT %s""", (owner, min(200, max(1, limit))))
+        return [{"id": r["id"], "nome": r["name"], "email": r["email"],
+                 "nota": r["note"], "attivo": r["allowed"], "usato_volte": r["times_used"],
+                 "creato": house_time(r["created_at"])} for r in rows]
 
     # -- vault indexing ----------------------------------------------------
 

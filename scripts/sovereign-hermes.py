@@ -535,19 +535,42 @@ OWNER_EMAIL_FILE = os.environ.get("HERMES_OWNER_EMAIL_FILE",
                                   "/root/sovereign-secrets/hermes/owner-email")
 
 
-def send_mail(subject: str, body: str, html: str = "") -> str:
-    """Send mail through the estate relay, to the owner only.
+def send_mail(subject: str, body: str, html: str = "",
+             destinatario: str = "", owner: str = "") -> str:
+    """Send mail through the estate relay: to the owner by default, or to a
+    person named in the rubrica (W4) if `destinatario` is given.
 
-    The recipient is never taken from the model: it is read from a root-only
-    file. Otherwise a prompt could talk Hermes into mailing anyone, which is how
-    an assistant becomes someone else's spam cannon.
+    The recipient is never a free-form address taken from the model. A name
+    resolves against `contacts` (own only that owner may reach); a raw address
+    never seen there is refused, not sent -- otherwise a prompt could talk
+    Hermes into mailing anyone, which is how an assistant becomes someone
+    else's spam cannon.
     """
     token = read_secret(RELAY_TOKEN_FILE)
     if not token:
         return "Il relay email non è configurato: manca il token."
-    to = read_secret(OWNER_EMAIL_FILE)
-    if not to:
-        return "Il relay email non è configurato: manca l'indirizzo del proprietario."
+
+    contact_id: int | None = None
+    dest = (destinatario or "").strip()
+    if not dest:
+        to = read_secret(OWNER_EMAIL_FILE)
+        if not to:
+            return "Il relay email non è configurato: manca l'indirizzo del proprietario."
+        display = to
+    else:
+        store = memory()
+        if store is None:
+            return _memory_unavailable() + " Senza rubrica non posso scrivere a nessun altro."
+        contact = store.contact_find(owner, dest)
+        if contact:
+            to, display, contact_id = contact["email"], contact["name"], contact["id"]
+        else:
+            hint = ("Aggiungilo alla rubrica (nome ed email) e poi chiedimelo di nuovo."
+                    if not _looks_like_email(dest) else
+                    f"«{dest}» non è nella rubrica: non mando a un indirizzo mai visto. "
+                    "Se vuoi che gli scriva, aggiungilo prima alla rubrica con nome ed email.")
+            return f"Non trovo «{dest}» in rubrica. {hint}"
+
     subject = re.sub(r"[\r\n]+", " ", subject or "").strip()[:180] or "Messaggio da Hermes"
     payload: dict[str, Any] = {"to": to, "subject": subject, "text": body[:20000]}
     if html:
@@ -561,12 +584,21 @@ def send_mail(subject: str, body: str, html: str = "") -> str:
     try:
         with urllib.request.urlopen(req, timeout=30) as resp:
             if 200 <= resp.status < 300:
-                return f"Email inviata a {to} con oggetto «{subject}»."
+                if contact_id is not None:
+                    memory().contact_used(owner, contact_id)
+                return f"Email inviata a {display} con oggetto «{subject}»."
             return f"Invio fallito: il relay ha risposto {resp.status}."
     except urllib.error.HTTPError as exc:
         return f"Invio fallito: HTTP {exc.code} — {exc.read()[:200].decode('utf-8', 'replace')}"
     except Exception as exc:  # noqa: BLE001
         return f"Invio fallito: {exc}"
+
+
+def _looks_like_email(text: str) -> bool:
+    """True when `text` already looks like an address rather than a name --
+    changes the refusal message ("not in the address book") instead of the
+    generic "not found", so the difference is clear to whoever reads it."""
+    return bool(re.match(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", text.strip()))
 
 
 # ------------------------------------------------------------------- memoria
@@ -690,6 +722,30 @@ def memory_procedure_find(ctx: dict[str, Any], args: dict[str, Any]) -> str:
     return _as_json(found)
 
 
+def memory_contact_add(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.contact_add(
+        ctx["username"], str(args.get("nome", "")), str(args.get("email", "")),
+        note=str(args.get("nota", "") or "")))
+
+
+def memory_contact_find(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    found = store.contact_find(ctx["username"], str(args.get("cerca", "")))
+    return _as_json(found or {"trovato": False})
+
+
+def memory_contact_list(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.contact_list(ctx["username"], limit=int(args.get("limite", 50) or 50)))
+
+
 def memory_briefing(user: dict[str, Any]) -> str:
     """What Hermes already knows about this person, for the system prompt.
 
@@ -726,14 +782,17 @@ TOOLS: dict[str, dict[str, Any]] = {
         "admin_only": True,
         "run": lambda args, ctx: send_mail(str(args.get("subject", "")),
                                            str(args.get("body", "")),
-                                           str(args.get("html", ""))),
+                                           str(args.get("html", "")),
+                                           str(args.get("destinatario", "")),
+                                           ctx.get("username", "")),
         "schema": {
             "type": "function",
             "function": {
                 "name": "send_mail",
-                "description": ("Manda una email al proprietario. Usalo quando ti chiede di "
-                                "mandargli qualcosa per email: un riassunto, un report, una "
-                                "pagina HTML. Il destinatario e' sempre lui, non serve chiederlo."),
+                "description": ("Manda una email. Senza 'destinatario' va al proprietario, non "
+                                "serve chiederlo. Con 'destinatario' va a una persona della "
+                                "rubrica -- SOLO un nome, mai un indirizzo scritto da te: un "
+                                "indirizzo mai visto in rubrica viene rifiutato, non inventato."),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -741,6 +800,9 @@ TOOLS: dict[str, dict[str, Any]] = {
                         "body": {"type": "string", "description": "testo del messaggio"},
                         "html": {"type": "string",
                                  "description": "versione HTML, se serve una pagina formattata"},
+                        "destinatario": {"type": "string",
+                                        "description": ("Nome della persona in rubrica, es. "
+                                                        "'Luna'. Vuoto = il proprietario.")},
                     },
                     "required": ["subject", "body"],
                 },
@@ -1053,6 +1115,62 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    # --- rubrica (W4) --------------------------------------------------------
+    # admin_only: solo il proprietario gestisce a chi Hermes puo' scrivere.
+    # send_mail risolve i nomi sulla stessa tabella, per chiunque lo invochi --
+    # ma send_mail stesso e' admin_only, quindi oggi coincide comunque.
+    "rubrica_aggiungi": {
+        "admin_only": True,
+        "run": lambda args, ctx: memory_contact_add(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "rubrica_aggiungi",
+                "description": ("Aggiunge o aggiorna una persona nella rubrica: nome ed email. "
+                                "Serve prima di poter mandare una email a qualcuno che non sia "
+                                "il proprietario."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome": {"type": "string", "description": "come chiamarla in chat"},
+                        "email": {"type": "string", "description": "il suo indirizzo email"},
+                        "nota": {"type": "string", "description": "facoltativa"},
+                    },
+                    "required": ["nome", "email"],
+                },
+            },
+        },
+    },
+    "rubrica_cerca": {
+        "admin_only": True,
+        "run": lambda args, ctx: memory_contact_find(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "rubrica_cerca",
+                "description": "Cerca una persona in rubrica per nome o email esatta.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cerca": {"type": "string", "description": "nome o email"},
+                    },
+                    "required": ["cerca"],
+                },
+            },
+        },
+    },
+    "rubrica_elenco": {
+        "admin_only": True,
+        "run": lambda args, ctx: memory_contact_list(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "rubrica_elenco",
+                "description": "Elenca tutte le persone in rubrica.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    },
     "access_overview": {
         "admin_only": True,
         "run": lambda args, ctx: access_overview(str(args.get("username", ""))),
@@ -1082,7 +1200,10 @@ PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "vault_scrivi", "es
                  # abitudini, impegni. Non esce di casa per nessun motivo.
                  "ricorda", "ricorda_cerca", "dimentica",
                  "agenda_aggiungi", "agenda_leggi",
-                 "procedura_salva", "procedura_cerca"}
+                 "procedura_salva", "procedura_cerca",
+                 # La rubrica e' gente reale con un indirizzo vero: fuori casa
+                 # ancora meno di un fatto qualunque.
+                 "rubrica_aggiungi", "rubrica_cerca", "rubrica_elenco"}
 
 
 def tools_for(user: dict[str, Any], backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -1880,7 +2001,7 @@ def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
 # Gli strumenti che CAMBIANO qualcosa. Su questi una pretesa non verificata non
 # è un dettaglio di stile: l'utente crede che il dato sia al sicuro.
 WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail",
-               "vault_scrivi", "procedura_salva"}
+               "vault_scrivi", "procedura_salva", "rubrica_aggiungi"}
 
 # Come suona una pretesa in italiano. Volutamente al passato e in prima persona:
 # «salvo» o «sto salvando» non sono affermazioni di aver finito.
@@ -2176,7 +2297,8 @@ def converse(user: dict[str, Any], question: str,
             f"Fermo. Nella richiesta c'era «{claim}», e tu non hai chiamato nessuno "
             f"strumento: quindi non è stato scritto niente da nessuna parte. "
             f"Se c'era qualcosa da salvare o da scrivere, chiama ADESSO lo strumento "
-            f"giusto (`ricorda`, `vault_scrivi`, `agenda_aggiungi`, `send_mail`). "
+            f"giusto (`ricorda`, `vault_scrivi`, `agenda_aggiungi`, `send_mail`, "
+            f"`rubrica_aggiungi`). "
             f"Se davvero non serviva, rispondi senza sostenere di aver fatto qualcosa "
             f"e senza inventare percorsi di file.")})
         retry, retry_called = yield from _tool_rounds(backend, messages, tools, user, 2)
