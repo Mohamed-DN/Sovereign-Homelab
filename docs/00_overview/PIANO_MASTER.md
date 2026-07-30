@@ -58,6 +58,9 @@
 | 17 | **OmniRoute** installato, dietro SSO, con `/v1` esente e chiave API. Motore non privato in `backends.json` | [omniroute](../04_apps/omniroute.md) |
 | **S5** | Porte di OmniRoute chiuse alla LAN (`DOCKER-USER`): erano aperte a chiunque conoscesse la password condivisa | [omniroute](../04_apps/omniroute.md) §6 |
 | **S6** | Archivi della memoria in ascolto **solo** su loopback, con password e chiave API anche lì | [memoria](../04_apps/hermes-memoria.md) §1 |
+| 22 | **PWA (W7.1)**: manifest, service worker (solo la scocca, mai le risposte), icone generate a runtime via `zlib`. Route esenti dal login SSO in NPM | [hermes.md](../04_apps/hermes.md) §7-quinquies |
+| 23 | **Catalogo modelli (W1)**: 19 modelli in `models-catalog.json`, scarica/elimina dal pannello con progresso SSE, dimensione letta dal vivo da `/api/tags`. Verificato: `granite4:micro` scaricato ed eliminato dal browser | [hermes.md](../04_apps/hermes.md) §7-quater |
+| 24 | Motore **Groq** (fornitore gratuito, W2 in anticipo): chiave fornita dal proprietario, `private:false`. Trovato e chiuso un difetto generale di `http_json()`: Cloudflare blocca lo User-Agent di default di `urllib` | [hermes.md](../04_apps/hermes.md) §7-quater |
 
 ---
 
@@ -88,9 +91,9 @@
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| **Telegram** (bot ufficiale, long polling) | mappatura `id → utente` a mano, sconosciuti rifiutati | da fare |
+| **Telegram** (bot ufficiale, long polling) | mappatura `id → utente` a mano, sconosciuti rifiutati. Bot creato (`@dn_momo_bot`), token in `/root/sovereign-secrets/hermes-agent/telegram-bot-token` (2026-07-30) — il collegamento vero è W6.3, dopo `hermes-agent` | da fare |
 | **Telegram con audio** | dipende da Whisper (fase 2) | da fare |
-| **PWA** per iPhone | `manifest.json`, icona sulla home | da fare |
+| **PWA** per iPhone | `manifest.json`, service worker, icone | ✅ (W7.1) |
 | App iOS nativa | solo se la PWA non basta: serve Mac + account Apple | valutare |
 | **WhatsApp** | **escluso**: ban del numero entro 2-8 settimane, e dal 15/01/2026 vietati i chatbot di terze parti | [motivazione](PIANO_HERMES_CANALI_E_DB.md) §3 |
 

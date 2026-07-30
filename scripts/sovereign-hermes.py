@@ -18,6 +18,7 @@ Standard library only, matching the rest of the estate's services.
 
 from __future__ import annotations
 
+import functools
 import html as html_module
 import json
 import os
@@ -26,6 +27,7 @@ import secrets
 import sys
 import threading
 import time
+import zlib
 from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.parse
@@ -62,6 +64,7 @@ COUCH_PASSWORD_FILE = os.environ.get(
 VAULT_OWNER = os.environ.get("HERMES_VAULT_OWNER", "mohamed")
 
 BACKENDS_FILE = Path(os.environ.get("HERMES_BACKENDS_FILE", str(BASE / "backends.json")))
+MODELS_CATALOG_FILE = Path(os.environ.get("HERMES_MODELS_CATALOG_FILE", str(BASE / "models-catalog.json")))
 PERSONA_FILE = Path(os.environ.get("HERMES_PERSONA_FILE", str(BASE / "persona.md")))
 CHATS_DIR = Path(os.environ.get("HERMES_CHATS_DIR", "/var/lib/sovereign-hermes/chats"))
 
@@ -90,9 +93,17 @@ def now_stamp() -> str:
 
 def http_json(url: str, *, method: str = "GET", payload: Any = None,
               headers: dict[str, str] | None = None, timeout: int = 20) -> tuple[bool, Any]:
-    """One JSON round trip. Returns (ok, parsed-or-error-string)."""
+    """One JSON round trip. Returns (ok, parsed-or-error-string).
+
+    The User-Agent matters: several providers (Groq confirmed) sit behind
+    Cloudflare, whose bot management rejects urllib's default
+    "Python-urllib/3.x" with a 403 (Cloudflare error 1010) even with a valid
+    key. curl's default UA passes the same rule, so Hermes borrows its shape
+    rather than announcing itself as a scripting library.
+    """
     data = json.dumps(payload).encode() if payload is not None else None
-    head = {"Content-Type": "application/json", "Accept": "application/json"}
+    head = {"Content-Type": "application/json", "Accept": "application/json",
+            "User-Agent": "curl/8.5.0"}
     head.update(headers or {})
     req = urllib.request.Request(url, data=data, method=method, headers=head)
     try:
@@ -1128,17 +1139,21 @@ def load_backends() -> list[dict[str, Any]]:
     return DEFAULT_BACKENDS
 
 
-# Suggerimenti mostrati nel pannello. Le dimensioni sono quelle dichiarate da
-# Ollama; il limite pratico su una GPU da 16 GB e' ~14 GB, per lasciare spazio
-# al contesto.
-RECOMMENDED_MODELS = [
-    {"model": "qwen3.5:9b", "size": "6,6 GB", "note": "Consigliato: veloce, 256K di contesto, capisce le immagini", "fits16": True},
-    {"model": "gpt-oss:20b", "size": "14 GB", "note": "Ragiona meglio, ma riempie quasi tutta la VRAM", "fits16": True},
-    {"model": "qwen3.5:4b", "size": "3,4 GB", "note": "Piccolo: adatto alla CPU del server", "fits16": True},
-    {"model": "gemma4:12b", "size": "~8 GB", "note": "Alternativa equilibrata", "fits16": True},
-    {"model": "qwen3.5:27b", "size": "17 GB", "note": "NON ci sta in 16 GB: finisce in RAM e crolla", "fits16": False},
-    {"model": "deepseek-r1:14b", "size": "~9 GB", "note": "Ragionamento; tieni think disattivato", "fits16": True},
-]
+def load_models_catalog() -> list[dict[str, Any]]:
+    """The downloadable-model catalog shown in the panel (W1).
+
+    Deliberately holds no size: a hand-written number was once wrong (it said
+    1.2 GB for a model that is 6.6 GB), so the panel reads the real size from
+    the machine that actually has the model, via `ollama_tags()`.
+    """
+    try:
+        data = json.loads(MODELS_CATALOG_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
 
 SECRETS_DIR = Path(os.environ.get("HERMES_SECRETS_DIR", "/root/sovereign-secrets/hermes"))
 
@@ -1296,6 +1311,35 @@ def backend_healthy(backend: dict[str, Any]) -> bool:
         return False
     ok, _ = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=4)
     return ok
+
+
+def ollama_tags(url: str) -> dict[str, int]:
+    """Installed model name -> size in bytes, read live from `/api/tags`.
+
+    This is the one source of truth for W1: no size is ever written by hand.
+    """
+    ok, data = http_json(f"{url.rstrip('/')}/api/tags", timeout=5)
+    if not ok or not isinstance(data, dict):
+        return {}
+    return {m.get("name", ""): int(m.get("size") or 0)
+            for m in data.get("models", []) if m.get("name")}
+
+
+def ollama_pull_stream(url: str, model: str) -> Iterator[dict[str, Any]]:
+    """Forward Ollama's own `/api/pull` progress, one parsed object per NDJSON line."""
+    req = urllib.request.Request(
+        f"{url.rstrip('/')}/api/pull",
+        data=json.dumps({"model": model, "stream": True}).encode(),
+        method="POST", headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=1800) as resp:
+        for raw_line in resp:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                yield json.loads(line)
+            except json.JSONDecodeError:
+                continue
 
 
 def pick_backend(prefer: str | None = None) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
@@ -1954,9 +1998,94 @@ def converse(user: dict[str, Any], question: str,
     yield {"event": "done", "data": json.dumps({"answer": answer})}
 
 
+# ---------------------------------------------------------------------- pwa
+# W7.1: put Hermes on the home screen. No dependency is added for this — the
+# icon is rasterised at request time from a 7-point polygon (the same bolt
+# already in the chat header) using nothing but zlib, which is stdlib.
+
+MANIFEST = {
+    "name": "Hermes",
+    "short_name": "Hermes",
+    "description": "L'assistente del Sovereign Homelab",
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#06080b",
+    "theme_color": "#06080b",
+    "icons": [
+        {"src": "/icon-192.png", "sizes": "192x192", "type": "image/png"},
+        {"src": "/icon-512.png", "sizes": "512x512", "type": "image/png"},
+    ],
+}
+
+# Only the app shell is cached — never a chat answer. A stale answer served
+# from cache while pretending to be fresh would be exactly the kind of
+# confident lie this project has spent real hours closing elsewhere.
+SW_JS = """const CACHE = 'hermes-shell-v1';
+const SHELL = ['/', '/manifest.json', '/icon-192.png', '/icon-512.png'];
+self.addEventListener('install', e => {
+  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)));
+  self.skipWaiting();
+});
+self.addEventListener('activate', e => {
+  e.waitUntil(caches.keys().then(keys =>
+    Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  self.clients.claim();
+});
+self.addEventListener('fetch', e => {
+  const url = new URL(e.request.url);
+  if (!SHELL.includes(url.pathname)) return;  // API/chat: always network
+  e.respondWith(caches.match(e.request).then(hit => hit || fetch(e.request)));
+});
+"""
+
+_BOLT_POLY = [(9, 0), (4, 9), (7, 9), (6, 16), (13, 7), (9, 7), (11, 0)]
+
+
+@functools.lru_cache(maxsize=4)
+def _icon_png(size: int) -> bytes:
+    """Flat-shaded PNG of the bolt, encoded by hand (IHDR/IDAT/IEND + zlib).
+
+    Rasterising per requested size (rather than scaling a fixed bitmap) keeps
+    the diagonal edges crisp at both 192 and 512 without a blur pass.
+    """
+    bg, fg = (0x06, 0x08, 0x0B), (0x43, 0xB4, 0xC4)
+    scale = size / 16.0
+
+    def inside(px: float, py: float) -> bool:
+        gx, gy = px / scale, py / scale
+        hit = False
+        for (x1, y1), (x2, y2) in zip(_BOLT_POLY, _BOLT_POLY[1:] + _BOLT_POLY[:1]):
+            if (y1 > gy) != (y2 > gy):
+                x_at = x1 + (gy - y1) * (x2 - x1) / (y2 - y1)
+                if gx < x_at:
+                    hit = not hit
+        return hit
+
+    rows = bytearray()
+    for y in range(size):
+        rows.append(0)  # filter: none
+        for x in range(size):
+            rows += bytes(fg if inside(x + 0.5, y + 0.5) else bg)
+
+    def chunk(tag: bytes, data: bytes) -> bytes:
+        return (len(data).to_bytes(4, "big") + tag + data
+                + (zlib.crc32(tag + data) & 0xFFFFFFFF).to_bytes(4, "big"))
+
+    ihdr = size.to_bytes(4, "big") + size.to_bytes(4, "big") + bytes([8, 2, 0, 0, 0])
+    return (b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", ihdr)
+            + chunk(b"IDAT", zlib.compress(bytes(rows), 9)) + chunk(b"IEND", b""))
+
+
 # --------------------------------------------------------------------- page
 
 PAGE = """<!doctype html><html lang=it><head><meta charset=utf-8>
+<link rel=manifest href=/manifest.json>
+<meta name=theme-color content=#06080b>
+<meta name=apple-mobile-web-app-capable content=yes>
+<meta name=apple-mobile-web-app-status-bar-style content=black-translucent>
+<meta name=apple-mobile-web-app-title content=Hermes>
+<link rel=apple-touch-icon href=/icon-192.png>
 <meta name=viewport content="width=device-width,initial-scale=1">
 <title>Hermes · Sovereign Homelab</title><style>
 *{box-sizing:border-box}
@@ -2115,6 +2244,7 @@ $('q').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.prevent
 $('q').addEventListener('input',e=>{e.target.style.height='auto';
   e.target.style.height=Math.min(e.target.scrollHeight,140)+'px';});
 $('q').focus();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
 </script></body></html>"""
 
 
@@ -2168,9 +2298,15 @@ a{color:#43b4c4}
  <button class=ghost id=bedrock>+ AWS Bedrock (già configurato)</button>
 
  <div class=card style="margin-top:18px">
-  <b>Modelli consigliati per la RTX 5070 Ti (16 GB)</b>
-  <table><tr><th>modello</th><th>peso</th><th>ci sta</th><th>note</th></tr>
-  <tbody id=recs></tbody></table>
+  <b>Modelli</b>
+  <div class=row>
+   <div class=f><label>motore</label><select id=m-engine></select></div>
+   <div class=f><label>ruolo</label><select id=m-role><option value="">tutti</option>
+    <option>chat</option><option>reasoning</option><option>coding</option>
+    <option>vision</option><option>tools</option><option>embedding</option>
+    <option>small</option><option>multilingual</option></select></div>
+  </div>
+  <div id=models></div>
  </div>
 </main>
 <div class=bar><button id=save>Salva</button><button class=ghost id=reload>Ricarica</button>
@@ -2223,10 +2359,96 @@ function collect(){
 }
 function load(){
  fetch('api/backends').then(r=>r.json()).then(d=>{data=d.backends;render();
-  $('recs').innerHTML=d.recommended.map(m=>'<tr><td><code>'+m.model+'</code></td><td>'+m.size
-   +'</td><td class='+(m.fits16?'yes>si':'no>no')+'</td><td>'+m.note+'</td></tr>').join('');
-  $('msg').textContent='';});
+  $('msg').textContent='';loadModels();});
 }
+
+// --- W1: catalogo modelli, scaricabili dal pannello -------------------
+let catalog=[], installed={};
+function engineOptions(){
+ const eng=data.filter(b=>b.type==='ollama');
+ const cur=$('m-engine').value;
+ $('m-engine').innerHTML=eng.map(b=>'<option value="'+b.name+'">'+b.label+'</option>').join('')
+   || '<option value="">nessun motore Ollama</option>';
+ if(eng.some(b=>b.name===cur)) $('m-engine').value=cur;
+}
+function fmtSize(bytes){
+ if(!bytes) return '';
+ const gb=bytes/1e9;
+ return gb>=1 ? gb.toFixed(1)+' GB' : Math.round(bytes/1e6)+' MB';
+}
+function modelRow(m){
+ const eng=$('m-engine').value;
+ const size=(installed[eng]||{})[m.name];
+ const isIn=size!==undefined;
+ const d=document.createElement('div');
+ d.className='row';d.style.borderBottom='1px solid #131c25';d.style.paddingBottom='8px';
+ d.innerHTML=
+   '<div class=f><b>'+m.label+'</b><br><span class=hint>'+m.note+'</span><br>'
+   +m.role.map(r=>'<span class=pill>'+r+'</span>').join(' ')+'</div>'
+   +'<span class="pill '+(isIn?'on':'off')+'">'+(isIn?('installato · '+fmtSize(size)):'da scaricare')+'</span>'
+   +(isIn
+      ? '<button class=ghost data-a=use>usa</button><button class=danger data-a=rm>elimina</button>'
+      : '<button data-a=pull>scarica</button>')
+   +'<span class=hint data-a=status></span>';
+ const status=d.querySelector('[data-a=status]');
+ const pullBtn=d.querySelector('[data-a=pull]');
+ if(pullBtn) pullBtn.onclick=()=>pullModel(m.name,status);
+ const rmBtn=d.querySelector('[data-a=rm]');
+ if(rmBtn) rmBtn.onclick=()=>delModel(m.name,status);
+ const useBtn=d.querySelector('[data-a=use]');
+ if(useBtn) useBtn.onclick=()=>{
+   collect();
+   const b=data.find(x=>x.name===eng);
+   if(b){b.model=m.name;render();$('msg').textContent='impostato '+m.name+': premi Salva per confermare';}
+ };
+ return d;
+}
+function renderModels(){
+ const role=$('m-role').value;
+ const L=$('models');L.innerHTML='';
+ catalog.filter(m=>!role||m.role.includes(role)).forEach(m=>L.appendChild(modelRow(m)));
+}
+function pullModel(name,status){
+ const eng=$('m-engine').value;
+ if(!eng){status.textContent='nessun motore Ollama selezionato';return;}
+ status.textContent='avvio…';
+ fetch('api/models/pull',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({backend:eng,model:name})}).then(r=>{
+   const reader=r.body.getReader();const dec=new TextDecoder();let buf='';
+   (function pump(){reader.read().then(({done,value})=>{
+     if(done){status.textContent='fatto';loadModels();return;}
+     buf+=dec.decode(value,{stream:true});
+     const parts=buf.split('\n\n');buf=parts.pop();
+     parts.forEach(p=>{
+       const line=p.split('\n').find(l=>l.startsWith('data: '));
+       if(!line) return;
+       try{const j=JSON.parse(line.slice(6));
+         if(j.error) status.textContent='✗ '+j.error;
+         else if(j.total&&j.completed) status.textContent=Math.round(100*j.completed/j.total)+'%';
+         else if(j.status) status.textContent=j.status;
+       }catch(e){}
+     });
+     pump();
+   });})();
+ }).catch(e=>status.textContent='✗ '+e);
+}
+function delModel(name,status){
+ const eng=$('m-engine').value;
+ if(!confirm('Eliminare '+name+' da '+eng+'?')) return;
+ status.textContent='elimino…';
+ fetch('api/models/delete',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({backend:eng,model:name})})
+  .then(r=>r.json()).then(d=>{status.textContent=d.ok?'eliminato':'✗ '+d.message;loadModels();})
+  .catch(e=>status.textContent='✗ '+e);
+}
+function loadModels(){
+ fetch('api/models/catalog').then(r=>r.json()).then(d=>{
+  catalog=d.catalog||[];installed=d.installed||{};
+  engineOptions();renderModels();
+ });
+}
+$('m-role').onchange=renderModels;
+$('m-engine').onchange=renderModels;
 $('add').onclick=()=>{collect();data.push({name:'nuovo',label:'Nuovo motore',type:'ollama',
  url:'http://192.168.1.100:11434',model:'',think:false,enabled:false});render();};
 // Scorciatoie: chi incolla una chiave si aspetta che Invio la salvi, e infatti
@@ -2275,6 +2497,21 @@ class Handler(BaseHTTPRequestHandler):
         route = urllib.parse.urlparse(self.path)
         if route.path == "/health":
             self._send(200, b"ok\n", "text/plain; charset=utf-8")
+            return
+        # PWA shell: served before auth, same reasoning as /health — iOS reads
+        # the manifest to build the "Add to Home Screen" prompt before any
+        # login has happened, and a service worker fetch never carries cookies
+        # for a cross-context install.
+        if route.path == "/manifest.json":
+            self._send(200, json.dumps(MANIFEST).encode(),
+                       "application/manifest+json; charset=utf-8")
+            return
+        if route.path == "/sw.js":
+            self._send(200, SW_JS.encode(), "application/javascript; charset=utf-8")
+            return
+        if route.path in {"/icon-192.png", "/icon-512.png"}:
+            size = 192 if route.path == "/icon-192.png" else 512
+            self._send(200, _icon_png(size), "image/png")
             return
 
         user = who(self)
@@ -2353,8 +2590,16 @@ class Handler(BaseHTTPRequestHandler):
             if not user["is_admin"]:
                 self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
                 return
-            self._send(200, json.dumps({"backends": backends_public(),
-                                        "recommended": RECOMMENDED_MODELS}).encode(),
+            self._send(200, json.dumps({"backends": backends_public()}).encode(),
+                       "application/json; charset=utf-8")
+        elif route.path == "/api/models/catalog":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            installed = {b["name"]: ollama_tags(b["url"])
+                        for b in load_backends_all() if b.get("type") == "ollama"}
+            self._send(200, json.dumps({"catalog": load_models_catalog(),
+                                        "installed": installed}).encode(),
                        "application/json; charset=utf-8")
         elif route.path == "/api/history":
             self._send(200, json.dumps({"messages": load_chat(user["username"])}).encode(),
@@ -2385,6 +2630,61 @@ class Handler(BaseHTTPRequestHandler):
             note = stash_upload(user["username"], fname, ctype, self.rfile.read(length))
             self._send(200, json.dumps({"ok": True, "message": note}).encode(),
                        "application/json; charset=utf-8")
+            return
+        if route.path in {"/api/models/pull", "/api/models/delete"}:
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length < 1 or length > 2000:
+                self._send(413, b'{"error":"richiesta troppo grande"}', "application/json; charset=utf-8")
+                return
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send(400, b'{"error":"corpo non valido"}', "application/json; charset=utf-8")
+                return
+            backend_name = str(payload.get("backend", ""))[:40]
+            model = str(payload.get("model", ""))[:120]
+            backend = next((b for b in load_backends_all()
+                            if b.get("name") == backend_name and b.get("type") == "ollama"), None)
+            # The model name is checked against the catalog, never forwarded to
+            # Ollama's /api/pull as a free-form string typed in the browser.
+            if backend is None or not any(m.get("name") == model for m in load_models_catalog()):
+                self._send(400, b'{"error":"motore o modello non riconosciuto"}',
+                           "application/json; charset=utf-8")
+                return
+            if route.path == "/api/models/delete":
+                ok, detail = http_json(f"{backend['url'].rstrip('/')}/api/delete",
+                                       method="DELETE", payload={"model": model}, timeout=15)
+                self._send(200 if ok else 400,
+                           json.dumps({"ok": ok, "message": "" if ok else str(detail)}).encode(),
+                           "application/json; charset=utf-8")
+                return
+            # /api/models/pull: relay Ollama's own progress as SSE, same pattern
+            # already used for the chat stream.
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-cache")
+            self.send_header("X-Accel-Buffering", "no")
+            self.end_headers()
+            try:
+                for evt in ollama_pull_stream(backend["url"], model):
+                    block = "event: progress\n" + "".join(
+                        f"data: {line}\n" for line in json.dumps(evt).split("\n"))
+                    self.wfile.write((block + "\n").encode("utf-8"))
+                    self.wfile.flush()
+                self.wfile.write(b"event: done\ndata: {}\n\n")
+                self.wfile.flush()
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # the reader navigated away mid-download
+            except Exception as exc:  # noqa: BLE001 - the stream must report, not crash
+                try:
+                    msg = json.dumps({"error": str(exc)[:200]})
+                    self.wfile.write(f"event: error\ndata: {msg}\n\n".encode("utf-8"))
+                    self.wfile.flush()
+                except Exception:
+                    pass
             return
         if route.path != "/api/backends":
             self._send(404, b'{"error":"non trovato"}', "application/json; charset=utf-8")

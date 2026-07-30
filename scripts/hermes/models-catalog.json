@@ -1,0 +1,154 @@
+[
+  {
+    "name": "qwen3.5:9b",
+    "engine": "ollama",
+    "role": ["chat", "vision", "tools"],
+    "label": "Qwen 3.5 9B — quello in uso oggi",
+    "note": "6,6 GB, 256K di contesto, capisce le immagini, chiama gli strumenti in modo affidabile",
+    "recommended_for": ["pc-mohamed", "server"]
+  },
+  {
+    "name": "qwen3.5:4b",
+    "engine": "ollama",
+    "role": ["chat", "small"],
+    "label": "Qwen 3.5 4B — di scorta",
+    "note": "3,4 GB: gira anche sulla CPU del server quando il PC è spento",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "qwen3.5:27b",
+    "engine": "ollama",
+    "role": ["chat", "reasoning"],
+    "label": "Qwen 3.5 27B — il più capace della famiglia",
+    "note": "17 GB: NON ci sta in 16 GB di VRAM, finisce in RAM di sistema e crolla di velocità",
+    "recommended_for": []
+  },
+  {
+    "name": "gpt-oss:20b",
+    "engine": "ollama",
+    "role": ["chat", "reasoning"],
+    "label": "GPT-OSS 20B",
+    "note": "14 GB: ragiona meglio di Qwen 3.5 9B ma riempie quasi tutta la VRAM, poco spazio per il contesto",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "gemma4:e4b",
+    "engine": "ollama",
+    "role": ["chat", "vision", "tools"],
+    "label": "Gemma 4 e4b — piccolo, vede le immagini, chiama gli strumenti",
+    "note": "Il più equilibrato per la GPU: lascia spazio al contesto",
+    "recommended_for": ["pc-mohamed", "server"]
+  },
+  {
+    "name": "devstral:24b",
+    "engine": "ollama",
+    "role": ["coding"],
+    "label": "Devstral 24B — coding agentico",
+    "note": "14 GB su disco: pensato per lavorare su un repository vero, non solo per completare righe",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "qwen3-coder:30b",
+    "engine": "ollama",
+    "role": ["coding"],
+    "label": "Qwen3 Coder 30B-A3B",
+    "note": "19 GB su disco ma MoE: solo ~3B parametri attivi per token, gira meglio di quanto sembri dal peso anche sulla CPU del server",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "mistral-small3.2:24b",
+    "engine": "ollama",
+    "role": ["chat", "tools", "vision"],
+    "label": "Mistral Small 3.2 24B",
+    "note": "Multimodale, chiama gli strumenti; sta al limite dei 16 GB, meglio con contesto ridotto",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "phi4-mini:3.8b",
+    "engine": "ollama",
+    "role": ["chat", "small", "reasoning"],
+    "label": "Phi-4 mini 3.8B",
+    "note": "Piccolo ma ragiona bene per la sua taglia: buona scorta leggera",
+    "recommended_for": ["server", "pc-mohamed"]
+  },
+  {
+    "name": "deepseek-r1:14b",
+    "engine": "ollama",
+    "role": ["reasoning"],
+    "label": "DeepSeek-R1 14B",
+    "note": "~9 GB: modello di ragionamento, tieni \"think\" disattivato o svuota la risposta",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "minicpm-v",
+    "engine": "ollama",
+    "role": ["vision"],
+    "label": "MiniCPM-V — visione leggera",
+    "note": "Piccolo modello multimodale, buono per descrivere foto e screenshot",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "granite4:micro",
+    "engine": "ollama",
+    "role": ["small", "tools"],
+    "label": "Granite 4 micro — il più piccolo del catalogo",
+    "note": "IBM, MoE a bassa latenza: il modello giusto per provare il download la prima volta",
+    "recommended_for": ["server", "pc-mohamed"]
+  },
+  {
+    "name": "llava:7b",
+    "engine": "ollama",
+    "role": ["vision"],
+    "label": "LLaVA 7B — il classico della visione",
+    "note": "Leggero e affidabile, anche se superato da modelli più recenti",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "qwen2.5vl:7b",
+    "engine": "ollama",
+    "role": ["vision", "chat"],
+    "label": "Qwen2.5-VL 7B — visione più recente di LLaVA",
+    "note": "Legge anche testo dentro le immagini (screenshot, foto di documenti)",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "embeddinggemma",
+    "engine": "ollama",
+    "role": ["embedding"],
+    "label": "EmbeddingGemma — già in uso per la memoria di Hermes",
+    "note": "307M parametri, 768 dimensioni: è quello che indicizza vault, runbook e ricordi",
+    "recommended_for": ["pc-mohamed", "server"]
+  },
+  {
+    "name": "nomic-embed-text",
+    "engine": "ollama",
+    "role": ["embedding"],
+    "label": "Nomic Embed Text — alternativa a EmbeddingGemma",
+    "note": "Un secondo modello di embedding, utile per confrontare la qualità della ricerca",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "bge-m3",
+    "engine": "ollama",
+    "role": ["embedding", "multilingual"],
+    "label": "BGE-M3 — embedding multilingue",
+    "note": "Denso + sparso + multi-vettore nello stesso modello, buono su lingue diverse dall'italiano",
+    "recommended_for": ["server"]
+  },
+  {
+    "name": "hermes3:8b",
+    "engine": "ollama",
+    "role": ["chat", "tools"],
+    "label": "Hermes 3 8B — il modello \"Hermes\" di Nous Research",
+    "note": "Nome uguale al nostro assistente, progetto diverso: potresti aver sentito parlare di questo",
+    "recommended_for": ["pc-mohamed"]
+  },
+  {
+    "name": "nous-hermes2",
+    "engine": "ollama",
+    "role": ["chat"],
+    "label": "Nous Hermes 2 — la generazione precedente",
+    "note": "Superato da Hermes 3, incluso per completezza",
+    "recommended_for": []
+  }
+]
