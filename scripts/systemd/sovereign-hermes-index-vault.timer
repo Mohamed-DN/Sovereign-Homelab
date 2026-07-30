@@ -1,0 +1,12 @@
+[Unit]
+Description=Re-index the vault nightly, so a note written today is searchable tomorrow
+
+[Timer]
+# 03:20, after the backups and before anyone is awake. Only changed notes are
+# re-embedded, so a normal night is a few seconds of work.
+OnCalendar=*-*-* 03:20:00
+RandomizedDelaySec=600
+Persistent=true
+
+[Install]
+WantedBy=timers.target

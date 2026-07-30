@@ -28,6 +28,21 @@
     "parallel": 1
   },
   {
+    "name": "omniroute",
+    "label": "OmniRoute · gateway (fornitori esterni)",
+    "type": "openai",
+    "url": "http://127.0.0.1:20128/v1",
+    "model": "pcgpu/qwen3.5:9b",
+    "api_key_file": "/root/sovereign-secrets/hermes/key-omniroute",
+    "private": false,
+    "enabled": false,
+    "extra": {
+      "reasoning_effort": "none"
+    },
+    "comment": "Gateway sullo stesso host. NON privato per scelta: instrada verso fornitori esterni, quindi la guardia gli nega gli strumenti di casa. Spento finche' non ci sono chiavi di fornitori gratuiti (Groq, Cerebras, NVIDIA NIM): oggi l'unico modello che risponde e' pcgpu/qwen3.5:9b, cioe' la GPU del PC con un salto in piu' - inutile per Hermes, che la raggiunge diretta. reasoning_effort=none sostituisce think=false, che nella forma OpenAI non esiste.",
+    "parallel": 3
+  },
+  {
     "name": "api-remota",
     "label": "API remota (compatibile OpenAI)",
     "type": "openai",

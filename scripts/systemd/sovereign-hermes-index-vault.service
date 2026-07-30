@@ -1,0 +1,19 @@
+[Unit]
+Description=Embed the Obsidian vault into the Hermes semantic index
+After=network-online.target docker.service sovereign-hermes.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+WorkingDirectory=/opt/sovereign-hermes
+ExecStart=/usr/bin/python3 /opt/sovereign-hermes/sovereign-hermes.py --index-vault
+# Embedding 124 notes on a CPU is not fast; give it room rather than have the
+# timer kill a run halfway and leave the index half stale.
+TimeoutStartSec=3600
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

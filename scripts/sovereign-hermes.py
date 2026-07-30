@@ -22,16 +22,21 @@ import html as html_module
 import json
 import os
 import re
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 import urllib.error
 import urllib.parse
 import urllib.request
-from datetime import datetime, timezone
+from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Iterator
+from zoneinfo import ZoneInfo
+
+# Stated, not inherited: see now_stamp().
+HOUSE_TZ = ZoneInfo(os.environ.get("HERMES_TZ", "Europe/Rome"))
 
 BASE = Path(os.environ.get("HERMES_BASE", "/opt/sovereign-hermes"))
 BIND = os.environ.get("HERMES_BIND", "0.0.0.0")
@@ -50,6 +55,10 @@ COUCH_DB = os.environ.get("HERMES_COUCH_DB", "obsidiandb")
 COUCH_USER = os.environ.get("HERMES_COUCH_USER", "hermes_reader")
 COUCH_PASSWORD_FILE = os.environ.get(
     "HERMES_COUCH_PASSWORD_FILE", "/root/sovereign-secrets/hermes/couchdb-password")
+# The vault has one author, so its semantic index is filed under one owner. Only
+# the owner's tools can reach it anyway (`admin_only` plus PRIVATE_TOOLS), but
+# the index needs a stable key regardless of who is logged in.
+VAULT_OWNER = os.environ.get("HERMES_VAULT_OWNER", "mohamed")
 
 BACKENDS_FILE = Path(os.environ.get("HERMES_BACKENDS_FILE", str(BASE / "backends.json")))
 PERSONA_FILE = Path(os.environ.get("HERMES_PERSONA_FILE", str(BASE / "persona.md")))
@@ -69,7 +78,13 @@ def read_secret(path: str) -> str:
 
 
 def now_stamp() -> str:
-    return datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
+    """The wall clock the household reads, not the one the container runs on.
+
+    LXC 102 is set to Etc/UTC, so `astimezone()` with no argument returned UTC
+    and Hermes was telling the model it was two hours earlier than it was -
+    which then leaked into anything it said about time.
+    """
+    return datetime.now(HOUSE_TZ).strftime("%Y-%m-%d %H:%M")
 
 
 def http_json(url: str, *, method: str = "GET", payload: Any = None,
@@ -201,7 +216,32 @@ def vault_refresh(force: bool = False) -> dict[str, str]:
 
 
 def vault_search(query: str, limit: int = 5) -> str:
-    """Keyword search across the vault; returns the best-matching excerpts."""
+    """Search the vault by meaning when possible, by words when not.
+
+    The word counter below is why searching "time garden" used to return Oracle
+    queries full of timestamps: it counts occurrences and has no idea what the
+    words mean. The semantic index answers first now; the counter stays as the
+    fallback for when Qdrant or the embedding engine is unavailable, because a
+    degraded search beats no search.
+    """
+    store = memory()
+    if store is not None:
+        try:
+            found = store.recall(VAULT_OWNER, query, limit=max(1, min(10, limit)),
+                                 origins=["vault"])
+            hits = found.get("risultati") or []
+            if hits and found.get("modo") == "significato":
+                notes = vault_refresh()
+                out = [f"(ricerca per significato — {len(hits)} note)"]
+                for hit in hits:
+                    path = hit.get("riferimento", "")
+                    text = notes.get(path, hit.get("testo", ""))
+                    out.append(f"### {path}  [somiglianza {hit.get('somiglianza')}]\n"
+                               f"{text[:1200]}")
+                return "\n\n".join(out)
+        except Exception as exc:  # noqa: BLE001 - fall through to the word search
+            print(f"[hermes] ricerca per significato non disponibile: {exc}")
+
     notes = vault_refresh()
     if not notes:
         return f"Il vault non è leggibile in questo momento. {_vault.get('error', '')}".strip()
@@ -395,6 +435,123 @@ def send_mail(subject: str, body: str, html: str = "") -> str:
         return f"Invio fallito: {exc}"
 
 
+# ------------------------------------------------------------------- memoria
+
+_memory_store: Any = None
+_memory_lock = threading.Lock()
+_memory_error = ""
+
+
+def memory() -> Any:
+    """The memory store, built on first use.
+
+    Imported lazily so a missing driver or a database that is down degrades
+    Hermes to "no memory" instead of preventing it from starting at all.
+    """
+    global _memory_store, _memory_error  # noqa: PLW0603 - one process-wide store
+    if _memory_store is not None or _memory_error:
+        return _memory_store
+    with _memory_lock:
+        if _memory_store is None and not _memory_error:
+            try:
+                import hermes_memory  # noqa: PLC0415 - optional dependency
+                store = hermes_memory.MemoryStore()
+                if not store.configured:
+                    _memory_error = "manca /root/sovereign-secrets/hermes/memory-postgres-dsn"
+                else:
+                    _memory_store = store
+            except Exception as exc:  # noqa: BLE001
+                _memory_error = str(exc)[:200]
+    return _memory_store
+
+
+def _memory_unavailable() -> str:
+    return ("La memoria non è disponibile"
+            + (f" ({_memory_error})" if _memory_error else "")
+            + ". Dillo all'utente invece di far finta di aver ricordato.")
+
+
+def _as_json(payload: Any) -> str:
+    return json.dumps(payload, ensure_ascii=False, indent=1)
+
+
+def memory_remember(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.remember(
+        ctx["username"],
+        str(args.get("contenuto", "")),
+        subject=str(args.get("soggetto", "io") or "io"),
+        kind=str(args.get("tipo", "fatto") or "fatto"),
+        source=str(args.get("origine", "detto") or "detto")))
+
+
+def memory_recall(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    # Only the owner's own notes are in the semantic index, and only he may see
+    # them: the same rule the vault tools already follow.
+    return _as_json(store.recall(ctx["username"], str(args.get("domanda", "")),
+                                 limit=int(args.get("limite", 8) or 8),
+                                 include_vault=bool(ctx.get("is_admin"))))
+
+
+def memory_forget(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.forget(ctx["username"], str(args.get("riferimento", ""))))
+
+
+def memory_agenda_add(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.agenda_add(
+        ctx["username"], str(args.get("cosa", "")), str(args.get("quando", "")),
+        place=str(args.get("dove", "") or ""), notes=str(args.get("note", "") or "")))
+
+
+def memory_agenda_read(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    return _as_json(store.agenda_read(ctx["username"], days=int(args.get("giorni", 14) or 14)))
+
+
+def memory_briefing(user: dict[str, Any]) -> str:
+    """What Hermes already knows about this person, for the system prompt.
+
+    Without this the tools would work but memory would not feel like memory:
+    the model would have to think of asking. A handful of recent facts and the
+    next commitments cost one query and change the whole experience.
+    """
+    store = memory()
+    if store is None:
+        return ""
+    try:
+        facts = store.facts_recent(user["username"], limit=12)
+        agenda = store.agenda_read(user["username"], days=10).get("impegni", [])
+    except Exception:  # noqa: BLE001 - a briefing is a bonus, never a blocker
+        return ""
+    if not facts and not agenda:
+        return ""
+    lines = ["Quello che già sai di questa persona (dalla memoria, non inventato):"]
+    for f in facts:
+        mark = "" if f["origine"] == "detto" else " [dedotto da te, non confermato]"
+        lines.append(f"- ({f['soggetto']}) {f['testo']}{mark}")
+    if agenda:
+        lines.append("Impegni in arrivo:")
+        for a in agenda[:8]:
+            when = a["quando"][:16].replace("T", " alle ")
+            lines.append(f"- {when}: {a['cosa']}" + (f" ({a['dove']})" if a["dove"] else ""))
+    lines.append("Se qualcosa qui sopra è sbagliato o superato, correggilo con "
+                 "`ricorda` e `dimentica` invece di ignorarlo.")
+    return "\n".join(lines)
+
+
 TOOLS: dict[str, dict[str, Any]] = {
     "send_mail": {
         "admin_only": True,
@@ -527,6 +684,126 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    # --- memoria -----------------------------------------------------------
+    # Non admin_only: ogni persona ha la sua memoria, separata dalle altre dal
+    # campo `owner`. Sono invece tutti in PRIVATE_TOOLS: un fatto personale non
+    # deve mai finire a un fornitore esterno.
+    "ricorda": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_remember(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "ricorda",
+                "description": ("Salva un fatto da ricordare per sempre: una persona, una "
+                                "preferenza, un progetto, un'abitudine. Usalo quando l'utente "
+                                "racconta qualcosa di sé o di qualcuno che gli sta intorno, "
+                                "anche senza che te lo chieda esplicitamente."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "contenuto": {"type": "string",
+                                      "description": "il fatto, scritto in modo comprensibile "
+                                                     "anche fra un anno"},
+                        "soggetto": {"type": "string",
+                                     "description": "di chi o cosa parla: 'io', 'Luna', 'casa'. "
+                                                    "Di default 'io'"},
+                        "tipo": {"type": "string",
+                                 "enum": ["fatto", "persona", "preferenza", "progetto",
+                                          "luogo", "abitudine", "scadenza"]},
+                        "origine": {"type": "string", "enum": ["detto", "dedotto"],
+                                    "description": "'detto' se l'ha detto lui, 'dedotto' se "
+                                                   "l'hai capito tu. Non barare su questo"},
+                    },
+                    "required": ["contenuto"],
+                },
+            },
+        },
+    },
+    "ricorda_cerca": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_recall(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "ricorda_cerca",
+                "description": ("Cerca nella memoria per significato, non per parole: "
+                                "«cosa mi aveva detto sul lavoro?» funziona. Cerca anche fra "
+                                "gli appunti Obsidian se sei il proprietario. Usalo prima di "
+                                "dire che non sai una cosa."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "domanda": {"type": "string", "description": "cosa vuoi ritrovare"},
+                        "limite": {"type": "integer", "description": "quanti risultati (max 25)"},
+                    },
+                    "required": ["domanda"],
+                },
+            },
+        },
+    },
+    "dimentica": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_forget(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "dimentica",
+                "description": ("Cancella un fatto dalla memoria, per davvero. Accetta l'id "
+                                "restituito da ricorda_cerca, oppure un pezzo del testo. "
+                                "Non è recuperabile: chiedi conferma prima di usarlo."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "riferimento": {"type": "string",
+                                        "description": "l'id numerico, o un pezzo del testo"},
+                    },
+                    "required": ["riferimento"],
+                },
+            },
+        },
+    },
+    "agenda_aggiungi": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_agenda_add(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "agenda_aggiungi",
+                "description": "Segna un impegno con una data e un'ora.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cosa": {"type": "string", "description": "l'impegno"},
+                        "quando": {"type": "string",
+                                   "description": "'2026-08-14 18:30', oppure come si dice "
+                                                  "parlando: 'domani alle 18', 'lunedì', "
+                                                  "'fra 3 giorni'"},
+                        "dove": {"type": "string"},
+                        "note": {"type": "string"},
+                    },
+                    "required": ["cosa", "quando"],
+                },
+            },
+        },
+    },
+    "agenda_leggi": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_agenda_read(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "agenda_leggi",
+                "description": "Gli impegni in arrivo. Di default i prossimi 14 giorni.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "giorni": {"type": "integer", "description": "quanti giorni avanti"},
+                    },
+                },
+            },
+        },
+    },
     "access_overview": {
         "admin_only": True,
         "run": lambda args, ctx: access_overview(str(args.get("username", ""))),
@@ -551,7 +828,11 @@ TOOLS: dict[str, dict[str, Any]] = {
 # mai vederne il risultato. Mandare il vault a un piano gratuito equivale a
 # pubblicarlo.
 PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "estate_status",
-                 "access_overview", "send_mail"}
+                 "access_overview", "send_mail",
+                 # La memoria è la cosa più personale che Hermes possiede: nomi,
+                 # abitudini, impegni. Non esce di casa per nessun motivo.
+                 "ricorda", "ricorda_cerca", "dimentica",
+                 "agenda_aggiungi", "agenda_leggi"}
 
 
 def tools_for(user: dict[str, Any], backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -625,11 +906,26 @@ RECOMMENDED_MODELS = [
 
 SECRETS_DIR = Path(os.environ.get("HERMES_SECRETS_DIR", "/root/sovereign-secrets/hermes"))
 
+# A gateway can expose several hundred models; the settings dropdown is capped
+# so the page stays usable.
+MAX_LISTED_MODELS = 400
+
 
 def backend_models(backend: dict[str, Any]) -> list[str]:
-    """Model names a backend actually has loaded (Ollama only)."""
+    """Model names a backend really offers, asked to the backend itself."""
     if backend.get("type") == "openai":
-        return []
+        # An OpenAI-compatible endpoint answers /models. A gateway such as
+        # OmniRoute lists hundreds, so the panel takes a capped, sorted slice
+        # rather than an unusable dropdown.
+        key = read_secret(backend.get("api_key_file", ""))
+        if not key:
+            return []
+        ok, data = http_json(f"{backend['url'].rstrip('/')}/models",
+                             headers={"Authorization": f"Bearer {key}"}, timeout=8)
+        if not ok or not isinstance(data, dict):
+            return []
+        names = [str(m.get("id", "")) for m in (data.get("data") or []) if isinstance(m, dict)]
+        return sorted(n for n in names if n)[:MAX_LISTED_MODELS]
     ok, data = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=5)
     if not ok or not isinstance(data, dict):
         return []
@@ -700,6 +996,18 @@ def save_backends(rows: Any) -> tuple[bool, str]:
         comment = str(raw.get("comment", ""))[:400]
         if comment:
             entry["comment"] = comment
+        # Fields the panel does not edit but must not destroy. Saving from the
+        # form used to drop them silently, quietly resetting choices made by
+        # hand in backends.json.
+        if "private" in raw:
+            entry["private"] = bool(raw["private"])
+        parallel = raw.get("parallel")
+        if isinstance(parallel, (int, float)) and not isinstance(parallel, bool):
+            entry["parallel"] = max(1, min(8, int(parallel)))
+        extra = raw.get("extra")
+        if isinstance(extra, dict):
+            entry["extra"] = {k: v for k, v in extra.items()
+                              if isinstance(k, str) and isinstance(v, (int, float, str, bool))}
         # A key typed into the form is written to its own root-only file; the
         # path is derived from the name so a caller cannot choose where to write.
         key = str(raw.get("api_key") or "").strip()
@@ -730,7 +1038,15 @@ def save_backends(rows: Any) -> tuple[bool, str]:
 
 def backend_healthy(backend: dict[str, Any]) -> bool:
     if backend.get("type") == "openai":
-        return bool(read_secret(backend.get("api_key_file", "")))
+        key = read_secret(backend.get("api_key_file", ""))
+        if not key:
+            return False
+        # Having a key is not the same as being reachable. `/models` is the one
+        # free call every OpenAI-compatible endpoint answers, so the header can
+        # stop claiming an engine is up when it is not.
+        ok, _ = http_json(f"{backend['url'].rstrip('/')}/models",
+                          headers={"Authorization": f"Bearer {key}"}, timeout=6)
+        return ok
     ok, _ = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=4)
     return ok
 
@@ -818,6 +1134,14 @@ def _chat_openai(backend: dict[str, Any], messages: list[dict[str, Any]],
                                "stream": False}
     if tools:
         payload["tools"] = tools
+    # `think: false` is an Ollama-native switch and has no equivalent field in
+    # the OpenAI shape, so a reasoning model reached this way answers with an
+    # empty `content` and its whole budget spent on reasoning. `extra` is how a
+    # backend passes what its endpoint needs - for Ollama behind a gateway that
+    # is `reasoning_effort: "none"`, measured to be the working equivalent.
+    extra = backend.get("extra")
+    if isinstance(extra, dict):
+        payload.update(extra)
     ok, data = http_json(url, method="POST", payload=payload,
                          headers={"Authorization": f"Bearer {key}"}, timeout=GENERATION_TIMEOUT)
     if not ok:
@@ -856,10 +1180,15 @@ def system_prompt(user: dict[str, Any]) -> str:
             f"Ha accesso solo a questi servizi: {', '.join(user['apps']) or 'nessuno'}. "
             f"Non rivelare dettagli interni dell'infrastruttura, password, indirizzi IP "
             f"o informazioni sugli altri utenti.")
+    briefing = memory_briefing(user)
     return (f"{persona_text()}\n\n{role}\n\n"
             f"Data e ora attuali: {now_stamp()}.\n"
             f"Hai degli strumenti per leggere lo stato reale del sistema e le note "
-            f"Obsidian del proprietario: usali invece di tirare a indovinare.")
+            f"Obsidian del proprietario: usali invece di tirare a indovinare.\n"
+            f"Hai una memoria che vive in un database, fuori da te: quando l'utente "
+            f"racconta qualcosa di sé usa `ricorda` senza aspettare che te lo chieda, "
+            f"e quando non sai una cosa prova `ricorda_cerca` prima di dire che non la sai."
+            + (f"\n\n{briefing}" if briefing else ""))
 
 
 # ------------------------------------------------------------- conversations
@@ -1067,6 +1396,126 @@ def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
 
 # ------------------------------------------------------------------ the loop
 
+# Gli strumenti che CAMBIANO qualcosa. Su questi una pretesa non verificata non
+# è un dettaglio di stile: l'utente crede che il dato sia al sicuro.
+WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail"}
+
+# Come suona una pretesa in italiano. Volutamente al passato e in prima persona:
+# «salvo» o «sto salvando» non sono affermazioni di aver finito.
+_CLAIM_PATTERNS = [
+    r"\bho (?:salvat|ricordat|memorizzat|segnat|annotat|registrat|aggiunt|aggiornat|"
+    r"inviat|scritt|archiviat|appuntat|pres[oa] not)\w*",
+    r"\bl['’]ho (?:salvat|segnat|messo|aggiunt|annotat|registrat|memorizzat)\w*",
+    r"\b(?:salvato|memorizzato|annotato|registrato) (?:in memoria|nella memoria|in agenda)\b",
+    r"\bè (?:stato )?(?:salvato|memorizzato|registrato|aggiunto in agenda)\b",
+    r"\bmemoria aggiornata\b",
+    r"\b(?:aggiunto|inserito) (?:in|all')agenda\b",
+]
+
+# Un ordine esplicito di ricordare. Se l'utente lo dice così, il fatto viene
+# salvato dal codice: non si lascia a un modello da 9 miliardi di parametri la
+# decisione se eseguire o no un'istruzione diretta. È la stessa scelta già fatta
+# per la ricerca web più sopra.
+_REMEMBER_ORDER = re.compile(
+    r"^\s*(?:hermes[,\s]+)?(?:per favore[,\s]+)?"
+    r"(?:ricordati|ricorda|memorizza|segnati|segna|salva|annota|non dimenticare|"
+    r"tieni presente|tieni a mente)"
+    r"(?:\s+(?:che|di|questo|questa|:))?\s*[:,]?\s+(?P<what>\S.+)$",
+    re.IGNORECASE | re.DOTALL)
+
+
+def forced_remember(user: dict[str, Any], question: str) -> str:
+    """Save what an explicit order told us to save, before the model runs.
+
+    Returns the tool's own result, or "" when the message was not an order.
+    """
+    match = _REMEMBER_ORDER.match(question.strip())
+    if not match:
+        return ""
+    what = match.group("what").strip()
+    # Una richiesta di ricordare un appuntamento ha una data: quella resta al
+    # modello, che sa leggere «giovedì prossimo». Qui si salvano solo i fatti.
+    if re.search(r"\b(?:alle \d|domani|dopodomani|lunedì|martedì|mercoledì|giovedì|"
+                 r"venerdì|sabato|domenica|appuntamento|scadenza)\b", what, re.IGNORECASE):
+        return ""
+    if len(what) < 4:
+        return ""
+    return run_tool("ricorda", {"contenuto": what, "origine": "detto"}, user)
+
+
+def unverified_write_claim(answer: str, called: set[str]) -> str:
+    """The phrase in which the model claimed to have written something, if it
+    did not actually call a write tool. Empty string when there is nothing to
+    object to.
+    """
+    if called & WRITE_TOOLS:
+        return ""
+    low = (answer or "").lower()
+    for pattern in _CLAIM_PATTERNS:
+        found = re.search(pattern, low)
+        if found:
+            return found.group(0)
+    return ""
+
+
+def _tool_rounds(backend: dict[str, Any], messages: list[dict[str, Any]],
+                 tools: list[dict[str, Any]], user: dict[str, Any],
+                 rounds: int, precalled: set[str] | None = None) -> Iterator[dict[str, Any]]:
+    """Drive the model until it stops asking for tools.
+
+    Yields SSE-shaped events; returns (answer, names of tools actually run).
+    Extracted from `converse` so the same loop can be replayed when a claim
+    needs to be verified, instead of being written twice.
+    """
+    answer = ""
+    # Ciò che è già stato eseguito dal codice conta come eseguito: altrimenti la
+    # guardia sulle pretese accuserebbe il modello di una bugia che non ha detto.
+    called: set[str] = set(precalled or ())
+    for _ in range(max(1, rounds)):
+        message: dict[str, Any] = {}
+        streamed = ""
+        try:
+            for event in chat_once(backend, messages, tools, stream=True):
+                if "delta" in event:
+                    streamed += event["delta"]
+                    yield {"event": "delta", "data": event["delta"]}
+                elif "message" in event:
+                    message = event["message"]
+        except Exception as exc:  # noqa: BLE001 - report, do not crash the service
+            yield {"event": "error", "data": f"Il motore AI ha risposto con un errore: {exc}"}
+            return answer, called
+
+        calls = message.get("tool_calls") or []
+        if not calls:
+            answer = message.get("content") or streamed
+            break
+
+        # The model asked for data. Any text it streamed alongside the call was
+        # only preamble, so tell the page to drop it and show progress instead.
+        if streamed:
+            yield {"event": "reset", "data": ""}
+        messages.append({"role": "assistant", "content": message.get("content") or "",
+                         "tool_calls": calls})
+        for call in calls:
+            fn = (call.get("function") or {})
+            name = fn.get("name", "")
+            args = fn.get("arguments") or {}
+            if isinstance(args, str):
+                try:
+                    args = json.loads(args)
+                except json.JSONDecodeError:
+                    args = {}
+            yield {"event": "tool", "data": name}
+            result = run_tool(name, args, user)
+            # Only a tool that ran without being refused counts as done.
+            if not result.startswith(("Non hai i permessi", "Strumento '", "Errore nello strumento")):
+                called.add(name)
+            messages.append({"role": "tool", "content": result, "name": name})
+    else:
+        answer = answer or "Ho fatto troppi passaggi senza arrivare a una risposta."
+    return answer, called
+
+
 def converse(user: dict[str, Any], question: str,
              prefs: dict[str, Any] | None = None) -> Iterator[dict[str, Any]]:
     """Run one exchange, yielding SSE-shaped events as things happen.
@@ -1160,48 +1609,51 @@ def converse(user: dict[str, Any], question: str,
     else:
         tasks_done = False
 
-    answer = ""
-    for _ in range(MAX_TOOL_ROUNDS):
-        if tasks_done:
-            tools = []  # la sintesi non deve richiamare strumenti
-        message: dict[str, Any] = {}
-        streamed = ""
-        try:
-            for event in chat_once(backend, messages, tools, stream=True):
-                if "delta" in event:
-                    streamed += event["delta"]
-                    yield {"event": "delta", "data": event["delta"]}
-                elif "message" in event:
-                    message = event["message"]
-        except Exception as exc:  # noqa: BLE001 - report, do not crash the service
-            yield {"event": "error", "data": f"Il motore AI ha risposto con un errore: {exc}"}
-            return
+    if tasks_done:
+        tools = []  # la sintesi non deve richiamare strumenti
 
-        calls = message.get("tool_calls") or []
-        if not calls:
-            answer = message.get("content") or streamed
-            break
+    # Un ordine diretto («ricordati che…») viene eseguito qui, non affidato alla
+    # buona volontà del modello: qwen3.5:9b rispondeva «ho aggiornato la memoria»
+    # senza chiamare nulla, e il database restava vuoto.
+    precalled: set[str] = set()
+    if tools and not tasks_done:
+        saved = forced_remember(user, question)
+        if saved:
+            precalled.add("ricorda")
+            yield {"event": "tool", "data": "ricorda"}
+            messages.append({"role": "system", "content":
+                             f"Nota di sistema: il fatto è GIÀ stato salvato in memoria "
+                             f"dal server ({saved}). Confermalo in una riga, senza "
+                             f"richiamare `ricorda` per la stessa cosa."})
 
-        # The model asked for data. Any text it streamed alongside the call was
-        # only preamble, so tell the page to drop it and show progress instead.
-        if streamed:
-            yield {"event": "reset", "data": ""}
-        messages.append({"role": "assistant", "content": message.get("content") or "",
-                         "tool_calls": calls})
-        for call in calls:
-            fn = (call.get("function") or {})
-            name = fn.get("name", "")
-            args = fn.get("arguments") or {}
-            if isinstance(args, str):
-                try:
-                    args = json.loads(args)
-                except json.JSONDecodeError:
-                    args = {}
-            yield {"event": "tool", "data": name}
-            result = run_tool(name, args, user)
-            messages.append({"role": "tool", "content": result, "name": name})
-    else:
-        answer = answer or "Ho fatto troppi passaggi senza arrivare a una risposta."
+    answer, called = yield from _tool_rounds(backend, messages, tools, user,
+                                             MAX_TOOL_ROUNDS, precalled)
+
+    # --- la bugia sicura di sé -------------------------------------------
+    # Il difetto noto: il modello dice «ho salvato» senza chiamare nulla. Un
+    # tool che non parte non produce un errore, produce una frase convincente.
+    # Qui la pretesa viene confrontata con quello che è davvero successo.
+    claim = unverified_write_claim(answer, called)
+    if claim and tools:
+        yield {"event": "reset", "data": ""}
+        yield {"event": "tool", "data": "verifica: nessuno strumento chiamato"}
+        messages.append({"role": "assistant", "content": answer})
+        messages.append({"role": "user", "content": (
+            f"Fermo. Hai scritto «{claim}» ma non hai chiamato nessuno strumento, "
+            f"quindi non è successo niente: il database è vuoto su questo punto. "
+            f"Se c'era qualcosa da salvare, chiama ADESSO lo strumento giusto. "
+            f"Se non c'era, rispondi senza sostenere di aver fatto qualcosa.")})
+        retry, retry_called = yield from _tool_rounds(backend, messages, tools, user, 2)
+        if retry_called:
+            answer = retry or answer
+        else:
+            # Due tentativi e ancora nessuna chiamata: la cosa onesta è dirlo,
+            # non lasciare all'utente una conferma falsa.
+            answer = (retry or answer).rstrip() + (
+                "\n\n> **Non ho salvato niente.** Ho detto di averlo fatto ma non ho "
+                "usato lo strumento della memoria, e me ne sono accorto dopo. "
+                "Ripetimelo, oppure dimmi «salva questo» in modo esplicito.")
+            print(f"[hermes] claim non verificata da {backend.get('model')}: {claim!r}")
 
     if answer:
         save_chat(user["username"], history + [{"role": "user", "content": question},
@@ -1528,10 +1980,25 @@ class Handler(BaseHTTPRequestHandler):
                         f"e i tuoi appunti: chiedimi pure.") if user["is_admin"] else \
                        (f"Ciao {user['username']}. Sono Hermes, l'assistente di casa. "
                         f"Posso dirti se i servizi funzionano e aiutarti con quello che usi.")
+            # Memory health is reported, never assumed: if the stores are down
+            # the page must show it rather than let Hermes look like it
+            # remembered something it did not.
+            store = memory()
+            memory_state: dict[str, Any] = {"disponibile": False}
+            if store is not None:
+                try:
+                    facts = store.facts_recent(user["username"], limit=1)
+                    agenda = store.agenda_read(user["username"], days=30).get("impegni", [])
+                    memory_state = {"disponibile": True, "impegni_in_arrivo": len(agenda),
+                                    "ha_ricordi": bool(facts)}
+                except Exception as exc:  # noqa: BLE001
+                    memory_state = {"disponibile": False, "errore": str(exc)[:120]}
+            elif _memory_error:
+                memory_state["errore"] = _memory_error
             self._send(200, json.dumps({
                 "username": user["username"], "is_admin": user["is_admin"],
                 "apps": user["apps"], "backends": status, "vault_notes": len(notes),
-                "greeting": greeting,
+                "memoria": memory_state, "greeting": greeting,
             }).encode(), "application/json; charset=utf-8")
         elif route.path == "/api/chat":
             params = urllib.parse.parse_qs(route.query)
@@ -1642,7 +2109,37 @@ def vault_warmer() -> None:
         time.sleep(VAULT_REFRESH_SECONDS)
 
 
+def index_vault() -> int:
+    """Embed the vault into the semantic index. Run by a timer, not by the chat.
+
+    Only notes whose text changed are re-embedded, so the nightly run over 124
+    notes costs a handful of seconds instead of re-doing all of them.
+    """
+    store = memory()
+    if store is None:
+        print(f"[hermes] indicizzazione impossibile: {_memory_error or 'memoria assente'}")
+        return 1
+    notes = vault_refresh(force=True)
+    if not notes:
+        print(f"[hermes] vault non leggibile: {_vault.get('error', '')}")
+        return 1
+    started = time.time()
+    result = store.index_texts(VAULT_OWNER,
+                              ((path, path.rsplit("/", 1)[-1], text)
+                               for path, text in notes.items()))
+    print(f"[hermes] vault: {len(notes)} note, {json.dumps(result, ensure_ascii=False)}, "
+          f"{time.time() - started:.1f}s")
+    return 0 if result.get("ok") else 1
+
+
 def main() -> None:
+    if "--index-vault" in sys.argv:
+        raise SystemExit(index_vault())
+    if "--memory-status" in sys.argv:
+        store = memory()
+        print(json.dumps(store.status() if store else {"errore": _memory_error},
+                         ensure_ascii=False, indent=1))
+        raise SystemExit(0)
     CHATS_DIR.mkdir(parents=True, exist_ok=True)
     threading.Thread(target=vault_warmer, daemon=True).start()
     print(f"sovereign-hermes listening on {BIND}:{PORT}")

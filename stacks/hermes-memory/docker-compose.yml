@@ -1,0 +1,83 @@
+name: hermes-memory
+
+# The memory that lives outside the model. Three stores, each for the job it is
+# actually good at, all bound to 127.0.0.1: Hermes runs as a systemd service on
+# this same container, so loopback is all it needs - and nothing on the house
+# network can reach a database that holds the owner's personal facts.
+
+services:
+  hermes-postgres:
+    image: postgres:${HERMES_PG_TAG}
+    container_name: hermes-postgres
+    restart: unless-stopped
+    environment:
+    - POSTGRES_DB=${HERMES_PG_DB}
+    - POSTGRES_USER=${HERMES_PG_USER}
+    - POSTGRES_PASSWORD=${HERMES_PG_PASSWORD}
+    # Italian collation, because these are Italian notes and names.
+    - POSTGRES_INITDB_ARGS=--encoding=UTF8 --locale=C
+    ports:
+    - "127.0.0.1:${HERMES_PG_PORT}:5432"
+    volumes:
+    - hermes_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - pg_isready -U ${HERMES_PG_USER} -d ${HERMES_PG_DB}
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  hermes-qdrant:
+    image: qdrant/qdrant:${HERMES_QDRANT_TAG}
+    container_name: hermes-qdrant
+    restart: unless-stopped
+    environment:
+    # Qdrant has no authentication by default. The key is required even on
+    # loopback, so a stray process on this container cannot read the memory.
+    - QDRANT__SERVICE__API_KEY=${HERMES_QDRANT_API_KEY}
+    - QDRANT__SERVICE__READ_ONLY_API_KEY=${HERMES_QDRANT_READ_KEY}
+    - QDRANT__TELEMETRY_DISABLED=true
+    - QDRANT__LOG_LEVEL=WARN
+    ports:
+    - "127.0.0.1:${HERMES_QDRANT_PORT}:6333"
+    volumes:
+    - hermes_qdrant_data:/qdrant/storage
+    healthcheck:
+      # No curl or wget in this image: the binary answers its own liveness.
+      test:
+      - CMD-SHELL
+      - bash -c ':> /dev/tcp/127.0.0.1/6333'
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
+  hermes-valkey:
+    image: valkey/valkey:${HERMES_VALKEY_TAG}
+    container_name: hermes-valkey
+    restart: unless-stopped
+    command: >
+      valkey-server
+      --requirepass ${HERMES_VALKEY_PASSWORD}
+      --appendonly yes
+      --maxmemory ${HERMES_VALKEY_MAXMEMORY}
+      --maxmemory-policy allkeys-lru
+      --save ""
+    ports:
+    - "127.0.0.1:${HERMES_VALKEY_PORT}:6379"
+    volumes:
+    - hermes_valkey_data:/data
+    healthcheck:
+      test:
+      - CMD-SHELL
+      - valkey-cli -a "$$HERMES_VALKEY_PASSWORD" ping | grep -q PONG
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    environment:
+    - HERMES_VALKEY_PASSWORD=${HERMES_VALKEY_PASSWORD}
+
+volumes:
+  hermes_pg_data:
+  hermes_qdrant_data:
+  hermes_valkey_data:
