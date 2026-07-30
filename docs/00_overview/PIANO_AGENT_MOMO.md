@@ -273,6 +273,40 @@ bisogna prima essere sulla VPN.
 Momo ha comunque memoria completa di tutto il codice a prescindere da questo
 plugin: l'indice semantico vive in Qdrant ed è indipendente da Obsidian.
 
+### Il vincolo che decide tutto, e la divisione scelta
+
+Il proprietario ha aggiunto: *«se scrivo qualcosa dai dispositivi i db devono
+aggiornarsi in tempo record e tutti i plugin devono poter funzionare»*.
+
+La prima metà si fa: scrittura dal telefono → HTTP al server → Postgres, in
+millisecondi su LAN o VPN.
+
+**La seconda metà è in conflitto con l'architettura sui database, e non per
+colpa del nostro disegno.** I plugin di Obsidian (Dataview, Templater, Time
+Garden) leggono attraverso la *Vault API*: vedono **solo i file che esistono
+davvero nel vault**. Un contenuto che vive su Postgres, per Dataview non
+esiste. Non si aggira con un plugin — servirebbe un filesystem virtuale, che
+su iOS non è possibile.
+
+| | File nel vault (LiveSync) | Dati sui database |
+|---|---|---|
+| Peso sul telefono | 2 683 documenti | zero |
+| Dataview, Templater, gli altri | ✅ funzionano | ❌ non li vedono |
+| Offline | ✅ | ❌ serve la VPN |
+| Scrittura | qualche secondo | immediata |
+
+**Decisione del proprietario: dividere per tipo, non per tecnologia.**
+
+- **Documentazione, README, note** (poche centinaia di file, leggeri) →
+  **nel vault** via LiveSync: tutti i plugin funzionano, l'offline funziona,
+  ed è la roba che si legge davvero da telefono.
+- **Codice sorgente** (le migliaia di file pesanti) → **sui database**,
+  cercabile da Momo e da una vista dedicata. Su un file `.py` Dataview non
+  serve comunque.
+
+È la divisione che dà a ogni tipo di contenuto lo strumento adatto, invece di
+far pagare a tutto il vault il peso di una parte sola.
+
 ## 5. Cosa si guadagna e cosa si perde, senza abbellimenti
 
 **Si guadagna**: 21 canali di messaggistica, 33 provider di modelli, un gateway
