@@ -127,12 +127,40 @@ senza toccarsi.
 Nota sulla CLI: il flag per una domanda non interattiva è **`-z`** (non `-q`),
 e `hermes model` **pretende un terminale vero** — non è usabile da script.
 
-### Fase 2 — Momo ha la memoria
-Il nostro Postgres + Qdrant + Valkey come `MemoryProvider`
-(`plugins/memory/sovereign/`). I nostri strumenti di memoria entrano da
-`get_tool_schemas()`, non come tool sciolti.
-*Verifica*: gli si dice un fatto, si riavvia, se lo ricorda ancora — lo stesso
-test di accettazione già usato per la memoria attuale.
+### Fase 2 — Momo ha la memoria ✅ **FATTA E VERIFICATA (2026-07-30)**
+
+Plugin in `scripts/momo/sovereign/` (installato in
+`$HERMES_HOME/plugins/sovereign/`), attivato con `memory.provider: sovereign`.
+
+**Non reimplementa niente**: importa lo stesso `hermes_memory.MemoryStore` che
+usa l'Hermes vivo, e la stessa tabella `TOOLS`. Due copie di una memoria
+divergerebbero, e la divergenza sarebbe invisibile finché una delle due non
+perde qualcosa.
+
+La corrispondenza con il vocabolario di hermes-agent è quasi uno a uno:
+
+| Nostro | Loro | Cosa succede |
+|---|---|---|
+| briefing della memoria | `system_prompt_block()` | ultimi 12 fatti + impegni, a ogni turno |
+| `ricorda_cerca` automatico | `prefetch(query)` | ricerca semantica **prima** di ogni risposta, senza che il modello debba pensarci |
+| i 10 strumenti di memoria | `get_tool_schemas()` + `handle_tool_call()` | ricorda/cerca/dimentica, agenda, procedure, rubrica |
+| — | `sync_turn()` | **volutamente vuoto**: qui la memoria è *dichiarata*, non raccolta. Salvare ogni turno di nascosto la renderebbe non verificabile e romperebbe la promessa che `dimentica` dimentica davvero |
+
+**La prova che conta** (non «funziona», ma «è la stessa memoria»): un fatto
+salvato **attraverso Momo** è stato riletto **dall'Hermes attuale**, processo
+separato, e poi dimenticato da Momo. Un solo Postgres dietro entrambi.
+
+Stato reale al momento della verifica: Postgres ✅ · Qdrant ✅ 1829 punti ·
+Valkey ✅ · embedding ✅ · 10 strumenti esposti · ricerca semantica nel vault
+Obsidian che ritrova le note su Data Guard.
+
+**Una trappola pagata**: il venv di Momo non vedeva `psycopg2` (che su LXC 102
+viene da apt, non da pip — è l'eccezione dichiarata alla regola «sola libreria
+standard»). Risolto con un **symlink mirato** al solo `psycopg2` invece di
+`--system-site-packages`: quest'ultimo avrebbe fatto vedere al venv tutte le
+librerie di sistema, scavalcando le versioni pinnate di hermes-agent — che
+sono pinnate esatte apposta, per motivi di sicurezza della catena di
+fornitura.
 
 ### Fase 3 — Momo ha le mani
 I 23 strumenti come plugin (`ctx.register_tool`): vault, stato dell'impianto,

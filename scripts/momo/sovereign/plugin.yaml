@@ -1,0 +1,12 @@
+name: sovereign
+kind: exclusive
+version: 1.0.0
+description: "Sovereign memory — the household's own Postgres + Qdrant + Valkey memory, shared with the running Hermes."
+author: Sovereign Homelab
+# No pip dependencies: psycopg2 comes from Debian's archive on LXC 102, and
+# Qdrant and Valkey are spoken to with the standard library.
+pip_dependencies: []
+# No env vars: every credential is read from /root/sovereign-secrets, by the
+# same module the live Hermes uses. Nothing about this memory belongs in a
+# config file.
+requires_env: []
