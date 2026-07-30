@@ -1670,7 +1670,17 @@ def run_action_command(cmd: list[str], timeout: int) -> tuple[bool, str]:
     Hermes lives on LXC 102, which has neither -- so those cross over SSH with
     a dedicated key; anything else runs locally, where Hermes already has
     root for its own unit.
+
+    The prohibition is re-checked HERE, not only in `master_execute`. Found by
+    testing rather than by reading: a command that does not start with
+    `pct`/`qm` never reaches the host's own guard, because it never leaves
+    this container -- so a caller that skipped `master_execute` would have run
+    it unguarded. The check is cheap; being able to bypass it by calling one
+    function instead of another is not a risk worth keeping.
     """
+    reason = master_forbidden(cmd)
+    if reason:
+        return False, f"RIFIUTATO dalla guardia locale: {reason}"
     if cmd and cmd[0] in ("pct", "qm"):
         if not Path(MASTER_SSH_KEY_FILE).exists():
             return False, (f"chiave SSH master non configurata ({MASTER_SSH_KEY_FILE}): "

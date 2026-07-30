@@ -588,13 +588,55 @@ bloccati anche a MASTER armato.
 > «pensavo lo facesse il REVOKE» è esattamente il tipo di falsa sicurezza che
 > questo progetto evita.
 
-> **Manca la chiave SSH master.** `pct` e `qm` esistono solo sull'host Proxmox,
-> e Hermes vive su LXC 102: le azioni infrastrutturali devono attraversare quel
-> salto. Serve una chiave dedicata in
-> `/root/sovereign-secrets/hermes/master-ssh-key` (**mai** la chiave di audit
-> usata dall'esterno). Finché non c'è, quelle azioni **falliscono dicendolo** —
-> verificato: *«chiave SSH master non configurata: l'azione non può raggiungere
-> l'host Proxmox»*. Degradare dicendolo, non fingere.
+### La chiave master e la guardia sull'host
+
+`pct` e `qm` esistono solo sull'host Proxmox, e Hermes vive su LXC 102: le
+azioni infrastrutturali devono attraversare quel salto. C'è una chiave
+ed25519 **dedicata** (mai quella di audit usata dall'esterno), generata
+sull'host e consegnata a LXC 102 in
+`/root/sovereign-secrets/hermes/master-ssh-key` (0600) — la metà privata non
+è mai passata da nessun'altra macchina.
+
+Il proprietario ha chiesto (2026-07-30): *«master deve avere accesso totale a
+tutto ma non deve rompere Immich o fare cose distruttive, può creare tutto e
+può cancellare le robe che lui crea»*. Tradotto in architettura: **una porta
+larga con poche cose inchiodate**, e l'inchiodatura ripetuta a tre livelli
+indipendenti.
+
+| Livello | Dove | Cosa protegge |
+|---|---|---|
+| 1 | `master_execute()` | il flusso normale: azione dal catalogo, parametri validati, divieto |
+| 2 | `run_action_command()` | **anche** una chiamata diretta che saltasse il livello 1 |
+| 3 | `/usr/local/sbin/hermes-master-guard.py` sull'host | forced command della chiave: vale **qualunque cosa** arrivi da quella chiave, anche se Hermes fosse compromesso o riscritto |
+
+La chiave è autorizzata con
+`command="/usr/local/sbin/hermes-master-guard.py",no-pty,no-port-forwarding,...`:
+non esiste un modo per usarla che non passi dalla guardia.
+
+**La guardia dell'host nega** (verificato con 29 casi, tutti corretti): tutto
+ciò che nomina Immich o la VM 110, `zfs destroy`, `qm`/`pct destroy`, `rm -rf`
+(anche `-fr`, anche annidato in `bash -c`), `mkfs`/`dd`/`wipefs`/`fdisk`,
+cancellare backup o snapshot, spegnere o riavviare il nodo, toccare
+`authorized_keys`, la guardia stessa o il proprio registro, disattivare le
+guardie dell'impianto.
+**Permette** tutto il resto: creare directory e stack, avviare servizi e
+container, `rm` e `rm -r` (cancellare le proprie cose), leggere log, `qm start`
+su VM che non siano Immich. Ogni comando — permesso o rifiutato — finisce in
+`/root/sovereign-secrets/logs/hermes-master-actions.log`.
+
+> **Un buco trovato provando, non leggendo.** Al primo test end-to-end
+> `rm -rf /var/lib/vz` è **passato**. Causa: `run_action_command()` manda
+> attraverso SSH solo i comandi che iniziano con `pct`/`qm`; tutti gli altri
+> girano **localmente su LXC 102**, dove la guardia dell'host non arriva mai.
+> Nessun danno reale (su LXC 102 quel percorso non esiste, e sull'host è
+> rimasto intatto), ma il difetto era vero: bastava chiamare una funzione
+> invece di un'altra per eseguire senza guardia. Chiuso spostando il controllo
+> **dentro** l'esecutore. La lezione vale oltre questo caso: una guardia messa
+> *davanti* a una funzione protegge solo chi passa dalla porta principale.
+
+*Verificato dal vivo dopo l'installazione*: `pct list` e `pct exec 102 -- df -h`
+eseguiti davvero; `qm stop 110` e `rm -rf` rifiutati; `mkdir` e `rmdir` di una
+directory creata da lui riusciti.
 
 ## 8. La personalità e la memoria
 

@@ -139,6 +139,7 @@ e l'altra: ogni voce dice dove sta il valore, mai il valore.
 | Casella email del proprietario | `/root/sovereign-secrets/hermes/owner-email` | `send_mail` |
 | Token del relay email | letto da `RELAY_TOKEN_FILE` (stesso albero) | `send_mail` verso `sovereign-alert-relay` |
 | Token del bot Telegram (`@dn_momo_bot`) | `/root/sovereign-secrets/hermes-agent/telegram-bot-token` | non ancora in uso: riservato a W6.3, ottenuto da @BotFather il 2026-07-30 |
+| **Chiave SSH della modalità MASTER** | `/root/sovereign-secrets/hermes/master-ssh-key` (solo LXC 102) + `master-known-hosts` | W5: le azioni `pct`/`qm` verso l'host. **Autorizzata con forced command** su `/usr/local/sbin/hermes-master-guard.py`: non esiste un modo di usarla che non passi dalla guardia. Registro in `/root/sovereign-secrets/logs/hermes-master-actions.log` |
 
 Regola per aggiungerne uno nuovo: stesso albero, stesso `0600`, stessa dualità
 pve + LXC 102, e una riga qui — non nella chat, non nella memoria dell'agente.
