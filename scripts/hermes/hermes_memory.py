@@ -541,6 +541,106 @@ class MemoryStore:
         self._log(owner, "agenda_fatto", ref_id=row["id"], subject=row["what"][:120])
         return {"ok": True, "id": row["id"], "cosa": row["what"]}
 
+    # -- procedures --------------------------------------------------------
+
+    def procedure_save(self, owner: str, name: str, steps: Iterable[str], *,
+                       purpose: str = "", tags: Iterable[str] = (),
+                       source: str = "detto") -> dict[str, Any]:
+        """Store a how-to as an ordered list of steps.
+
+        In Postgres, not among the vectors, and on purpose: a procedure gets
+        followed step by step, so it has to come back *exactly*, not
+        approximately. A near-miss answer is fine for "what did I say about
+        work"; it is not fine for "how do I restore the photos".
+        """
+        name = (name or "").strip()[:200]
+        if not name:
+            return {"ok": False, "error": "serve un nome per la procedura"}
+        clean = [str(s).strip() for s in steps if str(s).strip()][:60]
+        if not clean:
+            return {"ok": False, "error": "serve almeno un passo"}
+        row = self._query(
+            """INSERT INTO procedures (owner, name, purpose, steps, tags, source)
+               VALUES (%s, %s, %s, %s::jsonb, %s, %s)
+               ON CONFLICT (owner, name) DO UPDATE
+                   SET purpose = EXCLUDED.purpose, steps = EXCLUDED.steps,
+                       tags = EXCLUDED.tags, source = EXCLUDED.source
+               RETURNING id, (created_at <> updated_at) AS aggiornata""",
+            (owner, name, purpose.strip()[:1000], json.dumps(clean, ensure_ascii=False),
+             [str(t).strip()[:40] for t in tags if str(t).strip()][:12],
+             source if source in SOURCES else "detto"), fetch="one")
+        # Il testo resta in Postgres, che è la verità; nell'indice vettoriale va
+        # solo un puntatore cercabile. Serve perché la ricerca testuale di
+        # Postgres cerca parole: «foto perse» non trovava «Ripristinare le foto
+        # di Immich», e chi ha un problema lo descrive con le sue parole, non
+        # con il titolo che aveva scelto mesi prima.
+        indexed = self.index_texts(owner, [(
+            str(row["id"]), name,
+            f"{purpose}\n" + "\n".join(clean))], origin="procedura", force=True)
+        self._log(owner, "procedura_salva", ref_id=row["id"], subject=name,
+                  detail=f"passi={len(clean)} indicizzata={indexed.get('pezzi', 0)}")
+        return {"ok": True, "id": row["id"], "nome": name, "passi": len(clean),
+                "aggiornata": row["aggiornata"],
+                "ricerca_per_significato": bool(indexed.get("pezzi"))}
+
+    def procedure_find(self, owner: str, query: str = "", limit: int = 5) -> dict[str, Any]:
+        """Exact name first, then Postgres' own Italian text search."""
+        limit = min(20, max(1, int(limit)))
+        query = (query or "").strip()
+        if not query:
+            rows = self._query(
+                """SELECT id, name, purpose, steps, tags, times_used, updated_at
+                     FROM procedures WHERE owner = %s
+                 ORDER BY times_used DESC, updated_at DESC LIMIT %s""", (owner, limit))
+        else:
+            rows = self._query(
+                """SELECT id, name, purpose, steps, tags, times_used, updated_at,
+                          ts_rank(search, websearch_to_tsquery('italian', %s)) AS rank
+                     FROM procedures
+                    WHERE owner = %s
+                      AND (name ILIKE %s
+                           OR search @@ websearch_to_tsquery('italian', %s))
+                 ORDER BY (name ILIKE %s) DESC, rank DESC NULLS LAST, times_used DESC
+                    LIMIT %s""",
+                (query, owner, f"%{query}%", query, f"%{query}%", limit))
+            if not rows:
+                # Le parole non hanno funzionato: si prova il significato, e poi
+                # si ricaricano le righe VERE da Postgres. I passi che tornano
+                # sono sempre quelli del database, mai quelli dell'indice: una
+                # procedura approssimata sarebbe peggio di nessuna procedura.
+                found = self.recall(owner, query, limit=limit, origins=["procedura"])
+                ids = []
+                for hit in found.get("risultati") or []:
+                    ref = str(hit.get("riferimento", ""))
+                    if ref.isdigit() and int(ref) not in ids:
+                        ids.append(int(ref))
+                if ids:
+                    rows = self._query(
+                        """SELECT id, name, purpose, steps, tags, times_used, updated_at
+                             FROM procedures WHERE owner = %s AND id = ANY(%s)""",
+                        (owner, ids))
+                    order = {pid: n for n, pid in enumerate(ids)}
+                    rows.sort(key=lambda r: order.get(r["id"], 99))
+        return {"ok": True, "procedure": [{
+            "id": r["id"], "nome": r["name"], "scopo": r["purpose"],
+            "passi": r["steps"], "etichette": list(r["tags"] or []),
+            "usata_volte": r["times_used"],
+            "aggiornata": house_time(r["updated_at"]),
+        } for r in rows]}
+
+    def procedure_used(self, owner: str, ref: str) -> dict[str, Any]:
+        """Count a run. Knowing which procedures are never used is worth having."""
+        where = "id = %s" if str(ref).isdigit() else "name ILIKE %s"
+        value: Any = int(ref) if str(ref).isdigit() else f"%{ref}%"
+        row = self._query(
+            f"""UPDATE procedures SET times_used = times_used + 1, last_used_at = now()
+                 WHERE owner = %s AND {where} RETURNING id, name, times_used""",
+            (owner, value), fetch="one")
+        if not row:
+            return {"ok": False, "error": "procedura non trovata"}
+        return {"ok": True, "id": row["id"], "nome": row["name"],
+                "usata_volte": row["times_used"]}
+
     # -- vault indexing ----------------------------------------------------
 
     def index_texts(self, owner: str, items: Iterable[tuple[str, str, str]], *,
@@ -632,6 +732,7 @@ class MemoryStore:
             counts = self._query(
                 """SELECT (SELECT count(*) FROM facts)  AS fatti,
                           (SELECT count(*) FROM agenda WHERE NOT done) AS impegni,
+                          (SELECT count(*) FROM procedures) AS procedure,
                           (SELECT count(*) FROM vector_index) AS vettori""", fetch="one")
             out["postgres"] = True
             out.update({k: int(v) for k, v in (counts or {}).items()})

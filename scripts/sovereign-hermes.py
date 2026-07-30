@@ -22,6 +22,7 @@ import html as html_module
 import json
 import os
 import re
+import secrets
 import sys
 import threading
 import time
@@ -284,6 +285,119 @@ def vault_read(path: str) -> str:
     return "Nota non trovata. Usa vault_list per vedere i titoli disponibili."
 
 
+COUCH_WRITER_USER = os.environ.get("HERMES_COUCH_WRITER", "hermes_writer")
+COUCH_WRITER_PASSWORD_FILE = os.environ.get(
+    "HERMES_COUCH_WRITER_PASSWORD_FILE",
+    "/root/sovereign-secrets/hermes/couchdb-writer-password")
+# Hermes scrive solo qui dentro. Non è una convenzione: è il confine che rende
+# vera la frase «Hermes non può danneggiare il vault». Il modello può sbagliare
+# percorso quanto vuole, la porta è una sola.
+VAULT_WRITE_ROOT = os.environ.get("HERMES_VAULT_WRITE_ROOT", "07 Notes/Hermes")
+# LiveSync spezza le note in pezzi; questa è una misura prudente che i client
+# leggono senza problemi.
+VAULT_CHUNK = 2000
+
+
+def _couch_write(method: str, path: str, payload: Any = None) -> tuple[bool, Any]:
+    """One call to CouchDB as the writer account, never as the reader."""
+    password = read_secret(COUCH_WRITER_PASSWORD_FILE)
+    if not password:
+        return False, ("manca la password di scrittura in "
+                       f"{COUCH_WRITER_PASSWORD_FILE}: esegui sovereign-hermes-vault-writer.py")
+    import base64
+    token = base64.b64encode(f"{COUCH_WRITER_USER}:{password}".encode()).decode()
+    return http_json(f"{COUCH_URL}{path}", method=method, payload=payload,
+                     headers={"Authorization": f"Basic {token}"}, timeout=30)
+
+
+def _vault_safe_path(path: str) -> tuple[str, str]:
+    """Normalise a requested note path into the writable folder.
+
+    Returns (path, error). Anything trying to climb out lands inside anyway:
+    the folder is prepended after the path has been stripped of separators it
+    should not have.
+    """
+    raw = (path or "").strip().replace("\\", "/")
+    raw = re.sub(r"\.{2,}", "", raw).strip("/")
+    if not raw:
+        return "", "serve un nome per la nota"
+    if not raw.lower().endswith(".md"):
+        raw += ".md"
+    # Un percorso già dentro la cartella consentita resta dov'è; tutto il resto
+    # ci viene portato dentro, invece di essere rifiutato con un errore che il
+    # modello poi racconta a modo suo.
+    root = VAULT_WRITE_ROOT.strip("/")
+    if not raw.lower().startswith(root.lower() + "/"):
+        raw = f"{root}/{raw.rsplit('/', 1)[-1]}"
+    if len(raw) > 200:
+        return "", "percorso troppo lungo"
+    if not re.fullmatch(r"[\w\s./àèéìòùÀÈÉÌÒÙ'()\-–,+&]+", raw):
+        return "", f"il percorso contiene caratteri che non accetto: {raw}"
+    return raw, ""
+
+
+def vault_write(path: str, content: str, append: bool = False) -> str:
+    """Create or extend a note in Hermes' own folder, in LiveSync's format.
+
+    Deliberately limited: it never touches a note outside VAULT_WRITE_ROOT, and
+    `append` is the default behaviour offered to the model because overwriting
+    somebody's note by mistake is not recoverable from here.
+    """
+    safe, error = _vault_safe_path(path)
+    if error:
+        return f"Non ho scritto niente: {error}"
+    content = (content or "").rstrip()
+    if not content:
+        return "Non ho scritto niente: il contenuto è vuoto."
+
+    doc_id = safe.lower()
+    ok, existing = _couch_write("GET", f"/{COUCH_DB}/{urllib.parse.quote(doc_id, safe='')}")
+    previous = existing if (ok and isinstance(existing, dict) and existing.get("path")) else None
+
+    if previous:
+        old_text = "".join(
+            (_couch_write("GET", f"/{COUCH_DB}/{urllib.parse.quote(cid, safe='')}")[1] or {}).get("data", "")
+            for cid in (previous.get("children") or []))
+        if append:
+            content = f"{old_text.rstrip()}\n\n{content}"
+        elif old_text.strip():
+            return (f"La nota «{safe}» esiste già ({len(old_text)} caratteri). "
+                    f"Non la sovrascrivo: chiedi di aggiungere in coda, oppure usa un altro nome.")
+
+    pieces = [content[i:i + VAULT_CHUNK] for i in range(0, len(content), VAULT_CHUNK)] or [content]
+    children: list[str] = []
+    for piece in pieces:
+        chunk_id = "h:" + secrets.token_hex(8)
+        ok, result = _couch_write("PUT", f"/{COUCH_DB}/{chunk_id}",
+                                  {"data": piece, "type": "leaf"})
+        if not ok:
+            return f"Scrittura fallita sul pezzo {chunk_id}: {result}"
+        children.append(chunk_id)
+
+    now_ms = int(time.time() * 1000)
+    doc: dict[str, Any] = {
+        "path": safe, "children": children, "type": "plain",
+        "size": len(content.encode()), "mtime": now_ms,
+        "ctime": previous.get("ctime", now_ms) if previous else now_ms,
+        "eden": {},
+    }
+    if previous:
+        doc["_rev"] = previous["_rev"]
+    ok, result = _couch_write("PUT", f"/{COUCH_DB}/{urllib.parse.quote(doc_id, safe='')}", doc)
+    if not ok:
+        return f"Scrittura fallita: {result}"
+
+    # Rilettura con l'account di sola lettura: se la nota non si rilegge, quello
+    # che conta e' dirlo, non dichiarare un successo sulla base di un HTTP 201.
+    ok, check = _couch(f"/{COUCH_DB}/{urllib.parse.quote(doc_id, safe='')}")
+    readable = ok and isinstance(check, dict) and len(check.get("children") or []) == len(children)
+    vault_refresh(force=True)
+    verb = "aggiunto a" if (previous and append) else "creata"
+    return (f"Nota {verb} «{safe}» ({len(content)} caratteri, {len(children)} pezzi). "
+            f"Rilettura: {'ok' if readable else 'NON rileggibile — controlla il vault'}. "
+            f"Comparirà su Obsidian alla prossima sincronizzazione.")
+
+
 def vault_list() -> str:
     notes = vault_refresh()
     if not notes:
@@ -527,6 +641,41 @@ def memory_agenda_read(ctx: dict[str, Any], args: dict[str, Any]) -> str:
     return _as_json(store.agenda_read(ctx["username"], days=int(args.get("giorni", 14) or 14)))
 
 
+def memory_procedure_save(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    steps = args.get("passi")
+    if isinstance(steps, str):
+        # Un modello passa spesso i passi come testo unico: si spezza sulle righe
+        # o sui numeri, invece di rifiutare e far perdere il lavoro.
+        steps = [re.sub(r"^\s*(?:\d+[.)]|[-*•])\s*", "", line).strip()
+                 for line in re.split(r"[\r\n]+|(?<=\.)\s+(?=\d+[.)])", steps)]
+    if not isinstance(steps, list):
+        steps = []
+    tags = args.get("etichette")
+    if isinstance(tags, str):
+        tags = [t.strip() for t in re.split(r"[,;]", tags)]
+    return _as_json(store.procedure_save(
+        ctx["username"], str(args.get("nome", "")), steps,
+        purpose=str(args.get("scopo", "") or ""),
+        tags=tags if isinstance(tags, list) else ()))
+
+
+def memory_procedure_find(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    store = memory()
+    if store is None:
+        return _memory_unavailable()
+    found = store.procedure_find(ctx["username"], str(args.get("cerca", "") or ""),
+                                 limit=int(args.get("limite", 5) or 5))
+    # Se c'è una sola risposta, è quella che verrà eseguita: contarla come usata
+    # dice quali procedure servono davvero e quali sono lettera morta.
+    rows = found.get("procedure") or []
+    if len(rows) == 1:
+        store.procedure_used(ctx["username"], str(rows[0]["id"]))
+    return _as_json(found)
+
+
 def memory_briefing(user: dict[str, Any]) -> str:
     """What Hermes already knows about this person, for the system prompt.
 
@@ -678,6 +827,37 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    "vault_scrivi": {
+        "admin_only": True,
+        "run": lambda args, ctx: vault_write(str(args.get("nome", "")),
+                                             str(args.get("contenuto", "")),
+                                             append=bool(args.get("in_coda", True))),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "vault_scrivi",
+                "description": ("Scrive una nota su Obsidian, dentro la cartella "
+                                f"«{VAULT_WRITE_ROOT}». Usalo quando il proprietario "
+                                "chiede di scrivere, salvare o annotare qualcosa nel "
+                                "vault. Non può toccare le note esistenti fuori da "
+                                "quella cartella, e su una nota che esiste già "
+                                "aggiunge in coda invece di sovrascrivere."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome": {"type": "string",
+                                 "description": "nome della nota, senza percorso"},
+                        "contenuto": {"type": "string",
+                                      "description": "il testo in Markdown"},
+                        "in_coda": {"type": "boolean",
+                                    "description": "true (predefinito) aggiunge in coda "
+                                                   "se la nota esiste"},
+                    },
+                    "required": ["nome", "contenuto"],
+                },
+            },
+        },
+    },
     "vault_list": {
         "admin_only": True,
         "run": lambda args, ctx: vault_list(),
@@ -793,6 +973,55 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    "procedura_salva": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_procedure_save(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "procedura_salva",
+                "description": ("Salva una procedura: come si fa una cosa, passo per "
+                                "passo. Usalo quando l'utente ti chiede di ricordare "
+                                "un modo di procedere, oppure dopo che gli hai "
+                                "spiegato come si fa qualcosa e vale la pena "
+                                "riusarlo. Le procedure stanno in un database "
+                                "relazionale, non fra i vettori: tornano esatte."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome": {"type": "string",
+                                 "description": "come si chiama, breve e riconoscibile"},
+                        "scopo": {"type": "string", "description": "a cosa serve"},
+                        "passi": {"type": "array", "items": {"type": "string"},
+                                  "description": "i passi in ordine, uno per elemento"},
+                        "etichette": {"type": "array", "items": {"type": "string"}},
+                    },
+                    "required": ["nome", "passi"],
+                },
+            },
+        },
+    },
+    "procedura_cerca": {
+        "admin_only": False,
+        "run": lambda args, ctx: memory_procedure_find(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "procedura_cerca",
+                "description": ("Ritrova una procedura salvata. Senza argomenti elenca "
+                                "quelle più usate. Usalo PRIMA di improvvisare come si "
+                                "fa una cosa: se esiste già una procedura, si segue "
+                                "quella."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "cerca": {"type": "string", "description": "nome o parole chiave"},
+                        "limite": {"type": "integer"},
+                    },
+                },
+            },
+        },
+    },
     "agenda_leggi": {
         "admin_only": False,
         "run": lambda args, ctx: memory_agenda_read(ctx, args),
@@ -833,12 +1062,13 @@ TOOLS: dict[str, dict[str, Any]] = {
 # fornitore esterno, che con ogni probabilita' si addestra sui prompt -- non deve
 # mai vederne il risultato. Mandare il vault a un piano gratuito equivale a
 # pubblicarlo.
-PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "estate_status",
+PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "vault_scrivi", "estate_status",
                  "access_overview", "send_mail",
                  # La memoria è la cosa più personale che Hermes possiede: nomi,
                  # abitudini, impegni. Non esce di casa per nessun motivo.
                  "ricorda", "ricorda_cerca", "dimentica",
-                 "agenda_aggiungi", "agenda_leggi"}
+                 "agenda_aggiungi", "agenda_leggi",
+                 "procedura_salva", "procedura_cerca"}
 
 
 def tools_for(user: dict[str, Any], backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -1047,12 +1277,23 @@ def backend_healthy(backend: dict[str, Any]) -> bool:
         key = read_secret(backend.get("api_key_file", ""))
         if not key:
             return False
-        # Having a key is not the same as being reachable. `/models` is the one
-        # free call every OpenAI-compatible endpoint answers, so the header can
-        # stop claiming an engine is up when it is not.
-        ok, _ = http_json(f"{backend['url'].rstrip('/')}/models",
-                          headers={"Authorization": f"Bearer {key}"}, timeout=6)
-        return ok
+        # Having a key is not the same as being reachable, so the endpoint gets
+        # probed. But `/models` is NOT universal: AWS Bedrock's OpenAI-compatible
+        # endpoint answers /chat/completions and returns 404 on /models. Treating
+        # that as "non funzionante" was a regression of mine, and the owner ran
+        # into it with a key that was perfectly good.
+        ok, detail = http_json(f"{backend['url'].rstrip('/')}/models",
+                               headers={"Authorization": f"Bearer {key}"}, timeout=8)
+        if ok:
+            return True
+        text = str(detail)
+        # 401/403 = la chiave è sbagliata o scaduta: quello è davvero giù.
+        if "HTTP 401" in text or "HTTP 403" in text:
+            return False
+        # 404/405 = l'host ha risposto, semplicemente non elenca i modelli.
+        if "HTTP 404" in text or "HTTP 405" in text or "HTTP 400" in text:
+            return True
+        return False
     ok, _ = http_json(f"{backend['url'].rstrip('/')}/api/tags", timeout=4)
     return ok
 
@@ -1153,7 +1394,12 @@ def _chat_openai(backend: dict[str, Any], messages: list[dict[str, Any]],
     if not ok:
         raise RuntimeError(str(data))
     choice = (data.get("choices") or [{}])[0].get("message", {})
-    message = {"role": "assistant", "content": choice.get("content") or "",
+    # gpt-oss (e altri modelli di ragionamento dietro una API compatibile
+    # OpenAI) infilano il blocco nel contenuto invece che in un campo separato.
+    # Il ragionamento è roba interna: chi legge vuole la risposta.
+    content = re.sub(r"<(reasoning|think|thinking)>.*?</\1>\s*", "",
+                     choice.get("content") or "", flags=re.DOTALL | re.IGNORECASE).lstrip()
+    message = {"role": "assistant", "content": content,
                "tool_calls": [{"function": {"name": c["function"]["name"],
                                             "arguments": json.loads(c["function"]["arguments"] or "{}")}}
                               for c in (choice.get("tool_calls") or [])]}
@@ -1404,19 +1650,58 @@ def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
 
 # Gli strumenti che CAMBIANO qualcosa. Su questi una pretesa non verificata non
 # è un dettaglio di stile: l'utente crede che il dato sia al sicuro.
-WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail"}
+WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail",
+               "vault_scrivi", "procedura_salva"}
 
 # Come suona una pretesa in italiano. Volutamente al passato e in prima persona:
 # «salvo» o «sto salvando» non sono affermazioni di aver finito.
+#
+# Questo elenco è la seconda difesa, non la prima, e la ragione è che è stato
+# battuto tre volte di seguito: cercava «ho salvato» e il modello ha risposto
+# «ho aggiornato la memoria»; aggiunto quello, ha risposto «la nota è stata
+# salvata» — femminile, che il pattern maschile non prendeva. Un elenco di frasi
+# è per costruzione incompleto. La difesa che tiene guarda la RICHIESTA, non la
+# risposta: vedi `unmet_write_request`.
+_CLAIM_VERBS = (r"salvat|ricordat|memorizzat|segnat|annotat|registrat|aggiunt|aggiornat|"
+                r"inviat|scritt|archiviat|appuntat|creat|messo|messa")
 _CLAIM_PATTERNS = [
-    r"\bho (?:salvat|ricordat|memorizzat|segnat|annotat|registrat|aggiunt|aggiornat|"
-    r"inviat|scritt|archiviat|appuntat|pres[oa] not)\w*",
-    r"\bl['’]ho (?:salvat|segnat|messo|aggiunt|annotat|registrat|memorizzat)\w*",
-    r"\b(?:salvato|memorizzato|annotato|registrato) (?:in memoria|nella memoria|in agenda)\b",
-    r"\bè (?:stato )?(?:salvato|memorizzato|registrato|aggiunto in agenda)\b",
-    r"\bmemoria aggiornata\b",
-    r"\b(?:aggiunto|inserito) (?:in|all')agenda\b",
+    rf"\bho (?:{_CLAIM_VERBS})\w*",
+    rf"\b(?:l['’]ho|le ho|li ho) (?:{_CLAIM_VERBS})\w*",
+    rf"\bho pres[oa] not\w*",
+    # «è stato salvato», «è stata salvata», «sono state salvate», «l'ho creata»
+    rf"\b(?:è|e'|sono) (?:stat[oaie] )?(?:{_CLAIM_VERBS})[oaie]\b",
+    r"\b(?:memoria|agenda|nota) aggiornat[ae]\b",
+    r"\b(?:aggiunt[oa]|inserit[oa]) (?:in|all')agenda\b",
+    r"\bfatto[.,!]? la nota\b",
 ]
+
+# Un ordine di FARE qualcosa. Guardare qui è più solido che indovinare come il
+# modello racconterà di averlo fatto: la richiesta è una frase, scritta da una
+# persona, e non cambia forma per compiacere nessuno.
+_WRITE_REQUEST = re.compile(
+    r"\b(?:scriv\w*|salva\w*|annota\w*|segna\w*|memorizza\w*|ricordati|ricorda\b|"
+    r"aggiungi|inserisci|manda\w*|invia\w*|spedisci|crea\w+ (?:nota|file|promemoria)|"
+    r"metti (?:in|nel|nella)\b|non dimenticare)\b",
+    re.IGNORECASE)
+# Domande che contengono un verbo di scrittura senza chiederla («cosa hai
+# scritto?», «sai scrivere?»): non sono ordini.
+_NOT_A_REQUEST = re.compile(
+    r"\b(?:cosa|che cosa|quali|quanto|quando|come|perch[éè]|sai|puoi|riesci|"
+    r"hai (?:scritto|salvato|annotato))\b", re.IGNORECASE)
+
+
+def unmet_write_request(question: str, called: set[str]) -> str:
+    """The user asked for something to be written and nothing was written.
+
+    Returns the matched instruction, or "" when there is nothing to object to.
+    """
+    if called & WRITE_TOOLS:
+        return ""
+    text = (question or "").strip()
+    if not text or _NOT_A_REQUEST.search(text[:80]):
+        return ""
+    found = _WRITE_REQUEST.search(text)
+    return found.group(0) if found else ""
 
 # Un ordine esplicito di ricordare. Se l'utente lo dice così, il fatto viene
 # salvato dal codice: non si lascia a un modello da 9 miliardi di parametri la
@@ -1639,16 +1924,18 @@ def converse(user: dict[str, Any], question: str,
     # Il difetto noto: il modello dice «ho salvato» senza chiamare nulla. Un
     # tool che non parte non produce un errore, produce una frase convincente.
     # Qui la pretesa viene confrontata con quello che è davvero successo.
-    claim = unverified_write_claim(answer, called)
+    claim = unverified_write_claim(answer, called) or unmet_write_request(question, called)
     if claim and tools:
         yield {"event": "reset", "data": ""}
         yield {"event": "tool", "data": "verifica: nessuno strumento chiamato"}
         messages.append({"role": "assistant", "content": answer})
         messages.append({"role": "user", "content": (
-            f"Fermo. Hai scritto «{claim}» ma non hai chiamato nessuno strumento, "
-            f"quindi non è successo niente: il database è vuoto su questo punto. "
-            f"Se c'era qualcosa da salvare, chiama ADESSO lo strumento giusto. "
-            f"Se non c'era, rispondi senza sostenere di aver fatto qualcosa.")})
+            f"Fermo. Nella richiesta c'era «{claim}», e tu non hai chiamato nessuno "
+            f"strumento: quindi non è stato scritto niente da nessuna parte. "
+            f"Se c'era qualcosa da salvare o da scrivere, chiama ADESSO lo strumento "
+            f"giusto (`ricorda`, `vault_scrivi`, `agenda_aggiungi`, `send_mail`). "
+            f"Se davvero non serviva, rispondi senza sostenere di aver fatto qualcosa "
+            f"e senza inventare percorsi di file.")})
         retry, retry_called = yield from _tool_rounds(backend, messages, tools, user, 2)
         if retry_called:
             answer = retry or answer
@@ -1839,7 +2126,7 @@ body{margin:0;background:#06080b;color:#e5e7eb;font:15px/1.6 'Segoe UI',system-u
 header{padding:14px 20px;background:#0d1218;border-bottom:1px solid #1f2937;display:flex;
  align-items:center;gap:12px}
 h1{margin:0;font-size:17px}h1 span{color:#f0d264}
-main{max-width:900px;margin:0 auto;padding:22px 18px 60px}
+main{max-width:900px;margin:0 auto;padding:22px 18px 110px}
 .card{background:#0d1218;border:1px solid #1f2937;border-radius:12px;padding:16px;margin-bottom:14px}
 .card.off{opacity:.55}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:9px}
@@ -1854,7 +2141,13 @@ button.ghost{background:#111a22;color:#9aa8b8;border:1px solid #1f2937}
 button.danger{background:#3b1418;color:#fca5a5;border:1px solid #7f1d1d}
 .pill{font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid #1f2937;color:#9aa8b8}
 .pill.on{color:#6ee7b7;border-color:#065f46}.pill.off{color:#fca5a5;border-color:#7f1d1d}
-.bar{position:sticky;bottom:0;background:#0d1218;border-top:1px solid #1f2937;padding:12px 18px;
+/* fixed, non sticky: da ultimo figlio del body, `sticky bottom` sta comunque
+   in fondo al DOCUMENTO, quindi il pulsante Salva finiva sotto la tabella dei
+   modelli consigliati e per trovarlo bisognava scorrere fino in fondo. Il
+   proprietario l'ha segnalato come «manca il pulsante invio»: c'era, non si
+   vedeva. `main` ha il padding in fondo per non finirci sotto. */
+.bar{position:fixed;left:0;right:0;bottom:0;z-index:20;
+ background:#0d1218;border-top:1px solid #1f2937;padding:12px 18px;
  display:flex;gap:10px;align-items:center;margin:0 -18px}
 .hint{color:#6b7a8d;font-size:12px}
 table{width:100%;border-collapse:collapse;font-size:13px}
@@ -1872,6 +2165,7 @@ a{color:#43b4c4}
  si scrivono in file leggibili solo da root.</p>
  <div id=list></div>
  <button class=ghost id=add>+ aggiungi motore</button>
+ <button class=ghost id=bedrock>+ AWS Bedrock (già configurato)</button>
 
  <div class=card style="margin-top:18px">
   <b>Modelli consigliati per la RTX 5070 Ti (16 GB)</b>
@@ -1935,6 +2229,17 @@ function load(){
 }
 $('add').onclick=()=>{collect();data.push({name:'nuovo',label:'Nuovo motore',type:'ollama',
  url:'http://192.168.1.100:11434',model:'',think:false,enabled:false});render();};
+// Scorciatoie: chi incolla una chiave si aspetta che Invio la salvi, e infatti
+// e' stato segnalato proprio come «non riesco a premere invio».
+$('bedrock').onclick=()=>{collect();data.push({name:'bedrock',
+ label:'AWS Bedrock (compatibile OpenAI)',type:'openai',
+ url:'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1',
+ model:'openai.gpt-oss-20b-1:0',think:false,enabled:true,
+ extra:{max_tokens:2000,reasoning_effort:'low'}});render();
+ $('msg').textContent='incolla la chiave nel campo e premi Invio (o Salva)';};
+document.addEventListener('keydown',e=>{
+ if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){
+  e.preventDefault();$('save').click();}});
 $('reload').onclick=load;
 $('save').onclick=()=>{
  collect();$('msg').textContent='salvataggio…';

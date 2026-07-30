@@ -1,6 +1,6 @@
 # PIANO MASTER — l'indice di tutto
 
-> Aggiornato il 2026-07-30. **Questo è il file da cui partire.** I piani erano
+> Aggiornato il 2026-07-30 (seconda revisione). **Questo è il file da cui partire.** I piani erano
 > finiti sparsi su cinque documenti: qui c'è l'elenco completo di tutto ciò che
 > è stato chiesto, proposto o scoperto, con lo stato e il link a dove è
 > descritto per esteso. Se una cosa non è in questa tabella, è stata dimenticata.
@@ -18,6 +18,7 @@
 | [hermes.md](../04_apps/hermes.md) | Il runbook del servizio: com'è fatto, come si ripara |
 | [hermes-memoria.md](../04_apps/hermes-memoria.md) | **La memoria**: i tre archivi, le due bugie chiuse, il costo misurato degli embedding |
 | [omniroute.md](../04_apps/omniroute.md) | **Il gateway** verso i fornitori esterni: cosa funziona e cosa manca |
+| [VISIONE_COMPLETA.md](VISIONE_COMPLETA.md) | **Il perché di tutto**: i tre principi, le trappole già pagate, il prossimo passo, le decisioni che aspettano. Da leggere per prima cosa quando si riprende il lavoro |
 | [PIANO_AGGIORNAMENTO_DA_NEXI.md](PIANO_AGGIORNAMENTO_DA_NEXI.md) | Cosa prendere dai repo Nexi DBA AI / DB-AI, **cosa lasciare lì e perché**, con i task in ordine |
 | [PRIVACY_E_VISIBILITA_DATI.md](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) | Chi vede cosa, servizio per servizio (la domanda su Immich) |
 | [ESPOSIZIONE_E_SEGRETI.md](../06_operations_security/ESPOSIZIONE_E_SEGRETI.md) | Cosa si vede da internet, dove stanno i segreti, idea da M-DNVault |
@@ -49,6 +50,10 @@
 | 14-bis | **I runbook di questo repository sono nell'indice**: 102 documenti, 1227 pezzi. Hermes risponde «come si ripara X» citando il file | [memoria](../04_apps/hermes-memoria.md) §4-bis |
 | 15 | **La bugia «ho salvato» è chiusa**: gli ordini espliciti li esegue il codice, e una pretesa non verificata viene dichiarata all'utente | [memoria](../04_apps/hermes-memoria.md) §4 |
 | 16 | **Fuso orario**: l'agenda e l'orologio di Hermes erano due ore indietro (il container gira su UTC) | [memoria](../04_apps/hermes-memoria.md) §4 |
+| 18 | **Scrittura su Obsidian**: `vault_scrivi`, confinata a `07 Notes/Hermes/`, con un utente CouchDB separato. Verificata: scritta e arrivata sul disco in 10 s | [memoria](../04_apps/hermes-memoria.md) |
+| 19 | **Procedure** in Postgres (non fra i vettori: i passi tornano esatti), trovabili per significato | [memoria](../04_apps/hermes-memoria.md) |
+| 20 | **AWS Bedrock** come motore, `private: false`. Verificato che riceve 2 strumenti su 16 | [visione](VISIONE_COMPLETA.md) §7 |
+| 21 | Pannello impostazioni: pulsante Salva sempre visibile, Invio salva, preset Bedrock | — |
 | 17 | **OmniRoute** installato, dietro SSO, con `/v1` esente e chiave API. Motore non privato in `backends.json` | [omniroute](../04_apps/omniroute.md) |
 | **S5** | Porte di OmniRoute chiuse alla LAN (`DOCKER-USER`): erano aperte a chiunque conoscesse la password condivisa | [omniroute](../04_apps/omniroute.md) §6 |
 | **S6** | Archivi della memoria in ascolto **solo** su loopback, con password e chiave API anche lì | [memoria](../04_apps/hermes-memoria.md) §1 |
@@ -92,7 +97,8 @@
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| **Scrivere sul vault** Obsidian | formato a pezzi di LiveSync; si prova su una copia prima | da fare |
+| **Scrivere sul vault** Obsidian | ✅ **fatto**: `vault_scrivi` scrive nel formato a pezzi di LiveSync, con un utente CouchDB separato e **confinato a `07 Notes/Hermes/`**. Verificato: la nota è arrivata sul disco in 10 s e la sincronizzazione non si è rotta | ✅ |
+| Scrivere **fuori** da quella cartella | volutamente non permesso: è il confine che rende vera la frase «Hermes non può danneggiare il vault» | per scelta |
 | **Mostrare il ragionamento** (`thinking`) | il campo esiste già, oggi lo scarto | da fare |
 | **Repo → vault**: la documentazione dentro Obsidian | direzione unica, la verità resta git | da fare |
 
@@ -145,7 +151,9 @@
 | **Ente Photos** per la sorella | l'unica risposta tecnica vera a «non voglio che l'admin veda le mie foto»: cifratura end-to-end | [privacy](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) §4 |
 | **Account orfano Immich** `luna222@gmail.com` | 0 foto, l'utente Authentik non esiste più | da pulire |
 | **Forgejo `ACCOUNT_LINKING = auto`** | unisce gli account per email: stessa classe di rischio dell'incidente Jellyfin | da valutare |
-| Escludere `06 Templates/Images` dalla sincronizzazione | 35 MB di mp3/gif scaricati da ogni dispositivo | opzionale |
+| Escludere `06 Templates/Images` dalla sincronizzazione | **36 MB** misurati di mp3/gif scaricati da ogni dispositivo | opzionale |
+| **Time Garden**: la nota giornaliera nasceva col template grezzo | Causa trovata leggendo il codice dei due plugin: **corsa all'avvio** — `journals` con `openOnStartup` crea la nota prima che Templater sia caricato, non trova la sua API e incolla il testo letterale. Aggravante: la config di Time Garden usa `trigger_on_file_creation_mode`, **un'impostazione che in Templater non esiste**. Corretto: template a `journals` (che sa chiamare Templater da solo), `openOnStartup` spento, `trigger_on_file_creation` spento perché non deve intromettersi sul file vuoto | ✅ da confermare con un clic |
+| I plugin di Time Garden restano **sul solo PC** | LiveSync ha `syncInternalFiles = false`: `.obsidian` non si sincronizza. Sul telefono i plugin vanno installati a parte, o si attiva la sincronizzazione dei file nascosti | da decidere |
 
 ---
 
