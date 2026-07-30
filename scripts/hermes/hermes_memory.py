@@ -63,6 +63,49 @@ EMBED_ENDPOINTS = [
 EMBED_KEEP_ALIVE = os.environ.get("HERMES_EMBED_KEEP_ALIVE", "24h")
 EMBED_CACHE_TTL = 60 * 60 * 24 * 30
 MAX_TEXT = 4000
+# Un documento lungo va spezzato, non troncato: prima di questo la coda di una
+# nota oltre MAX_TEXT era irraggiungibile dalla ricerca. La sovrapposizione
+# serve perché una frase tagliata a metà fra due pezzi resti cercabile in
+# almeno uno dei due. Idea presa dal TextChunker di Nexi DBA AI.
+CHUNK_SIZE = int(os.environ.get("HERMES_CHUNK_SIZE", "1000"))
+CHUNK_OVERLAP = int(os.environ.get("HERMES_CHUNK_OVERLAP", "200"))
+# Un solo documento non deve poter occupare l'indice da solo.
+MAX_CHUNKS_PER_DOC = 40
+
+
+def chunk_text(text: str, size: int = CHUNK_SIZE, overlap: int = CHUNK_OVERLAP) -> list[str]:
+    """Split text into overlapping pieces, cutting on a separator when possible.
+
+    Cutting mid-sentence costs retrieval quality, so the split point is pulled
+    back to the last paragraph break, newline, full stop or space in the second
+    half of the window - and only falls back to a hard cut when there is none.
+    """
+    text = (text or "").strip()
+    if len(text) <= size:
+        return [text] if text else []
+    pieces: list[str] = []
+    start = 0
+    while start < len(text) and len(pieces) < MAX_CHUNKS_PER_DOC:
+        end = start + size
+        if end >= len(text):
+            piece = text[start:].strip()
+            if piece:
+                pieces.append(piece)
+            break
+        cut = -1
+        for separator in ("\n\n", "\n", ". ", " "):
+            found = text.rfind(separator, start + size // 2, end)
+            if found > cut:
+                cut = found + len(separator)
+        if cut <= start:
+            cut = end
+        piece = text[start:cut].strip()
+        if piece:
+            pieces.append(piece)
+        # Step forward by at least one character, or a long line without any
+        # separator would loop forever.
+        start = max(cut - overlap, start + 1)
+    return pieces
 
 KINDS = ("fatto", "persona", "preferenza", "progetto", "luogo", "abitudine", "scadenza")
 SOURCES = ("detto", "dedotto")
@@ -380,8 +423,11 @@ class MemoryStore:
 
         vector = self.embed(query)
         if vector and self.ensure_collection():
-            origins = list(origins) if origins else (["fatto", "vault"] if include_vault
-                                                    else ["fatto"])
+            # `runbook` sono i documenti del repository: la procedura scritta.
+            # Servono a tutti, non solo al proprietario - un utente di casa può
+            # chiedere «come si fa» senza avere accesso agli appunti privati.
+            origins = list(origins) if origins else (
+                ["fatto", "vault", "runbook"] if include_vault else ["fatto", "runbook"])
             ok, data = self._qdrant("POST", f"/collections/{COLLECTION}/points/query", {
                 "query": vector,
                 "limit": limit,
@@ -497,47 +543,76 @@ class MemoryStore:
 
     # -- vault indexing ----------------------------------------------------
 
-    def index_texts(self, owner: str, items: Iterable[tuple[str, str, str]]) -> dict[str, Any]:
-        """Index (ref, title, text) triples as origin='vault'.
+    def index_texts(self, owner: str, items: Iterable[tuple[str, str, str]], *,
+                    origin: str = "vault", force: bool = False) -> dict[str, Any]:
+        """Index (ref, title, text) triples, split into overlapping chunks.
 
-        Only what changed is re-embedded: the fingerprint of each text is kept
-        in Postgres, so a nightly re-index of 124 notes costs almost nothing.
+        Only what changed is re-embedded: the fingerprint of each document is
+        kept in Postgres, so a nightly re-index costs almost nothing. A document
+        whose text changed has all its old chunks removed first, otherwise the
+        leftovers of a shortened note would keep answering searches.
         """
         if not self.ensure_collection():
             return {"ok": False, "error": "Qdrant non risponde"}
-        known = {r["origin_ref"]: r["fingerprint"] for r in self._query(
-            "SELECT origin_ref, fingerprint FROM vector_index "
-            "WHERE origin = 'vault' AND owner = %s", (owner,))}
-        added = skipped = failed = 0
+        known: dict[str, set[str]] = {}
+        fingerprints: dict[str, str] = {}
+        for row in self._query(
+                "SELECT point_id, origin_ref, fingerprint FROM vector_index "
+                "WHERE origin = %s AND owner = %s", (origin, owner)):
+            known.setdefault(row["origin_ref"], set()).add(row["point_id"])
+            fingerprints[row["origin_ref"]] = row["fingerprint"]
+
+        documents = chunks = skipped = failed = 0
         for ref, title, text in items:
             text = (text or "").strip()
             if not text:
                 continue
             fingerprint = hashlib.sha256(text.encode()).hexdigest()
-            if known.get(ref) == fingerprint:
+            # `force` esiste perché il fingerprint copre il testo, non il MODO in
+            # cui è stato indicizzato: quando è cambiato lo spezzettamento, i
+            # documenti erano identici e sarebbero stati saltati tutti, lasciando
+            # nell'indice i vecchi punti troncati.
+            if not force and fingerprints.get(ref) == fingerprint:
                 skipped += 1
                 continue
-            vector = self.embed(f"{title}\n{text}"[:MAX_TEXT])
-            if not vector:
-                failed += 1
+            pieces = chunk_text(f"{title}\n\n{text}")
+            if not pieces:
                 continue
-            point = self._point_id("vault", ref)
-            if self._upsert_vector(point, vector, {
-                    "owner": owner, "origin": "vault", "ref": ref,
-                    "subject": title, "text": text[:MAX_TEXT],
-                    "created_at": house_time(datetime.now(timezone.utc))}):
-                self._query(
-                    """INSERT INTO vector_index
-                           (point_id, collection, origin, origin_ref, fingerprint, owner)
-                       VALUES (%s, %s, 'vault', %s, %s, %s)
-                       ON CONFLICT (point_id) DO UPDATE
-                           SET fingerprint = EXCLUDED.fingerprint, indexed_at = now()""",
-                    (point, COLLECTION, ref, fingerprint, owner), fetch="none")
-                added += 1
-            else:
-                failed += 1
-        self._log(owner, "indicizza_vault", detail=f"nuovi={added} invariati={skipped} falliti={failed}")
-        return {"ok": True, "indicizzati": added, "invariati": skipped, "falliti": failed}
+            # Out with the old chunks of this document, before the new ones go in.
+            for stale in known.get(ref, set()):
+                self._delete_vector(stale)
+            self._query("DELETE FROM vector_index WHERE origin = %s AND origin_ref = %s "
+                        "AND owner = %s", (origin, ref, owner), fetch="none")
+
+            written = 0
+            for index, piece in enumerate(pieces):
+                vector = self.embed(piece)
+                if not vector:
+                    failed += 1
+                    continue
+                point = self._point_id(origin, f"{ref}#{index}")
+                if self._upsert_vector(point, vector, {
+                        "owner": owner, "origin": origin, "ref": ref,
+                        "subject": title, "text": piece,
+                        "chunk": index, "chunks": len(pieces),
+                        "created_at": house_time(datetime.now(timezone.utc))}):
+                    self._query(
+                        """INSERT INTO vector_index
+                               (point_id, collection, origin, origin_ref, fingerprint, owner)
+                           VALUES (%s, %s, %s, %s, %s, %s)
+                           ON CONFLICT (point_id) DO UPDATE
+                               SET fingerprint = EXCLUDED.fingerprint, indexed_at = now()""",
+                        (point, COLLECTION, origin, ref, fingerprint, owner), fetch="none")
+                    written += 1
+                else:
+                    failed += 1
+            if written:
+                documents += 1
+                chunks += written
+        self._log(owner, f"indicizza_{origin}",
+                  detail=f"documenti={documents} pezzi={chunks} invariati={skipped} falliti={failed}")
+        return {"ok": True, "documenti": documents, "pezzi": chunks,
+                "invariati": skipped, "falliti": failed}
 
     # -- housekeeping ------------------------------------------------------
 

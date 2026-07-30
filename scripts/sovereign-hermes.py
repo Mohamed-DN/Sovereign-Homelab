@@ -227,17 +227,23 @@ def vault_search(query: str, limit: int = 5) -> str:
     store = memory()
     if store is not None:
         try:
-            found = store.recall(VAULT_OWNER, query, limit=max(1, min(10, limit)),
+            # Chiedo più risultati di quelli che servono: i pezzi dello stesso
+            # documento occupano posti diversi e vanno accorpati dopo.
+            found = store.recall(VAULT_OWNER, query, limit=max(4, min(25, limit * 3)),
                                  origins=["vault"])
             hits = found.get("risultati") or []
             if hits and found.get("modo") == "significato":
-                notes = vault_refresh()
-                out = [f"(ricerca per significato — {len(hits)} note)"]
+                best: dict[str, dict[str, Any]] = {}
                 for hit in hits:
                     path = hit.get("riferimento", "")
-                    text = notes.get(path, hit.get("testo", ""))
+                    if path not in best:
+                        best[path] = hit
+                out = [f"(ricerca per significato — {len(best)} note)"]
+                for path, hit in list(best.items())[:limit]:
+                    # Il pezzo che ha corrisposto, non l'inizio della nota: se la
+                    # risposta sta a pagina tre, mostrare l'intestazione è inutile.
                     out.append(f"### {path}  [somiglianza {hit.get('somiglianza')}]\n"
-                               f"{text[:1200]}")
+                               f"{hit.get('testo', '')[:1400]}")
                 return "\n\n".join(out)
         except Exception as exc:  # noqa: BLE001 - fall through to the word search
             print(f"[hermes] ricerca per significato non disponibile: {exc}")
@@ -2109,11 +2115,12 @@ def vault_warmer() -> None:
         time.sleep(VAULT_REFRESH_SECONDS)
 
 
-def index_vault() -> int:
+def index_vault(force: bool = False) -> int:
     """Embed the vault into the semantic index. Run by a timer, not by the chat.
 
-    Only notes whose text changed are re-embedded, so the nightly run over 124
-    notes costs a handful of seconds instead of re-doing all of them.
+    Only notes whose text changed are re-embedded, so the nightly run over 125
+    notes costs a handful of seconds instead of re-doing all of them. `--force`
+    is for when the indexing itself changed, not the notes.
     """
     store = memory()
     if store is None:
@@ -2126,15 +2133,60 @@ def index_vault() -> int:
     started = time.time()
     result = store.index_texts(VAULT_OWNER,
                               ((path, path.rsplit("/", 1)[-1], text)
-                               for path, text in notes.items()))
+                               for path, text in notes.items()), force=force)
     print(f"[hermes] vault: {len(notes)} note, {json.dumps(result, ensure_ascii=False)}, "
           f"{time.time() - started:.1f}s")
     return 0 if result.get("ok") else 1
 
 
+REPO_DIR = Path(os.environ.get("HERMES_REPO_DIR", "/opt/sovereign-repo"))
+# Il repository è la procedura scritta: indicizzarlo è quello che permette a
+# Hermes di rispondere «come si ripara X» citando il runbook invece di
+# improvvisare. Idea presa da Nexi DBA AI, che fa la stessa cosa con le sue SOP.
+REPO_INDEX_GLOBS = ("docs/**/*.md", "*.md", "stacks/**/README.md")
+
+
+def index_repo(force: bool = False) -> int:
+    """Embed the repository's own runbooks, so procedure beats improvisation."""
+    store = memory()
+    if store is None:
+        print(f"[hermes] indicizzazione impossibile: {_memory_error or 'memoria assente'}")
+        return 1
+    if not REPO_DIR.is_dir():
+        print(f"[hermes] repository non trovato in {REPO_DIR}: "
+              f"clonalo con  git clone https://github.com/Mohamed-DN/Sovereign-Homelab.git {REPO_DIR}")
+        return 1
+    seen: set[Path] = set()
+    items: list[tuple[str, str, str]] = []
+    for pattern in REPO_INDEX_GLOBS:
+        for path in sorted(REPO_DIR.glob(pattern)):
+            if not path.is_file() or path in seen:
+                continue
+            seen.add(path)
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            if not text.strip():
+                continue
+            ref = str(path.relative_to(REPO_DIR)).replace("\\", "/")
+            items.append((ref, ref, text))
+    if not items:
+        print(f"[hermes] nessun documento da indicizzare in {REPO_DIR}")
+        return 1
+    started = time.time()
+    result = store.index_texts(VAULT_OWNER, items, origin="runbook", force=force)
+    print(f"[hermes] repository: {len(items)} documenti, "
+          f"{json.dumps(result, ensure_ascii=False)}, {time.time() - started:.1f}s")
+    return 0 if result.get("ok") else 1
+
+
 def main() -> None:
+    force = "--force" in sys.argv
+    if "--index-repo" in sys.argv:
+        raise SystemExit(index_repo(force))
     if "--index-vault" in sys.argv:
-        raise SystemExit(index_vault())
+        raise SystemExit(index_vault(force))
     if "--memory-status" in sys.argv:
         store = memory()
         print(json.dumps(store.status() if store else {"errore": _memory_error},
