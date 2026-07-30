@@ -137,6 +137,38 @@ CREATE TABLE IF NOT EXISTS contacts (
 
 CREATE INDEX IF NOT EXISTS contacts_owner_name ON contacts (owner, name);
 
+-- Il registro di MASTER (W5): ogni azione, chi, quando, con quali parametri,
+-- il comando risolto, l'esito. Mai il contenuto di un segreto -- quello non
+-- entra mai nel prompt e non entra qui.
+--
+-- "un registro che l'agente puo' riscrivere non e' un registro": la tabella
+-- vive sotto un ruolo che la app non possiede, cosi' un REVOKE regge per
+-- davvero invece di essere solo una buona intenzione che il proprietario
+-- della tabella ignora comunque.
+DO $$ BEGIN
+    IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'hermes_audit_owner') THEN
+        CREATE ROLE hermes_audit_owner NOLOGIN;
+    END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS master_log (
+    id         BIGSERIAL PRIMARY KEY,
+    at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    owner      TEXT        NOT NULL,
+    action     TEXT        NOT NULL,
+    parametri  JSONB       NOT NULL DEFAULT '{}'::jsonb,
+    comando    TEXT,
+    esito      TEXT        NOT NULL,
+    dettaglio  TEXT
+);
+
+CREATE INDEX IF NOT EXISTS master_log_at ON master_log (at DESC);
+
+ALTER TABLE master_log OWNER TO hermes_audit_owner;
+GRANT INSERT, SELECT ON master_log TO hermes;
+GRANT USAGE, SELECT ON SEQUENCE master_log_id_seq TO hermes;
+REVOKE UPDATE, DELETE, TRUNCATE ON master_log FROM hermes;
+
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
     NEW.updated_at := now();

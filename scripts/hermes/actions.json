@@ -1,0 +1,88 @@
+[
+  {
+    "name": "riavvia_container",
+    "descrizione": "Riavvia un container Docker su un host dell'impianto",
+    "comando": ["pct", "exec", "{ctid}", "--", "docker", "restart", "{nome}"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]},
+      "nome": {"tipo": "regex", "pattern": "^[a-z0-9][a-z0-9_.-]{0,40}$"}
+    },
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 60
+  },
+  {
+    "name": "riavvia_servizio",
+    "descrizione": "Riavvia un servizio systemd su un host dell'impianto",
+    "comando": ["pct", "exec", "{ctid}", "--", "systemctl", "restart", "{nome}"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]},
+      "nome": {"tipo": "regex", "pattern": "^[a-z0-9][a-z0-9_.@-]{0,60}$"}
+    },
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 60
+  },
+  {
+    "name": "log_servizio",
+    "descrizione": "Ultime righe di log di un servizio systemd, in sola lettura",
+    "comando": ["pct", "exec", "{ctid}", "--", "journalctl", "-u", "{nome}", "-n", "{righe}", "--no-pager"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]},
+      "nome": {"tipo": "regex", "pattern": "^[a-z0-9][a-z0-9_.@-]{0,60}$"},
+      "righe": {"tipo": "enum", "valori": ["20", "50", "100", "200"]}
+    },
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 30
+  },
+  {
+    "name": "spazio_disco",
+    "descrizione": "Spazio disco su un host dell'impianto, in sola lettura",
+    "comando": ["pct", "exec", "{ctid}", "--", "df", "-h"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]}
+    },
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 20
+  },
+  {
+    "name": "memoria_libera",
+    "descrizione": "Memoria libera su un host dell'impianto, in sola lettura",
+    "comando": ["pct", "exec", "{ctid}", "--", "free", "-h"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]}
+    },
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 20
+  },
+  {
+    "name": "lista_container",
+    "descrizione": "Elenco di tutti i container e VM sul nodo Proxmox, in sola lettura",
+    "comando": ["pct", "list"],
+    "parametri": {},
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 20
+  },
+  {
+    "name": "ricarica_npm",
+    "descrizione": "Ricarica la configurazione nginx di NPM (dopo una modifica), senza fermare il servizio",
+    "comando": ["pct", "exec", "100", "--", "docker", "exec", "npm", "nginx", "-s", "reload"],
+    "parametri": {},
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 30
+  },
+  {
+    "name": "riavvia_hermes",
+    "descrizione": "Riavvia Hermes stesso. La risposta parte prima che il riavvio finisca: e' lui a farlo, quindi non puo' aspettare se stesso.",
+    "comando": ["systemctl", "restart", "sovereign-hermes"],
+    "parametri": {},
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 5
+  }
+]
