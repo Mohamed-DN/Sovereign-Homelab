@@ -189,6 +189,55 @@ Telegram (`plugins/platforms/telegram/`, il bot `@dn_momo_bot` e il token sono
 già pronti dal 2026-07-30), poi voce, poi il passaggio del testimone su
 `hermes.internal` — solo dopo che le fasi 2-4 sono verificate.
 
+## 4-bis. I dieci repository del proprietario dentro Obsidian
+
+Richiesta del 2026-07-30: *«ho vari repositori su github non solo il sovereign
+e mi serve che momo sappia tutti i miei progetti, preferisco portarli tutti su
+obsidian completamente»*, e *«mi interessano solo i loro main, non altri
+branch»*.
+
+**La misura, fatta prima di promettere qualcosa** (`gh` autenticato come
+`Mohamed-DN`, cloni `--depth 1`, poi cancellati):
+
+| | |
+|---|---|
+| Repository | **10** (7 pubblici, 3 privati) |
+| Peso totale dei cloni | 360 MB |
+| **Testo utile a Momo** | **12,7 MB in 2 683 file** |
+| Non testo (immagini, binari, PDF) | ~236 MB — da non copiare |
+
+I due numeri che cambiano il disegno: il "mega repo" **DBAdmin** pesa 62 MB su
+GitHub e 214 MB di binari una volta clonato, ma ha **solo 92 file di testo**;
+il grosso del contenuto vero è `dba_oracle_lab` (1 445 file, 6,2 MB). Quindi
+portare *tutto il testo* è fattibile — 12,7 MB — mentre portare *tutto* non lo
+sarebbe.
+
+**Decisioni prese dal proprietario:**
+- destinazione **`07 Notes/Hermes/repos/<repo>/`**: dentro la zona che Hermes
+  già possiede, così la guardia sul vault resta intatta e un errore è confinato
+  lì invece di poter toccare i suoi appunti;
+- **prima una prova con un repository solo**, poi gli altri nove.
+
+### Il problema vero, e l'idea del proprietario
+
+2 683 file nuovi non sono 12,7 MB per un dispositivo: sono **2 683 documenti
+che LiveSync replica su ogni telefono e ogni PC**. Il vault oggi ne ha 125. È
+lo stesso difetto già annotato nel [PIANO_MASTER](PIANO_MASTER.md) §4 per i
+36 MB di immagini in `06 Templates/Images`, moltiplicato.
+
+Il proprietario ha proposto la soluzione giusta: *«sistemare il problema della
+dimensione sul sync, e al massimo crei tu un nuovo plugin che si basa sui
+nostri super db e che resiste»*.
+
+**Il disegno che ne segue** (da fare, non ancora iniziato): un plugin Obsidian
+che legge i contenuti pesanti **dai nostri database** invece di farli passare
+da LiveSync. Postgres e Qdrant stanno su un server che non deve replicare
+niente su nessun telefono; LiveSync continua a sincronizzare solo gli appunti
+scritti a mano, che sono pochi e piccoli. Momo avrebbe comunque memoria
+completa di tutto il codice (l'indice semantico è indipendente da Obsidian), e
+il vault resterebbe leggero. È un progetto a sé, e va disegnato prima di
+scriverlo.
+
 ## 5. Cosa si guadagna e cosa si perde, senza abbellimenti
 
 **Si guadagna**: 21 canali di messaggistica, 33 provider di modelli, un gateway
