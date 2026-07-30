@@ -699,6 +699,31 @@ class MemoryStore:
                  "nota": r["note"], "attivo": r["allowed"], "usato_volte": r["times_used"],
                  "creato": house_time(r["created_at"])} for r in rows]
 
+    # -- master mode audit log (W5) ------------------------------------------
+
+    def master_log(self, owner: str, action: str, params: dict[str, Any],
+                   comando: str, esito: str, dettaglio: str) -> None:
+        """Append-only by design: no method here ever updates or deletes a
+        row. See memory-schema.sql for why the Postgres-level REVOKE is
+        defense in depth, not the primary guarantee -- `hermes` is the
+        instance's own initdb superuser and superusers bypass REVOKE, so the
+        guarantee that actually holds today is architectural: this table has
+        no UPDATE/DELETE code path at all, not even one guarded by a flag.
+        """
+        self._query(
+            """INSERT INTO master_log (owner, action, parametri, comando, esito, dettaglio)
+               VALUES (%s, %s, %s::jsonb, %s, %s, %s)""",
+            (owner, action, json.dumps(params, ensure_ascii=False), comando, esito, dettaglio),
+            fetch="none")
+
+    def master_log_recent(self, limit: int = 50) -> list[dict[str, Any]]:
+        rows = self._query(
+            """SELECT id, at, owner, action, parametri, comando, esito, dettaglio
+                 FROM master_log ORDER BY at DESC LIMIT %s""", (min(200, max(1, limit)),))
+        return [{"id": r["id"], "quando": house_time(r["at"]), "chi": r["owner"],
+                 "azione": r["action"], "parametri": r["parametri"], "comando": r["comando"],
+                 "esito": r["esito"], "dettaglio": r["dettaglio"]} for r in rows]
+
     # -- vault indexing ----------------------------------------------------
 
     def index_texts(self, owner: str, items: Iterable[tuple[str, str, str]], *,

@@ -144,6 +144,8 @@ Ognuna di queste è costata tempo reale. Sono scritte perché non si ripeta.
 | Il pannello impostazioni | i campi messi a mano sparivano al salvataggio | `save_backends` scartava in silenzio `private`, `parallel`, `extra` |
 | `*secret*` nel `.gitignore` | uno script citato nei runbook non è nel repo | esclude anche gli script che *generano* i segreti |
 | Templater + journals | la nota giornaliera contiene il template grezzo | **corsa all'avvio**: `openOnStartup` crea la nota prima che Templater sia caricato |
+| La guardia anti-bugia spenta dallo sciame | Hermes inventa un report elaborato su una mail mai inviata, senza che nessuna guardia scatti | in modalità sciame `tools=[]` (giusto per la sintesi) azzerava **la stessa variabile** che la guardia usa per decidere se intervenire. Serve una copia separata (`guard_tools`): una guardia deve sapere cosa l'utente *poteva* usare, non cosa l'ultimo passo era autorizzato a chiamare |
+| Un `REVOKE` su un ruolo superuser | il registro «non riscrivibile» si riscrive benissimo | `initdb` crea il proprietario del database come **superuser**, e un superuser Postgres bypassa i permessi. La garanzia vera deve stare nel codice (nessun percorso di UPDATE/DELETE) o in un ruolo applicativo separato |
 | `\n` dentro il JS scritto in una tripla-stringa Python | il pannello sembrava vuoto: nessun motore, nessun modello, nessun fornitore, in silenzio | Python lo trasforma in un vero a-capo **prima** che il browser veda il file: uno `<script>` che fallisce al parse non dà errore visibile, smette solo di fare qualunque cosa. Va scritto `\\n`, e ogni pagina nuova va passata a un parser JS vero (`node --check`), non solo a `python3 -m py_compile` |
 
 ## 7. Come si verifica che è tutto in piedi

@@ -512,6 +512,90 @@ Novità per scheda:
 > va controllata con un parser JS vero, non solo con `python3 -m py_compile`
 > (che valida solo il Python, non il JavaScript incorporato).
 
+## 7-novies. Modalità MASTER (W5)
+
+La richiesta del proprietario: un interruttore che permetta a Hermes di **agire**
+sull'impianto, non solo di leggerlo. È l'elemento più rischioso del progetto —
+un modello con i permessi di root può fare danni senza volerlo, e i modelli in
+casa hanno già mentito più volte su cose che non avevano fatto. Per questo il
+disegno non è negoziabile nei suoi vincoli.
+
+### Le azioni sono dati, mai una shell
+
+`scripts/hermes/actions.json`: otto azioni per cominciare (riavviare container o
+servizio, leggere log, `df`/`free`/`pct list`, ricaricare nginx NPM, riavviare
+Hermes). Il comando è una **lista**, non una riga: una lista non passa da una
+shell, quindi non ha `;`, backtick o espansioni. Ogni parametro dichiara un
+`enum` o una `regex`, e uno che non passa fa fallire l'azione **prima** di
+eseguire qualunque cosa. Verificato: `ctid: "999"` e
+`nome: "searxng; rm -rf /"` sono stati entrambi rifiutati prima dell'esecuzione.
+
+### I segreti: usarli senza vederli
+
+Un parametro di tipo `secret` porta un **percorso**, mai un valore. L'esecutore
+lo risolve leggendo da `/root/sovereign-secrets/` al momento di eseguire, fuori
+dal contesto del modello: il valore non entra nel prompt, non finisce nella
+conversazione, non compare nel registro. Un percorso fuori da quella directory
+è un errore, non un tentativo.
+
+### Il divieto assoluto — confermato dal proprietario
+
+Il proprietario ha chiesto, a metà lavoro, se il divieto dovesse sparire in
+favore di «prosegui con tutti i modi possibili». Gli è stata posta la domanda
+in modo esplicito e **ha confermato che il divieto resta** (2026-07-30). "Tutti
+i modi possibili" vale sull'elenco delle azioni permesse, che può crescere
+quanto serve; non sul divieto, che è **compilato in `master_forbidden()`**, non
+in un file modificabile, e non si toglie nemmeno armati:
+
+- niente su VM 110 (Immich), in nessuna forma;
+- niente `destroy` / `rm -rf` su dati;
+- niente PBS, niente snapshot;
+- non si disattivano le guardie (firewall OmniRoute, sola-lettura CouchDB, forward-auth);
+- non si scrive nel registro di audit;
+- non si creano utenti o permessi in Authentik da qui;
+- non si tocca `actions.json` né il divieto stesso.
+
+Il criterio: **ciò che un backup non rimette a posto in un'ora non si
+automatizza.** Verificato: `qm stop 110`, `rm -rf /dati` e `zfs destroy` sono
+bloccati anche a MASTER armato.
+
+### Armamento, scadenza, interruttore, registro
+
+- La scheda **Master** del pannello compare solo all'amministratore. Armare
+  chiede una conferma esplicita che dice quante azioni diventano possibili e
+  per quanto; scade **da sola dopo 30 minuti** (verificato simulando il
+  passaggio del tempo).
+- Un **interruttore RUNNING/PAUSED** (la voce A4 di Nexi) letto prima di ogni
+  azione: in pausa Hermes continua a parlare e leggere, si fermano solo le azioni.
+- Ogni azione — riuscita, fallita o **rifiutata** — finisce in `master_log`
+  (chi, quando, azione, parametri, comando risolto, esito). Verificato che i
+  rifiuti per parametro compaiono nel registro.
+- Un'azione con `conferma: true` risponde con il **comando risolto** e pretende
+  di essere richiamata con `confermato: true` solo dopo un sì esplicito in chat.
+- Gli strumenti master sono in `PRIVATE_TOOLS`: verificato che un motore non
+  privato (Groq) riceve **2 strumenti su 23** e non vede nemmeno che la
+  modalità MASTER esiste.
+
+> **Il registro è append-only per architettura, non per permessi.** Lo schema
+> fa `REVOKE UPDATE, DELETE` su `master_log`, ma **quel REVOKE oggi non morde**:
+> il ruolo `hermes` è il superuser dell'istanza creato da `initdb`, e un
+> superuser Postgres bypassa i permessi. Verificato con un test esplicito: un
+> `UPDATE` sulla tabella è andato a buon fine. La garanzia che regge davvero è
+> un'altra, e sta nel codice: **`hermes_memory.py` non contiene nessun percorso
+> che aggiorni o cancelli quella tabella**, nemmeno protetto da un flag. Per
+> avere anche la garanzia a livello di database servirebbe un ruolo applicativo
+> non-superuser separato — è il passo successivo, ed è annotato qui perché
+> «pensavo lo facesse il REVOKE» è esattamente il tipo di falsa sicurezza che
+> questo progetto evita.
+
+> **Manca la chiave SSH master.** `pct` e `qm` esistono solo sull'host Proxmox,
+> e Hermes vive su LXC 102: le azioni infrastrutturali devono attraversare quel
+> salto. Serve una chiave dedicata in
+> `/root/sovereign-secrets/hermes/master-ssh-key` (**mai** la chiave di audit
+> usata dall'esterno). Finché non c'è, quelle azioni **falliscono dicendolo** —
+> verificato: *«chiave SSH master non configurata: l'azione non può raggiungere
+> l'host Proxmox»*. Degradare dicendolo, non fingere.
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e

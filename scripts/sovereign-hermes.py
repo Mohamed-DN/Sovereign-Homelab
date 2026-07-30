@@ -24,6 +24,7 @@ import json
 import os
 import re
 import secrets
+import subprocess
 import sys
 import threading
 import time
@@ -1171,6 +1172,50 @@ TOOLS: dict[str, dict[str, Any]] = {
             },
         },
     },
+    # --- modalita' MASTER (W5) ------------------------------------------
+    # admin_only e in PRIVATE_TOOLS come tutto il resto: un motore esterno
+    # non deve MAI vedere che questi strumenti esistono, figuriamoci usarli.
+    "master_azioni_elenco": {
+        "admin_only": True,
+        "run": lambda args, ctx: _as_json(load_actions()),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "master_azioni_elenco",
+                "description": ("Elenca le azioni che la modalità MASTER può eseguire, con i "
+                                "parametri che ognuna richiede. Guardalo prima di proporre "
+                                "un'azione: non se ne inventano di nuove."),
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+    },
+    "esegui_azione_master": {
+        "admin_only": True,
+        "run": lambda args, ctx: master_execute(ctx, args),
+        "schema": {
+            "type": "function",
+            "function": {
+                "name": "esegui_azione_master",
+                "description": ("Esegue UNA azione dal catalogo di master_azioni_elenco, con i "
+                                "suoi parametri. Funziona solo se la modalità MASTER è armata dal "
+                                "pannello. Un'azione irreversibile risponde con il comando "
+                                "risolto e chiede di essere richiamata con confermato:true SOLO "
+                                "dopo che l'utente ha detto esplicitamente di sì in chat."),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "nome": {"type": "string", "description": "il nome esatto dell'azione"},
+                        "parametri": {"type": "object",
+                                     "description": "i parametri dichiarati per quell'azione"},
+                        "confermato": {"type": "boolean",
+                                      "description": "true SOLO dopo un sì esplicito dell'utente "
+                                                     "a un'azione irreversibile già mostrata"},
+                    },
+                    "required": ["nome"],
+                },
+            },
+        },
+    },
     "access_overview": {
         "admin_only": True,
         "run": lambda args, ctx: access_overview(str(args.get("username", ""))),
@@ -1203,7 +1248,11 @@ PRIVATE_TOOLS = {"vault_search", "vault_read", "vault_list", "vault_scrivi", "es
                  "procedura_salva", "procedura_cerca",
                  # La rubrica e' gente reale con un indirizzo vero: fuori casa
                  # ancora meno di un fatto qualunque.
-                 "rubrica_aggiungi", "rubrica_cerca", "rubrica_elenco"}
+                 "rubrica_aggiungi", "rubrica_cerca", "rubrica_elenco",
+                 # MASTER puo' toccare l'impianto: il divieto piu' importante
+                 # di tutti e' che un motore non privato non sappia nemmeno
+                 # che esiste.
+                 "master_azioni_elenco", "esegui_azione_master"}
 
 
 def tools_for(user: dict[str, Any], backend: dict[str, Any] | None = None) -> list[dict[str, Any]]:
@@ -1442,6 +1491,254 @@ def save_routes(rows: Any, strategy: Any) -> tuple[bool, str]:
     except OSError as exc:
         return False, f"scrittura fallita: {exc}"
     return True, f"{len(cleaned)} rotte salvate"
+
+
+# -------------------------------------------------------------------- master
+# W5. Read VISIONE_COMPLETA.md before touching this section: the owner
+# confirmed on 2026-07-30 that the absolute prohibition below stays, even
+# though "propose then click" elsewhere in this project became "propose then
+# auto-apply" for code changes -- some things a chat confirmation cannot undo.
+
+ACTIONS_FILE = Path(os.environ.get("HERMES_ACTIONS_FILE", str(BASE / "actions.json")))
+MASTER_STATE_FILE = Path(os.environ.get(
+    "HERMES_MASTER_STATE_FILE", "/var/lib/sovereign-hermes/master-state.json"))
+# A dedicated key, never the audit key used to administer the estate from
+# outside: `pct`/`qm` only exist on the Proxmox host, and LXC 102 has neither,
+# so an infrastructure action has to cross that hop over SSH. Absent until the
+# owner provisions it -- see hermes.md for why this is deliberate.
+MASTER_SSH_KEY_FILE = os.environ.get(
+    "HERMES_MASTER_SSH_KEY_FILE", "/root/sovereign-secrets/hermes/master-ssh-key")
+MASTER_KNOWN_HOSTS_FILE = os.environ.get(
+    "HERMES_MASTER_KNOWN_HOSTS_FILE", "/root/sovereign-secrets/hermes/master-known-hosts")
+PROXMOX_HOST = os.environ.get("HERMES_PROXMOX_HOST", "192.168.1.150")
+MASTER_ARM_SECONDS = 30 * 60
+
+_master_lock = threading.Lock()
+
+
+def load_actions() -> list[dict[str, Any]]:
+    try:
+        data = json.loads(ACTIONS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def action_by_name(name: str) -> dict[str, Any] | None:
+    return next((a for a in load_actions() if a.get("name") == name), None)
+
+
+def _load_master_state() -> dict[str, Any]:
+    try:
+        return json.loads(MASTER_STATE_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def _save_master_state(state: dict[str, Any]) -> None:
+    MASTER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    MASTER_STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
+
+
+def master_armed_until() -> float:
+    with _master_lock:
+        return float(_load_master_state().get("armed_until") or 0)
+
+
+def master_is_armed() -> bool:
+    return time.time() < master_armed_until()
+
+
+def master_is_running() -> bool:
+    """The RUNNING/PAUSED switch (Nexi's A4). Defaults to RUNNING: a state
+    file that has never been written must not silently disable everything."""
+    with _master_lock:
+        return bool(_load_master_state().get("running", True))
+
+
+def master_arm(seconds: int = MASTER_ARM_SECONDS) -> float:
+    with _master_lock:
+        state = _load_master_state()
+        until = time.time() + seconds
+        state["armed_until"] = until
+        _save_master_state(state)
+        return until
+
+
+def master_disarm() -> None:
+    with _master_lock:
+        state = _load_master_state()
+        state["armed_until"] = 0
+        _save_master_state(state)
+
+
+def master_set_running(running: bool) -> None:
+    with _master_lock:
+        state = _load_master_state()
+        state["running"] = running
+        _save_master_state(state)
+
+
+class MasterActionError(Exception):
+    """A parameter failed validation: nothing runs, ever, for this call."""
+
+
+def _resolve_param(spec: dict[str, Any], value: Any, pname: str) -> str:
+    kind = spec.get("tipo")
+    if kind == "enum":
+        value = str(value)
+        if value not in spec.get("valori", []):
+            raise MasterActionError(f"parametro '{pname}': valore non ammesso ({value!r})")
+        return value
+    if kind == "regex":
+        value = str(value)
+        if not re.match(spec["pattern"], value):
+            raise MasterActionError(f"parametro '{pname}': non rispetta il formato richiesto")
+        return value
+    if kind == "secret":
+        # A path is a NAME, never a value the model supplies: resolved from
+        # disk only, only inside the one directory secrets live in, and only
+        # at the moment of running -- never logged, never in the prompt.
+        base = Path("/root/sovereign-secrets").resolve()
+        full = (base / str(value or spec.get("path", ""))).resolve()
+        if full != base and base not in full.parents:
+            raise MasterActionError(f"percorso segreto fuori da {base}: rifiutato")
+        secret = read_secret(str(full))
+        if not secret:
+            raise MasterActionError(f"segreto non trovato: {full.name}")
+        return secret
+    raise MasterActionError(f"tipo di parametro sconosciuto: {kind}")
+
+
+def resolve_action(action: dict[str, Any], params: dict[str, Any]) -> list[str]:
+    """Fill in the action's {placeholders}. The command is a LIST from the
+    start, never a shell string: no `;`, no backtick, no expansion to inject.
+    A parameter that fails its enum/regex fails the whole call before
+    anything runs.
+    """
+    declared = action.get("parametri", {})
+    resolved: list[str] = []
+    for token in action["comando"]:
+        m = re.fullmatch(r"\{(\w+)\}", token)
+        if not m:
+            resolved.append(token)
+            continue
+        pname = m.group(1)
+        spec = declared.get(pname)
+        if spec is None:
+            raise MasterActionError(f"parametro non dichiarato: {pname}")
+        if pname not in params:
+            raise MasterActionError(f"parametro mancante: {pname}")
+        resolved.append(_resolve_param(spec, params[pname], pname))
+    return resolved
+
+
+def master_forbidden(resolved: list[str]) -> str:
+    """The absolute prohibition (W5.4): compiled here, not in a file anyone
+    -- including a future version of this code -- could edit at runtime.
+    Checked regardless of arming, regardless of who asks. This is the one
+    function in the master-mode stack that a passing test must never talk
+    its way around.
+    """
+    low = " ".join(resolved).lower()
+    if resolved and resolved[0] == "qm" and "110" in resolved:
+        return "nessuna azione su VM 110 (Immich), in nessuna forma"
+    if re.search(r"\bdestroy\b", low) or re.search(r"\brm\s+-\w*f\w*r\w*\b", low) \
+            or re.search(r"\brm\s+-\w*r\w*f\w*\b", low):
+        return "nessuna distruzione di dati (destroy / rm -rf)"
+    if "pbs" in low or "proxmox-backup" in low:
+        return "nessuna azione sul backup PBS"
+    if "sovereign-omniroute-firewall" in low or ("omniroute" in low and "firewall" in low):
+        return "non si disattiva la guardia di OmniRoute"
+    if "hermes_readonly" in low or ("_security" in low and "couch" in low):
+        return "non si tocca la guardia di sola lettura di CouchDB"
+    if "outpost.goauthentik" in low or "forward-auth" in low:
+        return "non si tocca il forward-auth"
+    if "memory_log" in low or "master_log" in low:
+        return "non si scrive nel registro di audit"
+    if "authentik" in low and re.search(r"\b(create|useradd|grant|permission)\b", low):
+        return "non si creano utenti o permessi in Authentik da qui"
+    if "actions.json" in low:
+        return "non si tocca l'elenco delle azioni ne' questo stesso divieto"
+    return ""
+
+
+def run_action_command(cmd: list[str], timeout: int) -> tuple[bool, str]:
+    """Run a resolved action. `pct`/`qm` exist only on the Proxmox host --
+    Hermes lives on LXC 102, which has neither -- so those cross over SSH with
+    a dedicated key; anything else runs locally, where Hermes already has
+    root for its own unit.
+    """
+    if cmd and cmd[0] in ("pct", "qm"):
+        if not Path(MASTER_SSH_KEY_FILE).exists():
+            return False, (f"chiave SSH master non configurata ({MASTER_SSH_KEY_FILE}): "
+                           "l'azione non può raggiungere l'host Proxmox")
+        cmd = ["ssh", "-i", MASTER_SSH_KEY_FILE, "-o", "StrictHostKeyChecking=yes",
+               "-o", f"UserKnownHostsFile={MASTER_KNOWN_HOSTS_FILE}",
+               "-o", "ConnectTimeout=8", f"root@{PROXMOX_HOST}", "--"] + cmd
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        output = (result.stdout + result.stderr).strip()[:4000]
+        return result.returncode == 0, output
+    except subprocess.TimeoutExpired:
+        return False, "timeout"
+    except OSError as exc:
+        return False, str(exc)
+
+
+def memory_master_log(owner: str, action: str, params: dict[str, Any],
+                      resolved: list[str], esito: str, dettaglio: str) -> None:
+    store = memory()
+    if store is None:
+        print(f"[hermes][MASTER] registro non disponibile: {owner} {action} -> {esito}")
+        return
+    store.master_log(owner, action, params, " ".join(resolved), esito, dettaglio[:2000])
+
+
+def master_execute(ctx: dict[str, Any], args: dict[str, Any]) -> str:
+    """The one entry point the model calls. Every gate is here, in this
+    order, and every one of them can end the call before anything runs.
+    """
+    if not ctx.get("is_admin"):
+        return "Solo il proprietario può usare la modalità MASTER."
+    if not master_is_armed():
+        return ("MASTER non è armato: nessuna azione parte. "
+                "Arma dal pannello (scade da solo dopo 30 minuti), poi richiedimelo di nuovo.")
+    if not master_is_running():
+        return "MASTER è in pausa (interruttore RUNNING/PAUSED): nessuna azione parte finché non riprende."
+    name = str(args.get("nome", ""))
+    action = action_by_name(name)
+    if action is None:
+        return f"Azione «{name}» non esiste nel catalogo: non è una shell libera, solo quelle dichiarate."
+    params = args.get("parametri")
+    params = params if isinstance(params, dict) else {}
+    owner = ctx.get("username", "")
+    try:
+        resolved = resolve_action(action, params)
+    except MasterActionError as exc:
+        memory_master_log(owner, name, params, [], "rifiutata", f"parametro: {exc}")
+        return f"Rifiutata prima di eseguire: {exc}"
+    reason = master_forbidden(resolved)
+    if reason:
+        memory_master_log(owner, name, params, resolved, "rifiutata", reason)
+        return f"Rifiutata: {reason}. Questo divieto non si toglie, nemmeno armato."
+    dry = "Comando risolto: " + " ".join(resolved)
+    if action.get("conferma") and not bool(args.get("confermato")):
+        return (dry + "\n\nQuesta azione è irreversibile: mostra questo comando all'utente, "
+                "chiedigli conferma esplicita in chat, e richiamami con confermato:true "
+                "solo dopo che ha detto di sì.")
+    if name == "riavvia_hermes":
+        # Fire and forget: the parent (this very process) is about to die, so
+        # nothing here can wait for its own restart to finish.
+        subprocess.Popen(resolved, start_new_session=True)
+        memory_master_log(owner, name, params, resolved, "avviata",
+                          "riavvio asincrono: non attende il proprio esito")
+        return dry + "\n\nRiavvio in corso: se la risposta si interrompe qui è normale."
+    ok, output = run_action_command(resolved, int(action.get("timeout", 30)))
+    memory_master_log(owner, name, params, resolved, "riuscita" if ok else "fallita", output)
+    return dry + "\n\n" + ("Riuscita.\n" if ok else "Fallita.\n") + output
 
 
 SECRETS_DIR = Path(os.environ.get("HERMES_SECRETS_DIR", "/root/sovereign-secrets/hermes"))
@@ -2010,7 +2307,7 @@ def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
 # Gli strumenti che CAMBIANO qualcosa. Su questi una pretesa non verificata non
 # è un dettaglio di stile: l'utente crede che il dato sia al sicuro.
 WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail",
-               "vault_scrivi", "procedura_salva", "rubrica_aggiungi"}
+               "vault_scrivi", "procedura_salva", "rubrica_aggiungi", "esegui_azione_master"}
 
 # Come suona una pretesa in italiano. Volutamente al passato e in prima persona:
 # «salvo» o «sto salvando» non sono affermazioni di aver finito.
@@ -2222,6 +2519,12 @@ def converse(user: dict[str, Any], question: str,
     messages.append(user_msg)
     # A preference can only take capability away, never add it.
     tools = [] if prefs.get("tools") is False else tools_for(user, backend)
+    # Kept even if swarm mode below zeroes `tools` for the synthesis step: the
+    # anti-lie guard needs to know what the person could ACTUALLY have used,
+    # not what the last step happened to be allowed to call. Losing this
+    # distinction is exactly how a swarm synthesis once invented an entire
+    # fake "send_mail doesn't exist" report with the guard silently disabled.
+    guard_tools = tools
 
     # "Cerca sul web" runs the search up front instead of hoping the model
     # decides to. Small models are confident about prices and versions and skip
@@ -2298,7 +2601,7 @@ def converse(user: dict[str, Any], question: str,
     # tool che non parte non produce un errore, produce una frase convincente.
     # Qui la pretesa viene confrontata con quello che è davvero successo.
     claim = unverified_write_claim(answer, called) or unmet_write_request(question, called)
-    if claim and tools:
+    if claim and guard_tools:
         yield {"event": "reset", "data": ""}
         yield {"event": "tool", "data": "verifica: nessuno strumento chiamato"}
         messages.append({"role": "assistant", "content": answer})
@@ -2310,7 +2613,7 @@ def converse(user: dict[str, Any], question: str,
             f"`rubrica_aggiungi`). "
             f"Se davvero non serviva, rispondi senza sostenere di aver fatto qualcosa "
             f"e senza inventare percorsi di file.")})
-        retry, retry_called = yield from _tool_rounds(backend, messages, tools, user, 2)
+        retry, retry_called = yield from _tool_rounds(backend, messages, guard_tools, user, 2)
         if retry_called:
             answer = retry or answer
         else:
@@ -2637,6 +2940,7 @@ a{color:#43b4c4}
  <button class=tabbtn data-tab=rotte>Rotte</button>
  <button class=tabbtn data-tab=memoria>Memoria</button>
  <button class=tabbtn data-tab=rubrica>Rubrica</button>
+ <button class=tabbtn data-tab=master>Master</button>
 </nav>
 <main>
  <section id=tab-motori>
@@ -2716,6 +3020,31 @@ a{color:#43b4c4}
   </div>
   <div id=contacts></div>
  </section>
+
+ <section id=tab-master hidden>
+  <div class=card>
+   <b>Modalità MASTER</b>
+   <p class=hint>Un elenco fisso di azioni, mai una shell libera. Il divieto assoluto
+   (Immich, distruzione dati, disattivare le guardie) resta anche armato: non è
+   un'opzione da questa pagina. Armare dura 30 minuti e poi scade da solo.</p>
+   <div id=master-status class=hint>caricamento…</div>
+   <div class=row style="margin-top:10px">
+    <button id=master-arm>Arma (30 minuti)</button>
+    <button class=ghost id=master-disarm>Disarma subito</button>
+    <button class=ghost id=master-pause>Metti in pausa</button>
+    <button class=ghost id=master-resume>Riprendi</button>
+    <span id=master-msg class=hint></span>
+   </div>
+  </div>
+  <div class=card>
+   <b>Azioni disponibili</b>
+   <div id=master-actions class=hint></div>
+  </div>
+  <div class=card>
+   <b>Registro (sola lettura, non riscrivibile dal servizio)</b>
+   <div id=master-log class=hint></div>
+  </div>
+ </section>
 </main>
 <div class=bar><button id=save>Salva</button><button class=ghost id=reload>Ricarica</button>
  <span id=msg class=hint></span></div>
@@ -2724,7 +3053,7 @@ const $=i=>document.getElementById(i);
 let data=[];
 
 // --- schede -------------------------------------------------------------
-const TABS=['motori','modelli','fornitori','rotte','memoria','rubrica'];
+const TABS=['motori','modelli','fornitori','rotte','memoria','rubrica','master'];
 function showTab(name){
  if(!TABS.includes(name)) name='motori';
  TABS.forEach(t=>{$('tab-'+t).hidden=(t!==name);});
@@ -2734,6 +3063,7 @@ function showTab(name){
  if(name==='rotte'&&!routesLoaded) loadRoutes();
  if(name==='memoria') loadMemory();
  if(name==='rubrica'&&!contactsLoaded) loadContacts();
+ if(name==='master') loadMaster();
 }
 document.querySelectorAll('.tabbtn').forEach(b=>b.onclick=()=>showTab(b.dataset.tab));
 
@@ -3003,6 +3333,57 @@ $('c-add').onclick=()=>{
   }).catch(e=>$('c-msg').textContent='✗ '+e);
 };
 
+// --- W5: modalita' MASTER ---------------------------------------------
+function loadMaster(){
+ fetch('api/master/status').then(r=>r.json()).then(d=>{
+  const mins=Math.floor(d.seconds_left/60), secs=d.seconds_left%60;
+  $('master-status').innerHTML=
+   'Stato: <b>'+(d.armed?('ARMATO — scade fra '+mins+'m '+secs+'s'):'non armato')+'</b>'
+   +' · interruttore: <b>'+(d.running?'RUNNING':'PAUSED')+'</b>'
+   +' · azioni nel catalogo: '+(d.actions||[]).length
+   +(d.ssh_configured?'':'<br><span class="pill off">chiave SSH master assente</span> '
+     +'le azioni su Proxmox (pct/qm) non possono partire finché non viene creata');
+  $('master-actions').innerHTML=(d.actions||[]).map(a=>
+   '<div style="border-bottom:1px solid #131c25;padding:6px 0">'
+   +'<b>'+a.name+'</b>'+(a.conferma?' <span class="pill off">chiede conferma</span>':'')
+   +(a.reversibile?'':' <span class="pill off">irreversibile</span>')
+   +'<br><span class=hint>'+a.descrizione+'</span>'
+   +'<br><span class=hint>parametri: '+(Object.keys(a.parametri||{}).join(', ')||'nessuno')+'</span>'
+   +'</div>').join('');
+  loadMasterLog();
+ }).catch(e=>{$('master-status').textContent='non raggiungibile: '+e;});
+}
+function loadMasterLog(){
+ fetch('api/master/log').then(r=>r.json()).then(d=>{
+  const rows=d.log||[];
+  $('master-log').innerHTML=rows.length
+   ? rows.map(r=>'<div style="border-bottom:1px solid #131c25;padding:4px 0">'
+      +r.quando+' · <b>'+r.azione+'</b> · <span class="pill '
+      +(r.esito==='riuscita'?'on':'off')+'">'+r.esito+'</span> · '+r.chi
+      +'<br><span class=hint>'+(r.comando||'')+'</span></div>').join('')
+   : '<span class=hint>nessuna azione registrata</span>';
+ }).catch(()=>{});
+}
+function masterCall(path,body,label){
+ $('master-msg').textContent=label+'…';
+ fetch('api/master/'+path,{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify(body||{})})
+  .then(r=>r.json()).then(d=>{
+   $('master-msg').textContent=d.ok?('✓ '+label):('✗ '+(d.error||'errore'));loadMaster();
+  }).catch(e=>$('master-msg').textContent='✗ '+e);
+}
+$('master-arm').onclick=()=>{
+ fetch('api/master/status').then(r=>r.json()).then(d=>{
+  const n=(d.actions||[]).length;
+  if(confirm('Armare la modalità MASTER?\\n\\n'+n+' azioni diventano eseguibili per 30 minuti, '
+    +'poi si disarma da sola.\\n\\nIl divieto assoluto (Immich, distruzione dati, guardie) '
+    +'resta attivo comunque.')) masterCall('arm',{conferma:true},'armato');
+ });
+};
+$('master-disarm').onclick=()=>masterCall('disarm',{},'disarmato');
+$('master-pause').onclick=()=>masterCall('pause',{},'in pausa');
+$('master-resume').onclick=()=>masterCall('resume',{},'ripreso');
+
 document.addEventListener('keydown',e=>{
  if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){
   e.preventDefault();
@@ -3185,6 +3566,24 @@ class Handler(BaseHTTPRequestHandler):
             contacts = store.contact_list(user["username"]) if store is not None else []
             self._send(200, json.dumps({"contacts": contacts}).encode(),
                        "application/json; charset=utf-8")
+        elif route.path == "/api/master/status":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            until = master_armed_until()
+            left = max(0, until - time.time())
+            self._send(200, json.dumps({
+                "armed": master_is_armed(), "seconds_left": int(left),
+                "running": master_is_running(), "actions": load_actions(),
+                "ssh_configured": Path(MASTER_SSH_KEY_FILE).exists(),
+            }).encode(), "application/json; charset=utf-8")
+        elif route.path == "/api/master/log":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            store = memory()
+            entries = store.master_log_recent(50) if store is not None else []
+            self._send(200, json.dumps({"log": entries}).encode(), "application/json; charset=utf-8")
         elif route.path == "/api/history":
             self._send(200, json.dumps({"messages": load_chat(user["username"])}).encode(),
                        "application/json; charset=utf-8")
@@ -3330,6 +3729,43 @@ class Handler(BaseHTTPRequestHandler):
                                        str(payload.get("email", "")),
                                        note=str(payload.get("nota", "") or ""))
             self._send(200 if result.get("ok") else 400, json.dumps(result).encode(),
+                       "application/json; charset=utf-8")
+            return
+        if route.path in {"/api/master/arm", "/api/master/disarm",
+                          "/api/master/pause", "/api/master/resume"}:
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            if route.path == "/api/master/arm":
+                length = int(self.headers.get("Content-Length", "0") or 0)
+                payload = {}
+                if length:
+                    try:
+                        payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                    except (json.JSONDecodeError, UnicodeDecodeError):
+                        payload = {}
+                # Armare senza una conferma esplicita non e' un armamento, e'
+                # un default che qualcuno ha scoperto per caso.
+                if not payload.get("conferma"):
+                    self._send(400, json.dumps({
+                        "ok": False, "error": "serve conferma esplicita per armare"}).encode(),
+                               "application/json; charset=utf-8")
+                    return
+                until = master_arm()
+                print(f"[hermes][MASTER] armato da {user['username']} per {MASTER_ARM_SECONDS//60} minuti")
+                self._send(200, json.dumps({
+                    "ok": True, "armed_until": until, "seconds": MASTER_ARM_SECONDS,
+                    "azioni": len(load_actions())}).encode(), "application/json; charset=utf-8")
+                return
+            if route.path == "/api/master/disarm":
+                master_disarm()
+                print(f"[hermes][MASTER] disarmato da {user['username']}")
+                self._send(200, b'{"ok":true}', "application/json; charset=utf-8")
+                return
+            running = route.path == "/api/master/resume"
+            master_set_running(running)
+            print(f"[hermes][MASTER] {'ripreso' if running else 'messo in pausa'} da {user['username']}")
+            self._send(200, json.dumps({"ok": True, "running": running}).encode(),
                        "application/json; charset=utf-8")
             return
         if route.path != "/api/backends":
