@@ -76,6 +76,48 @@ CREATE TABLE IF NOT EXISTS vector_index (
 
 CREATE INDEX IF NOT EXISTS vector_index_origin ON vector_index (origin, origin_ref);
 
+-- Le procedure: «come si fa una cosa», scritta una volta e ritrovata quando
+-- serve. Volutamente in Postgres e non fra i vettori: una procedura si esegue
+-- passo per passo, quindi conta che sia *esatta*, non che sia somigliante. La
+-- ricerca è quella testuale di Postgres, in italiano.
+CREATE TABLE IF NOT EXISTS procedures (
+    id           BIGSERIAL PRIMARY KEY,
+    owner        TEXT        NOT NULL,
+    name         TEXT        NOT NULL,
+    purpose      TEXT        NOT NULL DEFAULT '',
+    -- I passi restano una lista ordinata: un testo unico invita a saltarne uno.
+    steps        JSONB       NOT NULL DEFAULT '[]'::jsonb,
+    tags         TEXT[]      NOT NULL DEFAULT '{}',
+    source       TEXT        NOT NULL DEFAULT 'detto',
+    times_used   INTEGER     NOT NULL DEFAULT 0,
+    last_used_at TIMESTAMPTZ,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT procedures_source_known CHECK (source IN ('detto', 'dedotto')),
+    CONSTRAINT procedures_steps_is_array CHECK (jsonb_typeof(steps) = 'array'),
+    CONSTRAINT procedures_unique_name UNIQUE (owner, name)
+);
+
+-- Colonna generata: la ricerca resta coerente senza doverla aggiornare a mano.
+-- Due dettagli pagati provando:
+--   * `'italian'::regconfig` con il cast esplicito, altrimenti Postgres
+--     considera l'espressione soltanto STABLE e rifiuta la colonna con
+--     «generation expression is not immutable»;
+--   * le etichette NON entrano qui, perché `array_to_string` è STABLE e basta
+--     lei a far fallire tutto. Hanno il loro indice, che per un array è anche
+--     il modo giusto di cercarle.
+ALTER TABLE procedures
+    ADD COLUMN IF NOT EXISTS search tsvector
+    GENERATED ALWAYS AS (
+        to_tsvector('italian'::regconfig,
+            coalesce(name, '') || ' ' || coalesce(purpose, '') || ' ' ||
+            coalesce(steps #>> '{}', ''))
+    ) STORED;
+
+CREATE INDEX IF NOT EXISTS procedures_search ON procedures USING GIN (search);
+CREATE INDEX IF NOT EXISTS procedures_tags ON procedures USING GIN (tags);
+CREATE INDEX IF NOT EXISTS procedures_owner ON procedures (owner, name);
+
 CREATE OR REPLACE FUNCTION touch_updated_at() RETURNS trigger AS $$
 BEGIN
     NEW.updated_at := now();
@@ -85,4 +127,8 @@ $$ LANGUAGE plpgsql;
 
 DROP TRIGGER IF EXISTS facts_touch ON facts;
 CREATE TRIGGER facts_touch BEFORE UPDATE ON facts
+    FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
+
+DROP TRIGGER IF EXISTS procedures_touch ON procedures;
+CREATE TRIGGER procedures_touch BEFORE UPDATE ON procedures
     FOR EACH ROW EXECUTE FUNCTION touch_updated_at();
