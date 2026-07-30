@@ -405,6 +405,45 @@ travestita da fresca sarebbe peggio di nessuna cache.
 > un'eccezione al gate SSO si fa nella configurazione di NPM, il codice da solo
 > non basta.
 
+## 7-sexies. Fornitori come preset e router per intenti (W2)
+
+**W2.1 — Fornitori come preset.** `scripts/hermes/providers-presets.json` (9
+voci: Groq, Cerebras, NVIDIA NIM, Cloudflare Workers AI, OpenRouter, Google AI
+Studio, GitHub Models, HuggingFace, più Bedrock e OmniRoute già configurati).
+Nel pannello il bottone unico "+ AWS Bedrock" è diventato un menu **Fornitori**:
+si sceglie il nome, si incolla solo la chiave, si salva — indirizzo, modello e
+`extra` li mette il preset. `GET /api/providers/presets` marca `configured:true`
+per quelli già presenti in `backends.json`.
+
+> **Onestà sui preset**: solo Groq è **verificato** con una chiave reale
+> (`verified:true`). Gli altri sette sono letti dalla documentazione dei
+> fornitori, non provati — il campo `verified` nel file lo dichiara, invece di
+> far finta che siano tutti uguali.
+
+**W2.2 — Router per intenti.** `scripts/hermes/routes.json`: cinque rotte
+(`veloce`, `ragiona`, `codice`, `immagini`, `privato`), ognuna con un motore
+primario e un ordine di ripiego. La rotta `privato` porta `solo_privati:true`:
+**non può mai cadere su un motore non privato**, e questo è verificato a runtime
+da `pick_backend_for_route()` con lo stesso `backend_is_private()` della guardia
+degli strumenti — **anche se qualcuno forza un motore esterno dal menu "motore"
+insieme alla rotta `privato`**, la richiesta esplicita viene scartata e si torna
+al motore privato. Verificato dal vivo: `route=privato&backend=groq` è finito
+comunque su `pc-mohamed`.
+
+In pagina, un menu **"cosa ti serve"** (`auto` di default) accanto al motore.
+Con `auto`, `classify_route()` decide con regole scritte, mai con un modello:
+un'immagine allegata → `immagini`; la domanda contiene una parola che nomina uno
+strumento privato (vault, appunti, ricordati, agenda, stato del server, chi ha
+accesso, password…) → `privato`; un blocco di codice o una `SELECT…FROM` →
+`codice`; altrimenti `veloce`.
+
+**W2.3 — Strategie di scelta.** Un campo globale in `scripts/hermes/router-strategy.json`
+(default `ordine`, invariato). `piu_veloce` sceglie fra i candidati idonei di una
+rotta quello con la latenza dell'ultima chiamata più bassa; `meno_carico` quello
+con meno chiamate in volo. Entrambe le metriche sono tenute in memoria attorno a
+`chat_once()` — si perdono a un riavvio, e va bene così: significa solo un giro
+senza preferenza, non una risposta sbagliata.
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e

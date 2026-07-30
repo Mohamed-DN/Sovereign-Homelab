@@ -65,6 +65,9 @@ VAULT_OWNER = os.environ.get("HERMES_VAULT_OWNER", "mohamed")
 
 BACKENDS_FILE = Path(os.environ.get("HERMES_BACKENDS_FILE", str(BASE / "backends.json")))
 MODELS_CATALOG_FILE = Path(os.environ.get("HERMES_MODELS_CATALOG_FILE", str(BASE / "models-catalog.json")))
+PROVIDERS_PRESETS_FILE = Path(os.environ.get("HERMES_PROVIDERS_PRESETS_FILE", str(BASE / "providers-presets.json")))
+ROUTES_FILE = Path(os.environ.get("HERMES_ROUTES_FILE", str(BASE / "routes.json")))
+ROUTER_STRATEGY_FILE = Path(os.environ.get("HERMES_ROUTER_STRATEGY_FILE", str(BASE / "router-strategy.json")))
 PERSONA_FILE = Path(os.environ.get("HERMES_PERSONA_FILE", str(BASE / "persona.md")))
 CHATS_DIR = Path(os.environ.get("HERMES_CHATS_DIR", "/var/lib/sovereign-hermes/chats"))
 
@@ -1155,6 +1158,171 @@ def load_models_catalog() -> list[dict[str, Any]]:
     return []
 
 
+def load_providers_presets() -> list[dict[str, Any]]:
+    """W2.1: provider shapes (URL, default free model, key page) so adding one
+    in the panel is "pick a name, paste a key" instead of typing an endpoint."""
+    try:
+        data = json.loads(PROVIDERS_PRESETS_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def load_routes() -> list[dict[str, Any]]:
+    """W2.2: intent routes. Each names a primary engine and a fallback order;
+    `solo_privati` is re-checked at selection time, never just trusted (see
+    `pick_backend_for_route`)."""
+    try:
+        data = json.loads(ROUTES_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, list):
+            return data
+    except (OSError, json.JSONDecodeError):
+        pass
+    return []
+
+
+def route_by_name(name: str) -> dict[str, Any] | None:
+    return next((r for r in load_routes() if r.get("name") == name), None)
+
+
+def load_router_strategy() -> str:
+    """W2.3: how to choose among several equally-eligible engines.
+
+    Default is "ordine" -- the behaviour that existed before this file did --
+    on purpose: changing the default silently would be a surprise, not an
+    improvement.
+    """
+    try:
+        data = json.loads(ROUTER_STRATEGY_FILE.read_text(encoding="utf-8"))
+        if isinstance(data, dict) and data.get("strategy") in {"ordine", "piu_veloce", "meno_carico"}:
+            return str(data["strategy"])
+    except (OSError, json.JSONDecodeError):
+        pass
+    return "ordine"
+
+
+# Metrics feeding the "piu_veloce"/"meno_carico" strategies. In memory only:
+# losing them on a restart just means one round trip of no-preference ordering.
+_backend_metrics_lock = threading.Lock()
+_backend_latency_ms: dict[str, float] = {}
+_backend_inflight: dict[str, int] = {}
+
+
+def _order_candidates(names: list[str]) -> list[str]:
+    strategy = load_router_strategy()
+    if strategy == "piu_veloce":
+        with _backend_metrics_lock:
+            latency = dict(_backend_latency_ms)
+        return sorted(names, key=lambda n: latency.get(n, float("inf")))
+    if strategy == "meno_carico":
+        with _backend_metrics_lock:
+            inflight = dict(_backend_inflight)
+        return sorted(names, key=lambda n: inflight.get(n, 0))
+    return names
+
+
+_CODE_HINT_RE = re.compile(r"```|\bdef \w+\(|\bclass \w+\b|\bimport \w+|\bSELECT\b.{0,200}\bFROM\b",
+                           re.IGNORECASE | re.DOTALL)
+# Keywords that name Hermes' own private tools (vault, memory, estate status,
+# access grants) rather than general conversation about "servers" in the abstract.
+_PRIVATE_HINT_RE = re.compile(
+    r"\b(vault|appunti|ricordati|ricorda(mi)?|dimentica|promemoria|impegn\w*|agenda|"
+    r"stato del server|stato dei servizi|chi ha accesso|password|segret\w*|"
+    r"dell.?impianto|dell.?estate)\w*",
+    re.IGNORECASE)
+
+
+def classify_route(question: str, has_image: bool) -> str:
+    """Deterministic routing for `route: auto` (W2.2).
+
+    Rules, not a model call: a classifier call is one more round trip and one
+    more place a small model can silently misfire (see VISIONE_COMPLETA §2.2).
+    """
+    if has_image:
+        return "immagini"
+    if _PRIVATE_HINT_RE.search(question):
+        return "privato"
+    if _CODE_HINT_RE.search(question):
+        return "codice"
+    return "veloce"
+
+
+def pick_backend_for_route(route: dict[str, Any] | None, prefer: str | None,
+                           ) -> tuple[dict[str, Any] | None, list[dict[str, Any]]]:
+    """Route-aware selection (W2.2). Falls back to the old first-in-order
+    pick when there is no route, or the route's own candidates are all down —
+    except for a `solo_privati` route, which returns no backend rather than
+    ever handing household data to a public API.
+    """
+    all_backends = load_backends()
+    by_name = {b["name"]: b for b in all_backends}
+    status = [{"name": b["name"], "label": b.get("label", b["name"]),
+              "model": b.get("model", ""), "healthy": backend_healthy(b)} for b in all_backends]
+    healthy_names = {s["name"] for s in status if s["healthy"]}
+
+    def eligible(name: str | None) -> bool:
+        if not name or name not in by_name or name not in healthy_names:
+            return False
+        if route and route.get("solo_privati") and not backend_is_private(by_name[name]):
+            return False
+        return True
+
+    if prefer and eligible(prefer):
+        return by_name[prefer], status
+    if route:
+        candidates = _order_candidates(
+            [n for n in [route.get("primary"), *route.get("fallback", [])] if eligible(n)])
+        if candidates:
+            return by_name[candidates[0]], status
+        if route.get("solo_privati"):
+            return None, status  # no public engine may stand in for a private one
+    candidates = _order_candidates([b["name"] for b in all_backends if b["name"] in healthy_names])
+    if candidates:
+        return by_name[candidates[0]], status
+    return None, status
+
+
+def save_routes(rows: Any, strategy: Any) -> tuple[bool, str]:
+    """Validate and persist routes.json + router-strategy.json (W2.2/W2.3)."""
+    if not isinstance(rows, list):
+        return False, "le rotte devono essere un elenco"
+    if len(rows) > 20:
+        return False, "troppe rotte (massimo 20)"
+    cleaned: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for raw in rows:
+        if not isinstance(raw, dict):
+            return False, "voce non valida"
+        name = re.sub(r"[^a-zA-Z0-9._-]", "", str(raw.get("name", "")))[:40]
+        if not name:
+            return False, "ogni rotta deve avere un nome"
+        if name in seen:
+            return False, f"nome duplicato: {name}"
+        seen.add(name)
+        entry: dict[str, Any] = {
+            "name": name,
+            "descrizione": str(raw.get("descrizione", ""))[:200],
+            "primary": str(raw.get("primary", ""))[:40],
+            "fallback": [str(x)[:40] for x in (raw.get("fallback") or []) if str(x)][:6],
+        }
+        if raw.get("solo_privati"):
+            entry["solo_privati"] = True
+        cleaned.append(entry)
+    strategy_name = str(strategy or "ordine")
+    if strategy_name not in {"ordine", "piu_veloce", "meno_carico"}:
+        return False, f"strategia non valida: {strategy_name}"
+    try:
+        ROUTES_FILE.write_text(json.dumps(cleaned, indent=2, ensure_ascii=False) + "\n",
+                               encoding="utf-8")
+        ROUTER_STRATEGY_FILE.write_text(
+            json.dumps({"strategy": strategy_name}, indent=2) + "\n", encoding="utf-8")
+    except OSError as exc:
+        return False, f"scrittura fallita: {exc}"
+    return True, f"{len(cleaned)} rotte salvate"
+
+
 SECRETS_DIR = Path(os.environ.get("HERMES_SECRETS_DIR", "/root/sovereign-secrets/hermes"))
 
 # A gateway can expose several hundred models; the settings dropdown is capped
@@ -1364,6 +1532,23 @@ def pick_backend(prefer: str | None = None) -> tuple[dict[str, Any] | None, list
 
 def chat_once(backend: dict[str, Any], messages: list[dict[str, Any]],
               tools: list[dict[str, Any]], stream: bool) -> Iterator[dict[str, Any]]:
+    """Time and count in-flight calls per engine (feeds W2.3's strategies),
+    then delegate to the real call. A wrapper rather than inline timing at each
+    of the three call sites, so none of them can forget to record it."""
+    name = backend.get("name", "")
+    with _backend_metrics_lock:
+        _backend_inflight[name] = _backend_inflight.get(name, 0) + 1
+    t0 = time.time()
+    try:
+        yield from _chat_once_impl(backend, messages, tools, stream)
+    finally:
+        with _backend_metrics_lock:
+            _backend_inflight[name] = max(0, _backend_inflight.get(name, 1) - 1)
+            _backend_latency_ms[name] = (time.time() - t0) * 1000
+
+
+def _chat_once_impl(backend: dict[str, Any], messages: list[dict[str, Any]],
+                    tools: list[dict[str, Any]], stream: bool) -> Iterator[dict[str, Any]]:
     """Yield events from one model call.
 
     Events: {"delta": str} for streamed text, {"message": {...}} once at the end.
@@ -1861,8 +2046,23 @@ def converse(user: dict[str, Any], question: str,
     access to a tool the user's role does not already allow.
     """
     prefs = prefs or {}
-    backend, status = pick_backend(prefs.get("backend"))
+    # Taken before routing (not after, as before W2) because "an image is
+    # attached" is one of the deterministic rules `classify_route` uses.
+    attached = take_upload(user["username"])
+
+    route_name = prefs.get("route") or "auto"
+    if route_name == "auto":
+        route_name = classify_route(question, bool(attached and attached.get("image")))
+    route = route_by_name(route_name)
+
+    backend, status = pick_backend_for_route(route, prefs.get("backend"))
     if backend is None:
+        if route and route.get("solo_privati"):
+            yield {"event": "error", "data": (
+                "Questa richiesta tocca dati di casa (vault, memoria, impianto): per "
+                "regola non può mai cadere su un motore esterno, e nessun motore "
+                "privato è raggiungibile ora. Accendi il PC o il server e riprova.")}
+            return
         offline = ", ".join(s["label"] for s in status) or "nessuno configurato"
         yield {"event": "error",
                "data": ("Nessun motore AI raggiungibile in questo momento.\n\n"
@@ -1872,13 +2072,12 @@ def converse(user: dict[str, Any], question: str,
         return
     yield {"event": "backend", "data": json.dumps(
         {"name": backend["name"], "label": backend.get("label", backend["name"]),
-         "model": backend.get("model", "")})}
+         "model": backend.get("model", ""), "route": route_name})}
 
     history = load_chat(user["username"])
     messages: list[dict[str, Any]] = [{"role": "system", "content": system_prompt(user)}]
     messages += history
     user_msg: dict[str, Any] = {"role": "user", "content": question}
-    attached = take_upload(user["username"])
     if attached:
         if attached.get("image"):
             # Ollama vuole le immagini sul messaggio, in base64
@@ -2148,6 +2347,14 @@ a{color:#43b4c4}
   <label><input type=checkbox id=o-web> cerca sul web</label>
   <label><input type=checkbox id=o-swarm> sciame di agenti</label>
   <label id=l-full hidden><input type=checkbox id=o-full> accesso completo (a tuo rischio)</label>
+  <label>cosa ti serve: <select id=o-route>
+    <option value=auto selected>auto</option>
+    <option value=veloce>veloce</option>
+    <option value=ragiona>ragiona</option>
+    <option value=codice>codice</option>
+    <option value=immagini>immagini</option>
+    <option value=privato>privato</option>
+  </select></label>
   <label>motore: <select id=o-backend><option value="">automatico</option></select></label>
   <label><input type=checkbox id=o-voice> voce</label>
   <button class=mini id=o-reset>azzera conversazione</button>
@@ -2184,7 +2391,7 @@ fetch('api/state').then(r=>r.json()).then(d=>{
 }).catch(()=>add('sys','Hermes non risponde: controlla il servizio.'));
 
 // Le preferenze restano nel browser di chi le imposta: ognuno ha le sue.
-const PREF=['think','tools','web','swarm','full','voice','backend'];
+const PREF=['think','tools','web','swarm','full','voice','backend','route'];
 function prefLoad(){PREF.forEach(k=>{const el=$('o-'+k),v=localStorage.getItem('hermes-'+k);
   if(v===null||!el)return; if(el.type==='checkbox')el.checked=(v==='1'); else el.value=v;});}
 function prefSave(){PREF.forEach(k=>{const el=$('o-'+k);if(!el)return;
@@ -2208,6 +2415,7 @@ function send(){
     web:$('o-web').checked?'1':'0', swarm:$('o-swarm').checked?'1':'0',
     full:$('o-full').checked?'1':'0'});
   if($('o-backend').value) p.set('backend',$('o-backend').value);
+  if($('o-route').value) p.set('route',$('o-route').value);
   const es=new EventSource('api/chat?'+p.toString());
   es.addEventListener('backend',e=>{const b=JSON.parse(e.data);
     $('p-backend').textContent='motore: '+b.label+' · '+b.model; $('p-backend').className='pill on';});
@@ -2295,7 +2503,17 @@ a{color:#43b4c4}
  si scrivono in file leggibili solo da root.</p>
  <div id=list></div>
  <button class=ghost id=add>+ aggiungi motore</button>
- <button class=ghost id=bedrock>+ AWS Bedrock (già configurato)</button>
+
+ <div class=card style="margin-top:18px">
+  <b>Fornitori</b>
+  <p class=hint>Scegli un fornitore, incolla solo la chiave e premi Salva — l'indirizzo
+  e il modello li mette il preset.</p>
+  <div class=row>
+   <div class=f><label>fornitore</label><select id=p-preset></select></div>
+   <button id=p-add>aggiungi</button>
+  </div>
+  <div id=p-note class=hint></div>
+ </div>
 
  <div class=card style="margin-top:18px">
   <b>Modelli</b>
@@ -2359,7 +2577,7 @@ function collect(){
 }
 function load(){
  fetch('api/backends').then(r=>r.json()).then(d=>{data=d.backends;render();
-  $('msg').textContent='';loadModels();});
+  $('msg').textContent='';loadModels();loadPresets();});
 }
 
 // --- W1: catalogo modelli, scaricabili dal pannello -------------------
@@ -2451,14 +2669,36 @@ $('m-role').onchange=renderModels;
 $('m-engine').onchange=renderModels;
 $('add').onclick=()=>{collect();data.push({name:'nuovo',label:'Nuovo motore',type:'ollama',
  url:'http://192.168.1.100:11434',model:'',think:false,enabled:false});render();};
+
+// --- W2.1: fornitori come preset, non come URL da scrivere ---------------
+let presets=[];
+function loadPresets(){
+ fetch('api/providers/presets').then(r=>r.json()).then(d=>{
+  presets=d.presets||[];
+  $('p-preset').innerHTML=presets.map(p=>'<option value="'+p.name+'">'+p.label
+    +(p.configured?' (già configurato)':'')+'</option>').join('');
+  showPresetNote();
+ });
+}
+function showPresetNote(){
+ const p=presets.find(x=>x.name===$('p-preset').value);
+ if(!p){$('p-note').textContent='';return;}
+ $('p-note').textContent=(p.limits?p.limits+'. ':'')
+   +(p.key_url?'Chiave da: '+p.key_url+'. ':'')+(p.note||'');
+}
+$('p-preset').onchange=showPresetNote;
 // Scorciatoie: chi incolla una chiave si aspetta che Invio la salvi, e infatti
 // e' stato segnalato proprio come «non riesco a premere invio».
-$('bedrock').onclick=()=>{collect();data.push({name:'bedrock',
- label:'AWS Bedrock (compatibile OpenAI)',type:'openai',
- url:'https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1',
- model:'openai.gpt-oss-20b-1:0',think:false,enabled:true,
- extra:{max_tokens:2000,reasoning_effort:'low'}});render();
- $('msg').textContent='incolla la chiave nel campo e premi Invio (o Salva)';};
+$('p-add').onclick=()=>{
+ const p=presets.find(x=>x.name===$('p-preset').value);
+ if(!p) return;
+ if(p.configured){$('msg').textContent=p.label+' è già configurato: modificalo nell\'elenco sopra.';return;}
+ collect();
+ data.push({name:p.name,label:p.label,type:'openai',url:p.url,model:p.model||'',
+   think:false,enabled:true,extra:p.extra||{}});
+ render();
+ $('msg').textContent='incolla la chiave nel campo e premi Invio (o Salva)';
+};
 document.addEventListener('keydown',e=>{
  if(e.key==='Enter'&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){
   e.preventDefault();$('save').click();}});
@@ -2564,6 +2804,8 @@ class Handler(BaseHTTPRequestHandler):
                 prefs["web"] = params["web"][0] == "1"
             if params.get("backend"):
                 prefs["backend"] = params["backend"][0][:40]
+            if params.get("route"):
+                prefs["route"] = params["route"][0][:20]
             if not question:
                 self._send(400, b"domanda vuota", "text/plain; charset=utf-8")
                 return
@@ -2600,6 +2842,22 @@ class Handler(BaseHTTPRequestHandler):
                         for b in load_backends_all() if b.get("type") == "ollama"}
             self._send(200, json.dumps({"catalog": load_models_catalog(),
                                         "installed": installed}).encode(),
+                       "application/json; charset=utf-8")
+        elif route.path == "/api/providers/presets":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            configured = {b["name"] for b in load_backends_all()}
+            presets = [dict(p, configured=p.get("name") in configured)
+                      for p in load_providers_presets()]
+            self._send(200, json.dumps({"presets": presets}).encode(),
+                       "application/json; charset=utf-8")
+        elif route.path == "/api/routes":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            self._send(200, json.dumps({"routes": load_routes(),
+                                        "strategy": load_router_strategy()}).encode(),
                        "application/json; charset=utf-8")
         elif route.path == "/api/history":
             self._send(200, json.dumps({"messages": load_chat(user["username"])}).encode(),
@@ -2685,6 +2943,25 @@ class Handler(BaseHTTPRequestHandler):
                     self.wfile.flush()
                 except Exception:
                     pass
+            return
+        if route.path == "/api/routes":
+            if not user["is_admin"]:
+                self._send(403, b'{"error":"solo amministratore"}', "application/json; charset=utf-8")
+                return
+            length = int(self.headers.get("Content-Length", "0") or 0)
+            if length < 1 or length > 50_000:
+                self._send(413, b'{"error":"richiesta troppo grande"}', "application/json; charset=utf-8")
+                return
+            try:
+                payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                ok, message = save_routes(payload.get("routes"), payload.get("strategy"))
+            except Exception as exc:  # noqa: BLE001 - report, never crash the service
+                ok, message = False, str(exc)
+            if ok:
+                print(f"[hermes] rotte aggiornate da {user['username']}: {message}")
+            self._send(200 if ok else 400,
+                       json.dumps({"ok": ok, "message": message}).encode(),
+                       "application/json; charset=utf-8")
             return
         if route.path != "/api/backends":
             self._send(404, b'{"error":"non trovato"}', "application/json; charset=utf-8")

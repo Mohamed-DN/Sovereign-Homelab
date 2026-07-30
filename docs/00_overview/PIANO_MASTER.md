@@ -61,6 +61,9 @@
 | 22 | **PWA (W7.1)**: manifest, service worker (solo la scocca, mai le risposte), icone generate a runtime via `zlib`. Route esenti dal login SSO in NPM | [hermes.md](../04_apps/hermes.md) §7-quinquies |
 | 23 | **Catalogo modelli (W1)**: 19 modelli in `models-catalog.json`, scarica/elimina dal pannello con progresso SSE, dimensione letta dal vivo da `/api/tags`. Verificato: `granite4:micro` scaricato ed eliminato dal browser | [hermes.md](../04_apps/hermes.md) §7-quater |
 | 24 | Motore **Groq** (fornitore gratuito, W2 in anticipo): chiave fornita dal proprietario, `private:false`. Trovato e chiuso un difetto generale di `http_json()`: Cloudflare blocca lo User-Agent di default di `urllib` | [hermes.md](../04_apps/hermes.md) §7-quater |
+| 25 | **Fornitori come preset (W2.1)**: 9 preset, menu "+ fornitore" al posto del bottone unico Bedrock. Solo Groq verificato con chiave reale, gli altri dichiarati "letti, non provati" | [hermes.md](../04_apps/hermes.md) §7-sexies |
+| 26 | **Router per intenti (W2.2)**: 5 rotte, `privato` non può mai cadere su un motore non privato — verificato anche contro un tentativo esplicito di forzarlo dal menu motore | [hermes.md](../04_apps/hermes.md) §7-sexies |
+| 27 | **Strategie di scelta (W2.3)**: `ordine`/`piu_veloce`/`meno_carico`, default invariato | [hermes.md](../04_apps/hermes.md) §7-sexies |
 
 ---
 
@@ -112,7 +115,7 @@
 |---|---|---|
 | Regola **`private`** | **fatta**: motore esterno → solo strumenti web | ✅ |
 | **OmniRoute** (sostituisce LiteLLM) | 290+ fornitori, 40+ gratuiti, circuit breaker, chiavi AES-256 | da installare |
-| Provider gratuiti | [free-llm-api-resources](https://github.com/cheahjs/free-llm-api-resources) | dopo OmniRoute |
+| Provider gratuiti | Preset in `providers-presets.json` (W2.1): solo **Groq** verificato con chiave reale, gli altri sette pronti ma non provati | parziale |
 | **vLLM** al posto di Ollama sul PC | solo se lo sciame diventa l'uso normale; su Blackwell serve CUDA 12.8+ | valutare |
 
 ### Fase 6 — Modalità master

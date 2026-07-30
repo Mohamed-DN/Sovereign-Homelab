@@ -1,0 +1,114 @@
+[
+  {
+    "name": "groq",
+    "label": "Groq",
+    "url": "https://api.groq.com/openai/v1",
+    "model": "llama-3.3-70b-versatile",
+    "key_url": "https://console.groq.com/keys",
+    "limits": "30 richieste/min, ~1000/giorno su questo modello",
+    "extra": {},
+    "verified": true,
+    "note": "Verificato dal vivo il 2026-07-30 con una chiave reale: motore sano. Dietro Cloudflare — se un giorno risultasse 'giù' con una chiave buona, controlla lo User-Agent prima di sospettare la chiave."
+  },
+  {
+    "name": "cerebras",
+    "label": "Cerebras",
+    "url": "https://api.cerebras.ai/v1",
+    "model": "llama-3.3-70b",
+    "key_url": "https://cloud.cerebras.ai/",
+    "limits": "il più veloce in assoluto (~2000 token/s dichiarati), ~1M token/giorno",
+    "extra": {},
+    "verified": false,
+    "note": "Letto, non provato con una chiave reale: il nome esatto del modello va confermato al primo utilizzo."
+  },
+  {
+    "name": "nvidia-nim",
+    "label": "NVIDIA NIM",
+    "url": "https://integrate.api.nvidia.com/v1",
+    "model": "meta/llama-3.1-70b-instruct",
+    "key_url": "https://build.nvidia.com/",
+    "limits": "40 richieste/min, nessun tetto giornaliero noto",
+    "extra": {},
+    "verified": false,
+    "note": "Letto, non provato con una chiave reale."
+  },
+  {
+    "name": "cloudflare-workers-ai",
+    "label": "Cloudflare Workers AI",
+    "url": "https://api.cloudflare.com/client/v4/accounts/<ACCOUNT_ID>/ai/v1",
+    "model": "@cf/meta/llama-3.1-8b-instruct",
+    "key_url": "https://dash.cloudflare.com/profile/api-tokens",
+    "limits": "10 000 neuroni/giorno gratis",
+    "extra": {},
+    "verified": false,
+    "note": "L'indirizzo contiene <ACCOUNT_ID>: va sostituito a mano con il proprio account Cloudflare prima di salvare, il preset da solo non basta."
+  },
+  {
+    "name": "openrouter",
+    "label": "OpenRouter",
+    "url": "https://openrouter.ai/api/v1",
+    "model": "meta-llama/llama-3.3-70b-instruct:free",
+    "key_url": "https://openrouter.ai/keys",
+    "limits": "dipende dal modello: solo i tag \":free\" sono gratuiti",
+    "extra": {},
+    "verified": false,
+    "note": "Letto, non provato con una chiave reale."
+  },
+  {
+    "name": "google-ai-studio",
+    "label": "Google AI Studio (Gemini)",
+    "url": "https://generativelanguage.googleapis.com/v1beta/openai",
+    "model": "gemini-2.5-flash",
+    "key_url": "https://aistudio.google.com/apikey",
+    "limits": "1500 richieste/giorno, 1M di contesto, no carta",
+    "extra": {},
+    "verified": false,
+    "note": "Letto, non provato con una chiave reale."
+  },
+  {
+    "name": "github-models",
+    "label": "GitHub Models",
+    "url": "https://models.inference.ai.azure.com",
+    "model": "gpt-4o-mini",
+    "key_url": "https://github.com/settings/tokens",
+    "limits": "limiti bassi, pensato per prototipazione, non per uso continuo",
+    "extra": {},
+    "verified": false,
+    "note": "La chiave è un Personal Access Token di GitHub, non una API key dedicata. Letto, non provato."
+  },
+  {
+    "name": "huggingface",
+    "label": "HuggingFace Inference",
+    "url": "https://api-inference.huggingface.co/v1",
+    "model": "meta-llama/Llama-3.3-70B-Instruct",
+    "key_url": "https://huggingface.co/settings/tokens",
+    "limits": "variabile per modello, spesso in coda nelle ore di punta",
+    "extra": {},
+    "verified": false,
+    "note": "Letto, non provato con una chiave reale."
+  },
+  {
+    "name": "bedrock",
+    "label": "AWS Bedrock",
+    "url": "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1",
+    "model": "openai.gpt-oss-20b-1:0",
+    "key_url": "https://console.aws.amazon.com/bedrock/",
+    "limits": "a pagamento, non gratuito: già configurato e verificato",
+    "extra": {"max_tokens": 2000, "reasoning_effort": "low"},
+    "verified": true,
+    "already_configured": true,
+    "note": "Già presente in backends.json come motore 'bedrock'. Il pulsante del pannello mostra 'già configurato' invece di 'aggiungi'."
+  },
+  {
+    "name": "omniroute",
+    "label": "OmniRoute (gateway locale)",
+    "url": "http://127.0.0.1:20128/v1",
+    "model": "",
+    "key_url": "",
+    "limits": "gira sull'impianto: nessun limite di per sé, eredita quelli del fornitore che ci gira dietro",
+    "extra": {"reasoning_effort": "none"},
+    "verified": true,
+    "already_configured": true,
+    "note": "Già presente in backends.json come motore 'omniroute', spento finché non ha almeno un fornitore configurato al suo interno. Non serve una chiave qui: le chiavi vivono dentro OmniRoute stesso."
+  }
+]

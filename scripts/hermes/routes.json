@@ -1,0 +1,33 @@
+[
+  {
+    "name": "veloce",
+    "descrizione": "Domande brevi, risposte immediate",
+    "primary": "pc-mohamed",
+    "fallback": ["server", "bedrock"]
+  },
+  {
+    "name": "ragiona",
+    "descrizione": "Problemi difficili, analisi",
+    "primary": "bedrock",
+    "fallback": ["pc-mohamed"]
+  },
+  {
+    "name": "codice",
+    "descrizione": "Scrivere o correggere codice",
+    "primary": "pc-mohamed",
+    "fallback": ["bedrock"]
+  },
+  {
+    "name": "immagini",
+    "descrizione": "Capire una foto o uno screenshot",
+    "primary": "pc-mohamed",
+    "fallback": []
+  },
+  {
+    "name": "privato",
+    "descrizione": "Roba di casa: vault, memoria, impianto",
+    "primary": "pc-mohamed",
+    "fallback": ["server"],
+    "solo_privati": true
+  }
+]
