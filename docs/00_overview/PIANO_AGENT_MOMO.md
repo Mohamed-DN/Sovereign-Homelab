@@ -229,14 +229,49 @@ Il proprietario ha proposto la soluzione giusta: *«sistemare il problema della
 dimensione sul sync, e al massimo crei tu un nuovo plugin che si basa sui
 nostri super db e che resiste»*.
 
-**Il disegno che ne segue** (da fare, non ancora iniziato): un plugin Obsidian
-che legge i contenuti pesanti **dai nostri database** invece di farli passare
-da LiveSync. Postgres e Qdrant stanno su un server che non deve replicare
-niente su nessun telefono; LiveSync continua a sincronizzare solo gli appunti
-scritti a mano, che sono pochi e piccoli. Momo avrebbe comunque memoria
-completa di tutto il codice (l'indice semantico è indipendente da Obsidian), e
-il vault resterebbe leggero. È un progetto a sé, e va disegnato prima di
-scriverlo.
+**Il disegno che ne segue** (da fare, non ancora iniziato), precisato dal
+proprietario il 2026-07-30: *«io devo collegare tutti i miei dispositivi a
+questi plugin, ed è come se tutto fosse sui db e io da qualsiasi posto posso
+vedere e leggere e collegarmi, se sono dentro la rete o vpn»*.
+
+Non è «un plugin che scarica i file su ogni dispositivo». È il modello
+opposto, ed è quello giusto:
+
+```
+        i dati stanno QUI, una volta sola
+        ┌──────────────────────────────────┐
+        │  LXC 102   Postgres · Qdrant     │
+        │            i 2 683 file, indicizzati
+        └──────────────┬───────────────────┘
+                       │  si legge dal vivo, non si replica
+      ┌────────────────┼────────────────┬─────────────┐
+   PC Windows      iPhone           iPad          altro
+   (Obsidian)      (Obsidian)       (Obsidian)    (browser)
+        └── tutti dentro la rete di casa o sulla VPN ──┘
+```
+
+Il telefono non scarica 2 683 note: ne chiede **una** quando la apri. Il peso
+della sincronizzazione sparisce perché sparisce la sincronizzazione — e
+LiveSync continua a fare il suo mestiere solo sugli appunti scritti a mano,
+che sono pochi e piccoli.
+
+**Il compromesso, dichiarato**: quello che si legge dai database **richiede la
+rete o la VPN**. Fuori dalla VPN, le note scritte a mano restano leggibili
+offline (LiveSync le ha già copiate), i repository no. Il proprietario ha
+accettato questo vincolo esplicitamente («se sono dentro la rete o vpn»), ed è
+lo stesso patto che vale già per tutto il resto dell'impianto: per entrare
+bisogna prima essere sulla VPN.
+
+**Due cose da verificare prima di scrivere il plugin** (non ancora fatte):
+1. Un plugin Obsidian può fare richieste HTTP anche su iOS (`requestUrl` esiste
+   nella loro API, ma va provato su un iPhone vero, non dato per buono).
+2. `.obsidian` **non si sincronizza** (`syncInternalFiles = false`, vedi
+   [PIANO_MASTER](PIANO_MASTER.md) §4): il plugin va installato **a mano su
+   ogni dispositivo**, oppure si accende la sincronizzazione dei file nascosti
+   — che è una decisione a parte, con i suoi rischi.
+
+Momo ha comunque memoria completa di tutto il codice a prescindere da questo
+plugin: l'indice semantico vive in Qdrant ed è indipendente da Obsidian.
 
 ## 5. Cosa si guadagna e cosa si perde, senza abbellimenti
 
