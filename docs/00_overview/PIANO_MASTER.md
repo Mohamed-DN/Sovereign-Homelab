@@ -157,7 +157,8 @@
 | ~~La ricerca nel vault è **primitiva**~~ | **risolta**: 125 note indicizzate in Qdrant, cerca per significato. La ricerca a parole resta come ripiego dichiarato |
 | Gli strumenti dei sotto-agenti non sono visibili in pagina | si vede il piano, non le singole chiamate. Lo risolverebbe **Langfuse** (vedi il piano di aggiornamento) |
 | Il pulsante voce non registra | vedi fase 2: non è un bug, è una parte mai costruita |
-| Il **motore degli embedding sulla CPU è 180× più lento** della GPU | 18 s contro 97 ms per la stessa frase. Con il PC spento la prima ricerca è lentissima. Non indagato a fondo ([memoria](../04_apps/hermes-memoria.md) §6) |
+| ~~Il **motore degli embedding sulla CPU è 180× più lento**~~ | **spiegato e ridotto**: LXC 102 aveva 4 core su 40. Portato a 16, da 17,7 s a 3,6 s ([analisi del carico](../01_proxmox_foundation/ANALISI_CARICO_2026-07-30.md) §2). Resta 37× la GPU: la corsia lenta è lenta per natura |
+| **Ceph gira a vuoto sull'host** | 0 OSD, 0 pool, 0 dati, ~770 MB di RAM e un `HEALTH_WARN` permanente che maschera i prossimi avvisi veri. **Aspetta una decisione**: fermarlo, o tenerlo per un secondo nodo futuro ([analisi](../01_proxmox_foundation/ANALISI_CARICO_2026-07-30.md) §3) |
 | Il database di OmniRoute **non è cifrato** a riposo | nonostante `STORAGE_ENCRYPTION_KEY`. Le chiavi dei fornitori dentro invece lo sono ([omniroute](../04_apps/omniroute.md) §6) |
 
 ---

@@ -194,10 +194,18 @@ Lo stesso modello (`embeddinggemma`, 307M, 768 dimensioni), la stessa frase:
 | Dove | A modello caricato |
 |---|---|
 | PC · RTX 5070 Ti | **97 ms** |
-| Server · CPU di LXC 102 | **18 000 ms** |
+| Server · CPU di LXC 102, con 4 core | 18 000 ms |
+| Server · CPU di LXC 102, **con 16 core** | **3 600 ms** |
 
-Non è un errore di misura: tre chiamate consecutive sul server hanno dato 18,4 s
-· 18,6 s · 17,7 s. Da qui tre decisioni:
+Non era un errore di misura: tre chiamate consecutive sul server davano 18,4 s ·
+18,6 s · 17,7 s. **La causa era il numero di core**: LXC 102 ne aveva 4 su 40
+disponibili sull'host, e su quei 4 girano 23 container, Ollama, Hermes e tre
+database. Portato a 16, lo stesso embedding costa 3,6 s — cinque volte meno. La
+misura completa, da 4 a 20 core, è in
+[ANALISI_CARICO_2026-07-30](../01_proxmox_foundation/ANALISI_CARICO_2026-07-30.md) §2.
+
+Le tre decisioni prese quando il numero era 18 secondi restano valide, perché
+anche 3,6 s è 37 volte la GPU:
 
 1. Il PC è il primo motore per gli embedding, il server è la corsia lenta che
    però non manca mai.
@@ -205,12 +213,8 @@ Non è un errore di misura: tre chiamate consecutive sul server hanno dato 18,4 
    il default di 5 minuti lo farebbe pagare quasi a ogni ricerca.
 3. La cache Valkey esiste soprattutto per risparmiare la corsia lenta.
 
-Indicizzare 125 note è costato **32 secondi** in tutto, passando dalla GPU.
-
-> **Da capire**: 18 secondi per una frase su 4 core è fuori scala anche per una
-> CPU. Non è stato indagato a fondo. Se un giorno il PC diventa inaffidabile,
-> conviene guardarci: potrebbe essere il numero di thread di Ollama nel
-> container.
+Indicizzare 125 note è costato **32 secondi** in tutto, passando dalla GPU; i
+102 documenti del repository, 186 secondi.
 
 ## 7. Install / deployment
 
@@ -321,7 +325,7 @@ pct exec 101 -- curl -s -m 5 http://192.168.1.52:6333/collections   # deve falli
 |---|---|
 | «La memoria non è disponibile» | manca `/root/sovereign-secrets/hermes/memory-postgres-dsn`, o Postgres è giù: `docker ps --filter name=hermes-postgres` |
 | La ricerca risponde «modo: parole» | Qdrant o l'embedding non rispondono. Con il PC spento la prima ricerca può metterci ~20 s per caricare il modello sul server |
-| Una ricerca ci mette 18 secondi | è la corsia lenta: il PC è spento. Vedi §6 |
+| Una ricerca ci mette qualche secondo | è la corsia lenta: il PC è spento e sta calcolando sulla CPU del server. Vedi §6 |
 | Hermes dice di aver salvato e non l'ha fatto | la guardia deve aggiungere la nota «Non ho salvato niente». Se non compare, la frase usata dal modello non è fra quelle riconosciute: va aggiunta a `_CLAIM_PATTERNS` |
 | Un impegno è all'ora sbagliata | controlla `HERMES_TZ` (default `Europe/Rome`) — il container gira su UTC |
 | **Rollback** — togliere la memoria | `cd /opt/sovereign-homelab/stacks/hermes-memory && docker compose down`. Hermes riparte senza memoria e lo dice, non finge |
