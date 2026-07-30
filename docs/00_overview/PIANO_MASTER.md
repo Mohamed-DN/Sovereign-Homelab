@@ -100,6 +100,7 @@
 | **PWA** per iPhone | `manifest.json`, service worker, icone | ✅ (W7.1) |
 | App iOS nativa | solo se la PWA non basta: serve Mac + account Apple | valutare |
 | **WhatsApp** | **escluso**: ban del numero entro 2-8 settimane, e dal 15/01/2026 vietati i chatbot di terze parti | [motivazione](PIANO_HERMES_CANALI_E_DB.md) §3 |
+| **Google Calendar** | Chiesto dal proprietario il 2026-07-30: fissare appuntamenti/colloqui sul calendario vero, non solo nell'agenda interna di Hermes (`agenda_aggiungi`). Serve OAuth Google e uno scope calendario — disegno da fare quando si arriva qui, dopo W7 | da fare |
 
 ### Fase 4 — Vault e trasparenza
 
