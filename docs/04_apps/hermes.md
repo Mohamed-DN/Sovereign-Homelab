@@ -344,6 +344,67 @@ pianificare e uno per ricucire. Serve su richieste larghe, che contengono
 davvero più domande. Per questo è una casella, spenta di default, e non il
 comportamento normale.
 
+## 7-quater. Catalogo modelli, scaricabili dal pannello (W1)
+
+Prima c'era una tabella statica di 6 modelli consigliati, con la dimensione
+scritta a mano — sbagliata almeno una volta (dava 1,2 GB per un modello da
+6,6 GB). Ora il pannello legge `scripts/hermes/models-catalog.json` (19 modelli,
+divisi per ruolo: `chat`, `reasoning`, `coding`, `vision`, `tools`, `embedding`,
+`small`, `multilingual`) e per ognuno mostra, **letta dal vivo da `/api/tags`**,
+la dimensione vera se è già installato su un motore Ollama.
+
+Tre endpoint nuovi, tutti solo amministratore:
+
+| Endpoint | Cosa fa |
+|---|---|
+| `GET /api/models/catalog` | il catalogo + per ogni motore Ollama i modelli già installati con la dimensione vera |
+| `POST /api/models/pull` | `{backend, model}` → inoltra a `/api/pull` di Ollama e rilancia il progresso al browser come SSE |
+| `POST /api/models/delete` | `{backend, model}` → `DELETE /api/delete` |
+
+Il nome del modello è **validato contro il catalogo**: non si inoltra mai una
+stringa libera presa dal browser a `/api/pull`. Verificato dal vivo: scaricato
+`granite4:micro` sul motore `server`, comparso installato con la dimensione
+reale (2 099 521 385 byte), poi eliminato dalla stessa API.
+
+### La trappola dello User-Agent con i fornitori dietro Cloudflare
+
+Aggiungendo Groq come motore (vedi sotto), `backend_healthy()` lo dava per
+**giù nonostante la chiave fosse giusta**: Cloudflare rispondeva `403` con
+*"Error 1010: Access denied"*. La causa non era la chiave né la rete: era lo
+User-Agent di default di `urllib` (`Python-urllib/3.x`), che il WAF di
+Cloudflare riconosce e blocca come bot — mentre lo stesso indirizzo con `curl`
+passava con `200`. `http_json()` ora dichiara `User-Agent: curl/8.5.0` di
+default. Riguarda ogni fornitore dietro Cloudflare, non solo Groq: se un nuovo
+motore risulta "giù" con una chiave verificata buona, è il primo sospetto.
+
+### Un motore Groq già configurato
+
+Il proprietario ha fornito una chiave Groq gratuita (2026-07-30): motore
+`groq` in `backends.json`, modello `llama-3.3-70b-versatile`, `private:false`
+(la guardia gli nega vault/memoria/impianto/accessi, come OmniRoute e Bedrock),
+in coda nell'ordine di preferenza così non scavalca la GPU del PC né il server.
+Verificato sano: `GET /api/backends` → `healthy:true`.
+
+## 7-quinquies. Hermes sul telefono (PWA, W7.1)
+
+`manifest.json`, `sw.js` e le icone (192/512, un fulmine ciano generato a runtime
+da un poligono con `zlib` — nessuna libreria immagine, coerente con "solo
+libreria standard") sono serviti da nuove route in `sovereign-hermes.py`,
+**prima** del controllo di sessione: iOS legge il manifest per costruire il
+prompt "Aggiungi a Home" ancora prima del login. Il service worker mette in
+cache **solo la scocca** (`/`, il manifest, le icone): mai una risposta della
+chat, per lo stesso principio di "degradare, non mentire" — una risposta vecchia
+travestita da fresca sarebbe peggio di nessuna cache.
+
+> **NPM ha bisogno della sua eccezione, non solo il codice.** Le quattro route
+> sono servite senza autenticazione lato Hermes, ma restavano dietro il login
+> SSO finché non si aggiungono `location = /manifest.json { ... }` (e le
+> altre tre) nell'**Advanced Configuration** dell'host `hermes.internal` in
+> NPM — esattamente come già succedeva per `/health`. È la stessa regola di
+> [ESPOSIZIONE_E_SEGRETI](../06_operations_security/ESPOSIZIONE_E_SEGRETI.md):
+> un'eccezione al gate SSO si fa nella configurazione di NPM, il codice da solo
+> non basta.
+
 ## 8. La personalità e la memoria
 
 `/opt/sovereign-hermes/persona.md` contiene chi è Mohamed, com'è fatta la casa e
@@ -367,6 +428,12 @@ Le conversazioni sono salvate per utente in `/var/lib/sovereign-hermes/chats/`
 > **Nota su NPM**: una riga inserita a mano nel database SQLite **non** produce
 > alcuna configurazione nginx — NPM la genera solo quando l'host passa dalla sua
 > API. L'host è quindi stato creato via `POST /api/nginx/proxy-hosts`.
+
+> **Eccezioni al login SSO (Advanced Configuration, host id 33)**: oltre a
+> `location = /health`, ci sono ora `location = /manifest.json`,
+> `location = /sw.js`, `location = /icon-192.png` e `location = /icon-512.png`
+> (W7.1 — vedi §7-quinquies). Stesso motivo di `/health`: iOS deve poter
+> leggere il manifest **prima** di qualunque login.
 
 ## 10. Homepage & Uptime Kuma
 

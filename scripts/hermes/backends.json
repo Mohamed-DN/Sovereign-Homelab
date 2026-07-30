@@ -6,10 +6,10 @@
     "url": "http://192.168.1.100:11434",
     "model": "qwen3.5:9b",
     "think": false,
+    "enabled": true,
     "options": {
       "num_ctx": 16384
     },
-    "enabled": true,
     "comment": "Prima scelta quando il PC e acceso: 16 GB di VRAM, ~50 token/s. think=false perche' qwen3.5 e un modello di ragionamento e senza questo consuma tutto il contesto in 'thinking' lasciando la risposta vuota.",
     "parallel": 2
   },
@@ -20,10 +20,10 @@
     "url": "http://127.0.0.1:11434",
     "model": "qwen3.5:4b",
     "think": false,
+    "enabled": true,
     "options": {
       "num_ctx": 8192
     },
-    "enabled": true,
     "comment": "Rete di sicurezza: c'e' sempre, ma gira su CPU ed e' lento. Modello piccolo apposta.",
     "parallel": 1
   },
@@ -33,24 +33,53 @@
     "type": "openai",
     "url": "http://127.0.0.1:20128/v1",
     "model": "pcgpu/qwen3.5:9b",
-    "api_key_file": "/root/sovereign-secrets/hermes/key-omniroute",
-    "private": false,
+    "think": false,
     "enabled": false,
+    "comment": "Gateway sullo stesso host. NON privato per scelta: instrada verso fornitori esterni, quindi la guardia gli nega gli strumenti di casa. Spento finche' non ci sono chiavi di fornitori gratuiti (Groq, Cerebras, NVIDIA NIM): oggi l'unico modello che risponde e' pcgpu/qwen3.5:9b, cioe' la GPU del PC con un salto in piu' - inutile per Hermes, che la raggiunge diretta. reasoning_effort=none sostituisce t",
+    "private": false,
+    "parallel": 3,
     "extra": {
       "reasoning_effort": "none"
     },
-    "comment": "Gateway sullo stesso host. NON privato per scelta: instrada verso fornitori esterni, quindi la guardia gli nega gli strumenti di casa. Spento finche' non ci sono chiavi di fornitori gratuiti (Groq, Cerebras, NVIDIA NIM): oggi l'unico modello che risponde e' pcgpu/qwen3.5:9b, cioe' la GPU del PC con un salto in piu' - inutile per Hermes, che la raggiunge diretta. reasoning_effort=none sostituisce think=false, che nella forma OpenAI non esiste.",
-    "parallel": 3
+    "api_key_file": "/root/sovereign-secrets/hermes/key-omniroute"
   },
   {
-    "name": "api-remota",
-    "label": "API remota (compatibile OpenAI)",
+    "name": "bedrock",
+    "label": "AWS Bedrock . gpt-oss-20b",
     "type": "openai",
-    "url": "https://openrouter.ai/api/v1",
-    "model": "anthropic/claude-sonnet-4.5",
-    "api_key_file": "/root/sovereign-secrets/hermes/api-key",
-    "enabled": false,
-    "comment": "Ultima risorsa, spenta di default. Per accenderla: scrivi la chiave nel file indicato, poi metti enabled a true. Vale per OpenRouter, OpenAI, vLLM, LM Studio e qualunque endpoint compatibile.",
-    "parallel": 3
+    "url": "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1",
+    "model": "openai.gpt-oss-20b-1:0",
+    "think": false,
+    "enabled": true,
+    "comment": "Computer di qualcun altro: private=false, quindi la guardia gli nega vault, memoria, stato e accessi. Bedrock NON espone /models: per questo un 404 su /models non deve valere come motore giu.",
+    "private": false,
+    "parallel": 3,
+    "extra": {
+      "max_tokens": 2000,
+      "reasoning_effort": "low"
+    },
+    "api_key_file": "/root/sovereign-secrets/hermes/key-bedrock"
+  },
+  {
+    "name": "gpt-locale",
+    "label": "gpt-locale",
+    "type": "ollama",
+    "url": "http://192.168.1.100:11434",
+    "model": "gpt-oss:20b",
+    "think": false,
+    "enabled": true
+  },
+  {
+    "name": "groq",
+    "label": "Groq · llama-3.3-70b-versatile",
+    "type": "openai",
+    "url": "https://api.groq.com/openai/v1",
+    "model": "llama-3.3-70b-versatile",
+    "think": false,
+    "enabled": true,
+    "comment": "Fornitore gratuito esterno (W2, chiave fornita dal proprietario 2026-07-30): 30 richieste/min, 1000/giorno su questo modello. private=false per scelta, come omniroute e bedrock: la guardia gli nega vault, memoria, stato, accessi. In coda per ordine di preferenza: non deve scavalcare la GPU del PC ne' il server.",
+    "private": false,
+    "parallel": 3,
+    "api_key_file": "/root/sovereign-secrets/hermes/key-groq"
   }
 ]

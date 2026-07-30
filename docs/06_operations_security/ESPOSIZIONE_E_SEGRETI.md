@@ -121,3 +121,24 @@ nulla, ed è quello che faremo.
   richiesta: non si può scegliere dove scrivere.
 - Il modello **non vede mai** un segreto: quando serve una credenziale la usa il
   codice, non l'LLM.
+
+## 4. Indice dei segreti di Hermes e hermes-agent (percorso, mai il valore)
+
+Non è l'inventario di tutti i segreti della casa — quello resta
+`/root/sovereign-secrets/HOMELAB_CREDENTIALS.md` sull'host Proxmox, che questo
+repository non legge né duplica di proposito. Questa è la lista di quelli che
+riguardano Hermes, tenuta aggiornata perché **niente si perda** fra una sessione
+e l'altra: ogni voce dice dove sta il valore, mai il valore.
+
+| Segreto | Percorso (0600, sia su pve sia in LXC 102) | Usato da |
+|---|---|---|
+| Token di lettura della dashboard | `/root/sovereign-secrets/hermes/estate-token` | `estate_status`, `access_overview` |
+| Password CouchDB (`hermes_reader`) | `/root/sovereign-secrets/hermes/couchdb-password` | ricerca nel vault |
+| DSN di Postgres (memoria) | `/root/sovereign-secrets/hermes/memory-postgres-dsn` | `ricorda`/`ricorda_cerca`/agenda/procedure |
+| Chiave API per motore `<nome>` | `/root/sovereign-secrets/hermes/key-<nome>` | motori `type:openai` in `backends.json` (es. `key-bedrock`, `key-omniroute`, `key-groq`) |
+| Casella email del proprietario | `/root/sovereign-secrets/hermes/owner-email` | `send_mail` |
+| Token del relay email | letto da `RELAY_TOKEN_FILE` (stesso albero) | `send_mail` verso `sovereign-alert-relay` |
+| Token del bot Telegram (`@dn_momo_bot`) | `/root/sovereign-secrets/hermes-agent/telegram-bot-token` | non ancora in uso: riservato a W6.3, ottenuto da @BotFather il 2026-07-30 |
+
+Regola per aggiungerne uno nuovo: stesso albero, stesso `0600`, stessa dualità
+pve + LXC 102, e una riga qui — non nella chat, non nella memoria dell'agente.
