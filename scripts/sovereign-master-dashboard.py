@@ -167,7 +167,10 @@ LINKS: list[dict[str, Any]] = [
         {"name": "Karakeep", "slug": "karakeep", "icon": "\U0001F516", "href": "https://bookmarks.internal", "desc": "Bookmarks and archive", "kw": "karakeep"},
         {"name": "SearXNG", "slug": "searxng", "icon": "\U0001F50E", "href": "https://search.internal", "desc": "Private metasearch", "kw": "searxng"},
         {"name": "Forgejo", "slug": "forgejo", "icon": "\U0001F33F", "href": "https://git.internal", "desc": "Git repositories", "kw": "forgejo"},
-        {"name": "Open WebUI", "slug": "open-webui", "icon": "\U0001F916", "href": "https://ai.internal", "desc": "Local AI chat", "kw": "webui"},
+        # Open WebUI removed 2026-07-31: decommissioned (unguarded direct
+        # access to Ollama, open self-signup with no admin ever claimed,
+        # no memory/privacy filter/Guardrail -- Hermes and Momo cover the
+        # same ground with those guards attached).
         {"name": "Hermes", "slug": "hermes", "icon": "⚡", "href": "https://hermes.internal", "desc": "Assistente della casa: conosce lo stato dei servizi e i tuoi appunti Obsidian; usa la GPU del PC quando e acceso", "kw": "hermes"},
     ]},
 ]
@@ -2358,7 +2361,7 @@ const ICON_CDN_FILES={adguard:'adguard-home',headplane:'headscale',npm:'nginx-pr
  netalertx:'netalertx',scrutiny:'scrutiny',ntfy:'ntfy',vaultwarden:'vaultwarden',immich:'immich',
  nextcloud:'nextcloud',syncthing:'syncthing',paperless:'paperless-ngx','home-assistant':'home-assistant',
  jellyfin:'jellyfin',freshrss:'freshrss',karakeep:'karakeep',searxng:'searxng',forgejo:'forgejo',
- 'open-webui':'open-webui',obsidian:'obsidian'};
+ obsidian:'obsidian'};
 const ICON_CDN=Object.fromEntries(Object.entries(ICON_CDN_FILES).map(([slug,f])=>[slug,ICON_CDN_BASE+f+'.svg']));
 /* Paperless-ngx's real brand mark (own favicon + the CDN icon) is a very dark
    forest green (#17541f) that all but disappears on the dashboard's dark

@@ -24,7 +24,7 @@ half-built, undeployable stack.
 ## Guardrails carried into implementation
 
 - Frontend never receives secrets; no Docker socket to the browser.
-- Control allowlist: Jellyfin, FreshRSS, Karakeep, SearXNG, Open WebUI only.
+- Control allowlist: Jellyfin, FreshRSS, Karakeep, SearXNG only.
 - Every control action: Authentik identity, reason, planned duration, audit log,
   Kuma maintenance window.
 - Console and backend stay LAN/VPN only; no public DuckDNS name.

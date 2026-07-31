@@ -39,7 +39,9 @@ ALLOWLIST: dict[str, dict[str, Any]] = {
     "freshrss": {"dir": "/opt/sovereign-homelab/stacks/freshrss", "services": ["freshrss"], "data": False},
     "searxng": {"dir": "/opt/sovereign-homelab/stacks/searxng", "services": ["searxng", "searxng-redis"], "data": False},
     "karakeep": {"dir": "/opt/sovereign-homelab/stacks/karakeep", "services": ["karakeep", "karakeep-chrome", "karakeep-meilisearch"], "data": False},
-    "open-webui": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["open-webui"], "data": False, "kuma": "webui"},
+    # Open WebUI removed 2026-07-31: decommissioned (unguarded direct access to
+    # Ollama, no memory/privacy filter/Guardrail, open self-signup with no
+    # admin ever claimed). `ollama` itself stays -- Hermes and Momo both use it.
     "ollama": {"dir": "/opt/sovereign-homelab/stacks/ai-ollama", "services": ["ollama"], "data": False},
     # Data-bearing apps added at the owner's explicit request. Stopped gracefully
     # (docker compose stop = SIGTERM). The UI marks these so the operator knows.

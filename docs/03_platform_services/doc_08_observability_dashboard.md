@@ -113,7 +113,6 @@ Required groups:
 | At a Glance | Fleet-wide Kuma state, network inventory, SMART health, and recent protected alerts |
 | Critical Data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
 | Apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
-| Advanced Future | Open WebUI and future higher-risk tools |
 
 Rules:
 
@@ -203,7 +202,7 @@ Use these groups and include every active monitor exactly once:
 | Access and VPN | public Headscale, AdGuard DNS/UI, NPM, Headscale UI/API, CrowdSec LAPI |
 | Platform and Recovery | PVE, PBS, Authentik, Homepage, Kuma, Beszel, Dozzle, CA and trust portal |
 | Critical Data | Vaultwarden, Syncthing, Paperless, Immich, Nextcloud |
-| Applications | RSS, bookmarks, search, Git, RustDesk, Jellyfin, Open WebUI/Ollama, Home Assistant |
+| Applications | RSS, bookmarks, search, Git, RustDesk, Jellyfin, Ollama, Home Assistant |
 | Operations Extensions | NetAlertX, Scrutiny, ntfy |
 
 The Homepage Kuma widget reads `http://uptime-kuma:3001` on the private Compose network and displays `up`, `down`, `uptime`, and `incident`. Do not expose the status page through a public DNS name.
@@ -244,7 +243,6 @@ Use this exact monitor catalog. Add planned monitors only after the service has 
 | `app-karakeep` | HTTP | `https://bookmarks.internal` | 60s | HTTP response |
 | `app-searxng` | HTTP | `https://search.internal` | 60s | HTTP response |
 | `app-forgejo` | HTTP | `https://git.internal` | 60s | HTTP response |
-| `app-open-webui` | HTTP | `https://ai.internal` | 60s | live on LXC 102 |
 | `tcp-syncthing-sync` | TCP Port | `LXC102_IP:22000` | 60s | open TCP port |
 | `tcp-forgejo-ssh` | TCP Port | `LXC102_IP:2222` | 60s | open TCP port |
 | `tcp-rustdesk-hbbs-nat` | TCP Port | `rustdesk.internal:21115` | 60s | open TCP port |

@@ -82,7 +82,6 @@ Live note (2026-06-30): NPM contains 27 editable Proxy Host records: one public 
 | Karakeep | `bookmarks.internal` | client `https://bookmarks.internal`, upstream `http://LXC102_IP:3010` | yes | yes | HTTPS alias monitor | VPN/Auth | DB + assets + search index |
 | SearXNG | `search.internal` | client `https://search.internal`, upstream `http://LXC102_IP:8084` | yes | yes | HTTPS alias monitor | VPN/Auth | config |
 | Forgejo | `git.internal` | client `https://git.internal`, upstream `http://LXC102_IP:3003` | yes | yes | HTTPS alias monitor + TCP `2222` | VPN/Auth | repositories + DB; temporary DB restore baseline passed |
-| Open WebUI | `ai.internal` | client `https://ai.internal`, upstream `http://AI_HOST_IP:3004` | yes | yes | HTTPS alias monitor | VPN only | WebUI data |
 
 ## Operations Extensions
 
@@ -107,7 +106,7 @@ These are optional panels for running the lab at a higher operational level. The
 | Syncthing sync | `LXC102_IP:22000/tcp+udp` | device sync protocol, not HTTP | UI card uses `sync.internal` | TCP monitor |
 | Syncthing discovery | `LXC102_IP:21027/udp` | local discovery, not proxied | no | no |
 | Forgejo SSH | `LXC102_IP:2222` | Git over SSH, not HTTP | UI card uses `git.internal` | TCP monitor |
-| Ollama API | `AI_HOST_IP:11434` | model API, should not be exposed through NPM | Open WebUI card uses `ai.internal` | optional TCP monitor |
+| Ollama API | `AI_HOST_IP:11434` | model API, should not be exposed through NPM | no card — no web UI in front of it, Hermes/Momo talk to it directly | optional TCP monitor |
 | Smallstep CA API | `LXC101_IP:9002` or `ca.internal:9002` | certificate issuance API, not a normal user dashboard | no by default | HTTPS health monitor after deployment |
 | RustDesk ID and relay | `rustdesk.internal:21115`, `21116/tcp+udp`, `21117/tcp`, `21118/tcp`, `21119/tcp` | remote desktop protocol, not HTTP | no web UI in OSS server | TCP monitors for `21115`, `21116`, `21117`; UDP availability verified manually |
 | Wazuh Manager API | `VM160_IP:55000` | advanced admin API, not a clean web UI | no until Wazuh dashboard is installed | optional TCP monitor |

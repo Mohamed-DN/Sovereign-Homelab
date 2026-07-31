@@ -36,8 +36,7 @@ Last checked: 2026-07-08.
 | `searxng` | `searxng/searxng` | `SEARXNG_TAG` | `2026.6.20-fd42d4fda` | SearXNG Docker docs and Docker Hub tag check | SearXNG publishes frequent dated commit tags; update deliberately. |
 | `forgejo` | `codeberg.org/forgejo/forgejo` | `FORGEJO_TAG` | `15.0.3` | Forgejo releases and Docker documentation | Current LTS default. The live v9 deployment must use the staged backup, migration, and clone/push checks in the Forgejo runbook before adopting this tag. |
 | `jellyfin` | `jellyfin/jellyfin` | `JELLYFIN_TAG` | `10.11.11` | Docker Hub tag check and Jellyfin release tag | Back up config, not cache. Media has its own backup plan. |
-| `ai-ollama` | `ollama/ollama` | `OLLAMA_TAG` | `0.30.10` | Docker Hub tag check and Ollama release tag | Large model data lives in the Ollama volume. |
-| `ai-ollama` | `ghcr.io/open-webui/open-webui` | `OPEN_WEBUI_TAG` | `v0.9.6` | Open WebUI release tag and manifest check | Back up WebUI data before update. |
+| `ai-ollama` | `ollama/ollama` | `OLLAMA_TAG` | `0.30.10` | Docker Hub tag check and Ollama release tag | Large model data lives in the Ollama volume. Open WebUI removed 2026-07-31 (decommissioned, see [ai_ollama.md](../04_apps/ai_ollama.md)). |
 | `rustdesk` | `rustdesk/rustdesk-server` | `RUSTDESK_VERSION` | `1.1.15` | Docker Hub tag check and RustDesk server release tag | Back up server keys before update. |
 | `wazuh` | `wazuh/wazuh-manager` | `WAZUH_TAG` | `4.12.0` | Existing stack pin; verify against Wazuh docs before deployment | Optional advanced stack. Do not deploy before core monitoring/backup are stable. |
 

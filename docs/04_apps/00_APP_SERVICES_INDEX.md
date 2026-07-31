@@ -53,7 +53,7 @@ Live means the service has an alias or documented protocol endpoint, NPM rule wh
 | Karakeep | [karakeep.md](karakeep.md) | `stacks/karakeep` | `bookmarks.internal` |
 | SearXNG | [searxng.md](searxng.md) | `stacks/searxng` | `search.internal` |
 | Forgejo | [forgejo.md](forgejo.md) | `stacks/forgejo` | `git.internal` + SSH `2222` |
-| Ollama/Open WebUI | [ai_ollama.md](ai_ollama.md) | `stacks/ai-ollama` | `ai.internal` |
+| Ollama | [ai_ollama.md](ai_ollama.md) | `stacks/ai-ollama` | none (loopback + LAN, no NPM host) |
 | RustDesk OSS Server | [rustdesk.md](rustdesk.md) | `stacks/rustdesk` | `rustdesk.internal` protocol endpoint |
 | Common Docker pattern | [common_docker_app_pattern.md](common_docker_app_pattern.md) | all Compose apps | not applicable |
 | Acceptance checklist | [production_acceptance_checklist.md](production_acceptance_checklist.md) | all apps | required before real data |

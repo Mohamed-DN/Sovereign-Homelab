@@ -51,11 +51,6 @@ layout:
     icon: home-assistant.png
     style: row
     columns: 6
-  Advanced Future:
-    tab: Apps
-    icon: open-webui.png
-    style: row
-    columns: 3
   Recovery:
     tab: Recovery
     icon: proxmox.png

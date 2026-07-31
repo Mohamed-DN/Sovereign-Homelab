@@ -98,7 +98,6 @@ Live access state as of 2026-06-30:
 | `git.internal` | `https://git.internal` | `http://192.168.1.52:3003` |
 | `foto.internal` | `https://foto.internal` | `http://192.168.1.110:2283` |
 | `media.internal` | `https://media.internal` | `http://192.168.1.52:8096` |
-| `ai.internal` | `https://ai.internal` | `http://192.168.1.52:3004` |
 | `ha.internal` | `https://ha.internal` | `http://192.168.1.130:8123` |
 | `netalert.internal` | `https://netalert.internal` | `http://192.168.1.53:20211` |
 | `disks.internal` | `https://disks.internal` | `http://192.168.1.53:8085` |
@@ -123,8 +122,7 @@ All private web aliases terminate HTTPS at NPM and redirect client-side HTTP to 
 | SearXNG | `search.internal` | 8084 | VPN/Auth | config |
 | Forgejo/Gitea | `git.internal` | 3003, 2222 | VPN/Auth | repos + DB; temp DB restore baseline passed |
 | Jellyfin | `media.internal` | 8096 | VPN/Auth | config + media source |
-| Open WebUI | `ai.internal` | 3004 | VPN only | WebUI data |
-| Ollama API | none | 11434 | LAN/VPN only | model cache; do not publish through NPM |
+| Ollama API | none | 11434 | LAN/VPN only | model cache; do not publish through NPM. No web UI in front of it — see [ai_ollama.md](../04_apps/ai_ollama.md) |
 | RustDesk ID/NAT | `rustdesk.internal` | 21115/tcp, 21116/tcp+udp | LAN/VPN or explicitly approved clients | server keys/config |
 | RustDesk relay | `rustdesk.internal` | 21117/tcp, 21118/tcp, 21119/tcp | LAN/VPN or explicitly approved clients | server keys/config |
 
@@ -186,7 +184,6 @@ In AdGuard:
 | `ha.internal` | NPM IP when Home Assistant is ready |
 | `search.internal` | NPM IP when SearXNG is ready |
 | `git.internal` | NPM IP when Forgejo is ready |
-| `ai.internal` | NPM IP when Open WebUI is ready |
 | `rustdesk.internal` | RustDesk host IP, not NPM |
 | `netalert.internal` | NPM IP when NetAlertX is ready |
 | `disks.internal` | NPM IP when Scrutiny is ready |

@@ -219,11 +219,3 @@
         href: https://git.internal
         siteMonitor: https://git.internal
         description: Git repositories and infrastructure code
-
-- Advanced Future:
-    - Open WebUI:
-        id: app-open-webui
-        icon: open-webui.png
-        href: https://ai.internal
-        siteMonitor: https://ai.internal
-        description: Local AI interface backed by Ollama

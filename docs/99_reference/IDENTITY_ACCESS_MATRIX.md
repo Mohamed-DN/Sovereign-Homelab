@@ -94,7 +94,6 @@ The tokens are used by Homepage and the weekly report. They have no interactive 
 | Karakeep | `bookmarks.internal` | native login or OIDC if supported by deployed version | optional OAuth/OIDC app | `homelab-users` | local Karakeep admin | Validate version-specific auth support before enabling. |
 | SearXNG | `search.internal` | Proxy Provider / forward auth | application `searxng` | `homelab-users` | raw VPN/NPM rollback | Good proxy-provider candidate because the app usually has no per-user login. |
 | Forgejo | `git.internal` | **LIVE (2026-07-13):** OIDC source `authentik` (PKCE, auto-provision on first login) | OAuth2 provider "Forgejo OIDC" + application `forgejo` | `access-forgejo` | local Forgejo admin login | Local self-signup closed (`ALLOW_ONLY_EXTERNAL_REGISTRATION`); SSH Git keys unaffected. |
-| Open WebUI | `ai.internal` | native OAuth/OIDC preferred | OAuth/OIDC app | `homelab-users` | local Open WebUI admin | Keep Ollama API private and not proxied. |
 | Linux server login | none | SSSD + LDAPS candidate, later | LDAP provider `homelab-directory` | `homelab-admins` | local root | Do this only after Proxmox/PBS recovery is fully tested. |
 
 ## Rollout Phases
@@ -138,9 +137,8 @@ Do not protect multiple admin UIs in one change window.
 Use native OIDC/OAuth where it improves user experience:
 
 1. Forgejo
-2. Open WebUI
-3. Nextcloud, if OIDC is preferred over LDAP
-4. Immich/Jellyfin only after validating mobile and TV clients
+2. Nextcloud, if OIDC is preferred over LDAP
+3. Immich/Jellyfin only after validating mobile and TV clients
 
 ### Phase 5: LDAP/LDAPS Compatibility
 
