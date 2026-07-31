@@ -278,27 +278,41 @@ riavvio di `authentik-server` ha una causa identificata e documentata.
 
 ---
 
-#### **3 · Repo → vault: la documentazione dentro Obsidian** ⏱ ~2 ore
+#### **3 · Repo → vault: la documentazione dentro Obsidian** ✅ fatto (2026-07-31), un residuo
 
-**La tua richiesta di oggi.** Il disegno è già deciso e non va cambiato — va
-solo eseguito.
+**La tua richiesta di oggi.** Costruito ed eseguito, non solo pianificato:
 
 ```
-repo docs/ ──(script sul PC)──> vault locale ──(LiveSync)──> CouchDB ──> Hermes/Momo
+repo docs/ ──(script sul PC, Task Scheduler)──> vault\Sovereign-Homelab\ ──(LiveSync, ad Obsidian aperto)──> CouchDB ──> Hermes/Momo
 ```
 
-- **Direzione unica**: repo → vault. La fonte di verità resta git. Il contrario
-  corromperebbe il vault e non è negoziabile.
-- **Mai scrivere dentro CouchDB da fuori**: LiveSync tiene le note a pezzi con
-  una sua logica di revisioni. Si scrive nel vault **sul disco**, e sincronizza
-  Obsidian. È la stessa ragione per cui `vault_scrivi` è confinato a
-  `07 Notes/Hermes/`.
-- Destinazione: `VaultMohamed/Sovereign-Homelab/`, con un timer che ripassa a
-  ogni commit o a orario fisso.
-- Nel vault vanno **documentazione e README**; il codice sorgente no (punto 15).
+- `scripts/windows/Sync-DocsToVault.ps1` — `robocopy /MIR` fra `docs/` e
+  `Sovereign-Homelab/` **dentro** il vault, mai la radice, mai
+  `07 Notes/Hermes/` (l'area di scrittura di Hermes, separata apposta). Due
+  guardie prima di toccare qualunque cosa: rifiuta se la destinazione non
+  finisce esattamente in `\Sovereign-Homelab`, rifiuta se manca `.obsidian`
+  nel vault di destinazione (segno che non è il vault vero).
+- **Direzione unica**: repo → vault, mai il contrario — scrivere in CouchDB
+  da fuori Obsidian corromperebbe le note a pezzi di LiveSync. Stessa ragione
+  per cui `vault_scrivi` di Hermes resta confinato alla sua cartella.
+- `scripts/windows/SyncDocsToVault.Task.xml` — al logon e ogni 30 minuti.
+- Solo `*.md`/`*.png`/`*.jpg`/`*.svg`: documentazione, non codice (punto 17).
 
-*Verifica*: apri Obsidian sul telefono e trovi `Sovereign-Homelab/00_overview/PIANO_GENERALE.md`
-— questo file. Poi chiedi a Hermes «come si ripara Nextcloud» e cita il runbook.
+**Verificato dal vivo**: prima esecuzione manuale, 98 file / 1,06 MB copiati
+con successo; `Sovereign-Homelab\00_overview\PIANO_GENERALE.md` confermato
+sul disco del vault con lo stesso contenuto del repo.
+
+**Residuo, non un difetto**: LiveSync sincronizza verso CouchDB solo mentre
+**Obsidian è aperto** (è un plugin dentro l'app). I file arrivano sul disco
+ad ogni esecuzione del task; la propagazione a CouchDB — e quindi la tua
+verifica dal telefono — aspetta la prossima apertura di Obsidian su questo
+PC. Non forzata oggi (l'eseguibile non è nei percorsi di installazione
+consueti su questo PC — probabile app da Store).
+
+*Verifica ancora tua da fare*: apri Obsidian su questo PC una volta, poi dal
+telefono trova `Sovereign-Homelab/00_overview/PIANO_GENERALE.md` — questo
+file. Poi chiedi a Hermes «come si ripara Nextcloud» e verifica che citi il
+runbook.
 
 ---
 

@@ -118,7 +118,7 @@
 | **Scrivere sul vault** Obsidian | ✅ **fatto**: `vault_scrivi` scrive nel formato a pezzi di LiveSync, con un utente CouchDB separato e **confinato a `07 Notes/Hermes/`**. Verificato: la nota è arrivata sul disco in 10 s e la sincronizzazione non si è rotta | ✅ |
 | Scrivere **fuori** da quella cartella | volutamente non permesso: è il confine che rende vera la frase «Hermes non può danneggiare il vault» | per scelta |
 | **Mostrare il ragionamento** (`thinking`) | il campo esiste già, oggi lo scarto | da fare |
-| **Repo → vault**: la documentazione dentro Obsidian | direzione unica, la verità resta git | da fare |
+| **Repo → vault**: la documentazione dentro Obsidian | ~~da fare~~ — **fatto 2026-07-31**: `Sync-DocsToVault.ps1` + task ogni 30 min, verificato (98 file su disco) | ✅ |
 
 ### Fase 5 — Motori esterni
 
@@ -168,7 +168,7 @@
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| **Repo → vault Obsidian** | chiesto dal 2026-07-15, disegnato in [PIANO_HERMES_ESPANSO](PIANO_HERMES_ESPANSO.md) §6, **mai costruito**. Verificato il 2026-07-31: nessuna cartella `Sovereign-Homelab` nel vault, nessuno script nel repo | da fare (punto 3) |
+| **Repo → vault Obsidian** | chiesto dal 2026-07-15, mai costruito fino ad oggi. **Costruito ed eseguito il 2026-07-31**: `scripts/windows/Sync-DocsToVault.ps1` + task ogni 30 min, verificato dal vivo (98 file copiati). CouchDB aspetta la prossima apertura di Obsidian | ✅ |
 | **Healthcheck CouchDB rotto** | sonda `/` senza credenziali, CouchDB risponde `401`: **282 giri falliti**. Il servizio è vivo, l'allarme è falso — e un allarme sempre acceso maschera il prossimo vero | da fare (punto 1) |
 | **Due cartelle `VaultMohamed`** | una in `Documents\VaultMohamed\VaultMohamed` (con `.obsidian`, quella viva), una in `C:\Users\Mohamed\VaultMohamed`. Da chiarire prima di scrivere nel vault | da fare (punto 1) |
 | **Primo login OIDC su Headplane** | ~~porta aperta~~ — **verificato 2026-07-31: già fatto** il 2026-07-14 (commento nel compose di `core-network`). La nota di memoria era scritta a metà lavoro | ✅ |
