@@ -1,8 +1,7 @@
 # Prompt per una sessione nuova
 
-> Aggiornato il 2026-07-30. **Copia il blocco del §1 come primo messaggio della
-> nuova sessione.** Il resto del file serve a chi vuole capire *perché* il
-> prompt dice quelle cose.
+> Aggiornato il 2026-07-31. **Copia il blocco del §1 come primo messaggio della
+> nuova sessione.** Il §2 spiega perché il prompt dice quelle cose.
 
 ---
 
@@ -14,20 +13,26 @@ Repository locale: c:\DBA\Sovereign-Homelab (git, branch main, si committa e si
 pusha su main). Su GitHub: https://github.com/Mohamed-DN/Sovereign-Homelab
 
 LEGGI IN QUEST'ORDINE, prima di toccare qualunque cosa:
- 1. docs/00_overview/VISIONE_COMPLETA.md   <- il perché di tutto, i tre principi,
-    e le QUATTORDICI TRAPPOLE GIÀ PAGATE (§6). Ripagarle costa ore: leggile.
- 2. docs/00_overview/PIANO_ESECUTIVO_2026-08.md <- IL PIANO DA ESEGUIRE, sette
-    flussi di lavoro (W1..W7), ognuno con i file da toccare e la sua verifica.
+ 1. docs/00_overview/ORDINE_DEI_LAVORI.md  <- DA QUI SI COMINCIA: tutto quello
+    che c'è in ballo, in fila, con il criterio che decide l'ordine e la verifica
+    di ogni voce.
+ 2. docs/00_overview/VISIONE_COMPLETA.md   <- il perché di tutto, i tre principi
+    e le QUINDICI TRAPPOLE GIÀ PAGATE (§6). Ripagarle costa ore: leggile.
  3. docs/00_overview/PIANO_MASTER.md       <- l'indice di tutto e lo stato di
     ogni cosa. Regola scritta dentro: se una cosa non è in quella tabella, è
     stata dimenticata.
- 4. docs/04_apps/hermes.md e docs/04_apps/hermes-memoria.md <- i runbook del
+ 4. docs/00_overview/PIANO_AGENT_MOMO.md   <- la fusione del nostro Hermes con
+    hermes-agent di NousResearch. Fasi 1-4 fatte e verificate.
+ 5. docs/00_overview/PIANO_MOMO_DIGITAL_TWIN.md <- cosa Momo deve saper fare:
+    Sinker a 4 fasi, Guardrail, automation library, sandbox, squadra a grafo.
+ 6. docs/04_apps/hermes.md e docs/04_apps/hermes-memoria.md <- i runbook del
     servizio e della sua memoria.
-Poi, quando serve: docs/00_overview/PIANO_AGGIORNAMENTO_DA_NEXI.md (cosa
-prendere dai miei vecchi repo e cosa lasciare lì) e docs/04_apps/omniroute.md.
+Poi quando servono: docs/06_operations_security/ESPOSIZIONE_E_SEGRETI.md
+(l'indice dei segreti), docs/00_overview/PIANO_ESECUTIVO_2026-08.md,
+docs/00_overview/PIANO_AGGIORNAMENTO_DA_NEXI.md.
 
-PER RAGGIUNGERE L'INFRASTRUTTURA (la chiave è permanente, provala per prima cosa
-e NON rifare il bootstrap con la password):
+PER RAGGIUNGERE L'INFRASTRUTTURA (la chiave è permanente, provala per prima
+cosa e NON rifare il bootstrap con la password):
 
   ssh -i /c/DBA/sovereign_homelab_audit_ed25519 \
       -o UserKnownHostsFile=/c/DBA/sovereign_known_hosts \
@@ -37,13 +42,13 @@ Da lì: pct exec <id> -- bash -lc '<comando>'   (il "bash -lc" NON è opzionale:
 senza, una stringa multiriga si spezza e la seconda riga gira sull'host Proxmox
 invece che nel container).
 
-  LXC 100 = .50   NPM / AdGuard / Headscale
+  LXC 100 = .50   NPM / AdGuard / Headscale / Headplane
   LXC 101 = .51   Authentik / Uptime Kuma / step-ca / Homepage / relay email
-  LXC 102 = .52   Hermes:8093 · CouchDB · Ollama · OmniRoute:20128 ·
-                  Postgres/Qdrant/Valkey della memoria (solo loopback) · 20 app
+  LXC 102 = .52   Hermes:8093 · MOMO (/opt/momo) · CouchDB · Ollama ·
+                  OmniRoute · Postgres/Qdrant/Valkey (solo loopback) · 20 app
   LXC 103 = .53   ntfy / Scrutiny
   VM 110 Immich · VM 120 Nextcloud · VM 130 Home Assistant · VM 140 PBS
-  Il mio PC è .100, Windows, RTX 5070 Ti 16 GB, Ollama in ascolto per Hermes.
+  Il mio PC è .100, Windows, RTX 5070 Ti 16 GB, Ollama in ascolto.
 
 Io sono mohamed, proprietario e amministratore: accesso completo a tutto per
 principio, non chiedere il permesso. Segreti in /root/sovereign-secrets/ (0600)
@@ -62,137 +67,86 @@ COME VOGLIO CHE LAVORI:
 - Su Authentik: se un provider non va, confronta campo per campo con uno che
   funziona. Non un campo alla volta.
 - Commenti in inglese, messaggi a me in italiano, Python di sola libreria
-  standard (unica eccezione dichiarata: python3-psycopg2 da apt, vedi
-  VISIONE_COMPLETA.md §8.2).
+  standard (unica eccezione dichiarata: python3-psycopg2 da apt).
+- Il JavaScript scritto dentro una stringa Python va verificato con un parser
+  VERO (node --check), non a occhio: py_compile valida solo il Python e lascia
+  passare uno <script> rotto. È già costato un pannello vuoto in produzione.
 
-DOVE SIAMO: Hermes è vivo su https://hermes.internal. Ha una memoria fuori dal
-modello (Postgres + Qdrant + Valkey), cerca nel vault e nei runbook per
-significato, scrive su Obsidian, tiene le procedure, e ha quattro motori fra cui
-AWS Bedrock. Le fasi 0, 1 e 5 sono chiuse e verificate.
+DOVE SIAMO (31 luglio 2026):
+Hermes è vivo su https://hermes.internal, con memoria fuori dal modello
+(Postgres+Qdrant+Valkey), 2013 vettori fra vault Obsidian e runbook, e quattro
+motori fra cui Groq e AWS Bedrock.
+Il piano esecutivo è FINITO: PWA installabile su iPhone, catalogo modelli
+scaricabili dal pannello, preset fornitori + router per intenti, rubrica email,
+pannello a schede, modalità MASTER con chiave SSH dedicata e guardia sull'host
+(29 casi di sicurezza verificati uno per uno).
+AGENT MOMO (fusione con hermes-agent 0.19.0, in /opt/momo su LXC 102):
+  fase 1 OK  respira, isolato, sulla GPU del PC
+  fase 2 OK  UNA SOLA MEMORIA con l'Hermes vivo: provato che un fatto salvato
+             da Momo lo rilegge Hermes
+  fasi 3+4 OK  11 strumenti con la guardia privato/non-privato attaccata:
+             provato che con Groq riceve 2 strumenti su 11 e i privati sono
+             bloccati anche invocandoli a forza
+Prestazioni: LXC 102 portato da 16 a 32 core, l'embedding sulla CPU del server
+è passato da 3677 ms a 264 ms (14 volte).
 
-COSA DEVI FARE: esegui il PIANO_ESECUTIVO_2026-08.md. L'ordine consigliato è
-scritto al suo §10: W7.1 (la PWA, mezz'ora, mi dà Hermes in tasca subito) → W1
-(catalogo modelli con download dal pannello) → W2 (preset fornitori + router per
-intenti) → W4 (rubrica email) → W3 (pannello rifatto) → W5 (modalità MASTER) →
-W6 (hermes-agent) → W7.2-7.4 (voce).
+COSA DEVI FARE: segui docs/00_overview/ORDINE_DEI_LAVORI.md.
+Il prossimo passo è il GUARDRAIL: la difesa anti-bugia dentro Momo, con la
+regola deterministica prima e il modello solo per ciò che la regola non copre —
+una regola non mente a sua volta e non costa VRAM.
+Poi: più chat con memoria centrale (oggi la cronologia è UNA SOLA per persona e
+gli argomenti si mescolano), Telegram (bot @dn_momo_bot e token già pronti, non
+ancora collegati), voce TUTTA in locale (Faster-Whisper + XTTSv2, NIENTE
+ElevenLabs: la mia voce non esce di casa).
 
-PRIMA DI COMINCIARE, chiedimi le cose elencate al §9 del piano: sono cinque, e
-senza risposta alcuni flussi restano fermi.
+DECISIONI GIÀ PRESE, non ridiscuterle:
+- MASTER: applicazione automatica dopo che la validazione passa, ma il DIVIETO
+  ASSOLUTO resta (Immich, distruzione dati, disattivare le guardie). Può creare
+  tutto e cancellare le robe che crea lui.
+- Repo GitHub in Obsidian: divisione PER TIPO — documentazione e README nel
+  vault (leggeri, tutti i plugin Obsidian funzionano), codice sorgente sui
+  database (nessun peso sul telefono). Misurati: 12,7 MB di testo, 2683 file,
+  10 repo.
+- Il vault sui database: i dati stanno sul server una volta sola, ogni
+  dispositivo li legge dal vivo dentro rete o VPN. Niente replica.
+- Fusione con hermes-agent: fork minimo con registro delle divergenze, non fork
+  completo. Se serve toccare altro si tocca, ma ogni riga va scritta.
 ```
 
 ---
 
-## 2. Perché il prompt è fatto così
+## 2. Perché il prompt dice queste cose
 
-| Errore che fa ogni sessione nuova | Costo | Come lo previene il prompt |
-|---|---|---|
-| Rifare il bootstrap SSH con la password | 10 minuti, e un segreto in giro per niente | dice che la chiave è permanente e va provata per prima |
-| `pct exec` senza `bash -lc` | i comandi girano **sull'host** invece che nel container | lo dice, e dice perché |
-| Dichiarare «fatto» su un HTTP 201 | lavoro che sembra fatto e non lo è | la regola della verifica è la prima della lista |
-| Committare senza validare | un runbook incompleto entra nel repo | nomina i 10 gruppi e il contratto |
-| Ricostruire il contesto dal codice | ore | dà l'ordine di lettura dei quattro documenti |
+### 2.1 L'ordine di lettura è cambiato
+Prima si partiva da `VISIONE_COMPLETA`. Ora si parte da `ORDINE_DEI_LAVORI`,
+perché i piani sono diventati cinque e senza una fila davanti si finisce a
+scegliere il pezzo più vistoso invece di quello che sblocca il resto.
 
-**L'ordine di lettura non è casuale**: VISIONE_COMPLETA per prima perché contiene
-le trappole, e chi comincia dal codice le ripaga una a una. PIANO_ESECUTIVO
-subito dopo perché è il lavoro. PIANO_MASTER come indice — è lungo, serve per
-cercare, non per orientarsi. I runbook solo quando si tocca quel pezzo.
+### 2.2 I difetti chiusi il 2026-07-30, che il prompt nomina apposta
 
----
-
-## 3. Lo stato in una pagina
-
-**Vivo e verificato**: chat con SSO e ruoli · memoria su Postgres+Qdrant+Valkey
-(solo loopback) · ricerca per significato su 125 note del vault e 102 runbook del
-repository · scrittura su Obsidian confinata a `07 Notes/Hermes/` · procedure in
-Postgres, ritrovabili con le proprie parole · quattro motori (PC GPU, server CPU,
-OmniRoute, AWS Bedrock) con la guardia che nega i dati di casa a quelli non
-privati · reindicizzazione notturna alle 03:20 · OmniRoute dietro SSO con le
-porte chiuse alla LAN.
-
-**Da fare**: PWA · catalogo dei modelli scaricabili dal pannello · preset dei
-fornitori e router per intenti · rubrica per l'email · pannello rifatto ·
-modalità MASTER · `hermes-agent` accanto · voce (Whisper + Piper).
-
-**Fermo su di lui**: token Telegram · una chiave gratuita (Groq / Cerebras /
-NVIDIA NIM / Cloudflare) · la rubrica dei contatti · la conferma sul patto di
-MASTER (diff da approvare, oppure applicazione automatica) · quale «nuova
-versione di Hermes» intendeva · Ceph che gira a vuoto · `psycopg2`.
-
----
-
-## 4. I comandi di verifica, tutti insieme
-
-```bash
-SSH="ssh -i /c/DBA/sovereign_homelab_audit_ed25519 \
- -o UserKnownHostsFile=/c/DBA/sovereign_known_hosts -o StrictHostKeyChecking=no"
-
-# la memoria: Postgres, Qdrant, Valkey, embedding, conteggi
-$SSH root@192.168.1.150 "pct exec 102 -- bash -lc \
- 'cd /opt/sovereign-hermes && python3 sovereign-hermes.py --memory-status'"
-
-# i motori: chi risponde, chi ha una chiave, chi è privato
-$SSH root@192.168.1.150 "pct exec 102 -- curl -s http://127.0.0.1:8093/api/backends"
-
-# i servizi
-$SSH root@192.168.1.150 "pct exec 102 -- docker ps --filter name=hermes- \
- --filter name=omniroute --format '{{.Names}} {{.Status}}'"
-$SSH root@192.168.1.150 "pct exec 102 -- systemctl is-active sovereign-hermes \
- sovereign-omniroute-firewall"
-
-# i gate: 302 verso il login, /health pubblico
-curl -sk -o /dev/null -w '%{http_code}\n' https://hermes.internal/
-curl -sk -o /dev/null -w '%{http_code}\n' https://omniroute.internal/
-curl -sk https://hermes.internal/health
-
-# LA PROPRIETÀ CHE CONTA: un motore non privato non deve vedere i dati di casa
-#   atteso: motori locali 16 strumenti, esterni 2
-$SSH root@192.168.1.150 "pct exec 102 -- python3 /tmp/test_guard.py"
-
-# reindicizzare (a mano; il timer lo fa alle 03:20)
-$SSH root@192.168.1.150 "pct exec 102 -- bash -lc \
- 'cd /opt/sovereign-hermes && python3 sovereign-hermes.py --index-repo'"
-```
-
----
-
-## 5. I documenti
-
-| Documento | A cosa serve |
+| Difetto | Perché è nel prompt |
 |---|---|
-| [VISIONE_COMPLETA.md](VISIONE_COMPLETA.md) | il perché, i tre principi, **le trappole** |
-| [PIANO_ESECUTIVO_2026-08.md](PIANO_ESECUTIVO_2026-08.md) | **il lavoro**: W1..W7 |
-| [PIANO_MASTER.md](PIANO_MASTER.md) | l'indice e lo stato di tutto |
-| [PIANO_AGGIORNAMENTO_DA_NEXI.md](PIANO_AGGIORNAMENTO_DA_NEXI.md) | cosa prendere dai vecchi repo, **e cosa lasciare lì** |
-| [HERMES_PIANO_A_FASI.md](HERMES_PIANO_A_FASI.md) | le fasi 0-8, con la verifica di ognuna |
-| [hermes.md](../04_apps/hermes.md) | il runbook del servizio |
-| [hermes-memoria.md](../04_apps/hermes-memoria.md) | i tre archivi, le bugie chiuse, i tempi misurati |
-| [omniroute.md](../04_apps/omniroute.md) | il gateway verso i fornitori esterni |
-| [ANALISI_CARICO_2026-07-30.md](../01_proxmox_foundation/ANALISI_CARICO_2026-07-30.md) | memoria, CPU, disco: quanto margine c'è |
-| [PRIVACY_E_VISIBILITA_DATI.md](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) | chi vede cosa, servizio per servizio |
-| [ESPOSIZIONE_E_SEGRETI.md](../06_operations_security/ESPOSIZIONE_E_SEGRETI.md) | cosa si vede da internet, dove sono i segreti |
+| `\n` nel JS dentro una tripla-stringa Python | il pannello sembrava **vuoto**, in silenzio: uno `<script>` che fallisce al parse non dà errore. Trovato dal proprietario, non dai miei controlli |
+| Guardia anti-bugia **spenta nello sciame** | `tools=[]` per la sintesi azzerava anche la variabile che la guardia leggeva. Causa di un report tecnico dettagliato su una mail mai inviata |
+| `rm -rf` che passava | `run_action_command` mandava via SSH solo `pct`/`qm`: tutto il resto girava localmente **senza** guardia. Chiuso spostando il controllo *dentro* l'esecutore |
+| Provider sotto `model.provider` | leggendo la chiave sbagliata la guardia falliva **chiuso**: vault protetto ma ogni strumento di casa spariva, e la causa era invisibile |
+| `pct set --cores` non basta | il cgroup si aggiorna a caldo, ma i processi già avviati tengono i vecchi thread: **Ollama va riavviato** |
 
-Su GitHub la stessa cartella è
-[docs/00_overview](https://github.com/Mohamed-DN/Sovereign-Homelab/tree/main/docs/00_overview).
+### 2.3 Un difetto noto e NON risolto, che va detto a chi riprende
 
-## 6. I repository di riferimento
+Il `REVOKE UPDATE, DELETE` su `master_log` **non morde**: il ruolo `hermes` di
+Postgres è superuser (`rolsuper = t`), e i superuser scavalcano i permessi.
+Verificato: un `UPDATE` sul registro riesce.
 
-| Repo | Perché guardarlo |
-|---|---|
-| <https://github.com/NousResearch/hermes-agent> | **Il framework omonimo**: adattatori Telegram/Signal/SMS/Matrix, orchestratore di sotto-agenti, server compatibile OpenAI, MCP. MIT, Python, 222k stelle. È il W6 del piano |
-| <https://github.com/ruvnet/ruflo> | Da qui vengono il **router per intenti** e l'astrazione dei fornitori con le strategie |
-| <https://github.com/ThomasNexi/Nexi_DB_AI> (branch `DN`, privato, si apre con `gh`) | I tre strati Direttive→Orchestrazione→Esecuzione: è il disegno della modalità MASTER |
-| <https://github.com/diegosouzapw/OmniRoute> | Il gateway già installato |
-| <https://github.com/cheahjs/free-llm-api-resources> | I fornitori gratuiti e i loro limiti |
+La garanzia che regge oggi è **architetturale**, non del database: nel codice
+non esiste **nessun percorso** che aggiorni o cancelli quella tabella, nemmeno
+uno protetto da un flag. Sistemarlo davvero richiede un ruolo Postgres separato
+e non superuser per l'applicazione — lavoro non fatto, e va detto invece di
+lasciar credere che il `REVOKE` protegga.
 
-## 7. I file di codice che si toccheranno
-
-| File | Cos'è |
-|---|---|
-| `scripts/sovereign-hermes.py` | il servizio, un file solo: strumenti, pannello, chat, guardie |
-| `scripts/hermes/hermes_memory.py` | la memoria: Postgres, Qdrant, Valkey, chunking, procedure |
-| `scripts/hermes/memory-schema.sql` | lo schema. `contacts` e le azioni di MASTER si aggiungono qui |
-| `scripts/hermes/backends.json` | i motori. Attenzione: `private`, `parallel`, `extra` sono campi che il pannello **deve** conservare |
-| `scripts/hermes/persona.md`, `roles.json` | chi è Hermes e i 13 ruoli dello sciame |
-| `scripts/sovereign-npm-proxy-host.py` | crea un host su NPM con o senza SSO. Serve per ogni servizio nuovo |
-| `scripts/validate-repository.ps1` | i 10 gruppi. Deve passare prima di ogni commit |
-| `stacks/<nome>/` | gli stack Docker, con `.env.example` (il `.env` vero non è nel repo) |
+### 2.4 Cosa NON mettere nel prompt
+- Nessun segreto: né chiavi API, né token, né password. L'indice dei percorsi
+  sta in `ESPOSIZIONE_E_SEGRETI.md` §4, e i valori restano su disco a 0600.
+- Nessuna promessa non verificata: se una cosa è «da fare», il prompt lo dice.
+  Il proprietario ha chiesto esplicitamente di sapere quello che non funziona,
+  «anche se è colpa tua».
