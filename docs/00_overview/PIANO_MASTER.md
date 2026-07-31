@@ -18,6 +18,7 @@
 | [hermes.md](../04_apps/hermes.md) | Il runbook del servizio: com'è fatto, come si ripara |
 | [hermes-memoria.md](../04_apps/hermes-memoria.md) | **La memoria**: i tre archivi, le due bugie chiuse, il costo misurato degli embedding |
 | [omniroute.md](../04_apps/omniroute.md) | **Il gateway** verso i fornitori esterni: cosa funziona e cosa manca |
+| [PIANO_MOMO_DIGITAL_TWIN.md](PIANO_MOMO_DIGITAL_TWIN.md) | **Cosa Momo deve saper fare**: il Sinker a 4 fasi (per stare in 16 GB di VRAM), il Guardrail anti-allucinazione, la libreria di automazione, le sandbox con ciclo di vita, la squadra a grafo, la voce in tempo reale |
 | [PIANO_AGENT_MOMO.md](PIANO_AGENT_MOMO.md) | **La fusione dei due Hermes**: il nostro cuore dentro il corpo di `hermes-agent`. Scritto dopo averne letto il codice, non le note di rilascio. Cinque fasi, il registro delle divergenze dal loro codice, e cosa si perde davvero |
 | [PIANO_ESECUTIVO_2026-08.md](PIANO_ESECUTIVO_2026-08.md) | **Il piano da eseguire**: catalogo modelli, router per intenti, pannello rifatto, email alle persone, **modalità MASTER**, hermes-agent, voce. Passo per passo, con la verifica di ognuno |
 | [VISIONE_COMPLETA.md](VISIONE_COMPLETA.md) | **Il perché di tutto**: i tre principi, le trappole già pagate, il prossimo passo, le decisioni che aspettano. Da leggere per prima cosa quando si riprende il lavoro |
