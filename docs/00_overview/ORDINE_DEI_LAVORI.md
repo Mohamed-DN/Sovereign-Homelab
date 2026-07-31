@@ -39,7 +39,46 @@ Non «cosa è più bello», ma:
 
 *Senza queste, tutto il resto è più lento, più fragile o più pericoloso.*
 
-### 1.1 · La GPU del server (T600, 4 GB) ⏱ ~1 ora
+### 1.0 · ✅ **FATTO (2026-07-30): 16 → 32 core a LXC 102 — 14 volte più veloce**
+
+Osservazione del proprietario, e aveva ragione: *«se qualcosa soffre sulla CPU
+aumenta i core a quel servizio, ci sono un casino di core liberi»*.
+
+**Lo stato di partenza**: 40 core sul nodo, **carico medio 1.00** — il nodo era
+praticamente fermo mentre LXC 102 (Hermes, Momo, Ollama, i tre database, 20
+app) si strozzava su 16.
+
+**Misurato prima e dopo**, stesso modello, stessa frase, a modello già caricato:
+
+| | embedding sulla CPU del server |
+|---|---|
+| con 16 core | **3 677 ms** |
+| con 32 core | **264 ms** |
+
+**Quattordici volte più veloce.** E il confronto che conta davvero: la GPU del
+PC fa lo stesso lavoro in 97 ms, quindi la CPU del server è passata da
+**37× più lenta** a **2,7× più lenta**. La «corsia lenta» ha smesso di essere
+lenta.
+
+Dettaglio tecnico: `pct set 102 --cores 32` aggiorna il cgroup **a caldo**
+(`cpuset.cpus.effective` diventa `2-31,38-39`), ma i processi già avviati
+tengono i thread creati quando i core erano 16 — **Ollama va riavviato**,
+altrimenti il numero non cambia e sembra che l'intervento non abbia funzionato.
+Nei container i core sono condivisi, non riservati come nelle VM: alzarli non
+toglie niente a nessuno finché non c'è contesa reale.
+
+*Verificato dopo*: Hermes `active`, `/health` 200, i tre database `healthy`,
+2013 vettori, carico del nodo 2.44 su 40 core.
+
+### 1.1 · La GPU del server (T600, 4 GB) ⏱ ~1 ora — **meno urgente di prima**
+
+> **Rivalutato il 2026-07-30 dopo §1.0.** Con l'embedding sceso a 264 ms sulla
+> CPU, questa voce **non è più una fondamenta: è un miglioramento**. Restava
+> prima in classifica quando la corsia lenta costava 3,7 secondi; ora che ne
+> costa 0,26 il guadagno atteso è molto minore, e il costo (driver sul nodo,
+> passthrough, rischio su un hypervisor che regge otto macchine) è lo stesso.
+> **Spostata dopo l'ondata 2.** Un dato misurato batte una priorità scritta il
+> giorno prima.
 **Perché prima di tutto**: è l'unica voce che rende **ogni altra cosa migliore**
 senza dipendere da niente. Oggi, a PC spento, ogni risposta e ogni embedding
 vanno sulla CPU (misurato: 18 s contro 97 ms). Con la T600 la corsia lenta
