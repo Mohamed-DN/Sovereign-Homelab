@@ -33,7 +33,7 @@ Rules:
 | `searxng/` | Private meta-search engine |
 | `forgejo/` | Git repositories |
 | `jellyfin/` | Media server |
-| `ai-ollama/` | Local LLMs (Ollama + Open WebUI) |
+| `ai-ollama/` | Local LLM engine (Ollama; no web UI — Hermes/Momo talk to it directly) |
 | `wazuh/` | Security and SIEM (Optional) |
 | `npm/` | Nginx Proxy Manager |
 | `rustdesk/` | Private remote desktop support |

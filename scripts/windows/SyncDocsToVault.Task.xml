@@ -1,9 +1,9 @@
-<?xml version="1.0" encoding="UTF-8"?>
+﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   Windows Task Scheduler definition for the repo docs -> vault mirror.
 
   Runs Sync-DocsToVault.ps1 at logon, then every 30 minutes while the PC is
-  on -- so a commit shows up in the vault (and from there, via LiveSync, on
+  on, so a commit shows up in the vault (and from there, via LiveSync, on
   every synced device) within half an hour without any manual step.
 
   Import with:
@@ -34,8 +34,8 @@
   </Triggers>
   <Principals>
     <Principal id="Author">
-      <!-- Replace with your interactive account, e.g. DESKTOP\yourname -->
-      <UserId>REPLACE_WITH_YOUR_WINDOWS_ACCOUNT</UserId>
+      <!-- Filled in 2026-07-31 for this machine; a different PC needs a different account. -->
+      <UserId>DESKTOP-JFFTLHH\Mohamed</UserId>
       <LogonType>InteractiveToken</LogonType>
       <RunLevel>LeastPrivilege</RunLevel>
     </Principal>
