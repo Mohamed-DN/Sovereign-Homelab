@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Windows Task Scheduler definition for the repo docs -> vault mirror.
+
+  Runs Sync-DocsToVault.ps1 at logon, then every 30 minutes while the PC is
+  on -- so a commit shows up in the vault (and from there, via LiveSync, on
+  every synced device) within half an hour without any manual step.
+
+  Import with:
+    schtasks /Create /TN "Sovereign Docs to Vault Sync" /XML `
+      "C:\DBA\Sovereign-Homelab\scripts\windows\SyncDocsToVault.Task.xml"
+
+  Adjust the <UserId> before importing. Run under your normal interactive
+  account (not SYSTEM), since the destination is under your user's Documents.
+-->
+<Task version="1.4" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <Description>Mirror Sovereign-Homelab's docs/ into the Obsidian vault, one-way, every 30 minutes.</Description>
+    <URI>\Sovereign Docs to Vault Sync</URI>
+  </RegistrationInfo>
+  <Triggers>
+    <LogonTrigger>
+      <Enabled>true</Enabled>
+      <Delay>PT1M</Delay>
+    </LogonTrigger>
+    <TimeTrigger>
+      <Enabled>true</Enabled>
+      <StartBoundary>2026-07-31T00:00:00</StartBoundary>
+      <Repetition>
+        <Interval>PT30M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+    </TimeTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <!-- Replace with your interactive account, e.g. DESKTOP\yourname -->
+      <UserId>REPLACE_WITH_YOUR_WINDOWS_ACCOUNT</UserId>
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
+    <IdleSettings>
+      <StopOnIdleEnd>false</StopOnIdleEnd>
+      <RestartOnIdle>false</RestartOnIdle>
+    </IdleSettings>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <ExecutionTimeLimit>PT10M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>powershell.exe</Command>
+      <Arguments>-NoProfile -ExecutionPolicy Bypass -File "C:\DBA\Sovereign-Homelab\scripts\windows\Sync-DocsToVault.ps1"</Arguments>
+    </Exec>
+  </Actions>
+</Task>

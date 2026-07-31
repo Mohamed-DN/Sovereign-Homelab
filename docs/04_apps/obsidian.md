@@ -688,6 +688,57 @@ authenticated CouchDB user — do not skip it.
 
 **Next:** [Home Assistant OS](home_assistant.md)
 
+## Repo docs/ → vault, one-way (implementato 2026-07-31)
+
+**La richiesta**: avere questo repository dentro Obsidian, così Hermes, Momo e
+ogni dispositivo sincronizzato lo trovano — era in
+[PIANO_HERMES_ESPANSO](../00_overview/PIANO_HERMES_ESPANSO.md) §6 dal
+2026-07-15, mai eseguito fino ad oggi.
+
+```
+repo docs/ ──(script sul PC, Task Scheduler)──> vault\Sovereign-Homelab\ ──(LiveSync, quando Obsidian è aperto)──> CouchDB ──> Hermes/Momo
+```
+
+`scripts/windows/Sync-DocsToVault.ps1` fa da `robocopy /MIR` fra
+`docs/` del repository e `Sovereign-Homelab\` **dentro** il vault (mai la
+radice del vault, mai `07 Notes/Hermes/` — quella è l'area di scrittura di
+Hermes, separata apposta). Copia solo `*.md`/`*.png`/`*.jpg`/`*.svg`. Due
+guardie prima di toccare qualunque cosa: rifiuta se la destinazione non
+finisce esattamente in `\Sovereign-Homelab`, e rifiuta se il vault di
+destinazione non ha una cartella `.obsidian` (segno che non è il vault vero).
+
+**Direzione unica, per scelta**: mai scrivere in CouchDB da fuori
+Obsidian — LiveSync tiene le note a pezzi con una sua logica di revisioni, e
+scriverci dentro da fuori la corromperebbe (la stessa ragione per cui
+`vault_scrivi` di Hermes è confinato alla sua cartella separata). La fonte di
+verità resta git; il vault è una copia in sola lettura umana.
+
+**Automazione**: `scripts/windows/SyncDocsToVault.Task.xml`, Task Scheduler,
+al logon e poi ogni 30 minuti:
+
+```powershell
+schtasks /Create /TN "Sovereign Docs to Vault Sync" /XML `
+  "C:\DBA\Sovereign-Homelab\scripts\windows\SyncDocsToVault.Task.xml"
+```
+
+(Sostituire `<UserId>` nell'XML con l'account Windows reale prima di
+importare — stesso pattern del task Immich.)
+
+**Verificato dal vivo (2026-07-31)**: prima esecuzione manuale, `robocopy`
+riporta 98 file / 1,06 MB copiati con successo (exit code 1 = "file
+copiati", nel range di successo 0-7). Confermato su disco:
+`Sovereign-Homelab\00_overview\PIANO_GENERALE.md` presente nel vault con lo
+stesso contenuto del repo.
+
+**Limite noto, non un difetto**: LiveSync sincronizza verso CouchDB solo
+mentre **Obsidian è aperto** — è un plugin dentro l'app, non un servizio a
+sé. I file arrivano subito sul disco del PC ad ogni esecuzione del task; la
+propagazione a CouchDB (e quindi agli altri dispositivi e all'indice di
+Hermes/Momo) avviene alla prossima apertura di Obsidian su questo PC, non in
+tempo reale. Non verificato oggi end-to-end fino a CouchDB per questo
+motivo — verificarlo aprendo Obsidian una volta e controllando che
+`obsidiandb` cresca di conteggio documenti.
+
 ## Time Garden (installato 2026-07-29)
 
 Il pacchetto *Time Garden Vault v1.1.3* è un **vault completo**, non un plugin:
