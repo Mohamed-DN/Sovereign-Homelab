@@ -47,7 +47,7 @@ Last checked: 2026-06-23.
 | Core stack | AdGuard Home, NPM, Headscale, Headscale-UI running on LXC 100 |
 | Platform stack | Authentik, Homepage, Uptime Kuma, Beszel Hub/agent, Dozzle running on LXC 101 |
 | Internal CA | Smallstep `step-ca` and `trust.internal` onboarding portal run on LXC 101; all private aliases are HTTPS; each personal client still requires one-time root trust |
-| Apps-light stack | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI running on LXC 102 |
+| Apps-light stack | Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, and Ollama running on LXC 102 |
 | Ops-extension stack | NetAlertX, Scrutiny, and ntfy running on LXC 103 |
 | Immich stack | Immich server, machine learning, PostgreSQL, and Valkey running on VM 110 |
 | Subnet router | `core-network` advertises and serves `192.168.1.0/24` |
@@ -114,7 +114,7 @@ Note: some bootstrap runbooks place NPM in the `/opt/core-network` stack. The ta
 | Karakeep | `bookmarks.internal` | P1 live on LXC102 | VPN/Auth | Bookmarks, assets, DB | data + DB |
 | SearXNG | `search.internal` | P2 live on LXC102 | VPN/Auth | config | config |
 | Forgejo/Gitea | `git.internal` | P2 live on LXC102 | VPN/Auth | repos + DB | temp PostgreSQL restore baseline passed; repeat with real test repo clone/push + offsite |
-| Ollama/Open WebUI | `ai.internal` | P2 live on LXC102 | VPN only | model cache + chat DB | app data, models optional |
+| Ollama | none (no web UI, LAN/VPN API only) | P2 live on LXC102 | LAN/VPN only | model cache | models optional to back up |
 | RustDesk OSS Server | `rustdesk.internal` | P2 live on LXC102 | VPN/LAN by default | server keys/config | data directory + stack files |
 | NetAlertX | `netalert.internal` | Ops live on LXC103 | VPN/Auth | device inventory + config | config + DB |
 | Scrutiny | `disks.internal` | Ops live on LXC103 | VPN/admin | SMART history + config | config + InfluxDB data |

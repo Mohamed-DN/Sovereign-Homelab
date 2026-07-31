@@ -119,7 +119,6 @@ loss when stopped, no infrastructure dependency):
 - FreshRSS
 - Karakeep
 - SearXNG
-- Open WebUI
 - Ollama (AI backend)
 
 These run on LXC 102 `apps-light` (`192.168.1.52`) / LXC 102. New optional apps
@@ -237,8 +236,9 @@ The live implementation is the **Sovereign Master Dashboard**, documented in ful
 in [Master Dashboard deployment](SOVEREIGN_MASTER_DASHBOARD.md). Summary:
 
 - **Control agent: LIVE on LXC 102** (`sovereign-app-control-agent`, port 8097,
-  token-auth). Allowlist: jellyfin, freshrss, searxng, karakeep, open-webui,
-  ollama, and (owner-approved, data-bearing) syncthing, paperless, forgejo.
+  token-auth). Allowlist: jellyfin, freshrss, searxng, karakeep, ollama, and
+  (owner-approved, data-bearing) syncthing, paperless, forgejo. Open WebUI
+  removed from the allowlist 2026-07-31 (decommissioned).
   Verified: `immich-server` is hard-refused; every action is audited and emailed.
   The Docker socket is never exposed to a browser.
 - **Master dashboard: LIVE at `dash.internal`** (`sovereign-master-dashboard` on

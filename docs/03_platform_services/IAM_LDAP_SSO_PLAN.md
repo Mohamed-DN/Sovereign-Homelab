@@ -734,7 +734,7 @@ break-glass after each:
 | Wave | Services | Method | Notes |
 |---|---|---|---|
 | A (SSO-native) | Proxmox VE, PBS, Grafana-like, Portainer-like | OIDC | cleanest; keep local root/admin |
-| B (app OIDC) | ~~Nextcloud~~ ~~Immich~~ ~~Paperless~~ ~~Forgejo~~ ~~Jellyfin~~, Karakeep, Open WebUI | OIDC/OAuth2 | most have native OIDC; map the admin group |
+| B (app OIDC) | ~~Nextcloud~~ ~~Immich~~ ~~Paperless~~ ~~Forgejo~~ ~~Jellyfin~~, Karakeep | OIDC/OAuth2 | most have native OIDC; map the admin group. Open WebUI removed from this wave: decommissioned 2026-07-31 |
 | C (LDAP-only) | Vaultwarden, services without OIDC | LDAP | bind against the Phase-2 outpost |
 | D (proxy) | NetAlertX, Dozzle, Scrutiny, ntfy admin, Homepage | Authentik **Proxy** | forward-auth like the dashboard. If one of these also has an API/agent consumer that cannot do OIDC, split it by **hostname** (admin plane vs data plane) as done for Obsidian — do NOT try to path-scope the gate on a single host, see the superseded-design note under §"Eighth service" |
 

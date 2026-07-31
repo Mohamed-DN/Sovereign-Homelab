@@ -296,7 +296,6 @@ Current verified live target model:
 | Forgejo | `git.internal` | `http` | `LXC102_IP:3003` | yes | VPN/Auth |
 | Home Assistant | `ha.internal` | `http` | `VM130_IP:8123` | yes | VPN/Auth |
 | Jellyfin | `media.internal` | `http` | `LXC102_IP:8096` | yes | VPN/Auth |
-| Open WebUI | `ai.internal` | `http` | `AI_HOST_IP:3004` | yes | VPN only; live `AI_HOST_IP` is `LXC102_IP` |
 
 Enable each proxy host only after the service is installed and validated. Reserved aliases can appear in documentation and Homepage, but NPM should not forward to an empty target.
 

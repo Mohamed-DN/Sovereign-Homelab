@@ -275,7 +275,6 @@ Use native OIDC/OAuth when the app supports it cleanly:
 | Service | Recommended identity model | Notes |
 |---|---|---|
 | Forgejo | native OAuth/OIDC | Keep SSH Git access and recovery separate from web login. |
-| Open WebUI | native OAuth/OIDC | Keep Ollama API private and not proxied. |
 | Nextcloud | OIDC preferred, LDAP optional | Choose OIDC or LDAP deliberately; do not enable both casually. |
 | Immich | native login first; OIDC after validation | Validate mobile app behavior before enforcement. |
 | Jellyfin | native login first; OIDC/LDAP plugin after validation | Validate TV/mobile clients before enforcement. |

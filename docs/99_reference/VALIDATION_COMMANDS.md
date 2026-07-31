@@ -227,7 +227,7 @@ Write-Host 'Markdown local links resolve.'
 Every service with a web UI must be represented in the service visibility matrix, Homepage, NPM documentation, and Uptime Kuma catalog.
 
 ```bash
-rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|trust.internal|netalert.internal|disks.internal|alerts.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal|ai.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
+rg -n "proxmox.internal|pbs.internal|adguard.internal|npm.internal|headscale.internal|auth.internal|dash.internal|status.internal|monitor.internal|logs.internal|trust.internal|netalert.internal|disks.internal|alerts.internal|pwd.internal|foto.internal|files.internal|sync.internal|paper.internal|ha.internal|media.internal|rss.internal|bookmarks.internal|search.internal|git.internal" docs/99_reference/SERVICE_VISIBILITY_MATRIX.md stacks/observability/homepage/services.yaml docs/02_network_vpn/doc_03_nginx_proxy_manager.md docs/03_platform_services/doc_08_observability_dashboard.md
 ```
 
 Minimal Homepage YAML shape check on Windows PowerShell:
