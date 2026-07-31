@@ -168,6 +168,78 @@ grafo senza freni non termina:
    (`leaf`/`orchestrator`) e non ha un catalogo di agenti con persona: i nostri
    13 ruoli nominati vanno mantenuti nel plugin, non nel loro codice.
 
+## 3-bis. Decisioni e scoperte del 2026-07-30 (secondo giro)
+
+### La GPU del server esiste, e non la usa nessuno
+
+Il proprietario ha chiesto quale modello usare a PC spento, dicendo di non
+conoscere la GPU del server. **Verificato**: il nodo Proxmox ha una
+**NVIDIA T600 (TU117GL), 4 GB**, e `nvidia-smi` non è nemmeno installato —
+quindi oggi quella scheda **non è usata da niente**.
+
+Cosa cambia: in 4 GB ci sta `qwen3.5:4b` (3,4 GB), che è **esattamente** il
+modello di scorta che oggi arranca sulla CPU. La "corsia lenta" del §2
+smetterebbe di essere lenta, e la domanda «a PC spento uso API esterne?»
+perderebbe quasi tutta la sua urgenza.
+
+Cosa serve (non ancora fatto): driver NVIDIA sul nodo, passthrough del device
+a LXC 102, e Ollama configurato per vederla. Da misurare **prima e dopo**, con
+lo stesso metodo già usato per gli embedding (97 ms su GPU contro 18 s su CPU):
+un numero misurato vale più di una promessa.
+
+### Le API esterne restano il ripiego del ripiego
+
+Ordine dichiarato dal proprietario: prima la GPU del PC, poi la GPU del server,
+e **solo se serve** un'API esterna — che deve essere **gratuita**. Groq è già
+configurato e verificato (30 richieste/min); i preset per Cerebras, NVIDIA NIM,
+Cloudflare e gli altri sono pronti in `providers-presets.json`.
+
+### La voce: tutto in casa, deciso
+
+Il proprietario: *«per eleven labs io preferirei tutto in locale»*. **Deciso**:
+Faster-Whisper per capire e **XTTSv2 per parlare**, entrambi in casa. La voce
+del proprietario non esce dall'impianto. La riga «XTTSv2/ElevenLabs» del
+documento originale si legge quindi come **XTTSv2 e basta**.
+
+### Più conversazioni, una sola memoria
+
+Difetto notato dal proprietario provando Hermes: *«valutava solo la nuova
+domanda scordandosi del filo logico»*, e la richiesta che ne segue: *«voglio
+poter aprire più chat con lui, con una memoria centrale ma memoria logica per
+chat»*.
+
+Lo stato reale, verificato nel codice: la cronologia **esiste** (ultimi 20
+scambi, `load_chat`/`save_chat`), ma è **una sola per persona**
+(`chat_path(username)`). Tutto si mescola in un unico filo, e argomenti diversi
+si contaminano.
+
+Il disegno chiesto, e che va costruito:
+
+| Livello | Cosa contiene | Ambito |
+|---|---|---|
+| **Conversazione** | il filo del discorso: domande e risposte di *questa* chat | una chat |
+| **Memoria** | fatti, agenda, procedure, rubrica, vault, runbook | **tutte** le chat, tutti i dispositivi |
+
+Così una chat sul lavoro non si mescola con una sulla casa, ma un fatto detto
+in una **lo sa anche l'altra** — perché la memoria è già centrale (verificato
+in fase 2: un fatto salvato da Momo lo rilegge Hermes).
+
+Nota tecnica: hermes-agent ha già le sessioni (`gateway/session.py`,
+`session_id` ovunque, `/api/sessions ... /fork`), e il nostro
+`MemoryProvider` riceve già `session_id` in `prefetch` e `sync_turn`. Quindi
+questa richiesta si serve **più facilmente dentro Momo** che dentro l'Hermes
+attuale: è un buon argomento in più per la fusione.
+
+### Gli agenti di Ruflo
+
+Richiesta: *«assicurati che Momo abbia i vari agenti di Ruflo e altro»*.
+Ruflo è già una sorgente dichiarata di questo progetto
+([PIANO_ESECUTIVO_2026-08](PIANO_ESECUTIVO_2026-08.md) §11): da lì vengono il
+router per intenti (fatto, W2.2) e le strategie di scelta (fatte, W2.3). I suoi
+**agenti** non sono ancora stati studiati — va fatto con lo stesso metodo usato
+per `hermes-agent`: leggere il codice, non le note di rilascio, e riferire cosa
+regge davvero.
+
 ## 4. Come si incastra con quello che esiste già
 
 | Pezzo nuovo | Si aggancia a | Stato di partenza |
