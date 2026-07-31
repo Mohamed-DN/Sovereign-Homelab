@@ -11,6 +11,7 @@
 
 | Documento | Cosa contiene |
 |---|---|
+| [PIANO_GENERALE.md](PIANO_GENERALE.md) | **LA FILA DA SEGUIRE (2026-07-31)**: venti punti, dal recupero di tutte le sessioni archiviate. Contiene le undici voci che erano state dimenticate, le tre valutazioni (Langfuse sì, LangChain no, OmniRoute+OpenRouter) e l'automazione add/drop dei servizi. **Sostituisce ORDINE_DEI_LAVORI come fila di lavoro** |
 | [HERMES_PIANO_A_FASI.md](HERMES_PIANO_A_FASI.md) | **Il piano operativo**: fasi 0-8, ognuna con la sua verifica |
 | [HERMES_ARCHITETTURA_COMPLETA.md](HERMES_ARCHITETTURA_COMPLETA.md) | Dove sta ogni pezzo, memoria fuori dal modello, modalità master, voce, privacy |
 | [PIANO_HERMES_ESPANSO.md](PIANO_HERMES_ESPANSO.md) | Voce, web, LLM gratuiti, assistente realtime, creazione contenuti, n8n |
@@ -155,6 +156,33 @@
 | **Cluely / Natively** | assistente realtime sul PC, puntato su OmniRoute e Whisper di casa | valutare |
 | Creazione contenuti (senza volti, persone, musica) | Piper + `ffmpeg`; immagini con ComfyUI **solo se avanza VRAM** | valutare |
 | **Open WebUI** | raccomandazione: **tenerli separati**. Decisione del proprietario | da decidere |
+
+---
+
+### Fase 9 — Recuperate il 2026-07-31 (non erano in nessuna tabella)
+
+> Emerse rileggendo le quattro sessioni archiviate e i file di memoria. La
+> regola di questo documento dice che ciò che non è in tabella è stato
+> dimenticato: queste lo erano. Dettaglio e ordine in
+> [PIANO_GENERALE.md](PIANO_GENERALE.md).
+
+| Cosa | Nota | Stato |
+|---|---|---|
+| **Repo → vault Obsidian** | chiesto dal 2026-07-15, disegnato in [PIANO_HERMES_ESPANSO](PIANO_HERMES_ESPANSO.md) §6, **mai costruito**. Verificato il 2026-07-31: nessuna cartella `Sovereign-Homelab` nel vault, nessuno script nel repo | da fare (punto 3) |
+| **Healthcheck CouchDB rotto** | sonda `/` senza credenziali, CouchDB risponde `401`: **282 giri falliti**. Il servizio è vivo, l'allarme è falso — e un allarme sempre acceso maschera il prossimo vero | da fare (punto 1) |
+| **Due cartelle `VaultMohamed`** | una in `Documents\VaultMohamed\VaultMohamed` (con `.obsidian`, quella viva), una in `C:\Users\Mohamed\VaultMohamed`. Da chiarire prima di scrivere nel vault | da fare (punto 1) |
+| **Primo login OIDC su Headplane** | chi entra per primo ne diventa proprietario: deve essere `mohamed`. **Porta aperta adesso** | da fare (punto 2) |
+| **Ruotare la password admin riusata** | issue #2 §6b, aperta dal 2026-07-14 | da fare (punto 2) |
+| **Ritirare `headscale-ui`** | Headplane è validato: due console sulla stessa cosa sono due superfici | da fare (punto 2) |
+| **Persistere la finestra metriche 20 min** | issue #2 §6b | da fare (punto 2) |
+| **Potare lo snapshot VM110 `preimmich_v302`** | in attesa dal 2026-07-14; tocca Immich, quindi si verifica prima | da fare (punto 2) |
+| **Deprovisioning a scadenza** | tolto un ruolo, dopo una settimana si cancella il profilo sul servizio (chiesto il 2026-07-13) | da verificare |
+| **SSO Tier 1: Proxmox e PBS** | Paperless fatto, questi due no ([ROADMAP](ROADMAP.md) §1) | da fare |
+| **`agent-reach`** | passato il 2026-07-29: YouTube, Reddit, X, GitHub, RSS dove SearXNG non arriva | da fare (punto 19) |
+| **Open WebUI** | domanda chiusa: **spento e rimosso**, verificato sul vivo il 2026-07-31 (container assente, porta 3004 muta) | ✅ |
+| **Langfuse (A7)** | confermato come scelta migliore. Nota: **ClickHouse ha acquisito Langfuse il 2026-01-16** — resta MIT e self-hostable | da fare (punto 5) |
+| **`sovereign-service.py new` / `drop`** | richiesta del 2026-07-31: automatizzare la parte comune, censire la variabile in un manifesto, e un drop pulito che di default **non tocca i dati** | da fare (punti 6-7) |
+| **Momo crea contenuti** | testo, voce (Piper), montaggio (`ffmpeg`), immagini (ComfyUI solo se avanza VRAM). Vincolo confermato: niente volti, esseri viventi, musica | da fare (punto 16) |
 
 ---
 

@@ -1,0 +1,599 @@
+# Il piano generale — venti punti, tutto quello che c'è in ballo
+
+> Scritto il 2026-07-31 su mandato del proprietario: *«tutti i piani che sono da
+> fare o non ancora iniziati mettili e implementali però prima recuperali tutti,
+> ri-architetta il tutto poi procedi»*, e *«riorganizzare il mega plan in vari
+> punti anche 10 o 20 quanti ne servono»*.
+>
+> **Questo documento sostituisce [ORDINE_DEI_LAVORI.md](ORDINE_DEI_LAVORI.md)**
+> come fila di lavoro. Quello resta valido come ragionamento sul criterio; qui
+> c'è la fila completa, con dentro anche ciò che era stato perso per strada.
+>
+> Come è stato costruito: rilette le **quattro sessioni di lavoro archiviate**
+> (130 messaggi del proprietario, dal 2026-07-09 al 2026-07-31), tutti i 19
+> documenti di `00_overview/`, i file di memoria, e **verificato sul vivo** ciò
+> che si poteva verificare. Dove non ho provato, lo dico.
+
+---
+
+## 0. Cosa ho trovato recuperando, che non era in nessun piano
+
+Queste sono le voci emerse **solo** dalla rilettura delle vecchie sessioni e dei
+file di memoria. Non stavano in `PIANO_MASTER.md`, e la regola scritta lì dice
+che ciò che non è in tabella è stato dimenticato. Erano dimenticate.
+
+| | Cosa | Da dove viene | Stato reale |
+|---|---|---|---|
+| R1 | **Repo → vault Obsidian**: la documentazione dentro Obsidian | chiesto il 2026-07-15, ridisegnato in [PIANO_HERMES_ESPANSO](PIANO_HERMES_ESPANSO.md) §6 | **mai costruito** — è la tua domanda di oggi, dettaglio al §1 |
+| R2 | **Healthcheck di CouchDB rotto** | trovato **oggi, sul vivo** | **282 giri falliti**: il container è `unhealthy` da giorni |
+| R3 | **Deprovisioning a scadenza**: tolto un ruolo, dopo una settimana si cancella il profilo sul servizio | sessione 2026-07-13, msg #47 | da verificare se fatto |
+| R4 | **Ruotare la password admin riusata** | memoria `console-and-mirror-inflight`, issue #2 §6b | **aperto** — debito di sicurezza |
+| R5 | **Ritirare `headscale-ui`** dopo la validazione di Headplane | stessa fonte | aperto |
+| R6 | **Persistere la finestra metriche a 20 minuti** | stessa fonte | aperto |
+| R7 | **Primo login OIDC su `headplane.internal` deve essere mohamed** (il primo che entra ne diventa proprietario) | stessa fonte | **aperto, e ha una scadenza implicita** |
+| R8 | **Potare lo snapshot VM110 `preimmich_v302`** | stessa fonte | aperto dal 2026-07-14 |
+| R9 | **`agent-reach`** per arrivare dove SearXNG non arriva | passato dal proprietario il 2026-07-29 | mai fatto |
+| R10 | **SSO Tier 1: Proxmox e PBS** | ROADMAP §1 | Paperless fatto, gli altri due no |
+| R11 | **Open WebUI senza admin rivendicato** | trovato il 2026-07-31 | **risolto spegnendolo** — ma il lavoro era rimasto **non committato**: vedi §0-bis |
+
+### 0-bis. Lavoro finito e mai committato: Open WebUI
+
+Trovati **19 file modificati** nel repository, non committati. Letti: sono un
+lavoro coerente e concluso — **la rimozione di Open WebUI** dall'impianto.
+
+Verificato sul vivo il 2026-07-31, perché un documento che dice «rimosso» non è
+una prova:
+
+| Controllo | Risultato |
+|---|---|
+| Container `open-webui` | **non esiste più**, nemmeno fermo |
+| Porta 3004 | nessuna risposta |
+| `ai.internal` in NPM, Homepage, matrici DNS/porte/visibilità | rimosso dai documenti, coerente con il vivo |
+
+Quindi la domanda aperta di ieri — *«creare l'admin o spegnere il servizio?»* —
+**è stata decisa e eseguita**: spento. Restava solo da committare. Un impianto
+vivo e un repository che non lo racconta è la situazione che questo progetto
+evita per principio, e ci mancava un commit.
+
+E una cosa che **era** stata chiesta e che invece **è stata fatta** — la scrivo
+perché cercandola non l'avevo trovata nei piani e ho rischiato di rifarla:
+l'invito VPN dal pannello IAM, l'auto-aggiornamento di Immich con ritorno
+indietro a 24 ore, e i top-3 consumatori nei grafici. Fatti il 2026-07-14, sono
+solo nel file di memoria e non in `PIANO_MASTER.md`.
+
+---
+
+## 1. La tua domanda: dove sono i repo dentro Obsidian
+
+**Non ci sono, e non ci sono mai stati.** Non è che si siano persi: quel pezzo
+non è mai stato costruito. Te lo dico con la prova, perché è esattamente il
+tipo di cosa su cui non voglio farti credere il contrario.
+
+Verificato oggi:
+
+| Controllo | Risultato |
+|---|---|
+| Il vault vero | `C:\Users\Mohamed\Documents\VaultMohamed\VaultMohamed\` |
+| Contiene una cartella `Sovereign-Homelab`? | **no** — ci sono `00 Dashboard`, `01 Daily` … `07 Notes`, `Broway`, `Excalidraw`, `Reply` |
+| Esiste uno script che copia `docs/` nel vault? | **no**, in tutto il repository |
+| Lo stato dichiarato nei piani | `PIANO_MASTER.md` §3 Fase 4: *«Repo → vault: la documentazione dentro Obsidian — **da fare**»* |
+
+Quindi il piano era giusto e scritto ([PIANO_HERMES_ESPANSO](PIANO_HERMES_ESPANSO.md)
+§6, con il verso `repo docs/ → script sul PC → vault → LiveSync → CouchDB`), ma
+nessuno l'ha mai eseguito. È il **punto 3** di questa fila, e non è tre ore: è
+uno script e un timer.
+
+Nel cercarlo ho trovato altre due cose che ti riguardano:
+
+- **Due cartelle `VaultMohamed`**, una in `Documents\VaultMohamed\VaultMohamed`
+  (quella vera, con `.obsidian`) e una in `C:\Users\Mohamed\VaultMohamed` che
+  contiene solo `Reply`. Più due backup di configurazione del 30 luglio. Da
+  chiarire quale sia autorevole prima di scriverci dentro: sbagliare cartella
+  qui significa scrivere note in un posto che nessuno sincronizza.
+- **CouchDB risulta `unhealthy` da 282 controlli** — ma il servizio **è vivo**.
+  L'healthcheck interroga `/` senza credenziali e CouchDB risponde `401`. È un
+  falso allarme, però è la stessa classe di problema del `HEALTH_WARN` di Ceph:
+  un allarme sempre acceso maschera il prossimo allarme vero.
+
+---
+
+## 2. Le tre valutazioni che mi hai chiesto
+
+Criterio che mi hai dato, e che seguo: **il migliore, non il più leggero.**
+*«non lightweight ma the best if not use langh»*.
+
+### 2.1 Langfuse — **sì, ed è la scelta giusta**
+
+Serve a un difetto documentato e tuo: *«gli strumenti dei sotto-agenti non sono
+visibili in pagina»* — vedi il piano, non le singole chiamate. Era già in coda
+come **A7** in [PIANO_AGGIORNAMENTO_DA_NEXI](PIANO_AGGIORNAMENTO_DA_NEXI.md), e
+lo stesso Nexi lo usa.
+
+È il capofila dichiarato del settore (31,5k stelle, licenza MIT, self-hosting
+senza limitazioni). Due cose da sapere prima di dire sì:
+
+- **ClickHouse ha acquisito Langfuse il 16 gennaio 2026.** Resta MIT e resta
+  self-hostable, ma la proprietà è cambiata: per un progetto che sceglie
+  l'open source per sovranità, è un fatto da mettere agli atti, non da
+  scoprire dopo. La difesa è la solita di questa casa: gira in casa, i dati non
+  escono, e se un giorno la licenza cambia si esporta e si sostituisce.
+- **Costa in servizi**: la versione self-hosted vuole Postgres, ClickHouse,
+  Redis e un archivio compatibile S3. Postgres e Valkey ci sono già; ClickHouse
+  e MinIO sono nuovi. **Oggi è sostenibile**: dopo il passaggio a 32 core LXC
+  102 gira con il nodo a 2,44 di carico su 40.
+
+Le alternative che ho valutato e **scartato** per questo caso: *Arize Phoenix*
+(più leggero e OTel-nativo, ma meno completo su prompt e valutazioni), *Opik*
+(Apache 2.0, buono, comunità minore), *OpenObserve* (AGPL, ottimo come
+telemetria generale, non specializzato sugli agenti). Se il criterio fosse
+stato «il più leggero» avrei detto Phoenix. Il criterio è «il migliore», e su
+tracce di agenti il migliore è Langfuse.
+
+### 2.2 LangChain — **no, e non è una questione di peso**
+
+Qui la risposta non cambia rispetto a quella già scritta nel piano di Nexi, e il
+tuo criterio la rafforza invece di ribaltarla.
+
+Il motivo non è che LangChain sia pesante: è che **il lavoro che farebbe è già
+fatto meglio**. Momo gira su `hermes-agent` di NousResearch, che ha già
+sessioni, plugin, strumenti, orchestratore di sotto-agenti e sette adattatori
+di messaggistica. Mettere LangChain accanto significa avere **due** astrazioni
+per la stessa cosa, e la nostra conosce questa casa — ruoli, filtro
+privato/non privato, Guardrail — mentre LangChain no. Non è un aggiornamento,
+è un secondo strato da tenere allineato.
+
+**La cosa migliore per «Momo crea funzioni e flussi nuovi» esiste e non è
+LangChain: è MCP** (`Model Context Protocol`), già in coda come **W6.4** nel
+[piano esecutivo](PIANO_ESECUTIVO_2026-08.md). `hermes-agent` ha già
+`mcp_serve.py`. Se il *nostro* Hermes impara a parlare MCP **da client**, ogni
+server MCP che esiste al mondo diventa uno strumento senza scrivere una riga di
+codice nostro. È la risposta strutturale a «poche opzioni», ed è lo standard
+che l'industria ha scelto. Un flusso nuovo poi si salva nell'**Automation
+Library** (punto 8), che è il pezzo che ti fa dire a Momo «l'hai già fatto una
+volta, rifallo».
+
+### 2.3 OpenRouter e OmniRoute — **tutti e due, con ruoli diversi**
+
+Non sono in concorrenza:
+
+| | Cos'è | Ruolo |
+|---|---|---|
+| **OmniRoute** | il gateway **in casa**, già installato su LXC 102, dietro SSO e con chiave API | il commutatore locale: sceglie fra la GPU del PC, quella del server e i fornitori |
+| **OpenRouter** | un servizio **esterno**, già presente come preset in `providers-presets.json` | il ripiego del ripiego, e solo per lavoro non privato |
+
+La cosa utile che OpenRouter sa fare e che va sfruttata: si passa un **array
+`models`** in ordine di preferenza e lui scende da solo al successivo quando il
+primo è giù, a corto di contesto o rifiuta. Cioè il *fallback* non lo devi
+scrivere tu. Attenzione a un dettaglio dell'API: `models` e il campo `fallbacks`
+**non si possono combinare** — insieme danno errore 400.
+
+**Il vincolo che non si tocca**: la rotta `privato` non può cadere su un motore
+non privato, nemmeno se è l'unico acceso. Vale già ed è verificata contro un
+tentativo esplicito di forzarla. OpenRouter è un motore non privato: vault,
+memoria, impianto e rubrica non lo vedono mai.
+
+---
+
+## 3. La fila — venti punti
+
+Il criterio dell'ordine è quello di sempre: **cosa sblocca cosa**, le **guardie
+prima dei poteri**, a parità vince **l'uso quotidiano**, e ogni voce ha una
+**verifica eseguibile**.
+
+### ONDATA A — Chiudere quello che è aperto (prima di aggiungere)
+
+*Nessuna di queste è nuova. Sono buchi trovati oggi o rimasti indietro, e
+lasciarli aperti mentre si costruisce sopra è il modo di pagarli due volte.*
+
+---
+
+#### **1 · Obsidian: il vault giusto, e l'healthcheck che mente** ⏱ ~1 ora
+
+Il prerequisito del punto 3: prima di scrivere nel vault bisogna sapere **quale**
+vault.
+
+- Stabilire quale delle due cartelle `VaultMohamed` è quella viva (probabile:
+  `Documents\VaultMohamed\VaultMohamed`, l'unica con `.obsidian`), e cosa
+  farne dell'altra e dei due backup di configurazione del 30 luglio.
+- Correggere l'healthcheck di `obsidian-couchdb`: deve interrogare con le
+  credenziali, oppure un endpoint che non le richiede (`/_up`). Oggi fallisce
+  con `401` da 282 giri.
+- Confermare che LiveSync sincronizza davvero, contando i documenti nei
+  database di CouchDB prima e dopo una nota di prova.
+
+*Verifica*: `docker inspect` dice `healthy`; una nota scritta sul PC compare sul
+telefono; il conteggio documenti sale.
+
+---
+
+#### **2 · Il debito di sicurezza rimasto aperto** ⏱ ~2 ore
+
+Quattro voci da `console-and-mirror-inflight` e dall'issue #2 §6b, ferme dal 14
+luglio. Sono piccole singolarmente, e una ha una scadenza vera.
+
+- **R7 — il primo login OIDC su `headplane.internal` deve essere `mohamed`**:
+  chi entra per primo ne diventa proprietario. Finché nessuno entra, la porta è
+  aperta a chiunque abbia accesso alla VPN. **Questa va per prima.**
+- **R4 — ruotare la password admin riusata.** È la stessa password usata in più
+  posti; il repo la tratta già come nota (`password-try-first`), il che la
+  rende un punto singolo di rottura.
+- **R5 — ritirare `headscale-ui`** ora che Headplane è validato: due console
+  sulla stessa cosa sono due superfici da difendere.
+- **R6 — persistere la finestra metriche a 20 minuti**, così i grafici non
+  ripartono da zero a ogni riavvio e i picchi restano leggibili.
+- **R8 — potare lo snapshot VM110 `preimmich_v302`**, in attesa dal 14 luglio.
+  Tocca Immich: si verifica che Immich è sano **prima**, e non si tocca altro.
+
+*Verifica*: Headplane risponde `mohamed` come proprietario; la vecchia password
+non apre più niente; `headscale-ui` non risponde più; i grafici sopravvivono a
+un riavvio; `pvesm`/`qm` non elencano più lo snapshot.
+
+---
+
+#### **3 · Repo → vault: la documentazione dentro Obsidian** ⏱ ~2 ore
+
+**La tua richiesta di oggi.** Il disegno è già deciso e non va cambiato — va
+solo eseguito.
+
+```
+repo docs/ ──(script sul PC)──> vault locale ──(LiveSync)──> CouchDB ──> Hermes/Momo
+```
+
+- **Direzione unica**: repo → vault. La fonte di verità resta git. Il contrario
+  corromperebbe il vault e non è negoziabile.
+- **Mai scrivere dentro CouchDB da fuori**: LiveSync tiene le note a pezzi con
+  una sua logica di revisioni. Si scrive nel vault **sul disco**, e sincronizza
+  Obsidian. È la stessa ragione per cui `vault_scrivi` è confinato a
+  `07 Notes/Hermes/`.
+- Destinazione: `VaultMohamed/Sovereign-Homelab/`, con un timer che ripassa a
+  ogni commit o a orario fisso.
+- Nel vault vanno **documentazione e README**; il codice sorgente no (punto 15).
+
+*Verifica*: apri Obsidian sul telefono e trovi `Sovereign-Homelab/00_overview/PIANO_GENERALE.md`
+— questo file. Poi chiedi a Hermes «come si ripara Nextcloud» e cita il runbook.
+
+---
+
+#### **4 · Il Verificatore e l'interruttore globale** ⏱ ~3 ore
+
+Sono **A3** e **A4** di Nexi, e servono a tutto ciò che viene dopo.
+
+- **A4 — interruttore `RUNNING`/`PAUSED`**, letto da ogni agente prima di ogni
+  giro. In pausa dorme, non muore: la chat continua, le azioni si fermano. È
+  più utile di `systemctl stop` ed è il prerequisito onesto delle sandbox
+  (punto 9).
+- **A3 — il Verificatore**: prima di allarmare, un secondo passaggio confronta
+  la previsione con lo stato reale e classifica `REAL_CRITICAL` /
+  `REAL_WARNING` / `FALSE_ALARM`, **con una regola deterministica di riserva**
+  quando il modello non risponde o risponde male. È la cura del 502 di
+  Nextcloud che colora tutto di rosso una volta su quattro — e la stessa
+  medicina che serviva all'healthcheck del punto 1.
+
+*Verifica*: messo in `PAUSED`, un'azione MASTER viene rifiutata e la chat
+risponde ancora; un 502 singolo di Nextcloud non genera più un allarme.
+
+---
+
+### ONDATA B — Vedere, e industrializzare
+
+*Prima di dare più potere a Momo, bisogna poter vedere cosa fa. E prima di
+aggiungere il ventitreesimo servizio, conviene smettere di aggiungerli a mano.*
+
+---
+
+#### **5 · Langfuse: vedere cosa fanno davvero gli agenti** ⏱ ~4 ore
+
+Il punto 2.1 spiega perché lui e non altri. Cosa comporta:
+
+- Stack nuovo su LXC 102: Langfuse + ClickHouse + MinIO, riusando il Postgres e
+  il Valkey che già ci sono.
+- Strumentare `sovereign-hermes.py` e i plugin di Momo: ogni chiamata di
+  strumento, ogni passaggio dello sciame, ogni verdetto del Guardrail diventa
+  una traccia.
+- In pagina: dalla risposta si arriva alle **singole chiamate**, non solo al
+  piano. Chiude il difetto noto.
+- Le tracce contengono l'uscita vera degli strumenti — quindi **restano in
+  casa**, dietro SSO, e valgono le regole di `PRIVATE_TOOLS`.
+
+*Verifica*: fai una domanda che accende lo sciame e in Langfuse vedi l'albero
+completo con i tempi; una bugia presa dal Guardrail si ritrova nella traccia
+con il motivo.
+
+---
+
+#### **6 · Aggiungere un servizio con un comando** ⏱ ~4 ore
+
+**La tua richiesta**, con le tue parole: *«le cose comuni le automatizziamo, le
+cose che possono cambiare le manteniamo separate ma censite»*. È esattamente il
+disegno giusto, e il repository è già a metà strada: c'è `deploy.sh <service>`,
+c'è `common_docker_app_pattern.md` con il contratto, c'è la checklist di
+accettazione. Quello che manca è **il censimento** e **l'esecutore**.
+
+La parte **variabile e censita** — un manifesto per servizio, `services/<nome>.yaml`:
+
+```yaml
+nome: mealie
+immagine: ghcr.io/mealie-recipes/mealie:v3.0.2   # sempre appuntata, mai :latest
+host_interno: mealie.internal
+lxc: 102
+porta: 9925
+sso: authentik-oidc          # oppure: forward-auth | nessuno
+dati:
+  - /opt/sovereign-homelab/data/mealie
+backup: pbs                  # oppure: restic | nessuno
+sacro: false                 # true = non si tocca, mai
+```
+
+La parte **comune e automatica** — `sovereign-service.py new <nome>`, che dal
+manifesto fa da sé, in ordine, tutto il contratto: stack da modello, DNS in
+AdGuard, host proxy in NPM **via API** (mai file scritti a mano — è una trappola
+già pagata), provider Authentik, tessera su Homepage, monitor su Kuma, copertura
+di backup, e lo scheletro del runbook in `docs/04_apps/`.
+
+*Verifica*: un servizio nuovo di prova entra in produzione con un comando e
+`validate-repository.ps1` passa 10 gruppi su 10 senza ritocchi a mano.
+
+---
+
+#### **7 · Toglierlo con un comando, e pulito** ⏱ ~2 ore
+
+*«per rimuoverle c'è sempre script di drop pulito»*. Sì, ed è la metà che di
+solito nessuno scrive — motivo per cui gli impianti si sporcano.
+
+`sovereign-service.py drop <nome>` legge lo **stesso** manifesto e disfa in
+ordine inverso: monitor, tessera, provider SSO, host proxy, DNS, container,
+volumi. Con tre regole che non si negoziano:
+
+1. **I dati non si toccano di default.** Il drop ferma e rimuove il servizio;
+   cancellare i dati richiede `--purge-data` e una conferma esplicita, con il
+   percorso scritto sotto gli occhi.
+2. **La lista sacra è compilata a codice**: Immich, Vaultwarden, NPM, AdGuard,
+   Headscale, PBS, Authentik. Sono già esclusi dai controlli della dashboard;
+   qui vale lo stesso, e `sacro: true` nel manifesto non basta — deve essere
+   nel codice, perché un file si modifica e il divieto no.
+3. **Prima si prova a vuoto**: `--dry-run` stampa cosa toccherebbe.
+
+Questo punto è anche il prerequisito pulito del **punto 9** (le sandbox): un
+teardown che sa disfare solo ciò che un manifesto dichiara è la stessa forma del
+teardown che può distruggere solo ciò che ha creato.
+
+*Verifica*: metti su un servizio finto, toglilo, e l'impianto torna identico a
+prima — nessun host proxy orfano, nessun monitor in rosso, nessuna voce in
+Homepage, e i dati ancora lì finché non chiedi tu di cancellarli.
+
+---
+
+### ONDATA C — Momo che fa
+
+---
+
+#### **8 · Automation Library + MCP: come Momo impara funzioni nuove** ⏱ ~5 ore
+
+È la risposta vera a *«facilitare a Momo di creare nuove funzioni e flussi»*.
+Due pezzi che si tengono:
+
+- **MCP da client** (W6.4): ogni server MCP esistente diventa uno strumento
+  senza codice nostro. Va **dopo** MASTER, perché uno strumento MCP è codice di
+  qualcun altro dentro il nostro processo, e passa dalla stessa guardia
+  privato/non privato.
+- **Automation Library**: **Qdrant** per cercare *lo scopo* di uno script
+  («deploy database vettoriale»), **Postgres `JSONB`** per il *payload* vero
+  (bash, Compose, Ansible). Stessa divisione già usata per le procedure — i
+  vettori per trovare, il relazionale per l'esattezza, perché una procedura si
+  esegue passo per passo e deve tornare **esatta**, non somigliante.
+  Con il **riciclo** (prima di scrivere, cerca se sa già farlo) e
+  l'**auto-salvataggio** (se il test passa, si salva da solo).
+
+*Verifica*: chiedi due volte la stessa cosa a distanza di giorni; la seconda
+volta la ritrova invece di riscriverla, e lo dice.
+
+---
+
+#### **9 · Sandbox con ciclo di vita** ⏱ ~4 ore
+
+Creare, testare, **distruggere**. Dopo il Guardrail (fatto) e dopo il punto 7,
+mai prima.
+
+La regola che concilia con il divieto assoluto, con le tue parole — *«può
+cancellare le robe che lui crea»*: l'orchestratore Python tiene il **registro di
+ciò che ha creato** e passa al teardown **solo identificatori presi da lì**, mai
+un nome costruito dal modello. La guardia sull'host resta l'ultima parola:
+`qm destroy`, `zfs destroy`, `rm -rf` restano vietati comunque, sandbox o no.
+
+---
+
+#### **10 · Tool statistici (ARIMA e simili)** ⏱ ~2 ore
+
+**Un LLM non calcola, stima** — e una stima presentata come calcolo è una bugia
+con i decimali. Microservizi Python per previsioni e regressioni. Chiude anche
+**A6** di Nexi: «`ssd_pool` piena fra 40 giorni» vale più di «al 26%».
+
+Piccolo, isolato, non può rompere niente.
+
+---
+
+#### **11 · La squadra a grafo** ⏱ ~3 ore
+
+Il flusso scende e risale: uno sviluppatore che trova un problema di sicurezza
+passa al CISO, che può rimandare all'architetto. Oggi lo sciame è lineare.
+
+**Tre freni obbligatori prima di scrivere una riga**, perché un grafo senza
+freni non termina: tetto ai salti (e cosa si risponde quando lo si raggiunge),
+rilevamento dei cicli, e i nostri **13 ruoli** mantenuti nel plugin —
+`delegate_task` di hermes-agent ne conosce due.
+
+---
+
+#### **12 · Il Sinker completo a 4 fasi** ⏱ ~4 ore
+
+Sink → Compute → Surface → Guardrail. La fase 4 è già fatta. Va **dopo il punto
+19** (la GPU del server), perché tre chiamate a un modello sulla CPU sono
+inusabili — con la via breve che degrada a Surface + Guardrail quando la GPU non
+c'è, invece di farti aspettare un minuto.
+
+---
+
+### ONDATA D — Quello che usi ogni giorno
+
+---
+
+#### **13 · Più conversazioni, una sola memoria** ⏱ ~2 ore
+
+Il difetto che hai trovato tu provando: *«valutava solo la nuova domanda
+scordandosi del filo logico»*. La cronologia esiste ma è **una sola per
+persona**, quindi argomenti diversi si contaminano.
+
+| Livello | Contiene | Ambito |
+|---|---|---|
+| **Conversazione** | il filo del discorso | una chat |
+| **Memoria** | fatti, agenda, procedure, rubrica, vault, runbook | **tutte** le chat, tutti i dispositivi |
+
+È facile adesso: hermes-agent ha già le sessioni e il nostro `MemoryProvider`
+riceve già `session_id`.
+
+---
+
+#### **14 · Telegram** ⏱ ~2 ore
+
+Bot `@dn_momo_bot` e token pronti dal 30 luglio. Oggi non risponde perché **non
+è collegato a niente**. Si usa l'adattatore di hermes-agent, non un bot scritto
+a mano.
+
+**Il vincolo che non si tocca**: mappatura `id Telegram → utente di casa`
+compilata a mano, sconosciuti rifiutati. Un id di Telegram non è un'identità.
+
+---
+
+#### **15 · La voce, tutta in casa** ⏱ ~5 ore
+
+Il pulsante voce oggi *parla* ma non *ascolta*: l'ingresso non è mai stato
+costruito. Registratore in pagina → **Faster-Whisper** sul PC → **Piper** sul
+server per la risposta parlata (funziona anche a PC spento) → **XTTSv2** per la
+tua voce.
+
+**Deciso il 30 luglio: niente ElevenLabs.** La tua voce non esce dall'impianto.
+
+---
+
+#### **16 · Momo che crea contenuti al posto tuo** ⏱ ~4 ore
+
+**La tua richiesta di oggi**, e il vincolo che avevi posto e che resta: niente
+volti, niente esseri viventi, niente musica. Restano testo, voce sintetica,
+immagini di oggetti/luoghi/diagrammi/astratto, e il montaggio.
+
+| Pezzo | Strumento | Dove |
+|---|---|---|
+| Testo | Momo, con la sua persona | server |
+| Voce narrante | Piper | server |
+| Trascrizione di partenza | Faster-Whisper | PC (GPU) |
+| Immagini | ComfyUI | PC (GPU) — **solo se avanza VRAM** |
+| Montaggio | `ffmpeg` | server |
+
+Nessun servizio a pagamento. Il pezzo pesante è ComfyUI: contende la VRAM ai
+modelli, quindi va per ultimo e si accende a richiesta.
+
+---
+
+### ONDATA E — La conoscenza
+
+---
+
+#### **17 · I dieci repository** ⏱ ~3 ore
+
+Misurati: **12,7 MB di testo in 2 683 file**. Divisione già decisa:
+documentazione e README **nel vault** (leggeri, tutti i plugin funzionano,
+funziona offline); codice sorgente **sui database** (nessun peso sul telefono).
+Si appoggia al punto 3.
+
+---
+
+#### **18 · Il plugin Obsidian che legge dai database** ⏱ ~5 ore
+
+I dati stanno sul server una volta sola, ogni dispositivo li legge dal vivo — la
+cosa che chiedevi il 30 luglio: *«io da qualsiasi posto posso vedere e leggere e
+collegarmi se sono dentro la rete o vpn»*.
+
+**Due verifiche aperte prima di scrivere una riga**: `requestUrl` su Obsidian
+iOS, e il fatto che `.obsidian` non si sincronizza (LiveSync ha
+`syncInternalFiles = false`) — quindi il plugin va installato a mano su ogni
+dispositivo, o si accende la sincronizzazione dei file nascosti.
+
+---
+
+#### **19 · `agent-reach` e gli agenti di Ruflo** ⏱ ~4 ore
+
+- **agent-reach** (R9): arrivare dove SearXNG non arriva — YouTube, Reddit, X,
+  GitHub, RSS. Partendo dai canali che non richiedono chiave. Passa dalle
+  guardie esistenti di `web_fetch` (rifiuto degli indirizzi interni, difesa
+  SSRF).
+- **Gli agenti di Ruflo**: da studiare con lo stesso metodo usato per
+  hermes-agent — **leggere il codice, non le note di rilascio**, e riferire
+  cosa regge davvero. Da Ruflo sono già venuti il router per intenti e le
+  strategie di scelta, entrambi fatti.
+- **Google Calendar**: appuntamenti sul calendario vero, non solo nell'agenda
+  interna. Serve OAuth.
+
+---
+
+### ONDATA F — La potenza
+
+---
+
+#### **20 · La GPU del server (T600, 4 GB)** ⏱ ~1 ora
+
+La scheda c'è e **non la usa niente**: `nvidia-smi` non è nemmeno installato. In
+4 GB ci sta `qwen3.5:4b`, che è esattamente il modello di scorta che oggi
+arranca sulla CPU.
+
+**Declassata di proposito** dal primo posto: dopo il passaggio a 32 core
+l'embedding sulla CPU è sceso da 3 677 ms a **264 ms**, e il guadagno atteso è
+molto minore di quando la corsia lenta costava 3,7 secondi. Resta però il
+prerequisito del punto 12 (il Sinker completo).
+
+*Verifica*: `qwen3.5:4b` risponde dalla GPU del server, misurato prima e dopo —
+un numero misurato vale più di una promessa.
+
+---
+
+## 4. L'ordine, e cosa dipende da cosa
+
+```
+1 Obsidian sano ─────> 3 repo→vault ─────> 17 i dieci repo ──> 18 plugin dai DB
+2 debito sicurezza
+4 verificatore+pausa ──┬──> 9 sandbox
+                       └──> tutto ciò che agisce
+5 Langfuse (vedere)  ──────> serve a controllare 8..12
+6 add servizio ──> 7 drop pulito ──> 9 sandbox
+8 Automation Library + MCP ──> 11 grafo
+20 GPU server ──> 12 Sinker completo
+13/14/15/16  indipendenti: si possono fare in qualunque momento
+```
+
+**Da dove si comincia**: dal punto **2**, e dentro il 2 dal primo login di
+Headplane — è l'unica voce di tutta la fila che ha una porta aperta adesso.
+Poi 1, poi 3: in mezza giornata hai chiuso i buchi e hai i repo dentro Obsidian.
+
+## 5. Regole che valgono per ogni punto
+
+- **Verifica prima di dichiarare.** Un passo è finito quando la verifica passa,
+  non quando il codice è scritto.
+- Si committa solo con `scripts/validate-repository.ps1` che passa **10 gruppi
+  su 10**.
+- Un runbook nuovo in `docs/04_apps/` rispetta il contratto: scopo, sizing, DNS,
+  NPM, Homepage, Kuma, backup, restore, rollback, troubleshooting, sorgenti —
+  più la sezione **Edge Cases** (A8 di Nexi): «cosa succede se va a metà»,
+  scritto *prima*.
+- Gli host proxy in NPM si aggiungono **via API**, mai scrivendo file di conf.
+- Commenti in inglese, messaggi all'utente in italiano, Python di sola libreria
+  standard dove possibile.
+
+## 6. Sorgenti
+
+- Le quattro sessioni archiviate, 2026-07-09 → 2026-07-31 (130 messaggi del proprietario)
+- [ORDINE_DEI_LAVORI.md](ORDINE_DEI_LAVORI.md) · [PIANO_MASTER.md](PIANO_MASTER.md) · [VISIONE_COMPLETA.md](VISIONE_COMPLETA.md)
+- [PIANO_ESECUTIVO_2026-08.md](PIANO_ESECUTIVO_2026-08.md) · [PIANO_AGENT_MOMO.md](PIANO_AGENT_MOMO.md) · [PIANO_MOMO_DIGITAL_TWIN.md](PIANO_MOMO_DIGITAL_TWIN.md)
+- [PIANO_AGGIORNAMENTO_DA_NEXI.md](PIANO_AGGIORNAMENTO_DA_NEXI.md) · [PIANO_HERMES_ESPANSO.md](PIANO_HERMES_ESPANSO.md)
+- Langfuse, licenza e self-hosting — <https://langfuse.com> · acquisizione ClickHouse del 2026-01-16
+- Alternative valutate — <https://openobserve.ai/blog/langfuse-alternatives/> · <https://www.firecrawl.dev/blog/best-llm-observability-tools>
+- OpenRouter, fallback fra modelli — <https://openrouter.ai/docs/guides/routing/model-fallbacks>
+- Alternative a LangChain, panorama 2026 — <https://www.firecrawl.dev/blog/best-open-source-agent-frameworks>
