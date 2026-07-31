@@ -1,0 +1,10 @@
+name: sovereign-guardrail
+version: 1.0.0
+description: "Guardrail — la difesa anti-bugia: quello che Momo DICE confrontato con quello che ha FATTO. Regola deterministica prima, modello solo per ciò che la regola non copre."
+author: Sovereign Homelab
+pip_dependencies: []
+requires_env: []
+hooks:
+  - pre_llm_call
+  - post_tool_call
+  - transform_llm_output

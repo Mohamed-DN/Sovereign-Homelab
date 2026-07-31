@@ -30,6 +30,14 @@ services:
     - OLLAMA_BASE_URL=http://ollama:11434
     - WEBUI_SECRET_KEY=${WEBUI_SECRET_KEY}
     - WEBUI_AUTH=${WEBUI_AUTH:-True}
+    # Found open on 2026-07-31: `ai.internal` is reachable without Authentik
+    # forward-auth (documented as "VPN only", unlike the "VPN/Auth" tier), and
+    # Open WebUI's own signup was ON with no admin claimed yet -- the first
+    # visitor to reach it becomes instance owner with unguarded direct access
+    # to Ollama (no memory guard, no privacy filter, no MASTER, none of the
+    # guardrails this project builds everywhere else). Signup OFF by default
+    # closes that door without deciding whether Open WebUI stays at all.
+    - ENABLE_SIGNUP=${ENABLE_SIGNUP:-False}
     ports:
     - "${OPEN_WEBUI_PORT}:8080"
     volumes:
