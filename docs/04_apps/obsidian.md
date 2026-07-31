@@ -638,6 +638,42 @@ authenticated CouchDB user — do not skip it.
   Configuration block for `obsidian.internal` (§4) is still intact —
   clearing it reverts to NPM's default proxy timeouts, which are too short
   for CouchDB's replication protocol on slow links.
+- **⚠️ §3's entire configuration lives only in the running container's
+  writable layer, not in a volume or in git — any recreate silently wipes
+  it, and the container comes back up looking completely normal.** Found and
+  fixed live on 2026-07-31: `docker inspect obsidian-couchdb` had reported
+  `unhealthy` for 282+ checks. Root cause was benign and matched the
+  troubleshooting entry above (the Docker-level `healthcheck:` in
+  `docker-compose.yml` curls `/_up` **without credentials**, and
+  `require_valid_user=true` correctly 401s that too — Kuma's own monitor
+  already tolerates this via `accepts 200-399,401`; only Docker's own
+  container-health field was affected, and nothing in this stack acts on
+  that field). While investigating a fix, `docker compose up -d
+  --force-recreate` was run to test a healthcheck change — and this **wiped
+  every §3 setting**, because CouchDB's `PUT /_node/_local/_config/...`
+  calls persist to `/opt/couchdb/etc/local.d/docker.ini`, which is part of
+  the container's own filesystem layer, not the `obsidian_data` volume
+  (which only covers `/opt/couchdb/data`). The container restarted
+  `healthy`, `/_up` returned `200`, and **`_all_dbs`/`obsidiandb` still
+  correctly 401'd without credentials** (CouchDB's default posture with a
+  real admin configured happens to still require auth for data endpoints
+  even with `require_valid_user` unset) — so no vault data was ever exposed,
+  but the deliberate, documented boundary in §3 was silently gone, and nothing
+  would have signalled that short of noticing `/_up` had gone from 401 to 200.
+  **Restored** by re-running the exact §3 `PUT` sequence and verifying the
+  same live checks documented there (`_all_dbs` no-creds → `401`, with creds
+  → `200`, both `require_valid_user` keys read back `"true"`).
+  **Until this is fixed properly** (a git-tracked `local.d` ini file that
+  survives recreates — attempted once, crash-looped the container with no
+  log output even mounting a single read-only file into
+  `/opt/couchdb/etc/local.d/`, not yet root-caused; needs testing against a
+  disposable CouchDB container, not this live one, before trying again): do
+  **not** run `--force-recreate` or `down && up` on `obsidian-couchdb` without
+  immediately re-running the §3 sequence afterward and re-verifying the two
+  `require_valid_user` keys read back `"true"`. A PBS/container restart from
+  an existing image (`docker compose restart`, a host reboot with containers
+  already created) does **not** touch the writable layer and is safe; only
+  removing and recreating the container is the risk.
 
 ## 12. Official Sources
 

@@ -187,22 +187,45 @@ lasciarli aperti mentre si costruisce sopra è il modo di pagarli due volte.*
 
 ---
 
-#### **1 · Obsidian: il vault giusto, e l'healthcheck che mente** ⏱ ~1 ora
+#### **1 · Obsidian: il vault giusto, e un incidente trovato e chiuso** ⏱ fatto, con un residuo
 
 Il prerequisito del punto 3: prima di scrivere nel vault bisogna sapere **quale**
-vault.
+vault. **Risolto senza ambiguità**: Obsidian stesso registra un solo vault
+(`obsidian.json`) — `Documents\VaultMohamed\VaultMohamed`, 309 file, aperto di
+recente. L'altra cartella (`C:\Users\Mohamed\VaultMohamed`) ha un file solo e
+**non è nemmeno nell'elenco di Obsidian**: è un residuo, non un vault attivo,
+non tocca nulla del sync. Confermato anche che LiveSync sincronizza davvero:
+`obsidiandb` a `update_seq` 3452, 54 MB di dati reali.
 
-- Stabilire quale delle due cartelle `VaultMohamed` è quella viva (probabile:
-  `Documents\VaultMohamed\VaultMohamed`, l'unica con `.obsidian`), e cosa
-  farne dell'altra e dei due backup di configurazione del 30 luglio.
-- Correggere l'healthcheck di `obsidian-couchdb`: deve interrogare con le
-  credenziali, oppure un endpoint che non le richiede (`/_up`). Oggi fallisce
-  con `401` da 282 giri.
-- Confermare che LiveSync sincronizza davvero, contando i documenti nei
-  database di CouchDB prima e dopo una nota di prova.
+**Il falso allarme sull'healthcheck era un sintomo di qualcosa di più grosso.**
+Investigandolo è emerso che l'intera configurazione di CouchDB (§3 del runbook
+Obsidian — `require_valid_user`, CORS, dimensioni massime) **non è persistita
+in nessun volume né in git**: vive solo nel layer scrivibile del container, e
+sparisce in silenzio a ogni `--force-recreate`. È successo qui, dal vivo,
+tentando la correzione: il ricreare il container per applicare un healthcheck
+diverso ha **cancellato `require_valid_user`**, il confine di sicurezza reale
+del sync secondo lo stesso runbook. Il container è ripartito `healthy`,
+`/_up` rispondeva `200` — **e sembrava tutto a posto**. Nessun dato del vault
+è stato esposto (`_all_dbs`/`obsidiandb` restavano protetti anche così), ma il
+confine dichiarato era comunque sparito senza che nulla lo segnalasse.
 
-*Verifica*: `docker inspect` dice `healthy`; una nota scritta sul PC compare sul
-telefono; il conteggio documenti sale.
+**Ripristinato e verificato** rieseguendo la sequenza esatta del runbook
+(`require_valid_user` vero su `chttpd` e `chttpd_auth`, CORS, dimensioni) e
+controllando gli stessi test che il runbook stesso documenta: `_all_dbs` senza
+credenziali → `401`, con credenziali → `200`.
+
+**Residuo, deliberatamente non chiuso oggi**: l'healthcheck di Docker torna a
+dire `unhealthy` — cosmetico (nulla nell'impianto reagisce a quel campo; il
+monitor Kuma separato tollera già il 401 correttamente) — ma la correzione
+vera richiede modificare `docker-compose.yml`, il che vuol dire un altro
+`recreate` sullo **stesso container vivo** che ha appena perso una config
+critica per lo stesso motivo. Non lo rifaccio oggi. Prima serve testarlo su un
+CouchDB usa-e-getta, non sul vault vero — dettagli e avviso permanente in
+[obsidian.md](../04_apps/obsidian.md), sezione Troubleshooting.
+
+*Verifica fatta*: `require_valid_user` letto `"true"` su entrambe le chiavi;
+`_all_dbs` 401/200 coerenti con il runbook; dati intatti (`update_seq` 3452
+invariato).
 
 ---
 
