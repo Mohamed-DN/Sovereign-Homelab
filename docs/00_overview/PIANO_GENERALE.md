@@ -302,12 +302,26 @@ repo docs/ ──(script sul PC, Task Scheduler)──> vault\Sovereign-Homelab\
 con successo; `Sovereign-Homelab\00_overview\PIANO_GENERALE.md` confermato
 sul disco del vault con lo stesso contenuto del repo.
 
+**Il task è ora registrato davvero (2026-07-31, sessione successiva)**: non lo
+era. Verificato con `Get-ScheduledTask` — assente — nonostante il file XML
+esistesse e il documento dicesse «al logon e ogni 30 minuti». Causa, trovata
+con un parser XML vero invece di fidarsi del messaggio criptico di
+`schtasks.exe` («XML attività non valido», senza dire dove): un commento XML
+conteneva `--` (*"the PC is on -- so..."*), che lo standard XML vieta dentro
+ai commenti — la stessa classe di difetto della trappola già in
+[VISIONE_COMPLETA](VISIONE_COMPLETA.md) §6 sul JS in una stringa Python,
+stavolta in XML. Anche dopo la correzione, `schtasks /Create /XML` e
+`Register-ScheduledTask -Xml` restavano ostili sull'encoding dichiarato;
+registrato con successo costruendo il task con i cmdlet nativi
+(`New-ScheduledTaskTrigger`/`-Action`/`-Principal`), bypassando del tutto
+l'importer XML. **Provato per davvero**: `Start-ScheduledTask` a mano,
+`LastTaskResult: 0`, `NextRunTime` in coda.
+
 **Residuo, non un difetto**: LiveSync sincronizza verso CouchDB solo mentre
 **Obsidian è aperto** (è un plugin dentro l'app). I file arrivano sul disco
-ad ogni esecuzione del task; la propagazione a CouchDB — e quindi la tua
-verifica dal telefono — aspetta la prossima apertura di Obsidian su questo
-PC. Non forzata oggi (l'eseguibile non è nei percorsi di installazione
-consueti su questo PC — probabile app da Store).
+ad ogni esecuzione del task (ora automatica); la propagazione a CouchDB — e
+quindi la verifica dal telefono — aspetta la prossima apertura di Obsidian su
+questo PC.
 
 *Verifica ancora tua da fare*: apri Obsidian su questo PC una volta, poi dal
 telefono trova `Sovereign-Homelab/00_overview/PIANO_GENERALE.md` — questo
