@@ -206,27 +206,52 @@ telefono; il conteggio documenti sale.
 
 ---
 
-#### **2 · Il debito di sicurezza rimasto aperto** ⏱ ~2 ore
+#### **2 · Il debito di sicurezza rimasto aperto** ⏱ ~1 ora (due voci su quattro erano già chiuse)
 
-Quattro voci da `console-and-mirror-inflight` e dall'issue #2 §6b, ferme dal 14
-luglio. Sono piccole singolarmente, e una ha una scadenza vera.
+Verificato sul vivo il 2026-07-31, **prima di toccare niente**:
 
-- **R7 — il primo login OIDC su `headplane.internal` deve essere `mohamed`**:
-  chi entra per primo ne diventa proprietario. Finché nessuno entra, la porta è
-  aperta a chiunque abbia accesso alla VPN. **Questa va per prima.**
+- ~~R7 — primo login Headplane~~ — **già fatto**: il commento nel
+  `docker-compose.yml` di `core-network` lo conferma, datato 2026-07-14.
+  La nota di memoria che lo dava per aperto era stata scritta a metà lavoro.
+- ~~R5 — ritirare `headscale-ui`~~ — **già fatto**: nessun container in
+  nessun LXC. `headscale.internal` fa 302 verso Headplane.
+
+Resta aperto, e verificandolo è emerso un difetto nuovo:
+
 - **R4 — ruotare la password admin riusata.** È la stessa password usata in più
-  posti; il repo la tratta già come nota (`password-try-first`), il che la
-  rende un punto singolo di rottura.
-- **R5 — ritirare `headscale-ui`** ora che Headplane è validato: due console
-  sulla stessa cosa sono due superfici da difendere.
-- **R6 — persistere la finestra metriche a 20 minuti**, così i grafici non
-  ripartono da zero a ogni riavvio e i picchi restano leggibili.
-- **R8 — potare lo snapshot VM110 `preimmich_v302`**, in attesa dal 14 luglio.
-  Tocca Immich: si verifica che Immich è sano **prima**, e non si tocca altro.
+  posti (`password-try-first`), il che la rende un punto singolo di rottura.
+  **Non eseguita qui senza conferma**: tocca il login su più servizi alla
+  volta, e sbagliare la sequenza vuol dire restarne fuori. Serve prima
+  l'elenco di dove è riusata (Proxmox root, Authentik/LDAP, i break-glass) e
+  poi la conferma tua sul quando farla — non è un'azione da un rigo.
+- ~~R6 — persistere la finestra metriche~~ — **già fatto**: `metrics-long.jsonl`
+  esiste ed è popolato, **25 985 campioni** (~18 giorni a 1/minuto), caricati
+  all'avvio da `load_long_history()`. Solo l'anello dei 20 minuti "adesso"
+  riparte da zero al riavvio — per costruzione, è la vista dell'istante.
+- ~~R8 — potare lo snapshot VM110 `preimmich_v302`~~ — **non esiste più**,
+  verificato con `qm listsnapshot 110`. Al suo posto c'è
+  `preimmich_auto_1785405203` (30 luglio, rollback automatico
+  dell'aggiornamento v3.0.3→v3.1.0), **ancora dentro la sua finestra di 24
+  ore**: è lì apposta, non si tocca. Immich verificato sano (`/api/server/ping`
+  → 200) prima di guardare anche solo l'elenco.
+- **R12 (nuovo, trovato oggi) — `authentik-server` fa ripartire gunicorn da
+  solo**, non a orario fisso (due volte il 30/7 a 55 minuti di distanza, una
+  il 31/7 dopo ~21 ore). Ogni volta un **503 transitorio** sulla discovery
+  OIDC, che Headplane logga come errore ma si autorisolve in ~20s. **Indagato
+  parzialmente**: `docker inspect` dice `RestartCount=0` — quindi **non** è
+  Docker a far ripartire il container, non c'è stato un OOM-kill (`OOMKilled:
+  false`, 6,2 GB liberi su 8), e non c'è un cron/timer su LXC 101 che lo
+  tocchi. Il riavvio è interno al processo (probabile ciclo del suo stesso
+  entrypoint/supervisore), non ancora causa-radice. Resta aperto: **si
+  autoguarisce, quindi non è urgente**, ma un processo che si riavvia senza
+  una causa nota è un sintomo da chiudere, non da archiviare.
 
-*Verifica*: Headplane risponde `mohamed` come proprietario; la vecchia password
-non apre più niente; `headscale-ui` non risponde più; i grafici sopravvivono a
-un riavvio; `pvesm`/`qm` non elencano più lo snapshot.
+**Bilancio**: delle quattro voci ereditate, tre erano già chiuse (R5, R6, R7)
+e una era già superata dai fatti (R8). Restano solo R4 (password, serve la tua
+conferma) e R12 (i riavvii di Authentik, appena scoperto).
+
+*Verifica*: la vecchia password non apre più niente su nessun servizio; il
+riavvio di `authentik-server` ha una causa identificata e documentata.
 
 ---
 
