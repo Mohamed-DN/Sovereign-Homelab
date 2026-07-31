@@ -1,0 +1,8 @@
+name: sovereign-tools
+version: 1.0.0
+description: "Sovereign tools — vault Obsidian, stato dell'impianto, accessi, email, web: gli strumenti di casa, con la guardia privato/non-privato attaccata."
+author: Sovereign Homelab
+pip_dependencies: []
+requires_env: []
+hooks:
+  - pre_tool_call
