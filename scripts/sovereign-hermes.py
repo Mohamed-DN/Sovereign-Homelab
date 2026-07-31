@@ -2314,60 +2314,16 @@ def run_agent(backend: dict[str, Any], user: dict[str, Any], task: str,
 
 # ------------------------------------------------------------------ the loop
 
-# Gli strumenti che CAMBIANO qualcosa. Su questi una pretesa non verificata non
-# è un dettaglio di stile: l'utente crede che il dato sia al sicuro.
-WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail",
-               "vault_scrivi", "procedura_salva", "rubrica_aggiungi", "esegui_azione_master"}
-
-# Come suona una pretesa in italiano. Volutamente al passato e in prima persona:
-# «salvo» o «sto salvando» non sono affermazioni di aver finito.
+# Le regole anti-bugia stanno in un file loro, condiviso con Momo: una regola
+# sistemata in un posto è sistemata per tutti e due gli assistenti. Due copie
+# divergerebbero, e la divergenza sarebbe invisibile finché una delle due non
+# lascia passare una bugia.
 #
-# Questo elenco è la seconda difesa, non la prima, e la ragione è che è stato
-# battuto tre volte di seguito: cercava «ho salvato» e il modello ha risposto
-# «ho aggiornato la memoria»; aggiunto quello, ha risposto «la nota è stata
-# salvata» — femminile, che il pattern maschile non prendeva. Un elenco di frasi
-# è per costruzione incompleto. La difesa che tiene guarda la RICHIESTA, non la
-# risposta: vedi `unmet_write_request`.
-_CLAIM_VERBS = (r"salvat|ricordat|memorizzat|segnat|annotat|registrat|aggiunt|aggiornat|"
-                r"inviat|scritt|archiviat|appuntat|creat|messo|messa")
-_CLAIM_PATTERNS = [
-    rf"\bho (?:{_CLAIM_VERBS})\w*",
-    rf"\b(?:l['’]ho|le ho|li ho) (?:{_CLAIM_VERBS})\w*",
-    rf"\bho pres[oa] not\w*",
-    # «è stato salvato», «è stata salvata», «sono state salvate», «l'ho creata»
-    rf"\b(?:è|e'|sono) (?:stat[oaie] )?(?:{_CLAIM_VERBS})[oaie]\b",
-    r"\b(?:memoria|agenda|nota) aggiornat[ae]\b",
-    r"\b(?:aggiunt[oa]|inserit[oa]) (?:in|all')agenda\b",
-    r"\bfatto[.,!]? la nota\b",
-]
-
-# Un ordine di FARE qualcosa. Guardare qui è più solido che indovinare come il
-# modello racconterà di averlo fatto: la richiesta è una frase, scritta da una
-# persona, e non cambia forma per compiacere nessuno.
-_WRITE_REQUEST = re.compile(
-    r"\b(?:scriv\w*|salva\w*|annota\w*|segna\w*|memorizza\w*|ricordati|ricorda\b|"
-    r"aggiungi|inserisci|manda\w*|invia\w*|spedisci|crea\w+ (?:nota|file|promemoria)|"
-    r"metti (?:in|nel|nella)\b|non dimenticare)\b",
-    re.IGNORECASE)
-# Domande che contengono un verbo di scrittura senza chiederla («cosa hai
-# scritto?», «sai scrivere?»): non sono ordini.
-_NOT_A_REQUEST = re.compile(
-    r"\b(?:cosa|che cosa|quali|quanto|quando|come|perch[éè]|sai|puoi|riesci|"
-    r"hai (?:scritto|salvato|annotato))\b", re.IGNORECASE)
-
-
-def unmet_write_request(question: str, called: set[str]) -> str:
-    """The user asked for something to be written and nothing was written.
-
-    Returns the matched instruction, or "" when there is nothing to object to.
-    """
-    if called & WRITE_TOOLS:
-        return ""
-    text = (question or "").strip()
-    if not text or _NOT_A_REQUEST.search(text[:80]):
-        return ""
-    found = _WRITE_REQUEST.search(text)
-    return found.group(0) if found else ""
+# L'import è in cima al modulo e non protetto da un `try`, di proposito: un
+# Hermes che parte credendo di avere la guardia quando non ce l'ha è peggio di
+# un Hermes che non parte. Fallire chiuso vale anche per il deploy.
+import hermes_guardrail  # noqa: E402 - locale, sta accanto a questo file
+from hermes_guardrail import WRITE_TOOLS  # noqa: E402,F401 - riesportato: lo leggono i test e il plugin di Momo
 
 # Un ordine esplicito di ricordare. Se l'utente lo dice così, il fatto viene
 # salvato dal codice: non si lascia a un modello da 9 miliardi di parametri la
@@ -2400,29 +2356,22 @@ def forced_remember(user: dict[str, Any], question: str) -> str:
     return run_tool("ricorda", {"contenuto": what, "origine": "detto"}, user)
 
 
-def unverified_write_claim(answer: str, called: set[str]) -> str:
-    """The phrase in which the model claimed to have written something, if it
-    did not actually call a write tool. Empty string when there is nothing to
-    object to.
-    """
-    if called & WRITE_TOOLS:
-        return ""
-    low = (answer or "").lower()
-    for pattern in _CLAIM_PATTERNS:
-        found = re.search(pattern, low)
-        if found:
-            return found.group(0)
-    return ""
-
-
 def _tool_rounds(backend: dict[str, Any], messages: list[dict[str, Any]],
                  tools: list[dict[str, Any]], user: dict[str, Any],
-                 rounds: int, precalled: set[str] | None = None) -> Iterator[dict[str, Any]]:
+                 rounds: int, precalled: set[str] | None = None,
+                 log: list[tuple[str, str]] | None = None) -> Iterator[dict[str, Any]]:
     """Drive the model until it stops asking for tools.
 
     Yields SSE-shaped events; returns (answer, names of tools actually run).
     Extracted from `converse` so the same loop can be replayed when a claim
     needs to be verified, instead of being written twice.
+
+    `log` collects `(nome, risultato)` for the guardrail. The names alone are
+    not enough: a tool that RAN and FAILED is in `called` exactly like one that
+    worked, and until 2026-07-31 that was a hole big enough to drive a lie
+    through — «ho inviato la mail» stava in piedi anche quando `send_mail`
+    aveva risposto «non trovo giulia in rubrica». Il risultato serve per
+    saperlo.
     """
     answer = ""
     # Ciò che è già stato eseguito dal codice conta come eseguito: altrimenti la
@@ -2464,8 +2413,10 @@ def _tool_rounds(backend: dict[str, Any], messages: list[dict[str, Any]],
                     args = {}
             yield {"event": "tool", "data": name}
             result = run_tool(name, args, user)
+            if log is not None:
+                log.append((name, result))
             # Only a tool that ran without being refused counts as done.
-            if not result.startswith(("Non hai i permessi", "Strumento '", "Errore nello strumento")):
+            if not result.startswith(hermes_guardrail.REFUSAL_PREFIXES):
                 called.add(name)
             messages.append({"role": "tool", "content": result, "name": name})
     else:
@@ -2603,37 +2554,51 @@ def converse(user: dict[str, Any], question: str,
                              f"dal server ({saved}). Confermalo in una riga, senza "
                              f"richiamare `ricorda` per la stessa cosa."})
 
-    answer, called = yield from _tool_rounds(backend, messages, tools, user,
-                                             MAX_TOOL_ROUNDS, precalled)
+    tool_log: list[tuple[str, str]] = []
+    answer, _called = yield from _tool_rounds(backend, messages, tools, user,
+                                              MAX_TOOL_ROUNDS, precalled, tool_log)
 
     # --- la bugia sicura di sé -------------------------------------------
     # Il difetto noto: il modello dice «ho salvato» senza chiamare nulla. Un
     # tool che non parte non produce un errore, produce una frase convincente.
-    # Qui la pretesa viene confrontata con quello che è davvero successo.
-    claim = unverified_write_claim(answer, called) or unmet_write_request(question, called)
-    if claim and guard_tools:
+    # Qui la pretesa viene confrontata con quello che è davvero successo — non
+    # con quello che è stato *tentato*: `done` contiene solo gli strumenti che
+    # hanno anche funzionato.
+    def _verdict(text: str) -> dict[str, str] | None:
+        done, failed = hermes_guardrail.split_outcomes(tool_log)
+        done |= precalled          # quello che ha fatto il codice conta come fatto
+        return hermes_guardrail.check(question, text, done, failed)
+
+    verdict = _verdict(answer)
+    if verdict and verdict["rule"] == "claim_over_failed_tool":
+        # Qui rimandare indietro il modello non serve: lo strumento è partito e
+        # ha detto perché non ce l'ha fatta. Ripeterlo darebbe lo stesso esito e
+        # farebbe aspettare l'utente per niente. Si dichiara e basta.
+        answer = hermes_guardrail.apply_note(answer, verdict)
+        print(f"[hermes] pretesa su strumento fallito ({verdict['evidence']}) "
+              f"da {backend.get('model')}")
+    elif verdict and guard_tools:
         yield {"event": "reset", "data": ""}
         yield {"event": "tool", "data": "verifica: nessuno strumento chiamato"}
         messages.append({"role": "assistant", "content": answer})
         messages.append({"role": "user", "content": (
-            f"Fermo. Nella richiesta c'era «{claim}», e tu non hai chiamato nessuno "
-            f"strumento: quindi non è stato scritto niente da nessuna parte. "
+            f"Fermo. Nella richiesta c'era «{verdict['evidence']}», e tu non hai chiamato "
+            f"nessuno strumento: quindi non è stato scritto niente da nessuna parte. "
             f"Se c'era qualcosa da salvare o da scrivere, chiama ADESSO lo strumento "
             f"giusto (`ricorda`, `vault_scrivi`, `agenda_aggiungi`, `send_mail`, "
             f"`rubrica_aggiungi`). "
             f"Se davvero non serviva, rispondi senza sostenere di aver fatto qualcosa "
             f"e senza inventare percorsi di file.")})
-        retry, retry_called = yield from _tool_rounds(backend, messages, guard_tools, user, 2)
-        if retry_called:
-            answer = retry or answer
-        else:
-            # Due tentativi e ancora nessuna chiamata: la cosa onesta è dirlo,
-            # non lasciare all'utente una conferma falsa.
-            answer = (retry or answer).rstrip() + (
-                "\n\n> **Non ho salvato niente.** Ho detto di averlo fatto ma non ho "
-                "usato lo strumento della memoria, e me ne sono accorto dopo. "
-                "Ripetimelo, oppure dimmi «salva questo» in modo esplicito.")
-            print(f"[hermes] claim non verificata da {backend.get('model')}: {claim!r}")
+        retry, _retry_called = yield from _tool_rounds(backend, messages, guard_tools,
+                                                       user, 2, log=tool_log)
+        answer = retry or answer
+        # Il secondo giro si giudica come il primo: aver chiamato qualcosa non
+        # basta più, quel qualcosa deve anche aver funzionato.
+        again = _verdict(answer)
+        if again:
+            answer = hermes_guardrail.apply_note(answer, again)
+            print(f"[hermes] {again['rule']} non risolta da {backend.get('model')}: "
+                  f"{again['evidence']!r}")
 
     if answer:
         save_chat(user["username"], history + [{"role": "user", "content": question},

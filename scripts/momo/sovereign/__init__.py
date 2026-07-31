@@ -174,10 +174,38 @@ class SovereignMemoryProvider(MemoryProvider):
         in one assistant is changed in both. hermes-agent wants the flat
         OpenAI shape, so the `{"type": "function", "function": {...}}` wrapper
         is unwrapped here.
+
+        GATED on the engine, found missing on 2026-07-31 while writing up
+        Fase 4 as "done": `MemoryManager.inject_memory_provider_tools()`
+        (`agent/memory_manager.py`) appends whatever this returns to the
+        model's tool list unconditionally — no `check_fn`, no engine
+        awareness, unlike `ctx.register_tool()`. Execution was ALREADY safe
+        (`sovereign_tools.guard_private` is a global `pre_tool_call` hook and
+        fires for every dispatch path, memory-provider included — checked by
+        reading `model_tools.py::handle_function_call` and then confirmed by
+        calling it with the engine forced external: blocked, all three tools
+        tried). But the SCHEMAS were offered regardless, so an external engine
+        could see that `ricorda`/`rubrica_cerca`/... exist and read their
+        descriptions even though calling them would fail. `sovereign_tools`'s
+        own docstring says it best: "a gap opened on purpose for the
+        convenience of doing things in two steps is still a gap."
         """
+        if not self._engine_is_private():
+            return []
         return [dict(schema["function"]) for schema in self._our_schemas()]
 
     def handle_tool_call(self, tool_name: str, args: Dict[str, Any], **kwargs) -> str:
+        # Second line of defence, matching `sovereign_tools._make_handler`:
+        # `guard_private`'s `pre_tool_call` hook already refuses this before
+        # dispatch reaches here, but a provider method must not rely on a
+        # caller elsewhere in the chain never changing.
+        if tool_name in self._MEMORY_TOOLS and not self._engine_is_private():
+            return json.dumps({
+                "errore": "strumento non disponibile su un motore esterno",
+                "spiegazione": ("Questo strumento legge dati di casa (memoria, agenda, "
+                                "rubrica). Il motore che sta rispondendo ora non e' in "
+                                "casa, quindi non puo' vederli."),
+            }, ensure_ascii=False)
         tools = self._our_tools()
         tool = tools.get(tool_name)
         if tool is None:
@@ -191,6 +219,19 @@ class SovereignMemoryProvider(MemoryProvider):
             return str(tool["run"](args, ctx))[:12000]
         except Exception as exc:  # noqa: BLE001 - a broken tool must not kill the chat
             return json.dumps({"errore": f"{tool_name}: {exc}"}, ensure_ascii=False)
+
+    @staticmethod
+    def _engine_is_private() -> bool:
+        """Delegates to `sovereign_tools`, the one place that already knows
+        how to read `model.provider` and fails closed on an unknown one.
+        Imported lazily: plugin load order is not guaranteed, and by the time
+        a turn actually calls this, every plugin is loaded.
+        """
+        try:
+            import sovereign_tools  # noqa: PLC0415 - sibling plugin, same plugins dir
+            return sovereign_tools._engine_is_private()
+        except Exception:  # noqa: BLE001 - unreadable state must fail closed
+            return False
 
     # -- plumbing ------------------------------------------------------------
 

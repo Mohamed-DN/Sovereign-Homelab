@@ -244,7 +244,7 @@ regge davvero.
 
 | Pezzo nuovo | Si aggancia a | Stato di partenza |
 |---|---|---|
-| Guardrail (Fase 4) | `unverified_write_claim` / `unmet_write_request` | esistono e sono stati corretti oggi |
+| Guardrail (Fase 4) | `unverified_write_claim` / `unmet_write_request`, ora in `scripts/hermes/hermes_guardrail.py` | **✅ FATTO e verificato (2026-07-31)** — vedi [momo-guardrail.md](../04_apps/momo-guardrail.md) |
 | Automation Library | `actions.json` di MASTER + tabella `procedures` | esistono |
 | Teardown sandbox | guardia host `hermes-master-guard.py` | esiste, 29 casi verificati |
 | Tool statistici | A6 di Nexi (previsione dischi) | da fare |
@@ -258,7 +258,9 @@ Prima le fasi 3 e 4 della fusione (**gli strumenti** e **le guardie**), perché
 tutto quanto sopra si appoggia su quelle. Poi, in ordine di rapporto fra
 valore e rischio:
 
-1. **Guardrail** — è la difesa contro un difetto che è già costato tre volte;
+1. **Guardrail** — **✅ fatto (2026-07-31)**, è la difesa contro un difetto
+   che è già costato tre volte, e nel costruirlo se ne sono trovati e chiusi
+   altri due (vedi [momo-guardrail.md](../04_apps/momo-guardrail.md));
 2. **Tool statistici** — piccolo, isolato, e chiude una voce già aperta;
 3. **Automation Library** — riusa schemi già in casa;
 4. **Sandbox con ciclo di vita** — potente, ma tocca il divieto assoluto:

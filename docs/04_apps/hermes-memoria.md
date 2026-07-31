@@ -68,7 +68,7 @@ e gli impegni dei prossimi 10 giorni. Senza questo gli strumenti funzionerebbero
 ma la memoria non *sembrerebbe* memoria — il modello dovrebbe pensare di
 chiedere. Costa una query.
 
-## 4. Due bugie che il modello raccontava, e come sono state chiuse
+## 4. Tre bugie che il modello raccontava, e come sono state chiuse
 
 Questa è la parte che vale la pena leggere.
 
@@ -107,6 +107,30 @@ La seconda difesa è nata da un fallimento della prima versione: il rilevatore
 cercava «ho salvato» e il modello ha risposto «ho **aggiornato la memoria**»,
 passando indenne. Un elenco di frasi è per costruzione incompleto — per questo
 la difesa vera è la prima, deterministica, e questa è la rete.
+
+### «Ho inviato la mail» — con lo strumento che aveva rifiutato
+
+Trovata il 2026-07-31 costruendo il Guardrail per Momo, e presente da sempre
+anche qui: uno strumento di scrittura **girato e fallito** contava come
+strumento eseguito. `send_mail("giulia", …)`, con «giulia» non in rubrica,
+rispondeva `Non trovo «giulia» in rubrica…` — e la guardia, vedendo che
+`send_mail` **era** nell'insieme dei tool chiamati, non obiettava più niente
+alla frase successiva del modello, «Mail inviata con successo!».
+
+La correzione (`hermes_guardrail.check`, condivisa con Momo — vedi
+[momo-guardrail.md](momo-guardrail.md)) legge il **risultato** di ogni
+strumento, non solo il suo nome: uno strumento fallito non entra più
+nell'insieme di ciò che «conta come fatto», e una pretesa di successo che
+poggia su di lui viene presa con il motivo vero:
+
+> **Non è andata come ho detto.** Ho usato «send_mail» ma non ha funzionato, e
+> nella risposta qui sopra ho parlato come se fosse riuscito. Il motivo vero:
+> Non trovo «giulia» in rubrica. Aggiungilo alla rubrica e poi chiedimelo di
+> nuovo.
+
+Verificato dal vivo su `/api/chat`: la bugia viene presa con il motivo esatto;
+una risposta onesta sullo stesso fallimento («la mail non è stata inviata
+perché…») passa senza nessuna nota aggiunta.
 
 ### L'agenda sbagliava di due ore
 

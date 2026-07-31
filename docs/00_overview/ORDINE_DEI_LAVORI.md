@@ -97,20 +97,53 @@ dell'impianto, accessi, email, web, procedure.
 mail a un contatto in rubrica.
 → [PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) §4
 
-### 1.3 · Momo, le guardie (fase 4) + il **Guardrail** ⏱ ~3 ore
-Filtro privato/non-privato, filtro per ruolo, le due guardie anti-bugia, e
-MASTER con il divieto assoluto. Più il **Guardrail** del documento nuovo: il
-testo generato confrontato con i **log veri**.
-**Perché immediatamente dopo le mani, e prima di ogni altra cosa**: è il pezzo
-che questo progetto ha imparato a proprie spese. Oggi stesso Hermes ha prodotto
-un report tecnico dettagliato su una mail mai inviata.
-**Regola prima, modello poi**: «il testo dice *ho mandato* ma nessun tool di
-invio è stato chiamato» è deterministico, non costa VRAM e **non può mentire a
-sua volta**. L'LLM interviene solo su ciò che la regola non copre.
-*Verifica*: le stesse prove passate dall'Hermes attuale, tutte. Un motore non
-privato riceve 2 strumenti su N e non sa che MASTER esiste. `qm stop 110`
-rifiutato.
-→ [PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) §4 · [PIANO_MOMO_DIGITAL_TWIN](PIANO_MOMO_DIGITAL_TWIN.md) §2
+### 1.3 · Momo, le guardie (fase 4) + il **Guardrail** ⏱ ~3 ore — **✅ FATTO e verificato (2026-07-31): il Guardrail**
+
+Filtro privato/non-privato, filtro per ruolo: fatti nella fase 3+4. Il pezzo
+che mancava, il **Guardrail** — il testo generato confrontato con i **log
+veri** — è ora scritto, provato e in produzione su entrambi gli assistenti.
+
+**Regola prima, modello poi, esattamente come deciso**: `scripts/hermes/hermes_guardrail.py`
+è un modulo di sola libreria standard, **un file solo importato da tutti e due
+gli assistenti** (Hermes vivo e Momo), così una regola corretta in un posto
+vale per entrambi. Tre regole deterministiche, in ordine:
+
+- **R1** — una pretesa di successo su uno strumento di scrittura che è
+  **girato e ha fallito** («ho mandato la mail» ma `send_mail` ha rifiutato un
+  destinatario sconosciuto). Questo è il buco vero, trovato leggendo il codice
+  dell'Hermes vivo: `unverified_write_claim`/`unmet_write_request` guardavano
+  solo *se* uno strumento era stato chiamato, non se aveva *funzionato* — uno
+  strumento fallito contava come fatto. **Chiuso anche nell'Hermes vivo**,
+  stesso commit, stesso file di regole.
+- **R2** — una pretesa senza nessuno strumento chiamato (la bugia originale,
+  quella con tre frasi diverse).
+- **R3** — un ordine di scrivere e nessuno strumento nemmeno tentato.
+
+Lo stadio a modello (`MOMO_GUARDRAIL_LLM=1`, spento di default) confronta il
+testo con i log quando le regole non trovano niente **e** almeno uno strumento
+è girato: coglie una bugia nei *numeri* («il disco è al 91%» quando il log
+dice 26%), che nessuna regola su pattern può vedere. **Solo motori di casa**:
+il prompt contiene l'uscita vera degli strumenti (vault, impianto, rubrica), e
+mandarla a Groq per il controllo sarebbe l'esatto contrario del filtro
+privato/non privato che questo stesso file protegge altrove.
+
+**Trovato e chiuso costruendo, non solo progettando** (due difetti reali, non
+ipotetici — vedi [VISIONE_COMPLETA](VISIONE_COMPLETA.md) §6 per il dettaglio):
+un verbo troppo generico (`registrat`) faceva accusare una frase onesta di una
+bugia mai detta; e R3 accusava «non ho usato nessuno strumento» anche quando
+uno strumento **era** girato ed era fallito onestamente. Entrambi trovati da
+prove dal vivo, non dai 22 casi scritti a tavolino — motivo in più per non
+fidarsi di un test che non tocca mai il sistema vero.
+
+*Verificato*: 23 casi automatici (`scripts/hermes/tests/test_hermes_guardrail.py`,
+gira anche senza server) + il cablaggio nei tre hook di hermes-agent
+(`scripts/momo/sovereign_guardrail/tests/test_plugin_wiring.py`) + lo stadio a
+modello contro una bugia sui numeri e contro la stessa risposta vera
+(`test_llm_stage.py`) + due chiamate reali attraverso `/api/chat`
+sull'Hermes vivo: una bugia vera presa con il motivo esatto, una risposta
+onesta lasciata passare senza nota.
+→ [PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) §4 · [PIANO_MOMO_DIGITAL_TWIN](PIANO_MOMO_DIGITAL_TWIN.md) §2 ·
+[momo-guardrail.md](../04_apps/momo-guardrail.md) — il runbook
 
 ---
 

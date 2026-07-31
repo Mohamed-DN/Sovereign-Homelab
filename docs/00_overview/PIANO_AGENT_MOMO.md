@@ -47,9 +47,9 @@ la fusione è fattibile e conveniente. Questo documento dice come, e cosa costa.
   commenti. L'unico upload di conversazioni è un comando manuale che passa dal
   redattore di segreti e **si blocca** se la redazione fallisce.
 
-### Il costo vero, ed è uno solo
+### I costi veri, e sono due
 
-**L'identità della persona non arriva al filtro degli strumenti.**
+**Primo: l'identità della persona non arriva al filtro degli strumenti.**
 `invoke_hook("pre_tool_call", ...)` passa `tool_name, args, task_id,
 session_id, tool_call_id, turn_id, api_request_id, middleware_trace` —
 nessun `user_id`. hermes-agent sa *se* uno è autorizzato (allowlist binaria per
@@ -60,6 +60,30 @@ Discord.
 Il nostro doppio filtro — *cosa il ruolo della persona permette* × *cosa il
 motore è degno di vedere* — ha bisogno di quel dato nel punto esatto in cui
 oggi non c'è.
+
+**Secondo, trovato il 2026-07-31 costruendo il Guardrail: i tool di un
+`MemoryProvider` non passano dal `check_fn` che protegge tutto il resto.**
+`ctx.register_tool()` valuta `check_fn` prima di offrire un tool al modello —
+è così che `sovereign_tools` nasconde gli strumenti di casa a un motore
+esterno. Ma `MemoryManager.inject_memory_provider_tools()`
+(`agent/memory_manager.py`) aggiunge gli schemi restituiti da
+`get_tool_schemas()` **senza nessun controllo**: nessun `check_fn`, nessuna
+consapevolezza del motore che risponde. Il nostro `SovereignMemoryProvider`
+(memoria di casa: `ricorda`, `dimentica`, `rubrica_*`, …) li offriva sempre.
+
+**L'esecuzione era comunque al sicuro**: `pre_tool_call` è un cancello globale
+in `model_tools.py::handle_function_call`, valutato **prima** di qualunque
+instradamento — plugin, core o memory-provider. Il `guard_private` che
+`sovereign_tools` registra lì blocca quindi anche una chiamata a `ricorda`
+instradata dal `MemoryProvider`, verificato chiamandolo direttamente con il
+motore forzato esterno. Il buco vero era più piccolo: la **visibilità**, non
+l'esecuzione — un motore esterno poteva vedere che gli strumenti di memoria
+esistono e leggerne la descrizione, anche se chiamarli falliva sempre. Chiuso
+in `scripts/momo/sovereign/__init__.py`: `get_tool_schemas()` ora consulta lo
+stesso `_engine_is_private()` di `sovereign_tools` e ritorna `[]` su un
+motore non privato, con lo stesso rifiuto in `handle_tool_call()` come
+seconda linea di difesa. Dettaglio completo in
+[momo-guardrail.md](../04_apps/momo-guardrail.md) §1.
 
 ## 3. La strada scelta: fork minimo, e perché non è un compromesso
 
@@ -170,16 +194,33 @@ manda una mail a un contatto in rubrica.
 
 ### Fase 4 — Momo ha le guardie
 La parte che non si delega, in ordine di rischio:
-- **filtro privato/non privato**: via `check_fn` per-tool e `pre_tool_call` →
-  `{"action":"block"}`;
-- **filtro per ruolo della persona**: qui serve la divergenza #1;
-- **guardie anti-bugia**: `post_tool_call` + `pre_verify` (`{"action":"continue"}`
-  rimanda indietro il modello) + `transform_llm_output` (sostituisce il testo
-  della risposta — è esattamente il nostro «Non ho salvato niente»);
+- **filtro privato/non privato**: ✅ **fatto e verificato (contato dal vivo,
+  2026-07-31)** — `sovereign_tools` registra 11 strumenti con `check_fn`
+  per-tool (9 privati + 2 pubblici, web) e ripete il controllo dentro
+  `pre_tool_call` (belt and braces); i 10 strumenti di memoria arrivano da
+  `SovereignMemoryProvider` per una strada diversa (§2, "i costi veri"), gated
+  allo stesso modo dal 2026-07-31. **Contato, non ricordato**: un motore di
+  casa vede **21** strumenti (11+10), un motore esterno **2** (solo web, zero
+  memoria) — `scripts/momo/tests/test_tool_visibility.py`;
+- **filtro per ruolo della persona**: ancora sulla divergenza #1 (l'identità
+  non arriva a `pre_tool_call`) — non fatto;
+- **guardie anti-bugia (il Guardrail)**: ✅ **fatto e verificato (2026-07-31)**,
+  vedi [PIANO_MOMO_DIGITAL_TWIN](PIANO_MOMO_DIGITAL_TWIN.md) §2 e
+  [momo-guardrail.md](../04_apps/momo-guardrail.md) per il dettaglio tecnico.
+  Agganciato a `pre_llm_call` (apre il turno, esegue in codice un ordine
+  esplicito), `post_tool_call` (registra ogni esito, non solo il nome del
+  tool) e `transform_llm_output` (attacca la nota in fondo alla risposta).
+  **`pre_verify` NON è quello che il piano immaginava**: letto il codice
+  (`agent/conversation_loop.py`), è gated su
+  `agent._turn_file_mutation_paths` — scatta solo quando il turno ha
+  **modificato file**, mai su una chat ordinaria. Il Guardrail di Momo quindi
+  **dichiara** la bugia invece di rimandare indietro il modello con
+  l'evidenza per un secondo tentativo, che è quello che fa l'Hermes attuale.
+  È un round di verifica in meno, scritto qui perché non sparisca;
 - **MASTER**: azioni come dati, divieto assoluto compilato nel plugin,
   armamento a scadenza, registro. Il gate di approvazione umano di
   hermes-agent è già fail-closed e si aggancia con
-  `{"action":"approve","rule_key":...}`.
+  `{"action":"approve","rule_key":...}`. Non fatto.
 *Verifica*: **le stesse prove passate dall'Hermes attuale**, tutte, nessuna
 esclusa. Un motore non privato deve ricevere 2 strumenti su N e non vedere che
 MASTER esiste. `qm stop 110` deve essere rifiutato.
