@@ -171,11 +171,12 @@
 | **Repo → vault Obsidian** | chiesto dal 2026-07-15, disegnato in [PIANO_HERMES_ESPANSO](PIANO_HERMES_ESPANSO.md) §6, **mai costruito**. Verificato il 2026-07-31: nessuna cartella `Sovereign-Homelab` nel vault, nessuno script nel repo | da fare (punto 3) |
 | **Healthcheck CouchDB rotto** | sonda `/` senza credenziali, CouchDB risponde `401`: **282 giri falliti**. Il servizio è vivo, l'allarme è falso — e un allarme sempre acceso maschera il prossimo vero | da fare (punto 1) |
 | **Due cartelle `VaultMohamed`** | una in `Documents\VaultMohamed\VaultMohamed` (con `.obsidian`, quella viva), una in `C:\Users\Mohamed\VaultMohamed`. Da chiarire prima di scrivere nel vault | da fare (punto 1) |
-| **Primo login OIDC su Headplane** | chi entra per primo ne diventa proprietario: deve essere `mohamed`. **Porta aperta adesso** | da fare (punto 2) |
+| **Primo login OIDC su Headplane** | ~~porta aperta~~ — **verificato 2026-07-31: già fatto** il 2026-07-14 (commento nel compose di `core-network`). La nota di memoria era scritta a metà lavoro | ✅ |
 | **Ruotare la password admin riusata** | issue #2 §6b, aperta dal 2026-07-14 | da fare (punto 2) |
-| **Ritirare `headscale-ui`** | Headplane è validato: due console sulla stessa cosa sono due superfici | da fare (punto 2) |
-| **Persistere la finestra metriche 20 min** | issue #2 §6b | da fare (punto 2) |
-| **Potare lo snapshot VM110 `preimmich_v302`** | in attesa dal 2026-07-14; tocca Immich, quindi si verifica prima | da fare (punto 2) |
+| **Ritirare `headscale-ui`** | ~~da fare~~ — **verificato 2026-07-31: già fatto** il 2026-07-14, nessun container in nessun LXC | ✅ |
+| **`authentik-server` si riavvia da solo** | scoperto verificando quanto sopra: riavvii non programmati causano 503 transitori sulla discovery OIDC di Headplane. Non blocca, ma la causa non è nota | da capire (punto 2, R12) |
+| **Persistere la finestra metriche** | ~~da fare~~ — **verificato 2026-07-31: già fatto**, `metrics-long.jsonl` ha 25 985 campioni (~18 giorni) | ✅ |
+| **Potare lo snapshot VM110 `preimmich_v302`** | ~~da fare~~ — **non esiste più**: sostituito da `preimmich_auto_1785405203` (rollback dell'update del 30/7), ancora nella sua finestra di 24h | ✅ |
 | **Deprovisioning a scadenza** | tolto un ruolo, dopo una settimana si cancella il profilo sul servizio (chiesto il 2026-07-13) | da verificare |
 | **SSO Tier 1: Proxmox e PBS** | Paperless fatto, questi due no ([ROADMAP](ROADMAP.md) §1) | da fare |
 | **`agent-reach`** | passato il 2026-07-29: YouTube, Reddit, X, GitHub, RSS dove SearXNG non arriva | da fare (punto 19) |
