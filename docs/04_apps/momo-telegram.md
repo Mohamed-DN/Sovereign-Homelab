@@ -181,6 +181,83 @@ un errore di scaricamento e non lo era.
 Dipendenze: `piper-tts` e `faster-whisper==1.2.1` nel venv di Momo, `ffmpeg`
 da apt. Il modello `small` di whisper si scarica al primo uso.
 
+## 3-ter. Il contesto che si perdeva: erano i *topic* di Telegram
+
+Trovato il 2026-08-01, e la causa **non era il modello**. Il proprietario
+riferiva che «da domanda a domanda perde il contesto»: chiedeva l'orario di un
+negozio e al messaggio dopo Momo non sapeva più di cosa si parlasse.
+
+La prova sta nel magazzino delle sessioni, `sessions/sessions.json`:
+
+```
+agent:main:telegram:dm:6805681257:1744
+agent:main:telegram:dm:6805681257:1752
+agent:main:telegram:dm:6805681257:1756
+agent:main:telegram:dm:6805681257:1760      ← otto sessioni, stesso utente
+```
+
+L'ultimo numero è il **`thread_id` del topic**. Il bot ha i topic attivi
+(`getMe` → `has_topics_enabled: true`, `allows_users_to_create_topics: true`)
+e Telegram apre un topic nuovo a ogni messaggio nuovo — l'interfaccia lo dice
+persino: *«Type any message to create a new thread»*.
+
+**Ogni topic è una sessione separata.** Quindi Momo non stava perdendo il
+filo: non aveva mai avuto lo stesso filo, perché ogni domanda arrivava in una
+conversazione nuova, appena nata e vuota.
+
+Sintomo secondario dello stesso fatto, visibile nei log:
+`reply_to_id=13 reply_to_text=''` — rispondeva a un messaggio di cui non
+possedeva il testo, perché stava in un'altra sessione.
+
+**La cura, in ordine di pulizia:**
+
+1. **Spegnere i topic sul bot** (BotFather → il bot → Bot Settings). È la
+   correzione alla radice, zero codice, e riporta tutto in una conversazione
+   sola come una normale chat.
+2. In alternativa, usare sempre lo stesso topic (il pulsante *Continue Last
+   Thread*): funziona, ma dipende dal ricordarsene ogni volta.
+
+**Non** si corregge togliendo il `thread_id` dalla chiave di sessione: quella
+chiave è il modo in cui hermes-agent tiene separate le conversazioni, ed è la
+cosa giusta per chi i topic li usa davvero. Il difetto è che qui i topic
+nascono da soli, non che esistano.
+
+### Le due memorie, che restano due anche dopo
+
+Richiesta del proprietario: *«ci sono 2 memorie: memoria a sessione per non
+perdere il contesto […] e un'altra memoria a livello di tutto, quella deve
+aggiornarla da sola con nuovi dati»*. È esattamente il disegno già in piedi:
+
+| Livello | Cosa contiene | Ambito | Dove |
+|---|---|---|---|
+| **Sessione** | il filo del discorso, le domande che dipendono dalla precedente | una conversazione | `sessions/` di hermes-agent |
+| **Memoria** | fatti, agenda, procedure, rubrica, vault, runbook | **tutte** le conversazioni, tutti i dispositivi | Postgres + Qdrant + Valkey, condivisi con Hermes |
+
+Il pezzo **ancora da fare** è la seconda metà della sua frase: *«deve
+aggiornarla da solo con nuovi dati»*. Oggi la memoria si aggiorna quando
+glielo si dice; l'aggiornamento automatico è una scelta con un costo — vedi
+[PIANO_AGENT_MOMO](../00_overview/PIANO_AGENT_MOMO.md) §4 Fase 2, dove
+`sync_turn()` è **volutamente vuoto**: salvare ogni turno di nascosto rende la
+memoria non verificabile e rompe la promessa che `dimentica` dimentichi
+davvero. Va progettato, non acceso di slancio.
+
+## 3-quater. Quando manda l'audio, e quando no
+
+Tre modalità, **per chat**, in `gateway_voice_mode.json`:
+
+| Modalità | Comportamento | Comando |
+|---|---|---|
+| `all` | audio **sempre**, anche sui messaggi scritti | `/voice tts` |
+| `voice_only` | audio **solo** se l'ingresso era un vocale | `/voice on` |
+| `off` | mai | `/voice off` |
+
+`voice.auto_tts: true` in `config.yaml` equivale ad `all`, ed era la
+configurazione sbagliata messa qui il 2026-08-01: mandava un vocale anche
+quando il proprietario scriveva. Corretta in `auto_tts: false` più
+`{"telegram:<chat_id>": "voice_only"}` nel file delle modalità, che è quello
+che era stato chiesto: *«non solo se mando l'audio o gli chiedo di mandare
+audio»*.
+
 ## 4. DNS / domain names / alias
 
 **Nessuno, e volutamente.** Telegram si raggiunge in uscita; non c'è niente da
