@@ -299,6 +299,57 @@ motori**, e il primo ha già la sua ABC pronta. Il registratore nel browser e
 LiveKit (voce real-time con barge-in) restano da fare, ma non sono più la
 strada più corta per avere una voce che funziona.
 
+## 4-ter. Le richieste del 2026-08-01 — dette a voce mentre si lavorava
+
+> Il proprietario le ha dette una alla volta, interrompendo il lavoro, e ha
+> chiesto: *«continua con i tuoi piani poi appena finisci fai il resto ma non
+> scordarti questi dettagli»*. Sono qui perché non si scordino. Quelle già
+> fatte hanno la prova accanto; le altre sono lavoro dichiarato.
+
+| # | Richiesta, con le sue parole | Stato |
+|---|---|---|
+| T1 | *«momo deve girare sulla mia gpu del pc finché è connesso, se chiudo il pc sulla gpu del server»* | 🟡 **metà**: il PC è il primario ✅; il ripiego è configurato ma oggi cade sulla **CPU** del server, non sulla GPU — la T600 non ha driver (punto 20) |
+| T2 | *«poi non scordarti omniroute»* | ❌ da fare: OmniRoute come terzo anello della catena, dopo la GPU del server |
+| T3 | *«vado a fare una chiave bedrock di 2 giorni»* | ⏳ in arrivo. Bedrock **è già** fra i provider di fallback che hermes-agent supporta: si aggiunge a `fallback_providers` |
+| T4 | *«va bene anche se le robe passano ai api provider ma dammi sempre un warn prima di scrivere»* | ✅ fatto: `SOVEREIGN_ALLOW_EXTERNAL_ENGINES` (default acceso, reversibile in una riga) + la regola «prima di scrivere, avvisa» nella persona |
+| T5 | *«momo deve per forza imparare e essere madrelingua in tre lingue: inglese, italiano e arabo»* | ✅ fatto nella persona: risponde nella lingua in cui gli si scrive, arabo standard moderno, termini tecnici non tradotti |
+| T6 | `محمد ابوالسعود` *«è il mio nome in arabo»* | ✅ nella persona: su Telegram compare col nome arabo, ed è lui |
+| T7 | *«deve poter salvare modificare e tutto»* | ❌ **da fare, ed è il pezzo grosso**: è MASTER dentro Momo. Oggi Momo legge e ricorda, ma non tocca l'impianto |
+| T8 | *«vorrei un'interfaccia di gestione di momo che metterai su dash»* | ❌ da fare: pannello su `dash.internal` per dare/togliere poteri a Momo, vedere cosa ha fatto, armare MASTER |
+| T9 | *«attraverso telegram se gli do comando master lui sa che è master ecc e tutte le funzioni partono»* | ❌ da fare, e **dipende da T7 e T8**: l'armamento va fatto da un canale che sa chi sei davvero, poi Telegram lo usa |
+| T10 | *«momo deve rispondere con un audio»* | 🟡 **il motore c'è**: Piper installato con voce italiana, provato e la voce è arrivata su Telegram. Manca il plugin che lo aggancia alle risposte automaticamente |
+| T11 | *«se gli dico plz scrivi che non posso sentire ora, l'audio trascrive o recupera quello che mi ha detto in audio»* | ❌ da fare: il testo della risposta parlata va tenuto e restituito a richiesta |
+| T12 | *«la memoria di momo è su più posti, sia il db nosql sia obsidian, o vedi tu cosa è il meglio»* | ✅ **già così**, ed è il disegno giusto — vedi §4-quater |
+
+### 4-quater. La memoria su più posti: com'è già fatta, e perché
+
+Risposta a T12. La memoria di Momo **è già distribuita su quattro archivi**, e
+ognuno c'è per una ragione diversa. Non è un doppione: è la divisione
+«i vettori per **trovare**, il relazionale per l'**esattezza**».
+
+| Dove | Cosa ci sta | Perché lì |
+|---|---|---|
+| **Postgres** | fatti, agenda, procedure, rubrica, registro | una procedura si esegue passo per passo e deve tornare **esatta**, non somigliante |
+| **Qdrant** | il *significato* di fatti, note del vault, runbook | «cosa mi aveva detto sul lavoro?» non si risolve con `LIKE` |
+| **Valkey** | cache degli embedding | un embedding sulla CPU costava 18 s; ricalcolarlo ogni volta è insostenibile |
+| **CouchDB / Obsidian** | le note scritte a mano, sincronizzate su tutti i dispositivi | è il vault vero, e si legge dal telefono anche offline |
+
+**Il consiglio richiesto** (*«vedi tu cosa è il meglio»*): tenerli tutti e
+quattro, con questa regola su dove scrivere una cosa nuova —
+
+- se è un **fatto** o un **impegno** → Postgres, via `ricorda`/`agenda_*`:
+  strutturato, cancellabile, e `dimentica` dimentica davvero;
+- se è una **nota da rileggere da umano** → Obsidian, dentro
+  `07 Notes/Hermes/`: la sola cartella che Momo può toccare, così un errore
+  non può rovinare i tuoi appunti;
+- **mai la stessa cosa in due posti**: due copie divergono, e la divergenza è
+  invisibile finché una delle due non è sbagliata. È la stessa regola per cui
+  il Guardrail è un file solo.
+
+Quello che **manca** e che è nel documento (voce 7): l'**Automation Library**,
+cioè gli *script* — Qdrant per lo scopo, Postgres `JSONB` per il payload.
+Stessa divisione, contenuto diverso.
+
 ## 5. Ordine — rifatto il 2026-08-01
 
 **Il criterio è cambiato, e l'ha cambiato il proprietario.** Fino al 31/7
