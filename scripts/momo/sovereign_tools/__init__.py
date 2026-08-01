@@ -41,6 +41,14 @@ SOVEREIGN_DIR = os.environ.get("SOVEREIGN_HERMES_DIR", "/opt/sovereign-hermes")
 if SOVEREIGN_DIR not in sys.path:
     sys.path.insert(0, SOVEREIGN_DIR)
 
+# The estate-wide RUNNING/PAUSED switch (A4), the same module and the same
+# state file the live Hermes and the app-control agent read. Imported without
+# a `try`, deliberately: if it is missing the whole plugin fails to load and
+# Momo ends up with NO household tools at all -- which is the safe direction.
+# A Momo that acts believing it has the brake would be the unsafe one.
+# Runbook: docs/04_apps/sovereign-interruttore.md
+import sovereign_switch  # noqa: E402 - needs SOVEREIGN_DIR on sys.path, set above
+
 DEFAULT_OWNER = os.environ.get("HERMES_VAULT_OWNER", "mohamed")
 
 # Engines that run in this house. Anything else is somebody else's computer:
@@ -136,6 +144,10 @@ def _make_handler(name: str):
                                 "e' in casa, quindi non puo' vederli. Cambia motore e "
                                 "richiedimelo."),
             }, ensure_ascii=False)
+        paused = sovereign_switch.guard_tool(name)
+        if paused:
+            return json.dumps({"errore": "impianto in pausa", "spiegazione": paused},
+                              ensure_ascii=False)
         ctx = {"username": DEFAULT_OWNER, "is_admin": True, "apps": []}
         try:
             return str(tool["run"](kwargs, ctx))[:12000]
@@ -175,16 +187,28 @@ def register(ctx) -> None:
     # Second line of defence. `check_fn` hides a tool; this refuses it even if
     # the model asks for it anyway — a hidden tool that is still callable is
     # not a guard, it is a hope.
-    def guard_private(**kwargs: Any) -> Dict[str, Any] | None:
+    #
+    # Both checks live in ONE hook rather than two registrations: whether
+    # hermes-agent chains several hooks on the same event has not been read in
+    # their code, and a guard that depends on unverified behaviour is not a
+    # guard. `pre_tool_call` is a global gate in `model_tools.py`, evaluated
+    # before every routing — plugin, core or memory-provider — so this one
+    # function covers the memory tools too.
+    def guard_tool_call(**kwargs: Any) -> Dict[str, Any] | None:
         tool_name = kwargs.get("tool_name", "")
         if tool_name in _hermes().PRIVATE_TOOLS and not _engine_is_private():
             return {"action": "block",
                     "message": (f"«{tool_name}» tocca dati di casa e il motore che risponde "
                                 f"ora non e' in casa. Rifiutato dalla guardia.")}
+        # A4: the estate-wide pause. Only the tools that change something
+        # outside the conversation; the chat and the memory keep working.
+        paused = sovereign_switch.guard_tool(tool_name)
+        if paused:
+            return {"action": "block", "message": paused}
         return None
 
     try:
-        ctx.register_hook("pre_tool_call", guard_private)
+        ctx.register_hook("pre_tool_call", guard_tool_call)
     except Exception as exc:  # noqa: BLE001
         logger.warning("sovereign_tools: hook pre_tool_call non registrato (%s)", exc)
 

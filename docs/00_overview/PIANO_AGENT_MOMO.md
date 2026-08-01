@@ -230,6 +230,15 @@ Telegram (`plugins/platforms/telegram/`, il bot `@dn_momo_bot` e il token sono
 già pronti dal 2026-07-30), poi voce, poi il passaggio del testimone su
 `hermes.internal` — solo dopo che le fasi 2-4 sono verificate.
 
+**Il passaggio del testimone è ora anche il punto 21 di
+[PIANO_GENERALE](PIANO_GENERALE.md)** (aggiunto 2026-08-01, non era in
+nessuna fila prima di allora): i suoi prerequisiti espliciti, l'ordine delle
+operazioni e cosa succede ai nomi (`hermes_*` → rinominati tutti insieme, non
+uno alla volta) sono descritti lì. L'interruttore RUNNING/PAUSED (A4) e il
+Verificatore (A3), che il testimone eredita, sono già fatti — vedi
+[sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) e
+[sovereign-verificatore.md](../04_apps/sovereign-verificatore.md).
+
 ## 4-bis. I dieci repository del proprietario dentro Obsidian
 
 Richiesta del 2026-07-30: *«ho vari repositori su github non solo il sovereign

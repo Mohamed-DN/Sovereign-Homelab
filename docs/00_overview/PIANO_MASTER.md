@@ -18,6 +18,8 @@
 | [PIANO_HERMES_CANALI_E_DB.md](PIANO_HERMES_CANALI_E_DB.md) | Motori oltre Ollama, Telegram, **perché no WhatsApp**, database, controlli |
 | [hermes.md](../04_apps/hermes.md) | Il runbook del servizio: com'è fatto, come si ripara |
 | [hermes-memoria.md](../04_apps/hermes-memoria.md) | **La memoria**: i tre archivi, le due bugie chiuse, il costo misurato degli embedding |
+| [sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) | **A4**: l'interruttore RUNNING/PAUSED, condiviso da Hermes, Momo e l'agente app |
+| [sovereign-verificatore.md](../04_apps/sovereign-verificatore.md) | **A3**: il Verificatore degli allarmi, dentro il relay su LXC 101 |
 | [omniroute.md](../04_apps/omniroute.md) | **Il gateway** verso i fornitori esterni: cosa funziona e cosa manca |
 | [ORDINE_DEI_LAVORI.md](ORDINE_DEI_LAVORI.md) | **Da dove si comincia**: tutte le idee in fila, il criterio che decide l'ordine, e la verifica di ognuna. Se non sai cosa fare, apri questo |
 | [PIANO_MOMO_DIGITAL_TWIN.md](PIANO_MOMO_DIGITAL_TWIN.md) | **Cosa Momo deve saper fare**: il Sinker a 4 fasi (per stare in 16 GB di VRAM), il Guardrail anti-allucinazione, la libreria di automazione, le sandbox con ciclo di vita, la squadra a grafo, la voce in tempo reale |
@@ -74,6 +76,8 @@
 | 29 | **Pannello a schede (W3)**: Motori/Modelli/Fornitori/Rotte/Memoria/Rubrica, badge privato+latenza sui motori, editor rotte, stato memoria con reindicizza, rubrica con form. **Trovato e chiuso un difetto che aveva reso l'intero pannello vuoto dal vivo dal momento di W1**: `\n` scritto in una tripla-stringa Python diventava un a-capo vero nel JS, mandando in crash l'intero `<script>` al parse — nessun errore visibile, solo un pannello che sembrava aver perso tutti i motori | [hermes.md](../04_apps/hermes.md) §7-octies |
 | 31 | **Guardrail (Momo, fase 4)**: `hermes_guardrail.py`, un file di sola libreria standard importato da Hermes **e** Momo, tre regole deterministiche + uno stadio LLM facoltativo solo su motori di casa. **Chiuso anche nell'Hermes vivo** un buco vero (uno strumento fallito contava come fatto) e nel plugin di memoria di Momo (gli strumenti di memoria erano visibili, non eseguibili, a un motore esterno). Contato dal vivo: motore di casa 21 strumenti, motore esterno 2 | [momo-guardrail.md](../04_apps/momo-guardrail.md) |
 | **S8** | **`ai.internal` (Open WebUI) aveva l'iscrizione libera aperta, con nessun admin ancora rivendicato**: chiunque sulla VPN/LAN arrivasse per primo diventava proprietario dell'istanza, con accesso diretto e senza guardie a Ollama — nessuna memoria, nessun filtro privato/pubblico, nessun Guardrail, nessuna delle protezioni che Hermes e Momo hanno. È un host «VPN only» per scelta scritta (non passa da Authentik come `hermes.internal`), ma l'iscrizione doveva comunque essere chiusa. `ENABLE_SIGNUP=False` in `stacks/ai-ollama/.env`, verificato: `/api/config` ora dichiara `enable_signup:false`. **Nessun account admin esiste ancora**: creerlo (o decidere di spegnere il servizio) resta una scelta del proprietario, non presa qui | `stacks/ai-ollama/docker-compose.yml` |
+| 32 | **A4 — interruttore RUNNING/PAUSED**: `sovereign_switch.py`, un solo file condiviso da Hermes, Momo e l'agente app. Verificato dal vivo: in pausa `esegui_azione_master` rifiutato con motivo, la chat risponde ancora, l'agente app dà 423, `armed_until` di MASTER sopravvive alla pausa | [sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) |
+| 33 | **A3 — il Verificatore**: `sovereign_verifier.py` dentro il relay. **Trovato e chiuso prima del deploy**: LXC 101 non si fidava della CA interna, il che avrebbe confermato ogni allarme come vero. Verificato dal vivo: `files.internal` sano → `FALSE_ALARM`, un host inesistente → `REAL_CRITICAL` | [sovereign-verificatore.md](../04_apps/sovereign-verificatore.md) |
 
 ---
 
@@ -175,6 +179,8 @@
 | **Ruotare la password admin riusata** | issue #2 §6b, aperta dal 2026-07-14 | da fare (punto 2) |
 | **Ritirare `headscale-ui`** | ~~da fare~~ — **verificato 2026-07-31: già fatto** il 2026-07-14, nessun container in nessun LXC | ✅ |
 | **`authentik-server` si riavvia da solo** | scoperto verificando quanto sopra: riavvii non programmati causano 503 transitori sulla discovery OIDC di Headplane. Non blocca, ma la causa non è nota | da capire (punto 2, R12) |
+| **Interruttore RUNNING/PAUSED (A4) e Verificatore (A3)** | ~~da fare~~ — **fatto e verificato il 2026-08-01**, vedi voci 32-33 sopra | ✅ |
+| **Momo sostituisce Hermes** | implicito nella Fase 5 di [PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) ma mai messo in fila con i suoi prerequisiti veri, fino a oggi: punto 21 di [PIANO_GENERALE](PIANO_GENERALE.md) | da fare, dopo la Fase 4 della fusione |
 | **Persistere la finestra metriche** | ~~da fare~~ — **verificato 2026-07-31: già fatto**, `metrics-long.jsonl` ha 25 985 campioni (~18 giorni) | ✅ |
 | **Potare lo snapshot VM110 `preimmich_v302`** | ~~da fare~~ — **non esiste più**: sostituito da `preimmich_auto_1785405203` (rollback dell'update del 30/7), ancora nella sua finestra di 24h | ✅ |
 | **Deprovisioning a scadenza** | tolto un ruolo, dopo una settimana si cancella il profilo sul servizio (chiesto il 2026-07-13) | da verificare |
