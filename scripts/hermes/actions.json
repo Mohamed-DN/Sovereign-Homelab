@@ -59,6 +59,27 @@
     "timeout": 20
   },
   {
+    "name": "spazio_pool",
+    "descrizione": "Spazio dei pool ZFS del nodo: dimensione, occupato, libero, percentuale. In sola lettura. Da guardare SEMPRE prima di espandere un disco.",
+    "comando": ["zpool", "list", "-o", "name,size,alloc,free,capacity"],
+    "parametri": {},
+    "reversibile": true,
+    "conferma": false,
+    "timeout": 30
+  },
+  {
+    "name": "espandi_disco",
+    "descrizione": "Aumenta lo spazio disco di un container. SOLO in aumento. Prima guarda 'spazio_pool' (quanto c'e' nel pool) e 'spazio_disco' (quanto serve davvero): un pool pieno non si svuota espandendo un container.",
+    "comando": ["pct", "resize", "{ctid}", "rootfs", "{incremento}"],
+    "parametri": {
+      "ctid": {"tipo": "enum", "valori": ["100", "101", "102", "103"]},
+      "incremento": {"tipo": "enum", "valori": ["+5G", "+10G", "+20G", "+50G"]}
+    },
+    "reversibile": false,
+    "conferma": true,
+    "timeout": 300
+  },
+  {
     "name": "lista_container",
     "descrizione": "Elenco di tutti i container e VM sul nodo Proxmox, in sola lettura",
     "comando": ["pct", "list"],

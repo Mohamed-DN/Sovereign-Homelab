@@ -1526,6 +1526,17 @@ MASTER_KNOWN_HOSTS_FILE = os.environ.get(
 PROXMOX_HOST = os.environ.get("HERMES_PROXMOX_HOST", "192.168.1.150")
 MASTER_ARM_SECONDS = 30 * 60
 
+# Comandi che esistono SOLO sull'host Proxmox: LXC 102 non li ha, quindi
+# devono attraversare SSH o falliscono con «No such file or directory».
+# Trovato dal vivo il 2026-08-01 aggiungendo `spazio_pool`: `zpool` girava in
+# locale e falliva, e l'errore sembrava un problema di permessi.
+#
+# Aggiungerne uno qui non allarga i poteri: l'elenco delle azioni resta
+# `actions.json`, e ogni comando passa comunque da `master_forbidden` due
+# volte (qui e in `master_execute`) e poi dalla guardia sull'host, che per
+# `zfs destroy` ha già la sua parola.
+HOST_ONLY_COMMANDS = ("pct", "qm", "zpool", "zfs")
+
 # Nessun lock qui: la serializzazione della scrittura sta in `sovereign_switch`
 # (lock nel processo + `os.replace` fra processi), perche' quel file lo scrivono
 # anche Momo e la CLI.
@@ -1683,7 +1694,7 @@ def run_action_command(cmd: list[str], timeout: int) -> tuple[bool, str]:
     reason = master_forbidden(cmd)
     if reason:
         return False, f"RIFIUTATO dalla guardia locale: {reason}"
-    if cmd and cmd[0] in ("pct", "qm"):
+    if cmd and cmd[0] in HOST_ONLY_COMMANDS:
         if not Path(MASTER_SSH_KEY_FILE).exists():
             return False, (f"chiave SSH master non configurata ({MASTER_SSH_KEY_FILE}): "
                            "l'azione non può raggiungere l'host Proxmox")
