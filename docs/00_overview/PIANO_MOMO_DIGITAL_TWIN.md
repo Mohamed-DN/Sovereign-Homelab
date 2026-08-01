@@ -240,33 +240,96 @@ router per intenti (fatto, W2.2) e le strategie di scelta (fatte, W2.3). I suoi
 per `hermes-agent`: leggere il codice, non le note di rilascio, e riferire cosa
 regge davvero.
 
-## 4. Come si incastra con quello che esiste già
+## 4. IL PUNTEGGIO — le undici voci del documento, una per una
 
-| Pezzo nuovo | Si aggancia a | Stato di partenza |
+> **Aggiunto il 2026-08-01, su richiesta esplicita del proprietario**, che ha
+> guardato lo stato dei lavori e ha detto: *«mi sa che tante cose mancano»* —
+> aveva ragione. E poi: *«mi assicuro che voglio tutte ste cose»*. Quindi
+> nessuna di queste righe si scarta: sono tutte in fila.
+>
+> Prima di oggi questa tabella non esisteva, e la §4 conteneva una lista vaga
+> di "si aggancia a / da fare" che **non permetteva di contare**. La regola
+> del [PIANO_MASTER](PIANO_MASTER.md) dice che ciò che non è in tabella è
+> dimenticato: qui si conta, e il conto è **1 su 11**.
+>
+> Ogni "zero righe" qui sotto è stato verificato cercando nel codice il
+> 2026-08-01, non ricordato.
+
+| # | Voce del documento | Stato | Prova |
+|---|---|---|---|
+| 1 | **Doppio RAG**: JSON astratto → pattern decisionali su Qdrant | ❌ zero righe | il Sinker Fase 1 non esiste. `MemoryStore.recall()` accetta `origins`, quindi il pezzo *sotto* c'è, ma nessuno genera l'astrazione |
+| 2 | **Tool statistico**: microservizi Python (ARIMA), niente numeri dall'LLM | ❌ zero righe | nessun file. Chiude anche A6 di Nexi |
+| 3 | **Apprendimento continuo**: download in background → Qdrant/Obsidian | ❌ zero righe | dovrà passare dalle guardie di `web_fetch` (difesa SSRF, S4) |
+| 4 | **Voce real-time**: LiveKit/WebRTC, barge-in | ❌ zero righe | — |
+| 5 | **STT**: Faster-Whisper | ❌ zero righe | cercato `whisper` in tutto `scripts/`: nessun file. **Ma il punto d'innesto esiste**: `agent/transcription_provider.py`, una ABC di 193 righe con due soli metodi astratti (`name`, `transcribe`) |
+| 6 | **TTS**: XTTSv2 (deciso: **non** ElevenLabs, §3-bis) | ❌ zero righe | l'adattatore Telegram sa già mandare un vocale nativo (`send_voice`), manca chi genera l'audio |
+| 7 | **Automation Library**: Qdrant per gli scopi, Postgres `JSONB` per i payload | ❌ zero righe | la tabella `procedures` esiste e usa la stessa divisione: è il modello da copiare |
+| 8 | **Riciclo**: cerca uno script provato prima di scriverne uno nuovo | ❌ zero righe | dipende dal 7 |
+| 9 | **Sandbox lifecycle**: provision → test → teardown | ❌ zero righe | la guardia host esiste (29 casi); manca il registro di ciò che Momo ha creato, che è l'unico modo onesto di limitare il teardown |
+| 10 | **Auto-salvataggio**: se il test passa, lo script si salva da solo | ❌ zero righe | dipende dal 7 |
+| 11 | **Sinker Fase 4 — GUARDRAIL** | ✅ **fatto e verificato (2026-07-31)** | [momo-guardrail.md](../04_apps/momo-guardrail.md), 23 casi di test |
+
+E le tre fasi del Sinker che restano, dalla PARTE 2 del documento:
+
+| Fase | Cosa | Stato |
 |---|---|---|
-| Guardrail (Fase 4) | `unverified_write_claim` / `unmet_write_request`, ora in `scripts/hermes/hermes_guardrail.py` | **✅ FATTO e verificato (2026-07-31)** — vedi [momo-guardrail.md](../04_apps/momo-guardrail.md) |
-| Automation Library | `actions.json` di MASTER + tabella `procedures` | esistono |
-| Teardown sandbox | guardia host `hermes-master-guard.py` | esiste, 29 casi verificati |
-| Tool statistici | A6 di Nexi (previsione dischi) | da fare |
-| Doppio RAG | `MemoryStore.recall()` con `origins` | esiste già, accetta origini diverse |
-| Voce | W7.2-7.4 del piano esecutivo | da fare |
-| Squadra a grafo | sciame lineare + `roles.json` | da riscrivere |
+| **1 · SINK** | JSON con `emozioni_interlocutore`, `astrazione_problema`, `tool_richiesti`, `query_qdrant_memoria`, `query_qdrant_automazione` | ❌ da fare |
+| **2 · COMPUTE** | orchestrazione Python, nessun LLM, deterministica | ❌ da fare |
+| **3 · SURFACE** | `<draft_output>` / `<automation_commit>` / `<reflect>` | ❌ da fare |
+| **4 · GUARDRAIL** | il filtro anti-allucinazione | ✅ fatto |
 
-## 5. Ordine consigliato
+### 4-bis. E le tre cose che non sono nel documento ma che il proprietario usa
 
-Prima le fasi 3 e 4 della fusione (**gli strumenti** e **le guardie**), perché
-tutto quanto sopra si appoggia su quelle. Poi, in ordine di rapporto fra
-valore e rischio:
+Dette il 2026-08-01: *«Momo non ha ancora preso il posto di Hermes, se sì
+Hermes lo vedo ancora sulla dashboard»*, *«Momo non manda messaggi»*,
+*«Momo non ha la mia voce»*. Tutte e tre vere, verificate:
 
-1. **Guardrail** — **✅ fatto (2026-07-31)**, è la difesa contro un difetto
-   che è già costato tre volte, e nel costruirlo se ne sono trovati e chiusi
-   altri due (vedi [momo-guardrail.md](../04_apps/momo-guardrail.md));
-2. **Tool statistici** — piccolo, isolato, e chiude una voce già aperta;
-3. **Automation Library** — riusa schemi già in casa;
-4. **Sandbox con ciclo di vita** — potente, ma tocca il divieto assoluto:
-   va fatto dopo che il Guardrail è in piedi, non prima;
-5. **Squadra a grafo** — da progettare con i tre freni sopra;
-6. **Voce in tempo reale** — il pezzo più grosso, e il più visibile.
+| Cosa | Stato reale, verificato il 2026-08-01 |
+|---|---|
+| **Momo al posto di Hermes** | ❌ `hermes.internal` → `192.168.1.52:8093`, che è `sovereign-hermes.py`. Momo non è dietro nessun URL e **non è nemmeno un servizio**: gira solo da riga di comando. Prerequisiti veri nel punto 21 di [PIANO_GENERALE](PIANO_GENERALE.md) |
+| **Momo manda messaggi (Telegram)** | ❌ `config.yaml` di Momo ha 4 plugin, nessuna piattaforma. Il bot **è vivo** (`@dn_momo_bot`, id `8863073080`, `getMe` risponde) e il token c'è dal 30/7, ma non è collegato a niente |
+| **Momo ha la voce** | ❌ vedi righe 4-6 sopra |
+
+**La scoperta utile del 2026-08-01**: la voce **via Telegram** costa molto meno
+della voce nel browser, perché l'adattatore di hermes-agent fa già tutto
+l'impianto audio. Scarica i vocali in arrivo per la trascrizione
+(`adapter.py:9013`) e sa mandare un vocale nativo, la bollicina tonda
+(`adapter.py:6798`, per `.ogg`/`.opus`). Restano da scrivere **solo i due
+motori**, e il primo ha già la sua ABC pronta. Il registratore nel browser e
+LiveKit (voce real-time con barge-in) restano da fare, ma non sono più la
+strada più corta per avere una voce che funziona.
+
+## 5. Ordine — rifatto il 2026-08-01
+
+**Il criterio è cambiato, e l'ha cambiato il proprietario.** Fino al 31/7
+l'ordine era «prima le fondamenta, poi le capacità», ed è così che in due
+sessioni sono arrivati il Guardrail, l'interruttore e il Verificatore: tutta
+roba giusta che **lui non vede**. Il 2026-08-01 ha guardato il risultato e ha
+detto che mancano le cose che usa. Quindi ora l'ordine è: **prima quello che
+si vede e si usa.**
+
+1. **Telegram** — *scelto dal proprietario come primo, 2026-08-01*. È il più
+   corto a dargli qualcosa in mano: il bot esiste, il token esiste,
+   l'adattatore esiste. Obbliga anche a fare una cosa che serve comunque,
+   **rendere Momo un servizio vivo** invece di un comando da terminale.
+2. **La voce, via Telegram** — vedi §4-bis: da qui costa molto meno che dal
+   browser. Prima l'ascolto (Faster-Whisper dietro `TranscriptionProvider`),
+   poi la risposta parlata (Piper), poi la sua voce (XTTSv2).
+3. **Tool statistici** — piccolo, isolato, non può rompere niente, e chiude
+   A6 di Nexi.
+4. **Automation Library** (voci 7, 8, 10) — riusa schemi già in casa.
+5. **Il Sinker completo** (fasi 1-3) — ha bisogno della GPU del server
+   (punto 20 di [PIANO_GENERALE](PIANO_GENERALE.md)), altrimenti tre chiamate
+   al modello sulla CPU lo rendono inusabile.
+6. **Sandbox con ciclo di vita** — tocca il divieto assoluto: dopo il
+   Guardrail (fatto) e dopo il drop pulito (punto 7 del PIANO_GENERALE).
+7. **Squadra a grafo** — con i tre freni del §3.6.
+8. **Voce real-time (LiveKit, barge-in)** — il pezzo più grosso; dopo che la
+   voce a messaggi funziona.
+
+Resta vero che **le guardie vengono prima dei poteri**: il punto 6 non si
+tocca prima del suo prerequisito. Ma le guardie che servivano ai punti 1-5
+sono già in piedi, quindi non c'è più niente da aspettare.
 
 ## 6. Sorgenti
 

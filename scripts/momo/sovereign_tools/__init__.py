@@ -56,6 +56,27 @@ DEFAULT_OWNER = os.environ.get("HERMES_VAULT_OWNER", "mohamed")
 # list is by provider name, matching hermes-agent's `provider` config key.
 PRIVATE_PROVIDERS = {"custom", "ollama", "local"}
 
+# A provider NAME is not enough, and finding that out was the point.
+#
+# `custom` means "OpenAI-compatible endpoint" -- which is equally true of
+# Ollama on Mohamed's PC and of OmniRoute, a gateway that forwards to external
+# providers. Trusting the name alone would hand the vault to whatever sits
+# behind the gateway. So an engine is trusted only when its base_url is one we
+# have named here, one by one.
+#
+# Fails closed: an endpoint that is not in this set is external, even if it
+# lives on a home IP address.
+PRIVATE_BASE_URLS = {
+    "http://192.168.1.100:11434",   # PC di Mohamed, Ollama (RTX 5070 Ti)
+    "http://127.0.0.1:11434",       # server, Ollama dentro LXC 102
+    "http://localhost:11434",
+}
+PRIVATE_BASE_URLS |= {
+    u.strip().rstrip("/").removesuffix("/v1")
+    for u in os.environ.get("SOVEREIGN_PRIVATE_BASE_URLS", "").split(",")
+    if u.strip()
+}
+
 # The memory tools are NOT here: they come from the sovereign MemoryProvider
 # (see ../sovereign/). Registering them twice would give the model two paths
 # to the same data, and only one of them guarded.
@@ -107,14 +128,103 @@ def _active_provider() -> str:
         return ""
 
 
-def _engine_is_private() -> bool:
-    """True only when the answering engine runs in this house.
+def _base_url_of(entry: Any) -> str:
+    if not isinstance(entry, dict):
+        return ""
+    return str(entry.get("base_url") or "").strip().rstrip("/").removesuffix("/v1")
 
-    Fails CLOSED: an unrecognised provider is treated as external. Forgetting
-    to add a new local engine to the list costs one tool being hidden;
-    forgetting to add a new remote one would cost the vault.
+
+def _entry_is_private(provider: str, base_url: str) -> bool:
+    """One engine, judged on BOTH its provider name and where it points."""
+    if provider not in PRIVATE_PROVIDERS:
+        return False
+    if not base_url:
+        # `ollama`/`local` with no URL means the default local daemon. A
+        # `custom` provider with no URL is under-specified: fail closed.
+        return provider in {"ollama", "local"}
+    return base_url in PRIVATE_BASE_URLS
+
+
+def _configured_engines() -> list[tuple[str, str]]:
+    """(provider, base_url) for the primary AND every fallback.
+
+    WHY THE FALLBACKS COUNT. `pre_tool_call` does not receive the provider
+    that is actually answering -- read in `model_tools.py`, it passes
+    tool_name, args, task_id, session_id... and no engine identity. So at the
+    moment a tool is gated we CANNOT know whether the primary answered or the
+    chain fell through to a fallback.
+    ONE configured engine that is external is therefore enough to hide the
+    household tools, always: the alternative is trusting that the engine we
+    read from static config is the one that replied, and the day that is wrong
+    is the day the vault goes to AWS.
+    Add a non-private fallback and household tools go dark until it is removed
+    -- deliberately, so the cost is visible instead of silent.
     """
-    return _active_provider() in PRIVATE_PROVIDERS
+    engines: list[tuple[str, str]] = []
+    try:
+        from hermes_cli.config import cfg_get, load_config  # noqa: PLC0415
+        config = load_config()
+        model = cfg_get(config, "model")
+        primary = ""
+        if isinstance(model, dict) and model.get("provider"):
+            primary = str(model["provider"]).lower()
+        else:
+            primary = str(cfg_get(config, "provider") or "").lower()
+        engines.append((primary, str(os.environ.get("CUSTOM_BASE_URL", ""))
+                        .strip().rstrip("/").removesuffix("/v1")))
+
+        raw = cfg_get(config, "fallback_providers") or []
+        entries = raw if isinstance(raw, list) else [raw]
+        for entry in entries:
+            if isinstance(entry, dict) and entry.get("provider"):
+                engines.append((str(entry["provider"]).lower(), _base_url_of(entry)))
+        single = cfg_get(config, "fallback_model")
+        if isinstance(single, dict) and single.get("provider"):
+            engines.append((str(single["provider"]).lower(), _base_url_of(single)))
+    except Exception:  # noqa: BLE001 - unreadable config must fail closed
+        return [("", "")]
+    return engines or [("", "")]
+
+
+# THE OWNER'S OVERRIDE, 2026-08-01, in his words: «va bene anche se le robe
+# passano ai api provider ma dammi sempre un warn prima di scrivere».
+#
+# This REVERSES a rule written everywhere else in this project ("un motore non
+# privato non vede mai i dati di casa"). It is his estate and his data, and he
+# was explicit, so it is honoured -- but as a named switch, defaulting to his
+# choice, so that:
+#   1. anyone reading the code sees a DECISION, not an oversight;
+#   2. `SOVEREIGN_ALLOW_EXTERNAL_ENGINES=0` restores the strict behaviour in
+#      one line, with no code change.
+#
+# What it does NOT do: it does not disable the warning. When engines that
+# could answer are external, Momo is told to say so before it writes anything
+# (see SOUL.md, "Quando il motore non è di casa").
+ALLOW_EXTERNAL = os.environ.get(
+    "SOVEREIGN_ALLOW_EXTERNAL_ENGINES", "1").strip().lower() not in {"0", "false", "off", "no"}
+
+
+def _all_engines_are_home() -> bool:
+    """True only when EVERY engine that could answer runs in this house.
+
+    Fails CLOSED twice over: an unrecognised provider is external, and an
+    unreadable config is external.
+    """
+    return all(_entry_is_private(provider, base_url)
+               for provider, base_url in _configured_engines())
+
+
+def _engine_is_private() -> bool:
+    """Whether household tools are offered and executed this turn.
+
+    With the owner's override on (the default), household tools stay available
+    even when an external engine is in the chain -- because a Momo that goes
+    dark the moment a fallback is configured is a Momo he cannot use. With it
+    off, this is the strict rule: every engine must be at home.
+    """
+    if ALLOW_EXTERNAL:
+        return True
+    return _all_engines_are_home()
 
 
 def _make_check(private: bool):
