@@ -1,0 +1,42 @@
+[Unit]
+# Adapted from the unit `hermes gateway install` generates. Theirs is a USER
+# service (`systemctl --user`), which has no session bus inside an LXC running
+# as root -- their installer fails with "Failed to connect to bus". This is a
+# SYSTEM service, like everything else in this house (sovereign-hermes,
+# sovereign-app-control-agent, sovereign-alert-relay).
+#
+# Divergence from their code, declared: only the unit type and two extra
+# Environment lines (HOME, which Momo needs for its isolation, and the
+# multi-user target). No change to their Python.
+#
+# Runbook: docs/04_apps/momo-telegram.md
+# Install:  pct push 102 momo-gateway.service /etc/systemd/system/momo-gateway.service
+#           pct exec 102 -- systemctl daemon-reload
+#           pct exec 102 -- systemctl enable --now momo-gateway
+Description=Momo gateway (Telegram) - hermes-agent messaging gateway
+After=network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/opt/momo/venv/bin/python -m hermes_cli.main gateway run
+WorkingDirectory=/opt/momo/home/.hermes
+Environment="PATH=/opt/momo/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+Environment="VIRTUAL_ENV=/opt/momo/venv"
+Environment="HERMES_HOME=/opt/momo/home/.hermes"
+Environment="HOME=/opt/momo/home"
+Restart=always
+RestartSec=5
+# 75 = restart requested by the agent itself; 78 = configuration error, where
+# restarting in a loop would only hide the problem. Both come from their code.
+RestartForceExitStatus=75
+RestartPreventExitStatus=78
+KillMode=mixed
+KillSignal=SIGTERM
+TimeoutStopSec=60
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

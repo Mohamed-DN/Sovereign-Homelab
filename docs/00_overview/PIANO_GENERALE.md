@@ -555,14 +555,31 @@ riceve già `session_id`.
 
 ---
 
-#### **14 · Telegram** ⏱ ~2 ore
+#### **14 · Telegram** ✅ fatto e verificato (2026-08-01)
 
-Bot `@dn_momo_bot` e token pronti dal 30 luglio. Oggi non risponde perché **non
-è collegato a niente**. Si usa l'adattatore di hermes-agent, non un bot scritto
-a mano.
+Bot `@dn_momo_bot` e token pronti dal 30 luglio. Usato l'adattatore di
+hermes-agent, non un bot scritto a mano.
 
-**Il vincolo che non si tocca**: mappatura `id Telegram → utente di casa`
-compilata a mano, sconosciuti rifiutati. Un id di Telegram non è un'identità.
+**Il vincolo che non si tocca, rispettato**: mappatura `id Telegram → utente
+di casa` compilata a mano (`TELEGRAM_ALLOWED_USERS=6805681257`),
+`TELEGRAM_ALLOW_ALL_USERS=false`. Un id di Telegram non è un'identità, e l'id
+è stato **catturato** da `getUpdates` facendolo scrivere al bot, non accettato
+a voce.
+
+**Il pezzo che mancava davvero non era Telegram: era che Momo non fosse un
+servizio.** Girava solo da riga di comando. Ora è `momo-gateway.service` su
+LXC 102 (`scripts/momo/momo-gateway.service`), e questo è anche un prerequisito
+del punto 21.
+
+*Verifica fatta, dai log del vivo*: `Connected to Telegram (polling mode)`,
+poi `inbound message: platform=telegram user=... chat=6805681257` →
+`response ready: time=12.1s api_calls=1` → `Sending response to 6805681257`.
+Due giri completi. Con Momo arrivano **tutte le guardie** senza codice in più:
+filtro privato/pubblico, Guardrail, interruttore RUNNING/PAUSED, e la memoria
+condivisa con Hermes.
+
+Runbook: [momo-telegram.md](../04_apps/momo-telegram.md). Nessuna porta
+aperta: long polling, quindi niente host in NPM e niente firewall da toccare.
 
 ---
 
