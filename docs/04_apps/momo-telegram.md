@@ -116,6 +116,71 @@ pct exec 102 -- /opt/momo/venv/bin/pip install 'python-telegram-bot[webhooks]==2
 systemctl enable --now momo-gateway
 ```
 
+## 3-bis. La voce: capire e rispondere, tutto in casa
+
+Aggiunto il 2026-08-01. **Niente di questo è codice nostro**: hermes-agent ha
+già l'impianto audio completo, e la scoperta utile è stata proprio quella —
+la voce via Telegram costa molto meno della voce nel browser.
+
+```
+tu mandi un vocale
+   → l'adattatore lo scarica          adapter.py:9013, codice loro
+   → faster-whisper lo trascrive      stt.provider: local, codice loro
+   → il layer lingue stabilisce       sovereign_language.py, NOSTRO
+     in che lingua hai parlato
+   → Momo ragiona e risponde
+   → Piper genera l'audio             tts.provider: piper, codice loro
+   → send_voice, bollicina tonda      adapter.py:6798, codice loro
+```
+
+### I quattro difetti trovati accendendola
+
+Sono tutti di **configurazione**, e nessuno dava errore: fallivano in
+silenzio, che è il modo peggiore.
+
+| Difetto | Sintomo | Causa |
+|---|---|---|
+| `faster-whisper` non installato | il vocale arrivava a Momo **vuoto** (`msg=''` nel log), e lui rispondeva a caso | `stt.provider: local` è il default, ma la libreria si installa a richiesta e nessuno l'aveva installata |
+| `stt.language: "en"` | un vocale in arabo veniva trascritto forzando l'**inglese** | è il loro default, e il loro commento lo spiega: l'auto-detect sbaglia sulle clip corte. Giusto per un monolingue, sbagliato qui |
+| `tts.provider: "edge"` | la voce sarebbe uscita da **Microsoft** | il loro default. Sostituito con `piper`, locale |
+| `voice_compatible: false` | l'audio sarebbe arrivato come **allegato**, non come bollicina vocale | i provider devono dichiararlo; Piper produce mp3 e il gateway converte in Opus solo se glielo si dice |
+
+### La configurazione, per intero
+
+In `/opt/momo/home/.hermes/config.yaml`:
+
+```yaml
+stt:
+  enabled: true
+  language: ""          # riconosci tu la lingua: qui si parlano tre lingue
+  echo_transcripts: true
+  local:
+    model: small        # "base" non regge l'arabo; small è il compromesso su CPU
+    language: ""
+    vad: true           # il silenzio non arriva a whisper (anti-allucinazione)
+
+tts:
+  provider: piper       # locale. Il default loro è "edge" = Microsoft
+  piper:
+    voice: it_IT-paola-medium
+  providers:
+    piper:
+      voice_compatible: true   # il gateway converte in Opus e manda la bollicina
+
+voice:
+  auto_tts: true        # a un vocale si risponde anche a voce
+```
+
+Le tre voci stanno in `/opt/momo/home/.hermes/cache/piper-voices/`:
+`it_IT-paola-medium`, `ar_JO-kareem-medium`, `en_US-amy-medium` — una per
+lingua, perché la regola è «rispondi nella lingua in cui ti ha parlato» e una
+risposta araba con voce italiana non la rispetta. **Verificate diverse
+davvero** (md5 + metadati): pesavano lo stesso byte per byte, il che sembrava
+un errore di scaricamento e non lo era.
+
+Dipendenze: `piper-tts` e `faster-whisper==1.2.1` nel venv di Momo, `ffmpeg`
+da apt. Il modello `small` di whisper si scarica al primo uso.
+
 ## 4. DNS / domain names / alias
 
 **Nessuno, e volutamente.** Telegram si raggiunge in uscita; non c'è niente da
