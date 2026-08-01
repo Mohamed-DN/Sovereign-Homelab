@@ -258,6 +258,70 @@ quando il proprietario scriveva. Corretta in `auto_tts: false` più
 che era stato chiesto: *«non solo se mando l'audio o gli chiedo di mandare
 audio»*.
 
+## 3-quinquies. MASTER dentro Momo: c'era già, e nessuno lo sapeva
+
+Verificato il 2026-08-01, mentre si stava per costruirlo. **Momo aveva già
+MASTER completo**, e la ragione è la stessa scelta di disegno che regge tutto
+il resto: `sovereign_tools` registra in Momo **ogni** strumento di
+`hermes.TOOLS`, saltando solo quelli della memoria. `master_azioni_elenco` e
+`esegui_azione_master` non erano nell'elenco dei salti, quindi erano già lì
+dalla Fase 3.
+
+Non solo gli strumenti: **è condiviso tutto lo strato di sicurezza**, perché è
+lo stesso codice e lo stesso file di stato.
+
+| Pezzo | Dove sta | Chi lo usa |
+|---|---|---|
+| Catalogo delle azioni | `actions.json` (8 azioni) | Hermes **e** Momo |
+| Divieto assoluto | `master_forbidden()`, compilato nel codice | Hermes **e** Momo |
+| Armamento a 30 minuti | `master-state.json` | Hermes **e** Momo |
+| Interruttore RUNNING/PAUSED | stesso file | Hermes **e** Momo |
+| Registro di audit | Postgres, `memory_master_log` | Hermes **e** Momo |
+| Chiave SSH per l'host | `/root/sovereign-secrets/hermes/master-ssh-key` | Hermes **e** Momo |
+
+**Conseguenza pratica che vale la pena sapere**: armare MASTER dal pannello di
+Hermes **arma anche Momo**, perché il file di stato è uno solo. Non è un
+effetto collaterale, è il disegno: una sola verità sullo stato.
+
+### La verifica, fatta sul vivo
+
+```
+armato dal pannello di Hermes        -> {"ok": true, "azioni": 8}
+Momo vede MASTER armato              -> True
+Momo esegue "spazio_disco" su LXC 102 -> Riuscita, output vero via SSH sull'host
+il registro ha inciso l'azione       -> 07:38 · spazio_disco · riuscita · mohamed
+```
+
+E la prova che conta di più, **il divieto assoluto interrogato da Momo mentre
+era armato**:
+
+| Comando | Esito |
+|---|---|
+| `qm stop 110` (fermare Immich) | **RIFIUTATO** — nessuna azione su VM 110, in nessuna forma |
+| `qm destroy 110` | **RIFIUTATO** |
+| `zfs destroy ssd_pool/...` | **RIFIUTATO** — nessuna distruzione di dati |
+| `rm -rf /opt` | **RIFIUTATO** |
+| fermare PBS | **RIFIUTATO** — nessuna azione sul backup |
+| leggere/scrivere `actions.json` | **RIFIUTATO** — non si tocca il divieto stesso |
+| `df -h` | permesso ✓ |
+
+È esattamente il patto chiesto dal proprietario: *«un pulsante master per
+autorizzarlo a fare tutto tutto tutto tranne toccare Immich e quella piccola
+lista»*. La lista è compilata **a codice**, non in un file: un file si
+modifica, un divieto no.
+
+### Cosa manca ancora
+
+- **Armare da Telegram** (T9): oggi si arma dal pannello di Hermes o via API.
+  Da Telegram non ancora, ed è una decisione di sicurezza da prendere con
+  calma — chi arma MASTER autorizza azioni sull'impianto, e un canale va
+  valutato per quanto è difficile impersonarlo, non per quanto è comodo.
+- **Il catalogo è di 8 azioni**, tutte a basso rischio (riavvii, letture). Il
+  «tutto tutto tutto» chiesto significa allargarlo: ogni azione nuova si
+  aggiunge come **dato** in `actions.json`, con i suoi parametri vincolati da
+  enum o regex, mai come shell libera. È il disegno A5 di Nexi, e regge
+  proprio perché il modello sceglie da un elenco invece di comporre comandi.
+
 ## 4. DNS / domain names / alias
 
 **Nessuno, e volutamente.** Telegram si raggiunge in uscita; non c'è niente da
