@@ -24,11 +24,21 @@ import html as html_lib
 import json
 import os
 import subprocess
+import sys
 import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
+
+# The estate-wide RUNNING/PAUSED switch (A4), shared with Hermes and Momo:
+# starting or stopping a container is exactly the kind of thing a pause must
+# stop. Same state file, same module, no second copy of the rule.
+# Runbook: docs/04_apps/sovereign-interruttore.md
+SOVEREIGN_DIR = os.environ.get("SOVEREIGN_HERMES_DIR", "/opt/sovereign-hermes")
+if SOVEREIGN_DIR not in sys.path:
+    sys.path.insert(0, SOVEREIGN_DIR)
+import sovereign_switch  # noqa: E402 - needs SOVEREIGN_DIR on sys.path
 
 # name -> compose project directory + the exact services to toggle together.
 # NEVER add: Immich, Vaultwarden, AdGuard, NPM, Headscale, PBS, Authentik, the
@@ -245,6 +255,17 @@ class Handler(BaseHTTPRequestHandler):
             return
         if action not in {"start", "stop"}:
             self._send(400, {"error": "action must be start or stop"})
+            return
+        # 423 Locked, not 403: nothing is wrong with the caller or the token —
+        # the estate is deliberately paused, and it will work again on resume.
+        paused = sovereign_switch.blocked_message(f"{action} {service}") \
+            if not sovereign_switch.is_running() else ""
+        if paused:
+            audit({"ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                   "actor": actor, "service": service, "action": action,
+                   "reason": reason, "result": "paused", "detail": paused})
+            self._send(423, {"ok": False, "service": service, "action": action,
+                             "error": "impianto in pausa", "detail": paused})
             return
 
         ok, message = run_compose(service, action)

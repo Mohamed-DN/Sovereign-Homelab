@@ -330,23 +330,49 @@ runbook.
 
 ---
 
-#### **4 · Il Verificatore e l'interruttore globale** ⏱ ~3 ore
+#### **4 · Il Verificatore e l'interruttore globale** ✅ fatto (2026-08-01)
 
-Sono **A3** e **A4** di Nexi, e servono a tutto ciò che viene dopo.
+Sono **A3** e **A4** di Nexi.
 
-- **A4 — interruttore `RUNNING`/`PAUSED`**, letto da ogni agente prima di ogni
-  giro. In pausa dorme, non muore: la chat continua, le azioni si fermano. È
-  più utile di `systemctl stop` ed è il prerequisito onesto delle sandbox
-  (punto 9).
-- **A3 — il Verificatore**: prima di allarmare, un secondo passaggio confronta
-  la previsione con lo stato reale e classifica `REAL_CRITICAL` /
-  `REAL_WARNING` / `FALSE_ALARM`, **con una regola deterministica di riserva**
-  quando il modello non risponde o risponde male. È la cura del 502 di
-  Nextcloud che colora tutto di rosso una volta su quattro — e la stessa
-  medicina che serviva all'healthcheck del punto 1.
+- **A4 — interruttore `RUNNING`/`PAUSED`**: `scripts/hermes/sovereign_switch.py`,
+  sola libreria standard, importato da Hermes (`run_tool()`, la strozzatura
+  unica di ogni strumento, più `master_execute` come seconda linea), da Momo
+  (due punti indipendenti: `_make_handler` e l'hook `pre_tool_call`, perché
+  Momo chiama `tool["run"]` diretto e non passa da `run_tool()`) e
+  dall'agente di controllo delle app (`sovereign-app-control-agent.py`, 423
+  in pausa). Stesso file di stato di MASTER (`master-state.json`): non un
+  secondo file, non una seconda verità. Ferma `esegui_azione_master`,
+  `send_mail`, `vault_scrivi`; chat, lettura e memoria continuano — la tabella
+  completa e il perché di ogni riga sono in
+  [sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) §1.1.
+  Nome `sovereign_` e non `hermes_`, deciso: vedi punto 21.
+- **A3 — il Verificatore**: `scripts/hermes/sovereign_verifier.py`, dentro il
+  relay su LXC 101. Prima della prima email, riprova da solo (di default 4
+  sonde, 3s di distanza) e classifica `REAL_CRITICAL` / `REAL_WARNING` /
+  `FALSE_ALARM` / `UNVERIFIED`. **Trovato costruendolo**: LXC 101 non si
+  fidava della CA interna (verificato: `CERTIFICATE_VERIFY_FAILED` su
+  `hermes.internal`) — senza risolverlo il Verificatore avrebbe confermato
+  ogni allarme come vero, perché ogni sonda `.internal` sarebbe fallita.
+  Risolto con una copia stabile della CA su LXC 101
+  (`/root/sovereign-secrets/ca/sovereign-root-ca.crt`). Solo la regola, senza
+  stadio a modello (divergenza dichiarata da A3 di Nexi, motivata in
+  [sovereign-verificatore.md](../04_apps/sovereign-verificatore.md) §1.4): un
+  allarme che tace perché il servizio di chat è giù sarebbe il difetto
+  peggiore possibile. Due tetti (3 falsi allarmi consecutivi, 15 minuti)
+  garantiscono che il peggio che può fare è ritardare un allarme vero, mai
+  cancellarlo.
 
-*Verifica*: messo in `PAUSED`, un'azione MASTER viene rifiutata e la chat
-risponde ancora; un 502 singolo di Nextcloud non genera più un allarme.
+*Verifica fatta, sul vivo*: messo in `PAUSED` da CLI su LXC 102 —
+`esegui_azione_master` rifiutato con motivo («prova dal vivo»), la chat ha
+risposto comunque (`{"answer":"pronto"}`), l'agente app ha dato `423` su
+start/stop, `/api/master/status` ha mostrato `running:false` con chi/quando/
+perché. Ripreso: tutto tornato a `running:true`, `armed_until` di MASTER
+intatto. Il Verificatore sondato sul vivo: `files.internal` sano → 3/3
+`FALSE_ALARM`; un host inesistente → `REAL_CRITICAL` con `TLSV1_UNRECOGNIZED_NAME`
+riconosciuto come colpa del servizio, non della sonda. 102 casi di test
+(41+38+23, quest'ultimo il Guardrail invariato) passano tutti; il conteggio
+21 strumenti su motore di casa / 2 su motore esterno resta identico dopo il
+cambio dell'hook di Momo.
 
 ---
 
@@ -631,23 +657,86 @@ un numero misurato vale più di una promessa.
 
 ---
 
+### ONDATA G — Il passaggio del testimone
+
+---
+
+#### **21 · Momo prende il posto di Hermes** ⏱ da stimare quando si arriva
+
+**Trovata mentre si scriveva il punto 4, e non era in questa fila.** Il
+proprietario ha chiesto tre volte di fondere i due Hermes
+([PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) §1), e alla fine ha detto: *«Momo
+sostituirà Hermes»*. È implicito nella **Fase 5** di quel piano — *«Momo esce
+di casa […] poi il passaggio del testimone su `hermes.internal`, solo dopo
+che le fasi 2-4 sono verificate»* — ma non era mai stato messo in questa fila
+con i suoi prerequisiti veri. La regola del [PIANO_MASTER](PIANO_MASTER.md) è
+che ciò che non è in tabella è stato dimenticato: questo lo era.
+
+**Non è una rinomina.** Rileggendo la Fase 4 del piano di fusione, oggi
+mancano due cose prima che Momo possa fare quello che fa Hermes:
+
+- **MASTER dentro Momo**: azioni come dati, divieto assoluto compilato nel
+  plugin, armamento a scadenza, registro. Oggi Momo non ha nessuna di queste
+  guardie — solo il filtro privato/pubblico e il Guardrail.
+- **Il filtro per ruolo della persona**: bloccato su una divergenza dal
+  codice di `hermes-agent` ancora aperta (`pre_tool_call` non riceve
+  l'identità di chi sta parlando — [PIANO_AGENT_MOMO](PIANO_AGENT_MOMO.md) §2,
+  «il primo costo vero»). Finché non è chiusa, Momo tratta chiunque lo
+  interroghi come il proprietario.
+
+Spostare `hermes.internal` su Momo prima di questi due punti significherebbe
+dargli le chiavi dell'impianto senza le due guardie che oggi lo tengono al
+sicuro.
+
+**Cosa succede ai nomi, deciso il 2026-08-01**: i moduli condivisi scritti
+*dopo* questa data (`sovereign_switch.py`, `sovereign_verifier.py`) nascono
+già con un nome neutro, che non dovrà cambiare al passaggio del testimone.
+Quelli scritti *prima* (`hermes_memory.py`, `hermes_guardrail.py`), la
+directory `scripts/hermes/` e il percorso `/opt/sovereign-hermes/` restano
+com'è **fino a questo punto**, e si rinominano tutti insieme in
+un'operazione sola, verificabile con lo stesso test che verifica tutto il
+resto — non uno alla volta, perché un impianto in cui metà dei nomi mente per
+settimane è peggio di un impianto che aspetta.
+
+**Cosa comporta, in ordine**:
+1. Chiudere Fase 4 (MASTER in Momo, filtro per ruolo — sopra);
+2. La rinomina dei moduli condivisi e dei percorsi, in un commit solo;
+3. Il cambio di servizio dietro `hermes.internal` (NPM, Homepage, Kuma, i
+   documenti che oggi descrivono "l'Hermes vivo" come `sovereign-hermes.py`);
+4. Un periodo di convivenza verificata — la stessa regola della Fase 1 della
+   fusione: *«l'Hermes attuale resta acceso e intatto finché Momo non ha
+   passato le verifiche. Nessun giorno senza assistente.»*
+
+*Verifica*: le stesse sette prove che oggi passa `sovereign-hermes.py` in
+modalità MASTER, tutte, su Momo; `qm stop 110` rifiutato; un motore non
+privato riceve 2 strumenti e non sa che MASTER esiste; e — la prova che
+conta di più — un giorno intero di uso normale dal telefono senza che nessuno
+si accorga del cambio.
+
+---
+
 ## 4. L'ordine, e cosa dipende da cosa
 
 ```
 1 Obsidian sano ─────> 3 repo→vault ─────> 17 i dieci repo ──> 18 plugin dai DB
 2 debito sicurezza
 4 verificatore+pausa ──┬──> 9 sandbox
-                       └──> tutto ciò che agisce
+   ✅ fatto             └──> tutto ciò che agisce (compreso il 21)
 5 Langfuse (vedere)  ──────> serve a controllare 8..12
 6 add servizio ──> 7 drop pulito ──> 9 sandbox
 8 Automation Library + MCP ──> 11 grafo
 20 GPU server ──> 12 Sinker completo
 13/14/15/16  indipendenti: si possono fare in qualunque momento
+21 testimone Momo/Hermes ──> richiede: Fase 4 di PIANO_AGENT_MOMO (MASTER in
+   Momo + filtro per ruolo), che a sua volta si appoggia al 4 (fatto)
 ```
 
 **Da dove si comincia**: dal punto **2**, e dentro il 2 dal primo login di
 Headplane — è l'unica voce di tutta la fila che ha una porta aperta adesso.
 Poi 1, poi 3: in mezza giornata hai chiuso i buchi e hai i repo dentro Obsidian.
+Il **4 è già fatto** (2026-08-01): l'interruttore e il Verificatore sono la
+base sotto tutto ciò che agisce, incluso il passaggio del testimone del
+punto 21.
 
 ## 5. Regole che valgono per ogni punto
 

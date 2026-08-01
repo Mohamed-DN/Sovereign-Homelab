@@ -5,7 +5,7 @@ Incident ID: $incident_id
 Detected: $timestamp
 Duration: $duration
 Diagnostic: $message_text
-
+$verdict_block_text
 Impact
 $impact_text
 

@@ -55,6 +55,23 @@ ATTEMPT_THROTTLE = int(os.environ.get("ALERT_ATTEMPT_THROTTLE_SECONDS", "60"))
 MAX_PAYLOAD_BYTES = int(os.environ.get("ALERT_MAX_PAYLOAD_BYTES", "1048576"))
 DRY_RUN = os.environ.get("ALERT_DRY_RUN", "false").lower() in {"1", "true", "yes"}
 
+# A3, the Verifier: before the first email, probe the target ourselves and
+# classify what we see. Imported unprotected on purpose -- a relay that believes
+# it verifies and does not is worse than a relay that refuses to start.
+# Runbook: docs/04_apps/sovereign-verificatore.md
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import sovereign_verifier  # noqa: E402 - deployed flat next to this file
+
+VERIFY = os.environ.get("ALERT_VERIFY", "1").lower() in {"1", "true", "yes", "on"}
+VERIFY_PROBES = int(os.environ.get("ALERT_VERIFY_PROBES", "4"))
+VERIFY_SPACING = float(os.environ.get("ALERT_VERIFY_SPACING", "3"))
+VERIFY_TIMEOUT = float(os.environ.get("ALERT_VERIFY_TIMEOUT", "8"))
+# The two ceilings. A verifier that can silence an alarm forever is worse than
+# the false alarm it cures: past either of these the email goes out anyway,
+# saying the failure could not be reproduced.
+VERIFY_MAX_FALSE = int(os.environ.get("ALERT_VERIFY_MAX_FALSE", "3"))
+VERIFY_MAX_SUPPRESS_SECONDS = int(os.environ.get("ALERT_VERIFY_MAX_SUPPRESS_SECONDS", "900"))
+
 
 def read_secret(value_name: str, file_name: str) -> str:
     value = os.environ.get(value_name, "")
@@ -234,7 +251,37 @@ def render_template(path: Path, context: dict[str, str]) -> str:
     return string.Template(path.read_text(encoding="utf-8")).safe_substitute(context)
 
 
-def render_incident(event: str, incident: dict[str, Any], now: int) -> tuple[str, str, str]:
+def verdict_blocks(verdict: dict[str, Any] | None) -> tuple[str, str]:
+    """The Verifier's evidence, as a text block and an HTML block.
+
+    Always returns both keys even when empty: `safe_substitute` leaves an
+    unknown `$placeholder` in the message verbatim, so a missing key would ship
+    the word "$verdict_block_text" to the owner's inbox.
+    """
+    if not verdict:
+        return "", ""
+    label = str(verdict.get("verdict", ""))
+    detail = str(verdict.get("detail", ""))
+    attempts = list(verdict.get("attempts") or [])
+    text = f"\nSecond check ({label})\n{detail}\n"
+    if attempts:
+        text += "\n".join(f"  {line}" for line in attempts) + "\n"
+    color = {"REAL_CRITICAL": "#dc2626", "REAL_WARNING": "#d97706",
+             "FALSE_ALARM": "#059669"}.get(label, "#6b7a8d")
+    rows = "".join(f"<div>{html.escape(line)}</div>" for line in attempts)
+    html_block = (
+        f'<div style="margin:16px 0 0;padding:12px 14px;background:#121922;'
+        f'border-left:3px solid {color};border-radius:6px">'
+        f'<div style="font-size:12px;font-weight:700;text-transform:uppercase;'
+        f'letter-spacing:0.05em;color:#9aa8b8">Second check &middot; {html.escape(label)}</div>'
+        f'<div style="margin-top:5px;line-height:1.55;color:#e5e7eb">{html.escape(detail)}</div>'
+        f'<div style="margin-top:6px;font-family:Consolas,monospace;font-size:12px;'
+        f'color:#7de3c3">{rows}</div></div>')
+    return text, html_block
+
+
+def render_incident(event: str, incident: dict[str, Any], now: int,
+                    verdict: dict[str, Any] | None = None) -> tuple[str, str, str]:
     name = str(incident.get("name", "unknown-monitor"))
     first_seen = int(incident.get("first_seen", now))
     payload = incident.get("payload") or {}
@@ -270,6 +317,7 @@ def render_incident(event: str, incident: dict[str, Any], now: int) -> tuple[str
         "incident_id": str(incident.get("incident_id") or incident_id(monitor_key(payload), first_seen)),
         "anti_spam": "One initial alert, one reminder, and one recovery email per incident.",
     }
+    context["verdict_block_text"], context["verdict_block_html"] = verdict_blocks(verdict)
     text_body = render_template(TEMPLATE_DIR / f"alert_{event}.txt", context)
     html_body = render_template(TEMPLATE_DIR / f"alert_{event}.html", context)
     return subject, text_body, html_body
@@ -317,13 +365,52 @@ def send_email(subject: str, text_body: str, html_body: str | None = None,
             smtp.send_message(message)
 
 
-def try_send_incident(event: str, incident: dict[str, Any], now: int) -> bool:
+def try_send_incident(event: str, incident: dict[str, Any], now: int,
+                      verdict: dict[str, Any] | None = None) -> bool:
     try:
-        send_email(*render_incident(event, incident, now))
+        send_email(*render_incident(event, incident, now, verdict))
     except Exception as exc:  # noqa: BLE001 - relay must keep processing later incidents
         print(f"email send failed: {exc}")
         return False
     return True
+
+
+def verify_incident(incident: dict[str, Any]) -> dict[str, Any] | None:
+    """The second look. `None` means verification is switched off entirely."""
+    if not VERIFY:
+        return None
+    monitor = sovereign_verifier.monitor_of(incident.get("payload") or {})
+    if not sovereign_verifier.probeable(monitor):
+        return sovereign_verifier.unverifiable(
+            f"il monitor «{incident.get('name', '')}» non è sondabile da qui")
+    return sovereign_verifier.verify(monitor, probes=VERIFY_PROBES, spacing=VERIFY_SPACING,
+                                     timeout=VERIFY_TIMEOUT)
+
+
+def decide_event(event: str, verdict: dict[str, Any] | None,
+                 incident: dict[str, Any], now: int) -> tuple[str | None, str]:
+    """What to send after the second look: (event or None, reason).
+
+    `None` suppresses this round -- and only this round. The two ceilings mean
+    the worst this component can do is delay a real alarm, never cancel it.
+    """
+    if verdict is None:
+        return event, "verifica spenta"
+    label = verdict.get("verdict")
+    if label in (sovereign_verifier.REAL_CRITICAL, sovereign_verifier.UNVERIFIED):
+        return event, str(label)
+    if label == sovereign_verifier.REAL_WARNING:
+        # A first alert that is really intermittence gets the softer template;
+        # a reminder stays a reminder, so the anti-spam sequence is unchanged.
+        return ("warning" if event == "down" else event), str(label)
+    # FALSE_ALARM
+    seen = int(incident.get("verify_false", 0)) + 1
+    elapsed = now - int(incident.get("first_seen", now))
+    if seen >= VERIFY_MAX_FALSE:
+        return event, f"falso allarme {seen} volte: tetto raggiunto, mando comunque"
+    if elapsed >= VERIFY_MAX_SUPPRESS_SECONDS:
+        return event, f"soppresso da {elapsed}s: tetto di tempo raggiunto, mando comunque"
+    return None, f"falso allarme ({seen}/{VERIFY_MAX_FALSE})"
 
 
 def prune_suppressions(state: dict[str, Any], now: int) -> dict[str, int]:
@@ -397,28 +484,68 @@ def register_event(payload: dict[str, Any]) -> None:
         save_state(state)
 
 
+def due_events(state: dict[str, Any], now: int) -> list[tuple[str, str]]:
+    """(key, event) for every incident whose moment has come. Pure decision,
+    no I/O: it is the only part that needs the lock."""
+    due: list[tuple[str, str]] = []
+    for key, incident in state.get("incidents", {}).items():
+        elapsed = now - int(incident.get("first_seen", now))
+        emails_sent = int(incident.get("emails_sent", 0))
+        if now - int(incident.get("last_attempt", 0)) < ATTEMPT_THROTTLE:
+            continue
+        if emails_sent == 0 and elapsed >= FIRST_DELAY:
+            due.append((key, "down"))
+        elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
+            due.append((key, "reminder"))
+    return due
+
+
 def process_notifications_once(now: int | None = None) -> None:
+    """Three phases, and the split is the point.
+
+    Probing takes `probes × spacing` seconds and SMTP can take dozens more.
+    Doing either while holding LOCK would block Kuma's webhooks from being
+    accepted -- a new defect introduced by a cure. So: decide under the lock,
+    probe and send without it, then persist under the lock again, re-reading
+    the state because the world moved while we were out there.
+    """
     now = now or int(time.time())
     with LOCK:
         state = load_state()
+        due = due_events(state, now)
+        # Deep copy: the originals stay under the lock, we work on our own.
+        snapshot = {key: json.loads(json.dumps(state["incidents"][key])) for key, _ in due}
+    if not due:
+        return
+
+    results: list[tuple[str, str, bool, dict[str, Any] | None]] = []
+    for key, event in due:
+        incident = snapshot[key]
+        verdict = verify_incident(incident)
+        chosen, reason = decide_event(event, verdict, incident, now)
+        name = incident.get("name", key)
+        print(f"verifier: {name} [{event}] -> {reason}"
+              + (f"; invio «{chosen}»" if chosen else "; nessuna email"))
+        sent = try_send_incident(chosen, incident, now, verdict) if chosen else False
+        results.append((key, chosen or "", sent, verdict))
+
+    with LOCK:
+        state = load_state()
         changed = False
-        for incident in state.get("incidents", {}).values():
-            first_seen = int(incident.get("first_seen", now))
-            emails_sent = int(incident.get("emails_sent", 0))
-            last_attempt = int(incident.get("last_attempt", 0))
-            elapsed = now - first_seen
-            if now - last_attempt < ATTEMPT_THROTTLE:
+        for key, chosen, sent, verdict in results:
+            incident = state.get("incidents", {}).get(key)
+            if incident is None:
+                # Resolved while we were probing: nothing left to record.
                 continue
-            event = None
-            if emails_sent == 0 and elapsed >= FIRST_DELAY:
-                event = "down"
-            elif emails_sent == 1 and elapsed >= REMINDER_DELAY:
-                event = "reminder"
-            if event:
-                incident["last_attempt"] = now
-                changed = True
-                if try_send_incident(event, incident, now):
-                    incident["emails_sent"] = emails_sent + 1
+            incident["last_attempt"] = now
+            changed = True
+            if chosen and sent:
+                incident["emails_sent"] = int(incident.get("emails_sent", 0)) + 1
+                incident["verify_false"] = 0
+            elif not chosen:
+                incident["verify_false"] = int(incident.get("verify_false", 0)) + 1
+            if verdict:
+                incident["verify_last"] = str(verdict.get("verdict", ""))
         if changed:
             save_state(state)
 
@@ -483,6 +610,36 @@ class Handler(BaseHTTPRequestHandler):
         print(f"{self.address_string()} - {format % args}")
 
 
+def _verify_decision_cases() -> None:
+    """The two ceilings of the Verifier -- the promise that this component can
+    delay an alarm but never cancel it. Failing loudly here is the point."""
+    critical = {"verdict": sovereign_verifier.REAL_CRITICAL}
+    warning = {"verdict": sovereign_verifier.REAL_WARNING}
+    false_alarm = {"verdict": sovereign_verifier.FALSE_ALARM}
+    unverified = {"verdict": sovereign_verifier.UNVERIFIED}
+    fresh = {"first_seen": 1000, "verify_false": 0}
+
+    cases = [
+        ("guasto confermato: si manda", ("down", critical, fresh, 1010), "down"),
+        ("non verificabile: si manda lo stesso", ("down", unverified, fresh, 1010), "down"),
+        ("intermittente: si manda il WARNING", ("down", warning, fresh, 1010), "warning"),
+        ("intermittente al promemoria: resta promemoria",
+         ("reminder", warning, fresh, 1010), "reminder"),
+        ("falso allarme la prima volta: si tace", ("down", false_alarm, fresh, 1010), None),
+        ("falso allarme al tetto dei tentativi: si manda comunque",
+         ("down", false_alarm, {"first_seen": 1000, "verify_false": VERIFY_MAX_FALSE - 1}, 1010),
+         "down"),
+        ("falso allarme oltre il tetto di tempo: si manda comunque",
+         ("down", false_alarm, fresh, 1000 + VERIFY_MAX_SUPPRESS_SECONDS + 1), "down"),
+        ("verifica spenta: si manda come prima", ("down", None, fresh, 1010), "down"),
+    ]
+    for label, (event, verdict, incident, now), expected in cases:
+        chosen, reason = decide_event(event, verdict, dict(incident), now)
+        if chosen != expected:
+            raise AssertionError(f"verifier decision «{label}»: atteso {expected!r}, "
+                                 f"ottenuto {chosen!r} ({reason})")
+
+
 def self_test() -> int:
     import tempfile
 
@@ -516,6 +673,13 @@ def self_test() -> int:
                 raise AssertionError("HTML body was not rendered")
             if load_state().get("incidents"):
                 raise AssertionError("incident state was not cleared")
+            # A3: an unprobeable monitor must still alert, and must SAY it was
+            # not verified. Silence here would be the worst possible outcome.
+            if "not" not in sent[0][1] and "non è stato verificato" not in sent[0][1]:
+                raise AssertionError("the unverified verdict is missing from the email body")
+            if "$verdict_block" in sent[0][1] or "$verdict_block" in (sent[0][2] or ""):
+                raise AssertionError("a template placeholder reached the message body")
+            _verify_decision_cases()
             print("sovereign-alert-relay self-test OK")
             return 0
         except Exception as exc:  # noqa: BLE001 - concise test failure

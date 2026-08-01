@@ -28,8 +28,8 @@ disegno che manca alla **modalità master** di Hermes.
 |---|---|---|---|---|
 | **A1** | **Spezzare i testi in pezzi sovrapposti** prima di vettorizzarli (`TextChunker`: 1000 caratteri, 200 di sovrapposizione, taglio su separatore) | Il mio indicizzatore vettorizza la nota **troncata a 4000 caratteri**: la coda di una nota lunga oggi è irraggiungibile. Difetto mio, trovato leggendo il loro codice | piccolo | ✅ fatto |
 | **A2** | **RAG sui runbook**: indicizzare la documentazione del repository, non solo il vault | Il loro sistema, davanti a un allarme, chiede *«l'abbiamo già visto? qual è la procedura?»*. Qui i runbook esistono già e sono buoni: Hermes non li legge. Con questo, a «come si ripara Nextcloud» risponde citando il file | piccolo | ✅ fatto |
-| **A3** | **Il Verificatore**: prima di allarmare, un secondo passaggio che confronta la previsione con lo stato reale e classifica `REAL_CRITICAL` / `REAL_WARNING` / `FALSE_ALARM` — **con una regola deterministica di riserva** quando l'LLM non risponde o risponde male | È la cura del 502 di Nextcloud che colora tutto di rosso una volta su quattro. E la regola di riserva è lo stesso principio già usato in casa: degradare, non mentire | medio | da fare |
-| **A4** | **Interruttore globale**: uno stato `RUNNING` / `PAUSED` che **ogni** agente controlla prima di ogni giro. In pausa dorme, non muore | La Fase 6 chiede un «interruttore d'emergenza». Questo è più utile di `systemctl stop`: ferma le azioni lasciando vivo il servizio e la chat | piccolo | da fare |
+| **A3** | **Il Verificatore**: prima di allarmare, un secondo passaggio che confronta la previsione con lo stato reale e classifica `REAL_CRITICAL` / `REAL_WARNING` / `FALSE_ALARM` — **con una regola deterministica di riserva** quando l'LLM non risponde o risponde male | È la cura del 502 di Nextcloud che colora tutto di rosso una volta su quattro. E la regola di riserva è lo stesso principio già usato in casa: degradare, non mentire | medio | ✅ **fatto (2026-08-01)** — qui **solo** la regola, nessuno stadio a modello: motivato in [sovereign-verificatore.md](../04_apps/sovereign-verificatore.md) §1.4 |
+| **A4** | **Interruttore globale**: uno stato `RUNNING` / `PAUSED` che **ogni** agente controlla prima di ogni giro. In pausa dorme, non muore | La Fase 6 chiede un «interruttore d'emergenza». Questo è più utile di `systemctl stop`: ferma le azioni lasciando vivo il servizio e la chat | piccolo | ✅ **fatto (2026-08-01)** — [sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) |
 | **A5** | **Elenco di azioni permesse** come dati, non come codice: ogni azione dichiara nome, comando, se è reversibile, se richiede conferma | È la Fase 6 per intero. Il loro strato «Esecuzione» è fatto così e funziona: l'LLM non compone comandi, **scelgli** da un elenco | medio | da fare |
 | **A6** | **Previsione con Prophet/ARIMA** e punteggio di confidenza, soglie configurabili | Qui servirebbe per il riempimento dei dischi e la crescita dei backup: «`ssd_pool` piena fra 40 giorni» vale più di «`ssd_pool` al 26%». `ssd_pool` è al 26% con 1,29 TB liberi, quindi non è urgente — ma la crescita di Immich non è lineare | medio | valutare |
 | **A7** | **Langfuse** per le tracce degli agenti | Difetto noto: «gli strumenti dei sotto-agenti non sono visibili in pagina». Questo lo risolve davvero, e per un servizio che sbaglia di nascosto vedere le chiamate è la differenza fra fidarsi e sperare | medio | da fare |
@@ -63,11 +63,11 @@ come regola generale, non come dettaglio di implementazione.
 
 1. ✅ **A1** — chunking del testo prima dell'embedding *(fatto: 125 note → 227 pezzi)*
 2. ✅ **A2** — indicizzare i runbook del repository, con citazione del file *(fatto: 74 documenti)*
-3. **A4** — interruttore globale `RUNNING`/`PAUSED`, letto da Hermes e dagli script
+3. ✅ **A4** — interruttore globale `RUNNING`/`PAUSED`, letto da Hermes e dagli script *(fatto 2026-08-01)*
 4. **A5** — elenco delle azioni permesse come file di dati + conferma per l'irreversibile *(= Fase 6)*
-5. **A3** — il Verificatore davanti agli allarmi, con regola di riserva
+5. ✅ **A3** — il Verificatore davanti agli allarmi, con regola di riserva *(fatto 2026-08-01, senza stadio a modello)*
 6. **A7** — Langfuse, e la vista delle chiamate degli agenti in pagina
-7. **A8** — «Edge Cases» nei runbook, a partire da quelli di Hermes
+7. **A8** — «Edge Cases» nei runbook, a partire da quelli di Hermes *(fatto per i due runbook nuovi di A3/A4; da estendere ai runbook esistenti)*
 8. **A6** — previsione del riempimento dischi *(dopo aver deciso su VictoriaMetrics)*
 
 Le fasi già in coda nel [PIANO_MASTER](PIANO_MASTER.md) — voce, Telegram, PWA —

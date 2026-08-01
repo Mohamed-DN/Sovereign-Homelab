@@ -1286,6 +1286,12 @@ def run_tool(name: str, args: dict[str, Any], user: dict[str, Any]) -> str:
         return f"Strumento '{name}' inesistente."
     if tool["admin_only"] and not user["is_admin"]:
         return "Non hai i permessi per questa informazione."
+    # L'interruttore globale (A4), nell'unico punto da cui passa ogni strumento
+    # di questo processo. Ferma solo cio' che cambia il mondo fuori dalla chat
+    # -- non la lettura, non la memoria: vedi PAUSED_TOOLS.
+    paused = sovereign_switch.guard_tool(name)
+    if paused:
+        return paused
     try:
         return str(tool["run"](args, user))[:12000]
     except Exception as exc:  # noqa: BLE001 - a broken tool must not kill the chat
@@ -1499,9 +1505,16 @@ def save_routes(rows: Any, strategy: Any) -> tuple[bool, str]:
 # though "propose then click" elsewhere in this project became "propose then
 # auto-apply" for code changes -- some things a chat confirmation cannot undo.
 
+# L'interruttore globale RUNNING/PAUSED (A4) sta in un file suo, condiviso con
+# Momo e con l'agente di controllo delle app: una sola verità sullo stato, un
+# solo scrittore atomico. Stesso ragionamento del Guardrail, e stesso import
+# non protetto — un Hermes che parte credendo di avere il freno quando non ce
+# l'ha è peggio di un Hermes che non parte.
+# Runbook: docs/04_apps/sovereign-interruttore.md
+import sovereign_switch  # noqa: E402 - locale, sta accanto a questo file
+
 ACTIONS_FILE = Path(os.environ.get("HERMES_ACTIONS_FILE", str(BASE / "actions.json")))
-MASTER_STATE_FILE = Path(os.environ.get(
-    "HERMES_MASTER_STATE_FILE", "/var/lib/sovereign-hermes/master-state.json"))
+MASTER_STATE_FILE = sovereign_switch.state_path()
 # A dedicated key, never the audit key used to administer the estate from
 # outside: `pct`/`qm` only exist on the Proxmox host, and LXC 102 has neither,
 # so an infrastructure action has to cross that hop over SSH. Absent until the
@@ -1513,7 +1526,9 @@ MASTER_KNOWN_HOSTS_FILE = os.environ.get(
 PROXMOX_HOST = os.environ.get("HERMES_PROXMOX_HOST", "192.168.1.150")
 MASTER_ARM_SECONDS = 30 * 60
 
-_master_lock = threading.Lock()
+# Nessun lock qui: la serializzazione della scrittura sta in `sovereign_switch`
+# (lock nel processo + `os.replace` fra processi), perche' quel file lo scrivono
+# anche Momo e la CLI.
 
 
 def load_actions() -> list[dict[str, Any]]:
@@ -1530,21 +1545,11 @@ def action_by_name(name: str) -> dict[str, Any] | None:
     return next((a for a in load_actions() if a.get("name") == name), None)
 
 
-def _load_master_state() -> dict[str, Any]:
-    try:
-        return json.loads(MASTER_STATE_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return {}
-
-
-def _save_master_state(state: dict[str, Any]) -> None:
-    MASTER_STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
-    MASTER_STATE_FILE.write_text(json.dumps(state), encoding="utf-8")
-
-
 def master_armed_until() -> float:
-    with _master_lock:
-        return float(_load_master_state().get("armed_until") or 0)
+    try:
+        return float(sovereign_switch.read_state().get("armed_until") or 0)
+    except (TypeError, ValueError):
+        return 0.0
 
 
 def master_is_armed() -> bool:
@@ -1552,33 +1557,30 @@ def master_is_armed() -> bool:
 
 
 def master_is_running() -> bool:
-    """The RUNNING/PAUSED switch (Nexi's A4). Defaults to RUNNING: a state
-    file that has never been written must not silently disable everything."""
-    with _master_lock:
-        return bool(_load_master_state().get("running", True))
+    """The RUNNING/PAUSED switch (Nexi's A4), now estate-wide.
+
+    Kept as a name because callers here use it, but the state, the failure
+    directions and the atomic write all live in `sovereign_switch` — the same
+    module Momo and the app-control agent read.
+    """
+    return sovereign_switch.is_running()
 
 
 def master_arm(seconds: int = MASTER_ARM_SECONDS) -> float:
-    with _master_lock:
-        state = _load_master_state()
-        until = time.time() + seconds
-        state["armed_until"] = until
-        _save_master_state(state)
-        return until
+    until = time.time() + seconds
+    sovereign_switch.merge({"armed_until": until})
+    return until
 
 
 def master_disarm() -> None:
-    with _master_lock:
-        state = _load_master_state()
-        state["armed_until"] = 0
-        _save_master_state(state)
+    sovereign_switch.merge({"armed_until": 0})
 
 
-def master_set_running(running: bool) -> None:
-    with _master_lock:
-        state = _load_master_state()
-        state["running"] = running
-        _save_master_state(state)
+def master_set_running(running: bool, by: str = "", reason: str = "") -> None:
+    if running:
+        sovereign_switch.resume(by=by)
+    else:
+        sovereign_switch.pause(by=by, reason=reason)
 
 
 class MasterActionError(Exception):
@@ -1716,8 +1718,12 @@ def master_execute(ctx: dict[str, Any], args: dict[str, Any]) -> str:
     if not master_is_armed():
         return ("MASTER non è armato: nessuna azione parte. "
                 "Arma dal pannello (scade da solo dopo 30 minuti), poi richiedimelo di nuovo.")
+    # Seconda linea di difesa: `run_tool` ha gia' fermato `esegui_azione_master`
+    # se l'impianto e' in pausa, ma questa funzione e' chiamabile anche da
+    # altrove, e una guardia che si puo' aggirare cambiando funzione non e' una
+    # guardia. Stessa forma del doppio controllo in `run_action_command`.
     if not master_is_running():
-        return "MASTER è in pausa (interruttore RUNNING/PAUSED): nessuna azione parte finché non riprende."
+        return sovereign_switch.blocked_message("esegui_azione_master")
     name = str(args.get("nome", ""))
     action = action_by_name(name)
     if action is None:
@@ -3312,9 +3318,22 @@ $('c-add').onclick=()=>{
 function loadMaster(){
  fetch('api/master/status').then(r=>r.json()).then(d=>{
   const mins=Math.floor(d.seconds_left/60), secs=d.seconds_left%60;
+  const sw=d.switch||{};
+  // A4: un interruttore che dice solo RUNNING/PAUSED costringe a indovinare
+  // chi l'ha tirato proprio mentre si cerca di capire cosa sta succedendo.
+  let swText=d.running?'RUNNING':'PAUSED';
+  if(!d.running){
+   const parts=[];
+   if(sw.paused_by) parts.push('da '+sw.paused_by);
+   if(sw.paused_reason) parts.push('«'+sw.paused_reason+'»');
+   if(sw.source==='corrotto'||sw.source==='illeggibile') parts.push('stato '+sw.source+': chiuso per sicurezza');
+   if(parts.length) swText+=' ('+parts.join(', ')+')';
+  }
   $('master-status').innerHTML=
    'Stato: <b>'+(d.armed?('ARMATO — scade fra '+mins+'m '+secs+'s'):'non armato')+'</b>'
-   +' · interruttore: <b>'+(d.running?'RUNNING':'PAUSED')+'</b>'
+   +' · interruttore: <b>'+swText+'</b>'
+   +(d.running?'':'<br><span class=hint>fermi: '+(sw.stopped_tools||[]).join(', ')
+     +' — chat, lettura e memoria continuano</span>')
    +' · azioni nel catalogo: '+(d.actions||[]).length
    +(d.ssh_configured?'':'<br><span class="pill off">chiave SSH master assente</span> '
      +'le azioni su Proxmox (pct/qm) non possono partire finché non viene creata');
@@ -3547,10 +3566,19 @@ class Handler(BaseHTTPRequestHandler):
                 return
             until = master_armed_until()
             left = max(0, until - time.time())
+            switch = sovereign_switch.read_state()
             self._send(200, json.dumps({
                 "armed": master_is_armed(), "seconds_left": int(left),
-                "running": master_is_running(), "actions": load_actions(),
+                "running": bool(switch["running"]), "actions": load_actions(),
                 "ssh_configured": Path(MASTER_SSH_KEY_FILE).exists(),
+                # W5 mostrava solo RUNNING/PAUSED. Un interruttore che non dice
+                # chi l'ha tirato e perche' costringe a indovinare proprio nel
+                # momento in cui si sta cercando di capire cosa succede.
+                "switch": {"source": switch.get("source", ""),
+                           "paused_by": switch.get("paused_by", ""),
+                           "paused_at": switch.get("paused_at", 0),
+                           "paused_reason": switch.get("paused_reason", ""),
+                           "stopped_tools": sorted(sovereign_switch.PAUSED_TOOLS)},
             }).encode(), "application/json; charset=utf-8")
         elif route.path == "/api/master/log":
             if not user["is_admin"]:
@@ -3738,9 +3766,20 @@ class Handler(BaseHTTPRequestHandler):
                 self._send(200, b'{"ok":true}', "application/json; charset=utf-8")
                 return
             running = route.path == "/api/master/resume"
-            master_set_running(running)
-            print(f"[hermes][MASTER] {'ripreso' if running else 'messo in pausa'} da {user['username']}")
-            self._send(200, json.dumps({"ok": True, "running": running}).encode(),
+            reason = ""
+            if not running:
+                length = int(self.headers.get("Content-Length", "0") or 0)
+                if length:
+                    try:
+                        reason = str(json.loads(self.rfile.read(length).decode("utf-8"))
+                                     .get("motivo", ""))[:400]
+                    except (json.JSONDecodeError, UnicodeDecodeError, AttributeError):
+                        reason = ""
+            master_set_running(running, by=user["username"], reason=reason)
+            print(f"[hermes][SWITCH] {'ripreso' if running else 'messo in pausa'} "
+                  f"da {user['username']}" + (f": {reason}" if reason else ""))
+            self._send(200, json.dumps({"ok": True, "running": running,
+                                        "stato": sovereign_switch.describe()}).encode(),
                        "application/json; charset=utf-8")
             return
         if route.path != "/api/backends":
