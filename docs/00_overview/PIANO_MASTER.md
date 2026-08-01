@@ -1,9 +1,19 @@
 # PIANO MASTER — l'indice di tutto
 
-> Aggiornato il 2026-07-30 (seconda revisione). **Questo è il file da cui partire.** I piani erano
+> Aggiornato il **2026-08-01**. **Questo è il file da cui partire.** I piani erano
 > finiti sparsi su cinque documenti: qui c'è l'elenco completo di tutto ciò che
 > è stato chiesto, proposto o scoperto, con lo stato e il link a dove è
 > descritto per esteso. Se una cosa non è in questa tabella, è stata dimenticata.
+>
+> **Cosa è cambiato il 2026-08-01, e perché conta.** Il proprietario ha
+> guardato lo stato dei lavori e ha detto: *«mi sa che tante cose mancano»*.
+> Aveva ragione, e il motivo non era un errore sui fatti: era che due sessioni
+> di lavoro avevano consegnato tre pezzi di **fondamenta** (Guardrail,
+> interruttore, Verificatore) che sono giusti e necessari ma che lui **non
+> vede**. Da qui in avanti l'ordine è cambiato: **prima quello che si usa**.
+> Il conto vero delle undici voci del suo documento di progetto sta in
+> [PIANO_MOMO_DIGITAL_TWIN](PIANO_MOMO_DIGITAL_TWIN.md) §4, e le sue dodici
+> richieste di quel giorno al §4-ter.
 
 ---
 
@@ -78,6 +88,11 @@
 | **S8** | **`ai.internal` (Open WebUI) aveva l'iscrizione libera aperta, con nessun admin ancora rivendicato**: chiunque sulla VPN/LAN arrivasse per primo diventava proprietario dell'istanza, con accesso diretto e senza guardie a Ollama — nessuna memoria, nessun filtro privato/pubblico, nessun Guardrail, nessuna delle protezioni che Hermes e Momo hanno. È un host «VPN only» per scelta scritta (non passa da Authentik come `hermes.internal`), ma l'iscrizione doveva comunque essere chiusa. `ENABLE_SIGNUP=False` in `stacks/ai-ollama/.env`, verificato: `/api/config` ora dichiara `enable_signup:false`. **Nessun account admin esiste ancora**: creerlo (o decidere di spegnere il servizio) resta una scelta del proprietario, non presa qui | `stacks/ai-ollama/docker-compose.yml` |
 | 32 | **A4 — interruttore RUNNING/PAUSED**: `sovereign_switch.py`, un solo file condiviso da Hermes, Momo e l'agente app. Verificato dal vivo: in pausa `esegui_azione_master` rifiutato con motivo, la chat risponde ancora, l'agente app dà 423, `armed_until` di MASTER sopravvive alla pausa | [sovereign-interruttore.md](../04_apps/sovereign-interruttore.md) |
 | 33 | **A3 — il Verificatore**: `sovereign_verifier.py` dentro il relay. **Trovato e chiuso prima del deploy**: LXC 101 non si fidava della CA interna, il che avrebbe confermato ogni allarme come vero. Verificato dal vivo: `files.internal` sano → `FALSE_ALARM`, un host inesistente → `REAL_CRITICAL` | [sovereign-verificatore.md](../04_apps/sovereign-verificatore.md) |
+| 34 | **Momo su Telegram**: `@dn_momo_bot` risponde davvero, `momo-gateway.service`, allowlist di un id solo. **Momo non era nemmeno un servizio** prima di oggi | [momo-telegram.md](../04_apps/momo-telegram.md) |
+| 35 | **La voce, in tutti e due i sensi**: capisce i vocali (faster-whisper, lingua riconosciuta da sola) e risponde a voce (Piper, tre voci una per lingua). **Nessun codice nostro**: l'impianto audio è tutto loro, bastava configurarlo — e quattro difetti di configurazione fallivano in silenzio | [momo-telegram.md](../04_apps/momo-telegram.md) §3-bis |
+| 36 | **Il layer delle lingue**: modulo deterministico it/en/ar, 37 casi di test. Decide dall'**alfabeto** (l'arabo è certo anche su una trascrizione storpiata) poi dalle parole funzione, e **se non è sicuro non forza niente**. Verificato sul vocale arabo vero: confidenza 1.00 | `scripts/hermes/sovereign_language.py` |
+| 37 | **La persona di Momo**: rispondeva come «Hermes Agent di Nous Research» perché il `SOUL.md` di default non era mai stato sostituito. Ora è la persona di casa, con le tre lingue madrelingua, il nome arabo del proprietario, il warning prima di scrivere e il calcolo prima di espandere un disco | `scripts/momo/SOUL.md` |
+| **S9** | **Il filtro privato/pubblico giudicava un motore dal solo NOME del provider**, e `custom` è ugualmente vero per Ollama sul PC e per OmniRoute, che inoltra fuori. Con il primo fallback esterno il vault sarebbe andato a un fornitore. Ora giudica anche il `base_url` con un elenco esplicito, e considera **tutti** i motori configurati perché `pre_tool_call` non riceve chi sta rispondendo. Verificato: OmniRoute su un IP di casa risulta correttamente **non** di casa | `scripts/momo/sovereign_tools/__init__.py` |
 
 ---
 
@@ -98,18 +113,20 @@
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| **Registratore nella pagina** | **oggi non esiste**: il pulsante voce fa solo *parlare*, non *ascoltare*. Omissione mia | da fare |
-| **Whisper `large-v3-turbo`** sul PC (GPU) | trascrizione, API compatibile OpenAI, firewall come Ollama | da fare |
-| **Piper** sul server | risposta parlata, funziona anche a PC spento | da fare |
-| **Clonazione voce** (F5-TTS / XTTS-v2) | la sua voce; per voci di altri serve il loro consenso | da fare |
-| Audio e video caricati | oggi rifiutati con spiegazione; servono Whisper + `ffmpeg` | da fare |
+| Registratore **nella pagina** di Hermes | resta da fare, ma **non è più la strada più corta**: la voce via Telegram (sotto) costa molto meno | da fare |
+| **Whisper** per capire | ✅ **fatto 2026-08-01 su Momo**: `faster-whisper==1.2.1` sul server, riconoscimento automatico della lingua. Sul PC (GPU) resta da fare, e sarà solo più veloce | ✅ parziale |
+| **Piper** sul server | ✅ **fatto 2026-08-01**: tre voci, `it_IT-paola` · `ar_JO-kareem` · `en_US-amy`, una per lingua | ✅ |
+| **Clonazione voce** (XTTS-v2) | la sua voce; per voci di altri serve il loro consenso | da fare |
+| Audio e video caricati | `ffmpeg` ora c'è su LXC 102; l'audio in ingresso funziona via Telegram | parziale |
+| **Layer delle lingue** *(non era in nessun piano)* | ✅ **fatto 2026-08-01**: modulo deterministico it/en/ar, 37 casi di test. Chiesto dal proprietario: *«metti un layer forte, fallo bene anche se ci vuole tanto tempo»* | ✅ |
 
 ### Fase 3 — Hermes in tasca
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| **Telegram** (bot ufficiale, long polling) | mappatura `id → utente` a mano, sconosciuti rifiutati. Bot creato (`@dn_momo_bot`), token in `/root/sovereign-secrets/hermes-agent/telegram-bot-token` (2026-07-30) — il collegamento vero è W6.3, dopo `hermes-agent` | da fare |
-| **Telegram con audio** | dipende da Whisper (fase 2) | da fare |
+| **Telegram** (bot ufficiale, long polling) | ✅ **FATTO E VERIFICATO 2026-08-01**: `@dn_momo_bot` risponde, `momo-gateway.service` su LXC 102, allowlist con un id solo catturato da `getUpdates`. Nessuna porta aperta. Con Momo arrivano tutte le guardie senza codice in più | ✅ [runbook](../04_apps/momo-telegram.md) |
+| **Telegram con audio** | ✅ **fatto 2026-08-01**: capisce i vocali (faster-whisper) e risponde a voce (Piper), modalità `voice_only` — audio solo se l'ingresso era un vocale | ✅ |
+| **Momo è un servizio** *(non era in nessun piano)* | ✅ girava solo da riga di comando fino al 2026-08-01. È anche un prerequisito del punto 21 | ✅ |
 | **PWA** per iPhone | `manifest.json`, service worker, icone | ✅ (W7.1) |
 | App iOS nativa | solo se la PWA non basta: serve Mac + account Apple | valutare |
 | **WhatsApp** | **escluso**: ban del numero entro 2-8 settimane, e dal 15/01/2026 vietati i chatbot di terze parti | [motivazione](PIANO_HERMES_CANALI_E_DB.md) §3 |
@@ -133,13 +150,21 @@
 | Provider gratuiti | Preset in `providers-presets.json` (W2.1): solo **Groq** verificato con chiave reale, gli altri sette pronti ma non provati | parziale |
 | **vLLM** al posto di Ollama sul PC | solo se lo sciame diventa l'uso normale; su Blackwell serve CUDA 12.8+ | valutare |
 
-### Fase 6 — Modalità master
+### Fase 6 — Modalità master ✅ FATTA, e ora vale anche per Momo
 
 | Cosa | Nota | Stato |
 |---|---|---|
-| Elenco di **azioni permesse** (non una shell libera) | un `rm -rf` generato per refuso non deve poter partire | da fare |
-| Conferma esplicita per l'irreversibile | dati, Immich, fermare una VM | da fare |
-| Scadenza a 30 minuti, registro non riscrivibile, interruttore d'emergenza | — | da fare |
+| Elenco di **azioni permesse** (non una shell libera) | ✅ `actions.json`, **10 azioni** (erano 8; il 2026-08-01 si aggiungono `spazio_pool` ed `espandi_disco`). Il modello **sceglie** da un elenco, non compone comandi | ✅ |
+| Conferma esplicita per l'irreversibile | ✅ campo `conferma` per azione. `espandi_disco` la chiede: un disco cresciuto non si rimpicciolisce | ✅ |
+| Scadenza a 30 minuti, registro non riscrivibile, interruttore d'emergenza | ✅ tutti e tre. L'interruttore è ora [globale](../04_apps/sovereign-interruttore.md) (A4), non più solo di MASTER | ✅ |
+| **MASTER dentro Momo** | ✅ **verificato 2026-08-01 e c'era già**: `sovereign_tools` registra ogni strumento di Hermes, quindi MASTER era lì dalla Fase 3. Condivisi catalogo, divieto, armamento, registro e chiave SSH — **armare dal pannello di Hermes arma anche Momo** | ✅ |
+| **Espandere un disco** *(chiesto il 2026-08-01)* | ✅ `spazio_pool` per calcolare + `espandi_disco`. Rimpicciolire è **impossibile per costruzione**: l'incremento è un enum di soli valori positivi, non un controllo aggirabile | ✅ |
+| Armare MASTER **da Telegram** | il file di stato è condiviso, quindi tecnicamente basta poco. È una decisione di **sicurezza**, non di comodità: chi arma autorizza azioni sull'impianto | da fare |
+| Allargare il catalogo (il «tutto tutto tutto» chiesto) | ogni azione nuova entra come **dato** in `actions.json`, con parametri vincolati da enum o regex | in corso |
+
+*Verifica del divieto assoluto, interrogato **da Momo mentre era armato** (2026-08-01):
+`qm stop 110`, `qm destroy 110`, `zfs destroy`, `rm -rf`, fermare PBS e toccare
+`actions.json` tutti **rifiutati**; `df -h` permesso.*
 
 ### Fase 7 — Database esterni e controlli
 
