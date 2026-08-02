@@ -99,7 +99,7 @@ modalità MASTER con guardia sull'host.
 AGENT MOMO (fusione con hermes-agent 0.19.0, in /opt/momo su LXC 102):
   fase 1 OK  respira, isolato, sulla GPU del PC
   fase 2 OK  UNA SOLA MEMORIA con l'Hermes vivo
-  fasi 3+4 OK  11 strumenti + 10 di memoria, guardia privato/non-privato
+  fasi 3+4 OK  10 strumenti + 10 di memoria, guardia privato/non-privato
              attaccata su ENTRAMBE le vie (contato dal vivo: motore di casa 21
              strumenti, motore esterno 2 — solo web)
   GUARDRAIL OK (31/7)  la difesa anti-bugia, un file di regole condiviso fra
