@@ -1926,7 +1926,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 /* La finestra che fluttua: chat veloce con Momo senza lasciare la dashboard.
    Sta in basso a destra sopra l'orb, si ridimensiona da sola sui telefoni, e
    non copre mai piu' di meta' schermo in altezza. */
-.momowin{position:fixed;right:18px;bottom:96px;width:min(390px,calc(100vw - 36px));
+.momowin{position:fixed;right:18px;bottom:96px;/* sopra la bolla */width:min(390px,calc(100vw - 36px));
   max-height:min(56vh,520px);display:none;flex-direction:column;z-index:60;
   background:var(--card);border:1px solid var(--line-strong);border-radius:12px;
   box-shadow:0 18px 48px rgba(0,0,0,.55);overflow:hidden}
@@ -1957,6 +1957,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 @media(max-width:560px){.momowin{right:10px;left:10px;bottom:88px;width:auto;max-height:62vh}}
 
 #qa .hermes-ask{display:flex;gap:6px;margin-top:6px}
+#qa .hermes-ask .hermes-btn{flex:1;width:auto;font-size:12px;padding:7px 6px}
 #qa .hermes-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
  border-radius:8px;color:var(--fg);padding:6px 9px;font:inherit;font-size:.78rem}
 #qa .hermes-ask input:focus{outline:1px solid #c9a227;outline-offset:-1px}
@@ -3184,15 +3185,21 @@ function momoChiedi(q){
 }
 function assistantTips(){
  if(!qa)return;qa.innerHTML='';
-  const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Parla con Momo</span>';
- h.title='Apre una chat veloce qui, senza cambiare pagina';
- h.onclick=()=>{momoWin().classList.add('show');const i=$('mwinp');if(i)i.focus();};qa.appendChild(h);
+  // DUE pulsanti, due mestieri diversi, e nessun campo di testo qui: la
+ // scrittura sta dentro la finestra, altrimenti si finisce con due caselle
+ // sovrapposte che fanno la stessa cosa -- che e' esattamente il difetto
+ // segnalato da Mohamed il 2026-08-02.
  const row=document.createElement('div');row.className='hermes-ask';
- const inp=document.createElement('input');inp.type='text';inp.placeholder='…oppure scrivi qui';
- const go=document.createElement('button');go.className='hermes-go';go.innerHTML=HERMES_BOT;go.title='Manda a Momo';
- const send=()=>{const q=inp.value.trim();if(q){momoChiedi(q);inp.value='';}};
- go.onclick=send;inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
- row.appendChild(inp);row.appendChild(go);qa.appendChild(row);
+ const chat=document.createElement('button');chat.className='hermes-btn';
+ chat.innerHTML=HERMES_BOT+'<span>Chat veloce</span>';
+ chat.title='Apre una chat qui, senza cambiare pagina. Non viene salvata.';
+ chat.onclick=()=>{bubble.classList.remove('show');
+   momoWin().classList.add('show');const i=$('mwinp');if(i)i.focus();};
+ const full=document.createElement('button');full.className='hermes-btn';
+ full.innerHTML='<span>Apri Momo &rarr;</span>';
+ full.title='Apre Momo per intero: motori, memoria, MASTER';
+ full.onclick=()=>apriMomo('');
+ row.appendChild(chat);row.appendChild(full);qa.appendChild(row);
 }
 function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Sono Momo. Guardo lo stato del server, i tuoi appunti e il web.';bubble.classList.add('show');}
 $('orb').onclick=openAsst;
