@@ -67,6 +67,8 @@ router = APIRouter()
 # loopback address on purpose: this bridge is not meant to reach across the
 # network, and a remote Hermes would not grant it administrator rights anyway.
 HERMES_URL = os.environ.get("SOVEREIGN_HERMES_URL", "http://127.0.0.1:8093").rstrip("/")
+# Who the bridge speaks as when it calls the live Hermes. See `_request`.
+HERMES_USER = os.environ.get("SOVEREIGN_HERMES_USER", "mohamed")
 
 # Read timeouts, in seconds. They differ because the work behind them differs:
 # a status read is instant, listing engines probes each backend live, and a
@@ -154,6 +156,16 @@ def _request(path: str, method: str, payload: Optional[Dict[str, Any]],
     headers = {"Accept": accept}
     if body is not None:
         headers["Content-Type"] = "application/json"
+    # The live Hermes reads the caller's identity from `X-authentik-username`,
+    # which the forward-auth sets for it. On loopback Hermes currently answers
+    # even without it (measured 2026-08-02: 200 either way), but sending it is
+    # still right: the panel acts FOR the owner, and the day Hermes stops
+    # trusting an anonymous loopback caller this bridge should not be the
+    # thing that breaks.
+    #
+    # Not an authentication bypass: Hermes listens on loopback only, inside
+    # LXC 102, so whoever can reach it already has root there.
+    headers["X-authentik-username"] = HERMES_USER
     return urllib.request.Request(HERMES_URL + path, data=body,
                                   method=method, headers=headers)
 
