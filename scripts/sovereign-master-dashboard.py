@@ -1903,14 +1903,13 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid #d7c07a;opacity:.45}
 #orb .wv{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);display:flex;gap:2.5px;align-items:center}
 #orb .wv i{width:3px;background:#04222e;border-radius:3px;opacity:.85}
-/* Hermes: testa pixel in oro e argento. Niente occhi, solo la visiera. */
-#orb .bot{position:absolute;left:50%;top:50%;width:30px;height:30px;transform:translate(-50%,-50%)}
-#orb .bot .sil{fill:#c6cad0}
-#orb .bot .hi{fill:#eef1f5}
-#orb .bot .dk{fill:#7d838a}
-#orb .bot .ant{fill:#f0d264}
-#orb .bot .vis{fill:#131a20}
-#orb .bot .scan{fill:#f0d264}
+/* Il volto di Momo. Riempie quasi tutto l'orb: sotto i 30px un viso perde
+   prima gli occhi e poi ogni espressione, e resta una macchia scura.
+   I colori NON stanno qui ma dentro <symbol>: il contenuto di <use> vive in
+   uno shadow tree, dove "#orb .bot .qualcosa" non arriva mai. */
+#orb .bot{position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%);
+ filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+.momoico{vertical-align:-3px;flex:0 0 auto}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
  padding:12px 14px;font-size:.83rem;line-height:1.5;box-shadow:var(--shadow);opacity:0;transform:translateY(10px) scale(.96);
  transform-origin:bottom right;transition:all .28s cubic-bezier(.22,1,.36,1);pointer-events:none}
@@ -1918,11 +1917,11 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #bubble b{color:var(--accent)}
 #bubble .x{float:right;margin-left:10px;color:var(--muted);cursor:pointer;font-weight:800}
 #bubble .hint{display:block;margin-top:8px;color:var(--muted);font-size:.72rem}
-/* Hermes: oro e argento, per distinguerlo dalle risposte gia' pronte qui sopra */
-#qa .hermes-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;
+/* Momo: oro e argento, per distinguerlo dalle risposte gia' pronte qui sopra */
+#qa .momo-btn{display:flex;align-items:center;gap:7px;width:100%;justify-content:center;
  margin-top:8px;border-color:#8a6d1f;color:#f4de8a;
  background:linear-gradient(180deg,rgba(201,162,39,.20),rgba(150,150,158,.12));font-weight:700}
-#qa .hermes-btn:hover{border-color:#c9a227;background:linear-gradient(180deg,rgba(201,162,39,.34),rgba(180,182,190,.18))}
+#qa .momo-btn:hover{border-color:#c9a227;background:linear-gradient(180deg,rgba(201,162,39,.34),rgba(180,182,190,.18))}
 /* La finestra che fluttua: chat veloce con Momo senza lasciare la dashboard.
    Sta in basso a destra sopra l'orb, si ridimensiona da sola sui telefoni, e
    non copre mai piu' di meta' schermo in altezza. */
@@ -1956,12 +1955,12 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .mw-ask button:hover{border-color:#c9a227}
 @media(max-width:560px){.momowin{right:10px;left:10px;bottom:88px;width:auto;max-height:62vh}}
 
-#qa .hermes-ask{display:flex;gap:6px;margin-top:6px}
-#qa .hermes-ask .hermes-btn{flex:1;width:auto;font-size:12px;padding:7px 6px}
-#qa .hermes-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
+#qa .momo-ask{display:flex;gap:6px;margin-top:6px}
+#qa .momo-ask .momo-btn{flex:1;width:auto;font-size:12px;padding:7px 6px}
+#qa .momo-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
  border-radius:8px;color:var(--fg);padding:6px 9px;font:inherit;font-size:.78rem}
-#qa .hermes-ask input:focus{outline:1px solid #c9a227;outline-offset:-1px}
-#qa .hermes-go{display:flex;align-items:center;justify-content:center;padding:6px 9px;
+#qa .momo-ask input:focus{outline:1px solid #c9a227;outline-offset:-1px}
+#qa .momo-go{display:flex;align-items:center;justify-content:center;padding:6px 9px;
  border-color:#8a6d1f;background:rgba(201,162,39,.16)}
 #asst.off #bubble{display:none}#asst.off #orb{opacity:.55;filter:grayscale(.5)}
 @media(prefers-reduced-motion:no-preference){
@@ -1970,10 +1969,10 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  #orb .wv i{animation:eq 1.1s ease-in-out infinite}
  #orb .wv i:nth-child(2){animation-delay:.15s}#orb .wv i:nth-child(3){animation-delay:.3s}#orb .wv i:nth-child(4){animation-delay:.45s}
  @keyframes eq{0%,100%{height:6px}50%{height:20px}}
- /* la visiera scandaglia, come faceva l'onda */
- #orb .bot .scan{animation:scan 2.4s steps(4,end) infinite}
- @keyframes scan{0%,100%{transform:translateX(0)}25%{transform:translateX(2px)}
-  50%{transform:translateX(4px)}75%{transform:translateX(2px)}}
+ /* Momo sbatte le palpebre. Non e' qui ma in SMIL dentro il <symbol>, per la
+    ragione detta sopra: il CSS del documento non entra in uno shadow tree.
+    Chi ha chiesto meno movimento se lo vede togliere da JS -- cercare
+    "prefers-reduced-motion" piu' in basso. */
 }
 @media(prefers-reduced-motion:reduce){#orb .wv i{height:12px}}
 #toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%) translateY(20px);padding:12px 18px;border-radius:10px;background:var(--raised);border:1px solid var(--line-strong);font-size:.85rem;opacity:0;transition:all .25s ease;pointer-events:none;max-width:92vw;box-shadow:var(--shadow);z-index:60}
@@ -2387,8 +2386,49 @@ footer a:hover{text-decoration:underline}
  <div class="mh"><span class="lic" id="m-ic"></span><b id="m-t"></b><button class="x" id="m-x">&times;</button></div>
  <div class="mb" id="m-b"></div>
 </div>
+<!-- Il volto di Momo, disegnato UNA volta sola e riusato con <use> ovunque
+     serva: l'orb, i pulsanti, la finestra della chat. Un solo disegno perche'
+     due copie della stessa faccia prima o poi divergono, e ci si accorge del
+     disallineamento solo guardando due schermate affiancate.
+     Chiesto da Mohamed il 2026-08-02: non la foto, ma un volto ISPIRATO a
+     quella -- occhi grandi e scuri, capelli neri, viso tondo -- disegnato
+     perche' sia bello e accogliente invece che inquietante.
+     I colori stanno DENTRO il simbolo, non nel CSS: il contenuto di <use>
+     vive in uno shadow tree, dove i selettori del documento non arrivano.
+     Percio' anche le palpebre battono in SMIL (<animateTransform>) e non in
+     CSS -- e chi ha chiesto meno animazioni se le vede togliere da JS. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+ <linearGradient id="momoCapelli" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#4a3f78"/><stop offset="1" stop-color="#201a38"/></linearGradient>
+ <linearGradient id="momoPelle" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#fbdcb9"/><stop offset="1" stop-color="#e7b184"/></linearGradient>
+ <linearGradient id="momoOro" x1="0" y1="0" x2="1" y2="1">
+  <stop offset="0" stop-color="#f7e79f"/><stop offset="1" stop-color="#c9a227"/></linearGradient>
+ <symbol id="momo-faccia" viewBox="0 0 32 32">
+  <ellipse cx="16" cy="16.6" rx="10.8" ry="12" fill="url(#momoCapelli)"/>
+  <path d="M10.4 8.8 C 12.1 6.4 14.8 5.3 17.6 5.6 C 15.1 6.5 13 7.7 11.6 9.6 Z" fill="#8f83c4" opacity=".42"/>
+  <ellipse cx="16" cy="18" rx="7.4" ry="8.2" fill="url(#momoPelle)"/>
+  <path d="M8.8 14.6 C 9.5 9.4 12.4 7 16 7 C 19.6 7 22.5 9.4 23.2 14.6 C 21.5 11.6 19.3 12.7 16.5 12.3 C 13.5 11.9 10.8 12.1 8.8 14.6 Z" fill="url(#momoCapelli)"/>
+  <path d="M11.1 15.1 Q12.9 14.1 14.7 15" stroke="#2a2142" stroke-width=".85" fill="none" stroke-linecap="round" opacity=".75"/>
+  <path d="M17.3 15 Q19.1 14.1 20.9 15.1" stroke="#2a2142" stroke-width=".85" fill="none" stroke-linecap="round" opacity=".75"/>
+  <ellipse cx="10.5" cy="21.1" rx="1.7" ry="1.05" fill="#e8927e" opacity=".36"/>
+  <ellipse cx="21.5" cy="21.1" rx="1.7" ry="1.05" fill="#e8927e" opacity=".36"/>
+  <g transform="translate(12.9 18.3)">
+   <animateTransform attributeName="transform" type="scale" additive="sum"
+    values="1 1;1 1;1 .08;1 1" keyTimes="0;.94;.965;1" dur="5.4s" repeatCount="indefinite"/>
+   <ellipse rx="1.85" ry="2.25" fill="#1b1630"/>
+   <circle cx=".62" cy="-.75" r=".62" fill="#fff" opacity=".92"/></g>
+  <g transform="translate(19.1 18.3)">
+   <animateTransform attributeName="transform" type="scale" additive="sum"
+    values="1 1;1 1;1 .08;1 1" keyTimes="0;.94;.965;1" dur="5.4s" repeatCount="indefinite"/>
+   <ellipse rx="1.85" ry="2.25" fill="#1b1630"/>
+   <circle cx=".62" cy="-.75" r=".62" fill="#fff" opacity=".92"/></g>
+  <path d="M14.1 22.5 Q16 24.3 17.9 22.5" stroke="#b4705e" stroke-width="1.1" fill="none" stroke-linecap="round"/>
+  <path d="M9.5 6.8 L10.2 8.5 L11.9 9.2 L10.2 9.9 L9.5 11.6 L8.8 9.9 L7.1 9.2 L8.8 8.5 Z" fill="url(#momoOro)"/>
+ </symbol>
+</defs></svg>
 <div id="asst">
- <button id="orb" title="Chiedi a Momo" aria-label="Chiedi a Momo"><svg class="bot" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><rect class="ant" x="5" y="0" width="2" height="1"/><rect class="ant" x="5" y="1" width="2" height="1"/><rect class="sil" x="1" y="2" width="10" height="8"/><rect class="hi" x="1" y="2" width="10" height="1"/><rect class="vis" x="2" y="4" width="8" height="3"/><rect class="scan" x="3" y="5" width="3" height="1"/><rect class="dk" x="4" y="8" width="4" height="1"/><rect class="sil" x="0" y="4" width="1" height="3"/><rect class="sil" x="11" y="4" width="1" height="3"/></svg></button>
+ <button id="orb" title="Chiedi a Momo" aria-label="Chiedi a Momo"><svg class="bot" aria-hidden="true"><use href="#momo-faccia"/></svg></button>
  <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Sono Momo.</span><div id="qa"></div><span class="hint">Le risposte arrivano da Momo &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
@@ -3119,16 +3159,18 @@ function QAset(){
   ['Se casca il server?', 'Sul PC apri <b>C:\\Sovereign-Restore\\LEGGIMI-EMERGENZA-IMMICH.txt</b>: ricrei Immich dai dati del backup (restore già testato).'],
  ];
 }
-// Pixel robot, gold and silver: Hermes' face in the console. Drawn as crisp
-// rectangles so it stays pixel-art at any size instead of blurring.
-const HERMES_BOT='<svg viewBox="0 0 11 11" width="16" height="16" shape-rendering="crispEdges" aria-hidden="true">'
- +'<rect x="5" y="0" width="1" height="1" fill="#f4de8a"/><rect x="5" y="1" width="1" height="1" fill="#c9a227"/>'
- +'<rect x="2" y="2" width="7" height="5" fill="#b9bec5"/><rect x="2" y="2" width="7" height="1" fill="#eef1f5"/>'
- +'<rect x="3" y="4" width="2" height="2" fill="#f0d264"/><rect x="6" y="4" width="2" height="2" fill="#f0d264"/>'
- +'<rect x="4" y="6" width="3" height="1" fill="#7d838a"/>'
- +'<rect x="3" y="8" width="5" height="3" fill="#a3a8af"/><rect x="3" y="8" width="5" height="1" fill="#d9dce1"/>'
- +'<rect x="5" y="9" width="1" height="1" fill="#c9a227"/>'
- +'<rect x="1" y="8" width="1" height="2" fill="#7d838a"/><rect x="9" y="8" width="1" height="2" fill="#7d838a"/></svg>';
+// Il volto di Momo, ripreso dal <symbol> disegnato una volta sola nella
+// pagina. Nessuna copia del disegno qui dentro: due copie divergono.
+function momoIcona(px){
+ return '<svg class="momoico" width="'+px+'" height="'+px+'" aria-hidden="true">'
+  +'<use href="#momo-faccia"/></svg>';
+}
+// Chi ha chiesto meno movimento non deve vedere le palpebre battere. Le
+// animazioni sono SMIL dentro l'SVG, quindi non si spengono con una media
+// query: si tolgono dal documento, una volta sola, all'avvio.
+if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+ document.querySelectorAll('#momo-faccia animateTransform').forEach(a=>a.remove());
+}
 
 // The canned answers stay: they are instant and work with Momo offline.
 // Anything they do not cover goes to Momo, which reads the live system.
@@ -3146,13 +3188,13 @@ function momoWin(){
  let w=$('momowin');
  if(w) return w;
  w=document.createElement('div');w.id='momowin';w.className='momowin';
- w.innerHTML='<div class="mw-top">'+HERMES_BOT+'<b>Momo</b>'
+ w.innerHTML='<div class="mw-top">'+momoIcona(20)+'<b>Momo</b>'
   +'<span class="mw-sub">chat veloce · non viene salvata</span>'
   +'<button class="mw-full" title="Apri Momo completo">apri Momo &rarr;</button>'
   +'<button class="mw-x" title="Chiudi">&times;</button></div>'
   +'<div class="mw-body" id="mwbody"></div>'
   +'<div class="mw-ask"><input id="mwinp" type="text" placeholder="Scrivi a Momo…" autocomplete="off">'
-  +'<button id="mwgo" title="Invia">'+HERMES_BOT+'</button></div>';
+  +'<button id="mwgo" title="Invia">'+momoIcona(18)+'</button></div>';
  document.body.appendChild(w);
  w.querySelector('.mw-x').onclick=()=>w.classList.remove('show');
  w.querySelector('.mw-full').onclick=()=>apriMomo('');
@@ -3189,13 +3231,13 @@ function assistantTips(){
  // scrittura sta dentro la finestra, altrimenti si finisce con due caselle
  // sovrapposte che fanno la stessa cosa -- che e' esattamente il difetto
  // segnalato da Mohamed il 2026-08-02.
- const row=document.createElement('div');row.className='hermes-ask';
- const chat=document.createElement('button');chat.className='hermes-btn';
- chat.innerHTML=HERMES_BOT+'<span>Chat veloce</span>';
+ const row=document.createElement('div');row.className='momo-ask';
+ const chat=document.createElement('button');chat.className='momo-btn';
+ chat.innerHTML=momoIcona(18)+'<span>Chat veloce</span>';
  chat.title='Apre una chat qui, senza cambiare pagina. Non viene salvata.';
  chat.onclick=()=>{bubble.classList.remove('show');
    momoWin().classList.add('show');const i=$('mwinp');if(i)i.focus();};
- const full=document.createElement('button');full.className='hermes-btn';
+ const full=document.createElement('button');full.className='momo-btn';
  full.innerHTML='<span>Apri Momo &rarr;</span>';
  full.title='Apre Momo per intero: motori, memoria, MASTER';
  full.onclick=()=>apriMomo('');

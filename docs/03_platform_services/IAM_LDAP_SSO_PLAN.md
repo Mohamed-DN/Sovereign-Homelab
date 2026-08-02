@@ -844,6 +844,39 @@ Full incident detail, including the rebuild procedure and the ElementTree trap
 that silently destroyed the plugin's `<OidConfigs>`: `docs/04_apps/jellyfin.md`
 §8.
 
+**Momo's panel (momo.internal) via OIDC, 2026-08-02 — the empty-`grant_types`
+trap caught us a second time, and the reason it did is the lesson.**
+
+The provider was created via the ORM. It was born with three empty fields, and
+I filled two of them: `_redirect_uris` (strict, exact callback) and the three
+scope `property_mappings`. Login still bounced straight back to
+`https://momo.internal/auth/callback?error=invalid_request`.
+
+- **What it looked like**: every field I compared against the working "Forgejo
+  OIDC" provider matched — flows, signing key, redirect mode, scopes, client
+  type. So the comparison itself looked like proof that the provider was fine,
+  and I went looking for the fault in the Application binding and in PKCE.
+- **What it was**: `grant_types == []`. Authentik logs the real reason one line
+  above the one the browser shows —
+  `"event": "Invalid grant_type for provider", "grant_type": "authorization_code"`,
+  then `"The request is otherwise malformed"`. **The second line is the one the
+  user sees, and it says nothing.** Fixed with
+  `p.grant_types = ['authorization_code']`.
+- **Why the comparison missed it**: I compared the fields I thought to name.
+  `grant_types` was not one of them, because it does not appear in the admin UI
+  next to the others. Enumerating `_meta.get_fields()` and diffing *every*
+  field against a working provider found it in one command — that is the check
+  to run first, not last.
+- **Least privilege kept**: Forgejo carries
+  `['authorization_code','client_credentials','password']`; the panel got only
+  `authorization_code`. Copying a working provider "campo per campo" is a
+  debugging technique, not a configuration target.
+
+Trap already recorded at [VISIONE_COMPLETA](../00_overview/VISIONE_COMPLETA.md)
+§ trappole, line «ProxyProvider Authentik via ORM». Knowing a trap by name did
+not prevent falling into it — filling *two* of the three named fields felt like
+having handled it.
+
 ## Guardrails
 
 - One service at a time; verify SSO **and** local break-glass before the next.

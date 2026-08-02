@@ -371,7 +371,7 @@ intatto. Il Verificatore sondato sul vivo: `files.internal` sano → 3/3
 `FALSE_ALARM`; un host inesistente → `REAL_CRITICAL` con `TLSV1_UNRECOGNIZED_NAME`
 riconosciuto come colpa del servizio, non della sonda. 102 casi di test
 (41+38+23, quest'ultimo il Guardrail invariato) passano tutti; il conteggio
-21 strumenti su motore di casa / 2 su motore esterno resta identico dopo il
+20 strumenti su motore di casa / 1 su motore esterno resta identico dopo il
 cambio dell'hook di Momo.
 
 ---

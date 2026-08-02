@@ -229,7 +229,7 @@ manda una mail a un contatto in rubrica.
 ### Fase 4 — Momo ha le guardie
 La parte che non si delega, in ordine di rischio:
 - **filtro privato/non privato**: ✅ **fatto e verificato (contato dal vivo,
-  2026-07-31)** — `sovereign_tools` registra 11 strumenti con `check_fn`
+  2026-07-31)** — `sovereign_tools` registra 10 strumenti con `check_fn`
   per-tool (9 privati + 2 pubblici, web) e ripete il controllo dentro
   `pre_tool_call` (belt and braces); i 10 strumenti di memoria arrivano da
   `SovereignMemoryProvider` per una strada diversa (§2, "i costi veri"), gated

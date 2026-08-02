@@ -85,6 +85,27 @@ _MEMORY_TOOLS = {"ricorda", "ricorda_cerca", "dimentica",
                  "procedura_salva", "procedura_cerca",
                  "rubrica_aggiungi", "rubrica_cerca", "rubrica_elenco"}
 
+# Nemmeno la ricerca sul web e' qui, e per una ragione diversa dalla memoria:
+# hermes-agent ne ha gia' una PIU' FORTE della nostra, e sa parlare col
+# SearXNG di casa. Registrando la nostra le rubavamo il nome -- il registro
+# rifiutava la loro con «would shadow existing tool from toolset 'sovereign'»
+# a ogni avvio (visto da Mohamed il 2026-08-02), e Momo restava con la
+# versione piu' povera.
+#
+# Cosa ci guadagna a lasciare vincere la loro, a parita' di sovranita'
+# (le ricerche continuano a passare dal NOSTRO SearXNG, via ``SEARXNG_URL``):
+#   * difesa SSRF vera (``tools/url_safety.py``: transport che ricontrolla
+#     l'IP dopo la risoluzione, quindi regge il DNS rebinding). La nostra era
+#     una regex sul nome host, che il rebinding aggira senza sforzo;
+#   * ripiego su altri motori se SearXNG e' giu', invece di un errore secco;
+#   * un tetto alla dimensione del risultato, che con un modello locale da
+#     32k di contesto non e' un dettaglio.
+#
+# ``web_fetch`` invece RESTA nostra: il provider SearXNG e' solo-ricerca, la
+# loro estrazione (``web_extract``) si appoggia ad altri provider che qui non
+# ci sono, e i due nomi non si pestano i piedi.
+_WEB_TOOLS_LORO = {"web_search"}
+
 _module_cache: Any = None
 
 
@@ -296,6 +317,8 @@ def register(ctx) -> None:
     for name, tool in hermes.TOOLS.items():
         if name in _MEMORY_TOOLS:
             continue  # they belong to the MemoryProvider, not here
+        if name in _WEB_TOOLS_LORO:
+            continue  # hermes-agent ce l'ha piu' forte, e parla col nostro SearXNG
         private = name in hermes.PRIVATE_TOOLS
         schema = dict(tool["schema"]["function"])
         try:
