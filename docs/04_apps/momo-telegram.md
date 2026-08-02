@@ -659,6 +659,91 @@ persi lì. Da confrontare catturando la richiesta vera — i `request_dump_*.jso
 in `/opt/momo/home/.hermes/sessions/` sono già quello, e sono il posto da cui
 ripartire.
 
+## 3-septies. Il ragionamento acceso, e la catena che cadeva in silenzio
+
+Trovato il 2026-08-02. È la **prima trappola** dell'elenco in
+[VISIONE_COMPLETA](../00_overview/VISIONE_COMPLETA.md) §6, tornata da una
+porta diversa: su Momo nessuno l'aveva configurata.
+
+**Il sintomo**: `hermes -z "ciao"` usciva con **codice 2 e nessun output**.
+Niente in `errors.log`. Sembrava un guasto di rete.
+
+**La misura che ha chiuso il caso**: interrogando l'Ollama del server
+direttamente, `qwen3.5:4b` risponde in **17,7 secondi con contenuto vuoto**.
+Non è lento: ragiona e non conclude. Quello è il **ripiego** della catena,
+quindi quando il primario falliva si finiva lì, e lì non c'era risposta.
+
+**Perché il rimedio non era attivo.** Il commento nel loro
+`plugins/model-providers/custom/__init__.py` dice, parola per parola, la
+stessa cosa che sta nella nostra tabella delle trappole:
+
+> Ollama's `/v1/chat/completions` silently ignores `extra_body.think` (only
+> `/api/chat` honours it — ollama#14820) but respects the top-level
+> `reasoning_effort` field.
+
+Il provider **sa già** emettere `reasoning_effort: "none"`, ma solo se
+qualcuno imposta `agent.reasoning_effort` — e non era impostata. Il rimedio
+c'era, spento.
+
+```yaml
+# /opt/momo/home/.hermes/config.yaml
+agent:
+  reasoning_effort: none
+```
+
+**Il risultato, misurato e non promesso**: la chiamata agli strumenti passa da
+**1 a 2 volte su 6**. Un miglioramento dentro il rumore, **non una cura**: il
+collo di bottiglia resta il modello. Scritto così perché nessuno lo riprovi
+credendo che basti.
+
+### Lo stato di Bedrock: ristretto, ma aperto
+
+Chiave fornita dal proprietario il 2026-08-02
+(`/root/sovereign-secrets/hermes/key-bedrock`, 0600, mai nel repository).
+
+| Prova | Esito |
+|---|---|
+| Chiave valida, `gpt-oss-20b`, persona di Momo, 19 strumenti | **6 chiamate su 6** |
+| Lo stesso attraverso hermes-agent | uscita 2, nessun output |
+| La richiesta **esatta** di hermes-agent, rigiocata a mano contro Bedrock | **accettata** |
+| `extra_body.options.num_ctx` e `max_tokens: 65536` verso Bedrock | accettati |
+
+Quindi **non è il payload e non è la chiave**. Resta da capire come
+hermes-agent tratta la risposta. Aperto, e scritto come aperto.
+
+Per il confronto: `qwen3.5:9b` sul PC fa **1-2 su 6** dove Bedrock fa **6 su
+6**. È la differenza fra un assistente che agisce e uno che descrive, ed è la
+ragione per cui vale la pena chiudere quel caso.
+
+## 3-octies. Cambiare motore: `momo-motore`
+
+```bash
+momo-motore                 # quale motore risponde adesso, e cosa costa
+momo-motore pc              # PC di Mohamed, RTX 5070 Ti (a PC acceso)
+momo-motore server          # CPU di LXC 102: sempre lì, lenta
+momo-motore bedrock         # AWS: bravo con gli strumenti, NON in casa
+momo-motore --elenco        # tutti, con la nota di ognuno
+```
+
+Esiste perché `hermes model` **disegna un menu e pretende un terminale vero**:
+non è usabile da script, da cron, né da `pct exec`. Questo tocca le stesse
+chiavi che tocca il loro menu (`model.default`, `model.provider`,
+`CUSTOM_BASE_URL`, `CUSTOM_API_KEY`) e riavvia il servizio.
+
+Due cose che fa di proposito:
+
+- **non scrive mai una chiave passata a mano**: le chiavi stanno in
+  `/root/sovereign-secrets/` a 0600 e si citano per percorso. Uno script che
+  prende un segreto sulla riga di comando lo lascia nella cronologia della
+  shell di chi lo lancia;
+- **riscrive `config.yaml` come struttura, mai come testo**: modificarlo con
+  espressioni regolari lo ha troncato una volta, il 2026-08-02, lasciando
+  Momo senza modello.
+
+Ogni motore dichiara **accanto al proprio indirizzo** se è di casa, invece di
+lasciarlo dedurre da un URL scritto altrove, e passando a uno esterno lo dice
+in faccia.
+
 ## 4. DNS / domain names / alias
 
 **Nessuno, e volutamente.** Telegram si raggiunge in uscita; non c'è niente da
