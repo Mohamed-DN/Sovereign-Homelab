@@ -48,6 +48,7 @@ already a hard dependency of the host that imports this file.
 from __future__ import annotations
 
 import json
+import logging
 import os
 import socket
 import urllib.error
@@ -58,6 +59,11 @@ from fastapi import APIRouter, Body
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
+
+# A named logger, so a fallback from the direct read to HTTP leaves a trace
+# instead of being silent: the two paths must agree, and the only way to
+# notice they stopped agreeing is a line in the log.
+LOGGER = logging.getLogger("sovereign-console")
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -170,6 +176,97 @@ def _request(path: str, method: str, payload: Optional[Dict[str, Any]],
                                   method=method, headers=headers)
 
 
+# ----------------------------------------------------- lettura diretta (T3)
+# Tappa 3 del passaggio del testimone: il pannello smette di CHIAMARE il
+# servizio Hermes e comincia a IMPORTARE il suo modulo, come fa gia'
+# `sovereign_tools`. La differenza che conta e' una sola: cosi' le sette
+# schede funzionano anche con `sovereign-hermes` FERMO, ed e' quella la prova
+# che sblocca la tappa 5.
+#
+# Non e' una reimplementazione: sono le stesse identiche funzioni che il
+# servizio chiama nel suo handler HTTP. Nessuna logica duplicata, quindi
+# niente da tenere allineato -- il motivo per cui il ponte HTTP esisteva
+# resta soddisfatto per un'altra strada.
+#
+# Se l'import fallisce si torna all'HTTP: un pannello che smette di funzionare
+# perche' un percorso e' cambiato sarebbe un passo indietro rispetto al ponte.
+_HERMES_MOD: Any = None
+
+
+def _hermes_mod() -> Any:
+    """Il modulo dell'Hermes vivo, caricato una volta sola.
+
+    Per percorso, perche' `sovereign-hermes.py` ha un trattino nel nome e non
+    e' importabile come pacchetto. Stessa tecnica di `sovereign_tools`.
+    """
+    global _HERMES_MOD  # noqa: PLW0603 - un modulo, caricato pigramente
+    if _HERMES_MOD is None:
+        import importlib.util  # noqa: PLC0415
+        import sys  # noqa: PLC0415
+        base = os.environ.get("SOVEREIGN_HERMES_DIR", "/opt/sovereign")
+        if base not in sys.path:
+            sys.path.insert(0, base)
+        percorso = os.path.join(base, "sovereign-hermes.py")
+        spec = importlib.util.spec_from_file_location("_sovereign_hermes_panel", percorso)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"non trovo {percorso}")
+        modulo = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(modulo)
+        _HERMES_MOD = modulo
+    return _HERMES_MOD
+
+
+def _diretto(path: str, method: str, payload: Optional[Dict[str, Any]]) -> Any:
+    """Serve un percorso leggendo il modulo. Solleva se non lo sa fare, e il
+    chiamante ricade sull'HTTP."""
+    h = _hermes_mod()
+    utente = HERMES_USER
+
+    if path == "/api/backends" and method == "GET":
+        return {"backends": h.backends_public()}
+    if path == "/api/backends" and method == "POST":
+        ok, messaggio = h.save_backends((payload or {}).get("backends"))
+        return {"ok": ok, "messaggio": messaggio} if ok else {"ok": False, "error": messaggio}
+    if path == "/api/models/catalog":
+        installati = {}
+        for b in h.load_backends_all():
+            if b.get("type") == "ollama":
+                installati[b["name"]] = h.backend_models(b)
+        return {"catalog": h.load_models_catalog(), "installed": installati}
+    if path == "/api/providers/presets":
+        configurati = {b["name"] for b in h.load_backends_all()}
+        return {"presets": [dict(p, gia_configurato=p.get("name") in configurati)
+                            for p in h.load_providers_presets()]}
+    if path == "/api/routes" and method == "GET":
+        return {"routes": h.load_routes(), "strategy": h.load_router_strategy()}
+    if path == "/api/memory/status":
+        store = h.memory()
+        return store.status() if store is not None else {"errore": "memoria non disponibile"}
+    if path == "/api/contacts" and method == "GET":
+        store = h.memory()
+        return {"contacts": store.contact_list(utente) if store is not None else []}
+    if path == "/api/master/status":
+        import time as _t  # noqa: PLC0415
+        interruttore = h.sovereign_switch.read_state()
+        fino_a = h.master_armed_until()
+        return {
+            "armed": h.master_is_armed(),
+            "seconds_left": int(max(0, fino_a - _t.time())),
+            "running": bool(interruttore["running"]),
+            "actions": h.load_actions(),
+            "ssh_configured": os.path.exists(h.MASTER_SSH_KEY_FILE),
+            "switch": {"source": interruttore.get("source", ""),
+                       "paused_by": interruttore.get("paused_by", ""),
+                       "paused_at": interruttore.get("paused_at", 0),
+                       "paused_reason": interruttore.get("paused_reason", ""),
+                       "stopped_tools": sorted(h.sovereign_switch.PAUSED_TOOLS)},
+        }
+    if path == "/api/master/log":
+        store = h.memory()
+        return {"log": store.master_log_recent(50) if store is not None else []}
+    raise NotImplementedError(path)
+
+
 def _call(path: str, method: str = "GET", payload: Optional[Dict[str, Any]] = None,
           timeout: float = TIMEOUT_FAST) -> Tuple[bool, Any]:
     """One JSON round trip. Returns ``(reached, parsed_json_or_error_sentence)``.
@@ -190,6 +287,17 @@ def _call(path: str, method: str = "GET", payload: Optional[Dict[str, Any]] = No
     Never raises: a bridge whose job is to report "the other side is down"
     cannot itself be the thing that goes down.
     """
+    # Prima la strada diretta (tappa 3): stesse funzioni, senza il servizio.
+    # Il ripiego sull'HTTP resta perche' un percorso che cambia non deve
+    # spegnere il pannello -- e perche' finche' Hermes e' vivo le due strade
+    # devono dare la stessa risposta, il che si vede solo tenendole entrambe.
+    try:
+        return True, _diretto(path, method, payload)
+    except NotImplementedError:
+        pass
+    except Exception as exc:  # noqa: BLE001 - si ricade sull'HTTP, non si muore
+        LOGGER.warning("lettura diretta fallita per %s (%s); provo l'HTTP", path, exc)
+
     try:
         req = _request(path, method, payload, "application/json")
         with _OPENER.open(req, timeout=timeout) as resp:
