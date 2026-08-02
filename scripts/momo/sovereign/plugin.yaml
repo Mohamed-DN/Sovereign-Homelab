@@ -1,7 +1,7 @@
 name: sovereign
 kind: exclusive
-version: 1.0.0
-description: "Sovereign memory — the household's own Postgres + Qdrant + Valkey memory, shared with the running Hermes."
+version: 1.1.0
+description: "Sovereign memory — the household's own Postgres + Qdrant + Valkey memory, shared with the running Hermes. Since 1.1.0 it also learns from a finished turn, silently, and exposes /memoria to review and delete what it learned."
 author: Sovereign Homelab
 # No pip dependencies: psycopg2 comes from Debian's archive on LXC 102, and
 # Qdrant and Valkey are spoken to with the standard library.

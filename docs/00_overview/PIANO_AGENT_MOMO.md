@@ -171,7 +171,38 @@ La corrispondenza con il vocabolario di hermes-agent è quasi uno a uno:
 | briefing della memoria | `system_prompt_block()` | ultimi 12 fatti + impegni, a ogni turno |
 | `ricorda_cerca` automatico | `prefetch(query)` | ricerca semantica **prima** di ogni risposta, senza che il modello debba pensarci |
 | i 10 strumenti di memoria | `get_tool_schemas()` + `handle_tool_call()` | ricorda/cerca/dimentica, agenda, procedure, rubrica |
-| — | `sync_turn()` | **volutamente vuoto**: qui la memoria è *dichiarata*, non raccolta. Salvare ogni turno di nascosto la renderebbe non verificabile e romperebbe la promessa che `dimentica` dimentica davvero |
+| la memoria che si aggiorna da sola | `sync_turn()` | **era volutamente vuoto fino al 2026-08-02**, e la ragione per cui lo era è diventata la forma di quello che c'è adesso — vedi qui sotto |
+
+#### Il `sync_turn` vuoto, e perché adesso non lo è più (2026-08-02)
+
+Qui c'era scritto: *«volutamente vuoto: qui la memoria è dichiarata, non
+raccolta. Salvare ogni turno di nascosto la renderebbe non verificabile e
+romperebbe la promessa che `dimentica` dimentichi davvero»*.
+
+Il proprietario ha poi chiesto (2026-08-01) il salvataggio automatico:
+*«Momo salva quello che impara in silenzio, ma ci deve essere un comando per
+rivedere tutto quello che ha imparato, con la possibilità di cancellare voce
+per voce»*.
+
+**Quella motivazione non è stata ignorata: è stata presa alla lettera.** Le
+parole che contavano erano **«ogni»** e **«di nascosto»**, e sono le due che
+il disegno toglie:
+
+- **non di nascosto** — silenzioso nella conversazione, **ispezionabile a
+  richiesta**: `/memoria` elenca tutto con la provenienza, `/memoria dimentica
+  f12 p3` cancella voce per voce. Nascosto vuol dire che non c'è modo di
+  guardare, non che non te lo sbandiera in faccia;
+- **non ogni turno** — una regola deterministica scarta la maggior parte dei
+  turni in microsecondi, prima di spendere qualunque cosa;
+- **`dimentica` dimentica ancora davvero** — la memoria automatica **scrive e
+  non cancella mai**: nessuna riga di quel percorso chiama `forget()`, ed è
+  una cosa che il test verifica contandone le chiamate;
+- **dedotto resta dedotto** — tutto entra con `source='dedotto'` e confidenza
+  < 1, che il briefing già etichetta `[dedotto da te, non confermato]`.
+
+Disegno completo, con le cinque domande (come si estrae, deduplica, iniezione
+dalle pagine web, cosa non si salva mai, come si rivede):
+[momo-memoria-automatica.md](../04_apps/momo-memoria-automatica.md).
 
 **La prova che conta** (non «funziona», ma «è la stessa memoria»): un fatto
 salvato **attraverso Momo** è stato riletto **dall'Hermes attuale**, processo
