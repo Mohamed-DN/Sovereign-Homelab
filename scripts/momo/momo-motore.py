@@ -44,23 +44,44 @@ SERVICE = os.environ.get("MOMO_SERVICE", "momo-gateway")
 # instead of being inferred from a URL somewhere else.
 ENGINES: dict[str, dict[str, object]] = {
     "pc": {
-        "etichetta": "PC di Mohamed · RTX 5070 Ti",
+        "etichetta": "PC di Mohamed · RTX 5070 Ti · gpt-oss:20b",
+        "provider": "custom",
+        "model": "gpt-oss:20b",
+        "base_url": "http://192.168.1.100:11434/v1",
+        "casa": True,
+        "nota": "il migliore, e in casa. Misurato il 2026-08-02: strumenti "
+                "6 su 6 a 1,0 s di media — identico a Bedrock, che faceva "
+                "6 su 6, ma senza che niente esca. 12,8 GB su 16: ci sta.",
+    },
+    "pc-qwen": {
+        "etichetta": "PC di Mohamed · qwen3.5:9b (il vecchio)",
         "provider": "custom",
         "model": "qwen3.5:9b",
         "base_url": "http://192.168.1.100:11434/v1",
         "casa": True,
-        "nota": "veloce, ma solo a PC acceso. Chiama gli strumenti male: "
-                "misurato 1 volta su 6 con 19 strumenti in lista.",
+        "nota": "era il primario fino al 2026-08-02. Chiama gli strumenti "
+                "1 volta su 6 con 19 strumenti in lista — peggio di un 3B "
+                "sulla T600. Tenuto per confronto, non per l'uso.",
     },
     "server": {
         "etichetta": "Server · GPU T600 di LXC 102",
         "provider": "custom",
+        "model": "qwen2.5:3b",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "casa": True,
+        "nota": "non manca mai, e dal 2026-08-02 gira sulla T600. Misurato: "
+                "1,3 s a caldo e strumenti 3 su 3 — meglio del 9B sulla "
+                "5070 Ti, che fa 1 su 6. Un modello piccolo che sceglie bene "
+                "batte uno grande che si perde.",
+    },
+    "server-granite": {
+        "etichetta": "Server · granite4:micro",
+        "provider": "custom",
         "model": "granite4:micro",
         "base_url": "http://127.0.0.1:11434/v1",
         "casa": True,
-        "nota": "non manca mai, e dal 2026-08-02 gira sulla T600: 2,5 s a "
-                "caldo contro i 22,5 di prima. Modello piccolo, quindi "
-                "risposte più semplici — ma è il ripiego, non il primario.",
+        "nota": "1,7 s, strumenti 3 su 3. Alternativa a qwen2.5:3b, tenuta "
+                "perché due modelli che funzionano valgono più di uno.",
     },
     "server-4b": {
         "etichetta": "Server · qwen3.5:4b (metà su CPU)",
