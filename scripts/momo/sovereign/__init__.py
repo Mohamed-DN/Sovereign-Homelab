@@ -14,13 +14,36 @@ What maps onto what, in hermes-agent's own vocabulary:
   system_prompt_block()  <- our memory briefing: recent facts + upcoming agenda
   prefetch(query)        <- semantic recall, run automatically before each turn
   get_tool_schemas()     <- the household memory tools (ricorda, agenda, ...)
-  sync_turn()            <- deliberately a no-op; see the note below
+  sync_turn()            <- what the turn taught, harvested; see the note below
 
-Why `sync_turn` writes nothing: this project's memory is *stated*, not
-harvested. A fact enters because someone said "ricordati che…" or because a
-tool was called on purpose, never because a conversation happened to mention
-it. Silently storing every turn would make the memory unauditable and would
-break the promise that `dimentica` really forgets.
+WHY `sync_turn` NO LONGER WRITES NOTHING (2026-08-02, owner's decision of
+2026-08-01). It used to be deliberately empty, and the reason written here was
+good: "this project's memory is *stated*, not harvested. Silently storing every
+turn would make the memory unauditable and would break the promise that
+`dimentica` really forgets."
+
+The owner then asked for automatic saving. That objection is not thrown away —
+it is answered, and the answer is what shapes the code:
+
+  * "unauditable" -> the memory is SILENT IN THE CONVERSATION but INSPECTABLE
+    ON DEMAND. `/memoria` lists every entry with its handle, where it came
+    from and when; `/memoria dimentica f12 p3` removes them. Silent is not the
+    same as hidden: hidden means there is no way to look.
+  * "every turn" -> not every turn. `sovereign_memoria.turno_da_saltare()` and
+    `vale_la_pena()` throw most of them away in microseconds, before anything
+    is spent. What enters is a fact, not a transcript.
+  * "`dimentica` really forgets" -> THE AUTOMATIC MEMORY WRITES AND NEVER
+    DELETES. Nothing on this path calls `forget()`. Deleting stays a decision
+    the owner takes, and `dimentica` still removes the row, the vector, and
+    leaves only *that* it happened in the log.
+  * "stated vs inferred" -> everything harvested here is written with
+    `source='dedotto'` and confidence < 1, which the schema has distinguished
+    since day one and which `system_prompt_block()` already labels
+    "[dedotto da te, non confermato]".
+
+Design, with the five questions answered (how facts are extracted, dedup,
+prompt injection from web pages, what is never saved, how to review):
+docs/04_apps/momo-memoria-automatica.md
 """
 
 from __future__ import annotations
@@ -53,6 +76,20 @@ PREFETCH_LIMIT = int(os.environ.get("SOVEREIGN_PREFETCH_LIMIT", "5"))
 # related note scores ~0.5+, unrelated ones sit well under 0.4.
 PREFETCH_MIN_SCORE = float(os.environ.get("SOVEREIGN_PREFETCH_MIN_SCORE", "0.42"))
 
+# The harvest, loaded softly ON PURPOSE. `apprendimento` imports the rules
+# (`sovereign_memoria`) without a `try`, because a harvest that runs without
+# its vetoes could write a secret into a system prompt that lasts forever.
+# Here the failure is caught, so that the WORST case is "Momo remembers what
+# he is told but no longer learns by himself" instead of "Momo has no memory
+# at all". The two levels are different because what they protect is
+# different: down there, safety; up here, availability of the memory itself.
+try:
+    from . import apprendimento          # noqa: PLC0415 - sibling module in this plugin
+except Exception as _exc:  # noqa: BLE001
+    apprendimento = None                 # type: ignore[assignment]
+    logger.error("memoria automatica NON attiva (%s): la memoria normale funziona lo stesso, "
+                 "ma Momo non imparerà da solo e /memoria non risponderà", _exc)
+
 
 class SovereignMemoryProvider(MemoryProvider):
     """The household memory, exposed through hermes-agent's provider interface."""
@@ -61,6 +98,11 @@ class SovereignMemoryProvider(MemoryProvider):
         self._store: Any = None
         self._owner: str = DEFAULT_OWNER
         self._error: str = ""
+        # "primary", "subagent", "cron" or "flush", from their own kwargs.
+        # Their ABC says it plainly: "Providers should skip writes for
+        # non-primary contexts (cron system prompts would corrupt user
+        # representations)". Kept here so `sync_turn` can obey it.
+        self._context: str = "primary"
 
     @property
     def name(self) -> str:
@@ -92,12 +134,15 @@ class SovereignMemoryProvider(MemoryProvider):
         # Falling back to the owner keeps single-user use working, and phase 4
         # is where that fallback gets replaced by a real identity check.
         self._owner = str(kwargs.get("user_id") or DEFAULT_OWNER)
+        self._context = str(kwargs.get("agent_context") or "primary")
         self._store = hermes_memory.MemoryStore()
         if not self._store.configured:
             self._error = "MemoryStore non configurato"
             self._store = None
             return
-        logger.info("sovereign memory pronta (owner=%s, sessione=%s)", self._owner, session_id)
+        logger.info("sovereign memory pronta (owner=%s, sessione=%s, contesto=%s, "
+                    "apprendimento=%s)", self._owner, session_id, self._context,
+                    "sì" if apprendimento is not None else "non caricato")
 
     def shutdown(self) -> None:
         self._store = None
@@ -163,7 +208,31 @@ class SovereignMemoryProvider(MemoryProvider):
 
     def sync_turn(self, user_content: str, assistant_content: str, *,
                   session_id: str = "", messages: Any = None) -> None:
-        """Deliberately does nothing — see the module docstring."""
+        """Learn what this turn taught — silently, and never at the person's cost.
+
+        Three things make this safe to do inline in this method:
+
+        1. IT IS ALREADY OFF THE HOT PATH. `MemoryManager.sync_all()`
+           (agent/memory_manager.py:638-695) dispatches every provider's
+           `sync_turn` on a serialised BACKGROUND worker, explicitly not on the
+           turn-completion path — their own docstring cites a provider observed
+           blocking ~298 s before failing. So the model call this triggers
+           costs the person nothing. Read in their code, not assumed.
+        2. IT CANNOT THROW. `impara()` catches everything; this method catches
+           again. A memory that kills a chat is worse than a memory that
+           misses a fact.
+        3. IT CANNOT SPEAK. Nothing here returns text or touches the answer.
+           The owner asked for silence in the conversation and inspection on
+           demand (`/memoria`), which are not the same thing as secrecy.
+        """
+        if apprendimento is None:
+            return
+        try:
+            apprendimento.impara(user_content, assistant_content,
+                                 messages=messages, session_id=session_id,
+                                 owner=self._owner, contesto=self._context)
+        except Exception as exc:  # noqa: BLE001 - belt and braces; see (2) above
+            logger.warning("memoria automatica: %s", exc)
 
     # -- the tools -----------------------------------------------------------
 
@@ -261,6 +330,118 @@ class SovereignMemoryProvider(MemoryProvider):
         return [t["schema"] for t in self._our_tools().values()]
 
 
+# --------------------------------------------------------------------------
+# `/memoria` — the command that makes the silent memory inspectable
+# --------------------------------------------------------------------------
+#
+# This command IS the other half of the owner's decision of 2026-08-01: Momo
+# saves in silence, but there must be a way to review everything he learned
+# and delete it entry by entry. Without it, the automatic memory would be the
+# exact thing PIANO_AGENT_MOMO.md §4 refused to build.
+#
+# THE GAP, STATED RATHER THAN IMPLIED: a slash handler receives only
+# `raw_args` (`hermes_cli/plugins.py:548` — `fn(raw_args: str) -> str | None`),
+# so this command cannot know WHO typed it and cannot tell the owner from
+# another gateway user. Today that is covered by the gateway's own allowlist,
+# and it is the SAME hole `sovereign_tools` documents for the per-role filter.
+# It closes with divergence #1 of PIANO_AGENT_MOMO §3 (passing identity to the
+# hooks), not before.
+
+def _comando_memoria(provider: "SovereignMemoryProvider"):
+    """Build the handler, closed over the provider so it reads the live owner."""
+
+    def handler(raw_args: str) -> str:
+        if apprendimento is None:
+            return ("La memoria automatica non è caricata su questo Momo, quindi non c'è "
+                    "niente da rivedere. Guarda i log: manca `sovereign_memoria.py`.")
+        import sovereign_memoria as regole  # noqa: PLC0415 - loaded with apprendimento
+
+        args = (raw_args or "").strip()
+        parola, _, resto = args.partition(" ")
+        parola = parola.lower()
+        resto = resto.strip()
+        owner = provider._owner or DEFAULT_OWNER  # noqa: SLF001 - same object, not a stranger
+
+        try:
+            if parola in ("aiuto", "help", "?"):
+                return regole.AIUTO
+
+            if parola in ("stato", "status"):
+                return apprendimento.stato(owner)
+
+            if parola in ("pausa", "ferma", "stop"):
+                regole.pausa(by=owner, reason=resto or "chiesto da /memoria")
+                return ("Va bene: da adesso non imparo più da solo. Non ho dimenticato "
+                        "niente di quello che so già.\n" + regole.describe())
+
+            if parola in ("riprendi", "riparti", "resume"):
+                regole.riprendi(by=owner)
+                return "Ricomincio a imparare da solo.\n" + regole.describe()
+
+            if parola in ("dimentica", "cancella", "elimina"):
+                riferimenti, cattivi = regole.leggi_riferimenti(resto)
+                if cattivi:
+                    return (f"Non capisco «{', '.join(cattivi)}». Non ho cancellato niente.\n"
+                            "Usa i manici che vedi nell'elenco, per esempio: "
+                            "/memoria dimentica f12 p3")
+                if not riferimenti:
+                    return ("Dimmi cosa cancellare, per esempio: /memoria dimentica f12\n"
+                            "I manici stanno all'inizio di ogni riga di /memoria.")
+                esito = apprendimento.dimentica(owner, riferimenti)
+                if esito.get("errore"):
+                    return esito["errore"]
+                righe = []
+                if esito.get("cancellati"):
+                    righe.append("Cancellati per davvero: " + ", ".join(esito["cancellati"]))
+                if esito.get("falliti"):
+                    righe.append("NON cancellati: " + ", ".join(esito["falliti"]))
+                return "\n".join(righe) or "Non ho cancellato niente."
+
+            if parola in ("cerca", "trova"):
+                if not resto:
+                    return "Cosa cerco? Per esempio: /memoria cerca oracle"
+                voci = apprendimento.elenca(owner, limite=30, query=resto)
+                return regole.formatta_elenco(
+                    voci, titolo=f"Quello che ho imparato su «{resto}»:")
+
+            if parola in ("tutto", "tutte"):
+                limite = 100
+            elif parola.isdigit():
+                limite = max(1, min(100, int(parola)))
+            elif parola:
+                return f"Non conosco «{parola}».\n\n{regole.AIUTO}"
+            else:
+                limite = 20
+
+            voci = apprendimento.elenca(owner, limite=limite)
+            return regole.formatta_elenco(voci, titolo="Quello che ho imparato:")
+
+        except Exception as exc:  # noqa: BLE001 - a command must answer, not crash
+            logger.warning("/memoria: %s", exc)
+            return (f"Non riesco a leggere la memoria adesso: {exc}\n"
+                    "Se è Postgres, la chat continua a funzionare lo stesso.")
+
+    return handler
+
+
 def register(ctx) -> None:
     """Called once by hermes-agent's plugin loader."""
-    ctx.register_memory_provider(SovereignMemoryProvider())
+    provider = SovereignMemoryProvider()
+    ctx.register_memory_provider(provider)
+
+    if apprendimento is None:
+        return
+    try:
+        # Signature read in `hermes_cli/plugins.py:548`. `args_hint` is what
+        # makes Discord (and any adapter that builds a native picker) show an
+        # argument field instead of a bare command.
+        ctx.register_command(
+            "memoria",
+            _comando_memoria(provider),
+            description="Quello che ho imparato da solo — e come cancellarlo, voce per voce",
+            args_hint="[n|tutto|cerca <parole>|dimentica f12 p3|stato|pausa|riprendi]",
+        )
+        logger.info("comando /memoria registrato")
+    except Exception as exc:  # noqa: BLE001 - the memory must work even if the command does not
+        logger.error("/memoria NON registrato (%s): la memoria automatica scriverebbe senza "
+                     "che nessuno possa rivederla — controllare subito", exc)

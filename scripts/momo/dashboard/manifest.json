@@ -1,0 +1,15 @@
+{
+  "name": "sovereign-console",
+  "label": "Sovrano",
+  "description": "Le sette schede del pannello di Hermes di casa (motori, modelli, fornitori, rotte, memoria, rubrica, MASTER) dentro il pannello di hermes-agent. Ponte di sola trasmissione verso l'Hermes vivo su 127.0.0.1:8093.",
+  "icon": "Server",
+  "version": "1.0.0",
+  "tab": {
+    "path": "/sovrano",
+    "position": "after:config"
+  },
+  "slots": [],
+  "entry": "src/index.js",
+  "css": "src/styles.css",
+  "api": "plugin_api.py"
+}

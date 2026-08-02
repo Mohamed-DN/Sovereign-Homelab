@@ -1,0 +1,18 @@
+name: sovereign-lang
+label: Sovereign Language Layer
+# `standalone`, non `general`: i tipi ammessi sono backend, exclusive,
+# model-provider, platform, standalone (hermes_cli/plugins.py). Un tipo
+# sconosciuto viene degradato a standalone con un warning -- funzionava per
+# caso, e un warning a ogni avvio e' rumore che nasconde il prossimo vero.
+kind: standalone
+version: 1.0.0
+description: >
+  Stabilisce in quale delle tre lingue di casa (italiano, inglese, arabo)
+  Mohamed ha appena parlato — dall'alfabeto e dalle parole funzione, non a
+  intuito — e lo dichiara al modello prima che risponda. Vale per il testo e
+  per i vocali trascritti, attraverso lo stesso codice.
+author: Sovereign Homelab
+pip_dependencies: []
+requires_env: []
+hooks:
+  - pre_llm_call
