@@ -90,6 +90,19 @@ class FintaMemoria:
     def procedure_find(self, owner, query="", limit=5):
         return {"ok": True, "procedure": [dict(p) for p in self.procedure]}
 
+    def procedure_save(self, owner, name, steps, *, purpose="", tags=(), source="detto"):
+        passi = [str(s) for s in steps]
+        for proc in self.procedure:                   # UNIQUE (owner, name): upsert
+            if proc["nome"] == name:
+                proc.update({"passi": passi, "scopo": purpose,
+                             "etichette": list(tags), "origine": source})
+                return {"ok": True, "id": proc["id"], "nome": name, "aggiornata": True}
+        self.prossimo_id += 1
+        self.procedure.append({"id": self.prossimo_id, "nome": name, "passi": passi,
+                               "scopo": purpose, "etichette": list(tags),
+                               "origine": source, "aggiornata": "2026-08-02T12:00"})
+        return {"ok": True, "id": self.prossimo_id, "nome": name, "aggiornata": False}
+
     def forget(self, owner, ref):
         self.chiamate_forget += 1
         for fatto in list(self.fatti):
@@ -116,9 +129,12 @@ class FintoHermes(types.ModuleType):
 
     def __init__(self) -> None:
         super().__init__("_finto_hermes")
-        self.risposta = "[]"
+        # A string answers every call; a list is consumed one call at a time,
+        # which is what the two-question design (facts, then procedure) needs.
+        self.risposta: object = "[]"
         self.interrogati: list[str] = []
         self.prompt_visto = ""
+        self.prompts: list[str] = []
 
     def load_backends(self):
         return [
@@ -137,7 +153,12 @@ class FintoHermes(types.ModuleType):
     def chat_once(self, backend, messages, tools, stream):
         self.interrogati.append(backend.get("name", "?"))
         self.prompt_visto = messages[0]["content"]
-        yield {"message": {"content": self.risposta}}
+        self.prompts.append(self.prompt_visto)
+        if isinstance(self.risposta, list):
+            testo = self.risposta.pop(0) if self.risposta else "[]"
+        else:
+            testo = self.risposta
+        yield {"message": {"content": testo}}
 
 
 def carica_apprendimento():
@@ -153,11 +174,16 @@ def carica_apprendimento():
 app = carica_apprendimento()
 regole = sys.modules["sovereign_memoria"]
 
-# A switch file of our own, so the test never reads or writes the real one.
+# A switch file of our own, so the test never reads or writes the real one —
+# and removed on the way out, so running the tests does not litter /tmp on the
+# machine they are run on.
+import atexit  # noqa: E402
+import shutil  # noqa: E402
 import tempfile  # noqa: E402
 
-os.environ["SOVEREIGN_MEMORIA_FILE"] = os.path.join(
-    tempfile.mkdtemp(prefix="momo-memoria-test-"), "memoria-automatica.json")
+_TMP = tempfile.mkdtemp(prefix="momo-memoria-test-")
+atexit.register(shutil.rmtree, _TMP, True)
+os.environ["SOVEREIGN_MEMORIA_FILE"] = os.path.join(_TMP, "memoria-automatica.json")
 os.environ.pop("SOVEREIGN_MEMORIA_AUTO", None)
 
 finto_hermes = FintoHermes()
@@ -170,6 +196,7 @@ def nuova_memoria() -> FintaMemoria:
     app._store = store
     app._impronte.clear()
     finto_hermes.interrogati.clear()
+    finto_hermes.prompts.clear()
     return store
 
 
@@ -301,6 +328,72 @@ check("con l'host nel testo", "docs.podman.io" in store.fatti[0]["testo"],
       store.fatti[0]["testo"])
 check("e con la confidenza piu' bassa di tutte",
       store.fatti[0]["confidenza"] == regole.fiducia_di("web"))
+
+
+# =============================================================================
+# Procedures: learned only from a turn that actually carried something out
+# =============================================================================
+
+PROCEDURA = json.dumps({"nome": "Riavviare Jellyfin quando si pianta",
+                        "scopo": "il servizio non risponde piu'",
+                        "passi": ["pct exec 105 -- systemctl restart jellyfin",
+                                  "controllare il log per 30 secondi"]}, ensure_ascii=False)
+DUE_PASSI = [
+    {"role": "user", "content": "Jellyfin non risponde, riavvialo e controlla che sia tornato"},
+    {"role": "assistant", "tool_calls": [{"id": "1", "function": {"name": "esegui_azione_master"}},
+                                         {"id": "2", "function": {"name": "estate_status"}}]},
+    {"role": "tool", "tool_call_id": "1", "content": "{\"ok\": true, \"esito\": \"riavviato\"}"},
+    {"role": "tool", "tool_call_id": "2", "content": "{\"ok\": true, \"jellyfin\": \"attivo\"}"},
+]
+
+store = nuova_memoria()
+finto_hermes.risposta = ["[]", PROCEDURA]      # 1a chiamata: fatti · 2a: procedura
+esito = app.impara("Jellyfin non risponde, riavvialo e controlla che sia tornato su",
+                   "Fatto, e' tornato su.", messages=DUE_PASSI, session_id="p1")
+check("una procedura viene imparata da un turno con due strumenti riusciti",
+      esito["scritti"] == 1 and len(store.procedure) == 1, str(esito))
+check("e viene chiesta con una SECONDA domanda, tutta sua",
+      len(finto_hermes.prompts) == 2 and "PROCEDURA" in finto_hermes.prompts[1],
+      "misurato: chiedere fatti e procedura insieme faceva rispondere solo fatti")
+check("con le etichette che dicono cosa e'",
+      set(store.procedure[0]["etichette"]) == {"auto", "da-verificare"},
+      str(store.procedure[0].get("etichette")))
+check("e come DEDOTTA", store.procedure[0]["origine"] == "dedotto")
+check("con i passi veri, in ordine",
+      store.procedure[0]["passi"][0].startswith("pct exec 105"), str(store.procedure[0]["passi"]))
+
+store = nuova_memoria()
+finto_hermes.risposta = ["[]", PROCEDURA]
+esito = app.impara(RACCONTO, RISPOSTA, session_id="p2")
+check("senza strumenti riusciti la seconda domanda non viene nemmeno fatta",
+      len(finto_hermes.prompts) == 1 and store.procedure == [],
+      "una procedura inventata si esegue passo per passo e fa danni — e la "
+      "chiamata in piu' si paga solo sui turni che se la sono guadagnata")
+
+store = nuova_memoria()
+finto_hermes.risposta = ["[]", json.dumps(
+    {"nome": "Collegarsi al database di casa",
+     "passi": ["export PGPASSWORD=Estate2026!", "psql -h 127.0.0.1"]})]
+esito = app.impara("Jellyfin non risponde, riavvialo e controlla che sia tornato su",
+                   "Fatto.", messages=DUE_PASSI, session_id="p3")
+check("una procedura con un segreto dentro NON viene salvata",
+      esito["scritti"] == 0 and store.procedure == [], str(esito))
+
+store = nuova_memoria()
+finto_hermes.risposta = ["[]", PROCEDURA]
+app.impara("Jellyfin non risponde, riavvialo e controlla che sia tornato su", "Fatto.",
+           messages=DUE_PASSI, session_id="p4")
+app._impronte.clear()      # a different session, same job done again
+finto_hermes.risposta = ["[]", json.dumps(
+    {"nome": "Riavviare Jellyfin quando si pianta",
+     "passi": ["pct exec 105 -- systemctl restart jellyfin",
+               "aspettare, poi controllare il log"]}, ensure_ascii=False)]
+app.impara("Jellyfin non risponde, riavvialo e controlla che sia tornato su", "Fatto.",
+           messages=DUE_PASSI, session_id="p5")
+check("rifare lo stesso lavoro AGGIORNA la procedura invece di duplicarla",
+      len(store.procedure) == 1, f"{len(store.procedure)} procedure")
+check("e i passi sono quelli nuovi",
+      "aspettare" in store.procedure[0]["passi"][1], str(store.procedure[0]["passi"]))
 
 
 # =============================================================================

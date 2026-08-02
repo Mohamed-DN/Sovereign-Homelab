@@ -299,7 +299,10 @@ def loro_scansione_disponibile() -> bool:
 # turn and inside Qdrant. There is no symmetric cost to a false negative here,
 # so these patterns are allowed to be blunt.
 _SEGRETI = (
-    (r"\b(?:password|passwd|pwd|parola\s+d\s?ordine)\b", "password"),
+    # No `\b` before password/passwd: `PGPASSWORD=...`, `MYSQL_PWD`, `DB_PASSWORD`
+    # are exactly the spellings that carry a real one, and a word boundary
+    # would miss every single one of them. Found by the test.
+    (r"(?:password|passwd|\bpwd\b|parola\s+d\s?ordine)", "password"),
     (r"\b(?:api[\s_-]?key|access[\s_-]?key|secret[\s_-]?key|client[\s_-]?secret)\b", "chiave"),
     (r"\b(?:token|bearer)\b\s*[:=]?\s*\S{12,}", "token"),
     (r"\bsk-[A-Za-z0-9_-]{16,}", "chiave"),
@@ -561,6 +564,11 @@ MAX_FATTI = max(1, min(10, int(os.environ.get("SOVEREIGN_MEMORIA_MAX", "3"))))
 
 TIPI = ("fatto", "persona", "preferenza", "progetto", "luogo", "abitudine")
 
+# A procedure is a different animal and gets different limits: it is FOLLOWED,
+# step by step, so it must come back exactly (see `MemoryStore.procedure_save`).
+MAX_PASSI = 20
+MAX_PASSO = 300
+
 
 def leggi_proposte(grezzo: str) -> list[dict[str, Any]]:
     """The model's JSON, read tolerantly but never guessed.
@@ -598,19 +606,111 @@ def leggi_proposte(grezzo: str) -> list[dict[str, Any]]:
     for voce in dati:
         if not isinstance(voce, dict):
             continue
-        testo_fatto = str(voce.get("testo") or voce.get("contenuto") or "").strip()
+        testo_fatto = str(voce.get("testo") or voce.get("contenuto") or
+                          voce.get("nome") or "").strip()
         if not testo_fatto:
             continue
         soggetto = str(voce.get("soggetto") or "io").strip() or "io"
         tipo = str(voce.get("tipo") or "fatto").strip().lower()
         provenienza = str(voce.get("provenienza") or "detto").strip().lower()
+
+        # A procedure only counts as one when it actually carries steps. A
+        # model that writes `"tipo": "procedura"` and forgets the steps has
+        # produced a fact with a strange label, not a how-to, and storing it
+        # as an empty procedure would put a name in the index with nothing
+        # behind it — worse than not storing it, because `procedura_cerca`
+        # would find it and return nothing.
+        passi = [str(p).strip()[:MAX_PASSO] for p in (voce.get("passi") or [])
+                 if str(p).strip()][:MAX_PASSI]
+        if tipo == "procedura" and passi:
+            proposte.append({"testo": testo_fatto, "soggetto": "impianto",
+                             "tipo": "procedura", "passi": passi,
+                             "scopo": str(voce.get("scopo") or "").strip()[:500],
+                             "provenienza": "strumento"})
+            continue
+
         proposte.append({
             "testo": testo_fatto,
             "soggetto": soggetto,
             "tipo": tipo if tipo in TIPI else "fatto",
+            "passi": [],
             "provenienza": provenienza if provenienza in ("detto", "strumento", "web") else "detto",
         })
     return proposte
+
+
+def leggi_procedura(grezzo: str) -> dict[str, Any] | None:
+    """The single JSON object the procedure call returns, or None.
+
+    A separate reader from `leggi_proposte` because the procedure question is
+    asked separately (see `apprendimento._PROMPT_PROCEDURA` for why), and its
+    answer is one object rather than an array. `{}` — the model's way of
+    saying "nothing repeatable happened" — reads as None, which is the
+    correct and common answer.
+    """
+    testo = (grezzo or "").strip()
+    if not testo:
+        return None
+    if "```" in testo:
+        for pezzo in testo.split("```")[1:]:
+            corpo = pezzo.split("\n", 1)[-1] if pezzo[:16].lower().startswith("json") else pezzo
+            if "{" in corpo:
+                testo = corpo
+                break
+    inizio, fine = testo.find("{"), testo.rfind("}")
+    if inizio < 0 or fine <= inizio:
+        return None
+    try:
+        dati = json.loads(testo[inizio:fine + 1])
+    except Exception:  # noqa: BLE001 - unparsable means nothing was learned
+        return None
+    if not isinstance(dati, dict):
+        return None
+    nome = str(dati.get("nome") or dati.get("testo") or "").strip()
+    passi = [str(p).strip()[:MAX_PASSO] for p in (dati.get("passi") or [])
+             if str(p).strip()][:MAX_PASSI]
+    if not nome or not passi:
+        return None
+    return {"testo": nome, "soggetto": "impianto", "tipo": "procedura",
+            "passi": passi, "scopo": str(dati.get("scopo") or "").strip()[:500],
+            "provenienza": "strumento"}
+
+
+def veto_procedura(nome: str, passi: list[str]) -> str:
+    """"" when this how-to may be saved automatically, otherwise why not.
+
+    NOT the same vetoes as a fact, and the difference is the point. A
+    procedure legitimately contains the things `veto()` refuses in a fact —
+    a percentage in a threshold, a command, a version number — because a
+    procedure describes an ACTION, not a state that ages. What it must never
+    contain is what would make it dangerous or poisoned:
+
+      * a secret, for exactly the reason a fact must not carry one;
+      * an injection, because a procedure comes back verbatim when
+        `procedura_cerca` finds it, straight into the model's context.
+
+    A procedure that is wrong gets FOLLOWED, step by step, which is why the
+    caller only ever proposes one when it watched the steps actually succeed,
+    and why every automatic one is tagged `da-verificare`.
+    """
+    nome = (nome or "").strip()
+    if len(nome) < 6:
+        return "il nome della procedura è troppo corto"
+    if len(nome) > 200:
+        return "il nome della procedura è troppo lungo"
+    puliti = [p for p in (passi or []) if str(p).strip()]
+    if len(puliti) < 2:
+        return "una procedura di un passo solo non è una procedura"
+
+    tutto = nome + "\n" + "\n".join(puliti)
+    sporco = scansione(tutto)
+    if sporco:
+        return sporco
+    piatto = normalizza(tutto)
+    for pattern, quale in _RX_SEGRETI:
+        if pattern.search(tutto) or pattern.search(piatto):
+            return f"contiene un segreto ({quale})"
+    return ""
 
 
 # How sure we are, by where it came from. Not decoration: it is what `/memoria`
@@ -622,7 +722,15 @@ def fiducia_di(provenienza: str) -> float:
     return FIDUCIA.get(provenienza, 0.5)
 
 
-def soggetto_di(provenienza: str, proposto: str) -> str:
+# A fact about the owner belongs under "io", whatever the model called him.
+# Measured, not imagined: the extraction model files the same person as "io",
+# as "mohamed" and as "utente" from one turn to the next, and three subjects
+# for one person is three sets of facts that never meet in a search.
+_ALIAS_PROPRIETARIO = frozenset({"io", "me", "lui", "utente", "l'utente", "l utente",
+                                 "proprietario", "il proprietario", "user"})
+
+
+def soggetto_di(provenienza: str, proposto: str, *, owner: str = "") -> str:
     """Where a candidate is filed, given where it came from.
 
     Web material is quarantined under its own subject no matter what the model
@@ -631,7 +739,10 @@ def soggetto_di(provenienza: str, proposto: str) -> str:
     """
     if provenienza == "web":
         return "web"
-    return (proposto or "io").strip() or "io"
+    pulito = (proposto or "io").strip() or "io"
+    if pulito.lower() in _ALIAS_PROPRIETARIO or (owner and pulito.lower() == owner.lower()):
+        return "io"
+    return pulito
 
 
 # --------------------------------------------------------------------------
