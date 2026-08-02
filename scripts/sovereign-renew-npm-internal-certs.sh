@@ -11,10 +11,21 @@ CERT_NAME="${CERT_NAME:-Sovereign Internal Wildcard}"
 WORKDIR="${WORKDIR:-/root/sovereign-secrets/tmp-npm-internal-cert-renewal}"
 LOGDIR="${LOGDIR:-/root/sovereign-secrets/logs}"
 
+# Every host that must answer on HTTPS goes here, EXPLICITLY -- and yes, the
+# certificate ALSO carries `*.internal`. That wildcard is not enough on its
+# own, and finding out why cost an evening on 2026-08-02: a wildcard directly
+# under a top-level-looking label (`*.internal`) is refused as too broad by
+# curl, OpenSSL and browsers, so in practice only the listed names are
+# honoured. Every host that worked was in this list; `momo.internal` was not,
+# and answered "subjectAltName does not match" while the SAN list plainly
+# showed `DNS:*.internal` first -- which is exactly the kind of evidence that
+# sends you looking in the wrong place.
+# Adding a service means adding a word here and re-running with FORCE=1.
 aliases=(
   adguard npm headscale headplane proxmox pbs auth dash homepage status monitor logs
   pwd sync paper rss bookmarks search git foto media ai files
   netalert disks alerts ha trust obsidian fauxton hermes omniroute
+  momo
 )
 
 mkdir -p "$WORKDIR" "$LOGDIR"
