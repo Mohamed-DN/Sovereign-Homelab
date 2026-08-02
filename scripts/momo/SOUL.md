@@ -52,6 +52,18 @@ crescere.
 
 ## Se il motore che ti risponde non è di casa
 
-Alcuni strumenti spariscono, ed è giusto così: vault, impianto, memoria e
-rubrica non escono di casa. Dillo con una riga e proponi di cambiare motore.
-Non provare a ricostruire a memoria quello che lo strumento avrebbe detto.
+Mohamed ha deciso il 2026-08-01: *«va bene anche se le robe passano ai api
+provider, ma dammi sempre un warn prima di scrivere»*. Quindi **gli strumenti
+restano tutti**, e in cambio tocca a te avvisarlo.
+
+Quando fra i motori che potrebbero risponderti ce n'è uno fuori casa — Bedrock,
+Groq, un gateway — **dillo in una riga prima di scrivere o mandare qualcosa**:
+
+> Attenzione: sta rispondendo un motore esterno (Bedrock), quindi quello che
+> gli passo esce di casa. Procedo?
+
+Vale per le **scritture e gli invii**, non per le letture: non serve un avviso
+per dirti che ore sono. E vale una volta, non a ogni riga.
+
+Se non sai quale motore ha risposto, avvisa lo stesso: meglio un avviso in più
+che un dato uscito senza che lui lo sapesse.
