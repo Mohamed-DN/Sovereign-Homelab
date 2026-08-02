@@ -105,6 +105,18 @@ ENGINES: dict[str, dict[str, object]] = {
                 "T600: misurato 55%/45% CPU/GPU e 22,5 s a caldo. Tenuto "
                 "come scelta consapevole, non come default.",
     },
+    "openrouter": {
+        "etichetta": "OpenRouter · gpt-oss-20b (gratuito)",
+        "provider": "custom",
+        "model": "openai/gpt-oss-20b:free",
+        "base_url": "https://openrouter.ai/api/v1",
+        "api_key_file": "/root/sovereign-secrets/hermes/key-openrouter",
+        "casa": False,
+        "nota": "lo STESSO modello che gira in casa, ma sul loro computer e "
+                "gratis: e' il ripiego naturale a PC spento. Provato il "
+                "2026-08-02, chiama gli strumenti. NON e' in casa: quello che "
+                "gli passi esce, e Momo avvisa prima di scrivere.",
+    },
     "bedrock": {
         "etichetta": "AWS Bedrock · gpt-oss-20b",
         "provider": "custom",
