@@ -53,13 +53,24 @@ ENGINES: dict[str, dict[str, object]] = {
                 "misurato 1 volta su 6 con 19 strumenti in lista.",
     },
     "server": {
-        "etichetta": "Server · CPU di LXC 102",
+        "etichetta": "Server · GPU T600 di LXC 102",
+        "provider": "custom",
+        "model": "granite4:micro",
+        "base_url": "http://127.0.0.1:11434/v1",
+        "casa": True,
+        "nota": "non manca mai, e dal 2026-08-02 gira sulla T600: 2,5 s a "
+                "caldo contro i 22,5 di prima. Modello piccolo, quindi "
+                "risposte più semplici — ma è il ripiego, non il primario.",
+    },
+    "server-4b": {
+        "etichetta": "Server · qwen3.5:4b (metà su CPU)",
         "provider": "custom",
         "model": "qwen3.5:4b",
         "base_url": "http://127.0.0.1:11434/v1",
         "casa": True,
-        "nota": "non manca mai, ma è lento: nessuna GPU, e il modello è più "
-                "piccolo. Il ripiego onesto quando il PC è spento.",
+        "nota": "più capace di granite4:micro ma NON entra nei 4 GB della "
+                "T600: misurato 55%/45% CPU/GPU e 22,5 s a caldo. Tenuto "
+                "come scelta consapevole, non come default.",
     },
     "bedrock": {
         "etichetta": "AWS Bedrock · gpt-oss-20b",
