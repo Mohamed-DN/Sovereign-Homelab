@@ -61,6 +61,17 @@ CACHE_TTL = int(os.environ.get("DASH_CACHE_TTL", "15"))
 SAMPLE_EVERY = 10          # seconds between host samples
 HISTORY = 120              # ring buffer length (120 x 10s = 20 min)
 MAX_BODY = 64 * 1024
+
+# La chat veloce della bolla parla con l'assistente di casa. Oggi risponde
+# ancora `sovereign-hermes` sulla 8093: quando Momo esporra' una sua rotta di
+# chat si cambia QUESTA riga e basta, che e' il motivo per cui e' una costante
+# e non un indirizzo sparso nel codice.
+# Passaggio del testimone: docs/00_overview/PIANO_TESTIMONE_HERMES_MOMO.md
+MOMO_CHAT_URL = os.environ.get("DASH_MOMO_CHAT_URL", "http://192.168.1.52:8093/api/chat")
+# Generoso di proposito: una domanda che accende lo sciame o legge il vault
+# puo' metterci parecchio, e un timeout corto trasformerebbe una risposta
+# lenta in un errore che manda a cercare un guasto che non c'e'.
+MOMO_CHAT_TIMEOUT = float(os.environ.get("DASH_MOMO_CHAT_TIMEOUT", "180"))
 LONG_SAMPLE_EVERY = 60     # seconds between long-term (persisted) samples
 LONG_HISTORY_DAYS = 30
 LONG_HISTORY_MAX = LONG_HISTORY_DAYS * 24 * 60
@@ -171,7 +182,7 @@ LINKS: list[dict[str, Any]] = [
         # access to Ollama, open self-signup with no admin ever claimed,
         # no memory/privacy filter/Guardrail -- Hermes and Momo cover the
         # same ground with those guards attached).
-        {"name": "Hermes", "slug": "hermes", "icon": "⚡", "href": "https://hermes.internal", "desc": "Assistente della casa: conosce lo stato dei servizi e i tuoi appunti Obsidian; usa la GPU del PC quando e acceso", "kw": "hermes"},
+        {"name": "Momo", "slug": "momo", "icon": "⚡", "href": "https://momo.internal", "desc": "Assistente della casa: conosce lo stato dei servizi e i tuoi appunti Obsidian, parla italiano, inglese e arabo, e risponde anche su Telegram", "kw": "momo hermes assistente"},
     ]},
 ]
 
@@ -1912,6 +1923,39 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
  margin-top:8px;border-color:#8a6d1f;color:#f4de8a;
  background:linear-gradient(180deg,rgba(201,162,39,.20),rgba(150,150,158,.12));font-weight:700}
 #qa .hermes-btn:hover{border-color:#c9a227;background:linear-gradient(180deg,rgba(201,162,39,.34),rgba(180,182,190,.18))}
+/* La finestra che fluttua: chat veloce con Momo senza lasciare la dashboard.
+   Sta in basso a destra sopra l'orb, si ridimensiona da sola sui telefoni, e
+   non copre mai piu' di meta' schermo in altezza. */
+.momowin{position:fixed;right:18px;bottom:96px;width:min(390px,calc(100vw - 36px));
+  max-height:min(56vh,520px);display:none;flex-direction:column;z-index:60;
+  background:var(--card);border:1px solid var(--line-strong);border-radius:12px;
+  box-shadow:0 18px 48px rgba(0,0,0,.55);overflow:hidden}
+.momowin.show{display:flex}
+.mw-top{display:flex;align-items:center;gap:7px;padding:9px 11px;
+  background:linear-gradient(180deg,rgba(201,162,39,.22),rgba(180,182,190,.10));
+  border-bottom:1px solid var(--line)}
+.mw-top b{font-size:13px}
+.mw-sub{flex:1;font-size:11px;color:var(--muted)}
+.mw-full{background:transparent;border:1px solid var(--line-strong);color:var(--fg);
+  border-radius:6px;padding:3px 7px;font-size:11px;cursor:pointer}
+.mw-full:hover{border-color:#c9a227}
+.mw-x{background:transparent;border:0;color:var(--muted);font-size:17px;cursor:pointer;padding:0 2px}
+.mw-body{flex:1;overflow-y:auto;padding:10px 11px;display:flex;flex-direction:column;gap:7px;
+  font-size:13px;line-height:1.5;min-height:70px}
+.mw-msg{padding:7px 10px;border-radius:9px;max-width:88%;white-space:pre-wrap;word-break:break-word}
+.mw-msg.io{align-self:flex-end;background:rgba(34,211,238,.16);border:1px solid rgba(34,211,238,.30)}
+.mw-msg.momo{align-self:flex-start;background:var(--bg);border:1px solid var(--line)}
+.mw-msg.pending{color:var(--muted);font-style:italic}
+.mw-msg.err{border-color:#dc2626;color:#fca5a5}
+.mw-ask{display:flex;gap:6px;padding:9px 11px;border-top:1px solid var(--line)}
+.mw-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
+  color:var(--fg);border-radius:7px;padding:7px 9px;font-size:13px}
+.mw-ask input:focus{outline:1px solid #c9a227;outline-offset:-1px}
+.mw-ask button{display:flex;align-items:center;justify-content:center;padding:6px 10px;
+  background:transparent;border:1px solid var(--line-strong);border-radius:7px;cursor:pointer}
+.mw-ask button:hover{border-color:#c9a227}
+@media(max-width:560px){.momowin{right:10px;left:10px;bottom:88px;width:auto;max-height:62vh}}
+
 #qa .hermes-ask{display:flex;gap:6px;margin-top:6px}
 #qa .hermes-ask input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line-strong);
  border-radius:8px;color:var(--fg);padding:6px 9px;font:inherit;font-size:.78rem}
@@ -2343,8 +2387,8 @@ footer a:hover{text-decoration:underline}
  <div class="mb" id="m-b"></div>
 </div>
 <div id="asst">
- <button id="orb" title="Chiedi a Hermes" aria-label="Chiedi a Hermes"><svg class="bot" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><rect class="ant" x="5" y="0" width="2" height="1"/><rect class="ant" x="5" y="1" width="2" height="1"/><rect class="sil" x="1" y="2" width="10" height="8"/><rect class="hi" x="1" y="2" width="10" height="1"/><rect class="vis" x="2" y="4" width="8" height="3"/><rect class="scan" x="3" y="5" width="3" height="1"/><rect class="dk" x="4" y="8" width="4" height="1"/><rect class="sil" x="0" y="4" width="1" height="3"/><rect class="sil" x="11" y="4" width="1" height="3"/></svg></button>
- <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Sono Hermes.</span><div id="qa"></div><span class="hint">Le risposte arrivano da Hermes &middot; la &times; nasconde l'assistente</span></div>
+ <button id="orb" title="Chiedi a Momo" aria-label="Chiedi a Momo"><svg class="bot" viewBox="0 0 12 12" shape-rendering="crispEdges" aria-hidden="true"><rect class="ant" x="5" y="0" width="2" height="1"/><rect class="ant" x="5" y="1" width="2" height="1"/><rect class="sil" x="1" y="2" width="10" height="8"/><rect class="hi" x="1" y="2" width="10" height="1"/><rect class="vis" x="2" y="4" width="8" height="3"/><rect class="scan" x="3" y="5" width="3" height="1"/><rect class="dk" x="4" y="8" width="4" height="1"/><rect class="sil" x="0" y="4" width="1" height="3"/><rect class="sil" x="11" y="4" width="1" height="3"/></svg></button>
+ <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Sono Momo.</span><div id="qa"></div><span class="hint">Le risposte arrivano da Momo &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
 <script>
@@ -3085,25 +3129,72 @@ const HERMES_BOT='<svg viewBox="0 0 11 11" width="16" height="16" shape-renderin
  +'<rect x="5" y="9" width="1" height="1" fill="#c9a227"/>'
  +'<rect x="1" y="8" width="1" height="2" fill="#7d838a"/><rect x="9" y="8" width="1" height="2" fill="#7d838a"/></svg>';
 
-// The canned answers stay: they are instant and work with Hermes offline.
-// Anything they do not cover goes to Hermes, which reads the live system.
-function askHermes(q){
- const u='https://hermes.internal/'+(q?('?q='+encodeURIComponent(q)):'');
- window.open(u,'_blank','noopener');
+// The canned answers stay: they are instant and work with Momo offline.
+// Anything they do not cover goes to Momo, which reads the live system.
+//
+// Chiesto da Mohamed il 2026-08-02: premendo il robot NON si cambia pagina,
+// si apre una finestra che fluttua con una chat veloce. La conversazione e'
+// volutamente EFFIMERA -- vive finche' la finestra e' aperta e non viene
+// salvata da nessuna parte: il filo lungo e la memoria stanno su Momo, e due
+// posti che credono di avere la stessa conversazione sono peggio di uno.
+// Da qui si salta al Momo completo con un pulsante.
+function apriMomo(q){
+ window.open('https://momo.internal/'+(q?('?q='+encodeURIComponent(q)):''),'_blank','noopener');
+}
+function momoWin(){
+ let w=$('momowin');
+ if(w) return w;
+ w=document.createElement('div');w.id='momowin';w.className='momowin';
+ w.innerHTML='<div class="mw-top">'+HERMES_BOT+'<b>Momo</b>'
+  +'<span class="mw-sub">chat veloce · non viene salvata</span>'
+  +'<button class="mw-full" title="Apri Momo completo">apri Momo &rarr;</button>'
+  +'<button class="mw-x" title="Chiudi">&times;</button></div>'
+  +'<div class="mw-body" id="mwbody"></div>'
+  +'<div class="mw-ask"><input id="mwinp" type="text" placeholder="Scrivi a Momo…" autocomplete="off">'
+  +'<button id="mwgo" title="Invia">'+HERMES_BOT+'</button></div>';
+ document.body.appendChild(w);
+ w.querySelector('.mw-x').onclick=()=>w.classList.remove('show');
+ w.querySelector('.mw-full').onclick=()=>apriMomo('');
+ const inp=w.querySelector('#mwinp'), go=w.querySelector('#mwgo');
+ const invia=()=>{const q=inp.value.trim();if(q){inp.value='';momoChiedi(q);}};
+ go.onclick=invia;
+ inp.addEventListener('keydown',e=>{if(e.key==='Enter')invia();});
+ return w;
+}
+function mwRiga(chi,testo,classe){
+ const b=$('mwbody');if(!b)return null;
+ const d=document.createElement('div');d.className='mw-msg '+(classe||chi);
+ d.textContent=testo;b.appendChild(d);b.scrollTop=b.scrollHeight;return d;
+}
+function momoChiedi(q){
+ momoWin().classList.add('show');
+ mwRiga('io',q);
+ const attesa=mwRiga('momo','…sto pensando','momo pending');
+ fetch('api/momo/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({q:q})})
+  .then(r=>r.json())
+  .then(d=>{
+    if(attesa){attesa.classList.remove('pending');
+      attesa.textContent = d.ok ? (d.risposta||'(nessuna risposta)') : (d.errore||'Momo non risponde');
+      if(!d.ok) attesa.classList.add('err');}
+    $('mwbody').scrollTop=$('mwbody').scrollHeight;
+  })
+  .catch(e=>{if(attesa){attesa.classList.remove('pending');attesa.classList.add('err');
+    attesa.textContent='Non sono riuscito a raggiungere Momo: '+e;}});
 }
 function assistantTips(){
  if(!qa)return;qa.innerHTML='';
-  const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Chiedi a Hermes</span>';
- h.title='Apre Hermes: legge lo stato reale del server e i tuoi appunti';
- h.onclick=()=>askHermes('');qa.appendChild(h);
+  const h=document.createElement('button');h.className='hermes-btn';h.innerHTML=HERMES_BOT+'<span>Parla con Momo</span>';
+ h.title='Apre una chat veloce qui, senza cambiare pagina';
+ h.onclick=()=>{momoWin().classList.add('show');const i=$('mwinp');if(i)i.focus();};qa.appendChild(h);
  const row=document.createElement('div');row.className='hermes-ask';
- const inp=document.createElement('input');inp.type='text';inp.placeholder='…oppure scrivi a Hermes';
- const go=document.createElement('button');go.className='hermes-go';go.innerHTML=HERMES_BOT;go.title='Manda a Hermes';
- const send=()=>{const q=inp.value.trim();if(q){askHermes(q);inp.value='';}};
+ const inp=document.createElement('input');inp.type='text';inp.placeholder='…oppure scrivi qui';
+ const go=document.createElement('button');go.className='hermes-go';go.innerHTML=HERMES_BOT;go.title='Manda a Momo';
+ const send=()=>{const q=inp.value.trim();if(q){momoChiedi(q);inp.value='';}};
  go.onclick=send;inp.addEventListener('keydown',e=>{if(e.key==='Enter')send();});
  row.appendChild(inp);row.appendChild(go);qa.appendChild(row);
 }
-function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Sono Hermes. Guardo lo stato del server, i tuoi appunti e il web.';bubble.classList.add('show');}
+function openAsst(){if(asst.classList.contains('off')){asst.classList.remove('off');localStorage.removeItem('sov-asst');}amsg.innerHTML='Sono Momo. Guardo lo stato del server, i tuoi appunti e il web.';bubble.classList.add('show');}
 $('orb').onclick=openAsst;
 $('asstx').onclick=()=>{bubble.classList.remove('show');asst.classList.add('off');localStorage.setItem('sov-asst','off');t('Assistente nascosto — clicca l\'orb');};
 setTimeout(()=>{if(!asst.classList.contains('off'))openAsst();},2500);
@@ -3259,6 +3350,71 @@ class Handler(BaseHTTPRequestHandler):
             self._send(404, b'{"error":"not found"}', "application/json")
 
     def do_POST(self) -> None:
+        # La chat veloce della bolla. Un PONTE, non un assistente: la domanda
+        # va a Momo e la risposta torna, senza che questa dashboard sappia
+        # niente di modelli o di memoria.
+        #
+        # Perche' un endpoint qui e non una chiamata dal browser: Momo ascolta
+        # dentro LXC 102 e il browser non lo raggiunge senza passare dal suo
+        # login. Il salto lo fa il server, che e' gia' nella rete e sa gia' chi
+        # sei -- l'identita' viene da `who()`, mai dal corpo della richiesta,
+        # come per ogni altra azione qui.
+        if self.path == "/api/momo/chat":
+            w = who(self)
+            if w is None:
+                self._send(401, b'{"error":"non autenticato"}', "application/json")
+                return
+            length = int(self.headers.get("Content-Length", "0"))
+            if length < 1 or length > 8000:
+                self._send(413, b'{"error":"domanda troppo lunga"}', "application/json")
+                return
+            try:
+                domanda = str(json.loads(
+                    self.rfile.read(length).decode("utf-8")).get("q", ""))[:2000]
+            except (json.JSONDecodeError, UnicodeDecodeError):
+                self._send(400, b'{"error":"json non valido"}', "application/json")
+                return
+            if not domanda.strip():
+                self._send(400, b'{"error":"domanda vuota"}', "application/json")
+                return
+            try:
+                url = MOMO_CHAT_URL + "?" + urllib.parse.urlencode({"q": domanda})
+                req = urllib.request.Request(url, headers={
+                    "X-authentik-username": w["username"], "Accept": "text/event-stream"})
+                with urllib.request.urlopen(req, timeout=MOMO_CHAT_TIMEOUT) as resp:
+                    grezzo = resp.read(400_000).decode("utf-8", "replace")
+                # L'assistente risponde in SSE (uno `data:` per pezzo di
+                # testo), non in JSON: la bolla vuole una risposta sola, quindi
+                # i pezzi si ricuciono qui. Gli eventi che non sono testo --
+                # `backend`, che dice quale motore ha risposto -- si saltano.
+                pezzi = []
+                evento = ""
+                for riga in grezzo.splitlines():
+                    if riga.startswith("event:"):
+                        evento = riga[6:].strip()
+                    elif riga.startswith("data:"):
+                        dato = riga[5:]
+                        if dato.startswith(" "):
+                            dato = dato[1:]
+                        if evento == "delta":
+                            pezzi.append(dato)
+                        elif evento in {"", "message"} and dato.strip():
+                            try:
+                                oggetto = json.loads(dato)
+                                if isinstance(oggetto, dict) and oggetto.get("answer"):
+                                    pezzi.append(str(oggetto["answer"]))
+                            except json.JSONDecodeError:
+                                pezzi.append(dato)
+                risposta = "".join(pezzi).strip()
+                self._send(200, json.dumps({
+                    "ok": True, "risposta": risposta or "(nessuna risposta)"}).encode("utf-8"),
+                    "application/json")
+            except Exception as exc:  # noqa: BLE001 - un ponte riferisce, non muore
+                self._send(200, json.dumps({
+                    "ok": False,
+                    "errore": f"Momo non risponde: {exc}"[:300]}).encode("utf-8"),
+                    "application/json")
+            return
         if self.path != "/api/action":
             self._send(404, b'{"error":"not found"}', "application/json")
             return
