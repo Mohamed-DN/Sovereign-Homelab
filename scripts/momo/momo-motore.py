@@ -6,6 +6,8 @@
     momo-motore server          # the CPU on LXC 102: always there, slow
     momo-motore bedrock         # AWS: fast and good at tools, but NOT at home
     momo-motore --elenco        # every engine, with what it costs
+    momo-motore slmix           # SLMIX on: side jobs to the server GPU
+    momo-motore slmix off       # back to one model for everything
 
 WHY A SCRIPT AND NOT `hermes model`: theirs needs a real terminal (it draws a
 menu), so it cannot be used from a script, from cron, or over `pct exec`.
@@ -118,8 +120,84 @@ ENGINES: dict[str, dict[str, object]] = {
 }
 
 
+# ----------------------------------------------------------------- SLMIX
+# "Super Local Mix", battezzato dal proprietario il 2026-08-02: usare il
+# modello che riesce meglio in ogni mestiere, invece di uno solo per tutto.
+#
+# L'IDEA CHE LO RENDE UTILE non e' "un modello migliore per compito" -- e' che
+# le due schede smettono di darsi fastidio. Intorno a ogni risposta
+# hermes-agent fa dei lavori di CONTORNO (comprimere il contesto, dare un
+# titolo alla sessione, riassumere una pagina web). Lasciati sul default
+# girano tutti sul modello principale: ognuno lo sfratta dalla VRAM, e la
+# risposta dopo paga un caricamento a freddo. Mandati sulla T600 del server
+# non costano niente al PC, e il modello grande resta caldo.
+#
+# Ogni numero qui sotto e' misurato su questo impianto il 2026-08-02, stesso
+# banco per tutti i modelli. Nessuno viene da una pagina di un fornitore.
+SLMIX = {
+    "principale": "pc",          # gpt-oss:20b — 5/6 strumenti, 1,3 s
+    "contorno": "server",        # qwen2.5:3b sulla T600 — 1,3 s, non tocca il PC
+    "compiti": {
+        "compression": "contorno",        # riassumere la chat: lungo e meccanico
+        "title_generation": "contorno",   # due parole: sprecare il grande e' assurdo
+        "web_extract": "contorno",        # input lungo, giudizio breve
+        "background_review": "contorno",  # se un giorno si accendono le skill
+    },
+}
+
+
+def _aux_endpoint(chiave_motore: str) -> dict:
+    motore = ENGINES[chiave_motore]
+    return {
+        "provider": "custom",
+        "model": motore["model"],
+        "base_url": motore["base_url"],
+        # I compiti di contorno non devono ragionare: producono un riassunto o
+        # un titolo. Lasciare il ragionamento acceso li fa tornare VUOTI --
+        # e' la trappola gia' pagata, vedi momo-telegram.md §3-septies.
+        "reasoning_effort": "none",
+    }
+
+
 def leggi_config() -> dict:
     return yaml.safe_load(CONFIG.read_text(encoding="utf-8")) or {}
+
+
+def slmix(accendi: bool) -> int:
+    """Accende o spegne SLMIX. Spento rimette 'auto' ovunque, cioe' il
+    comportamento originale: reversibile senza doversi ricordare com'era."""
+    config = leggi_config()
+    aux = config.setdefault("auxiliary", {})
+    if accendi:
+        for compito, ruolo in SLMIX["compiti"].items():
+            aux.setdefault(compito, {}).update(_aux_endpoint(SLMIX[ruolo]))
+        scrivi_config(config)
+        print("SLMIX acceso — super local mix")
+        print(f"  risponde       : {ENGINES[SLMIX['principale']]['etichetta']}")
+        print(f"  compiti minori : {ENGINES[SLMIX['contorno']]['etichetta']}")
+        for compito in SLMIX["compiti"]:
+            print(f"     · {compito}")
+        print("  le due schede non si rubano piu' la memoria a vicenda.")
+    else:
+        for compito in SLMIX["compiti"]:
+            blocco = aux.get(compito)
+            if isinstance(blocco, dict):
+                blocco.update({"provider": "auto", "model": "", "base_url": ""})
+        scrivi_config(config)
+        print("SLMIX spento: i compiti minori tornano al modello principale.")
+    esito = subprocess.run(["systemctl", "restart", SERVICE], capture_output=True, text=True)
+    if esito.returncode:
+        print(f"riavvio fallito: {esito.stderr.strip()[:200]}", file=sys.stderr)
+        return 1
+    print(f"{SERVICE} riavviato.")
+    return 0
+
+
+def slmix_attivo() -> bool:
+    aux = leggi_config().get("auxiliary") or {}
+    atteso = str(ENGINES[SLMIX["contorno"]]["model"])
+    return any(isinstance(aux.get(c), dict) and aux[c].get("model") == atteso
+               for c in SLMIX["compiti"])
 
 
 def scrivi_config(data: dict) -> None:
@@ -193,6 +271,12 @@ def stato() -> int:
         print(f"base_url       : {leggi_env().get('CUSTOM_BASE_URL', '(non impostato)')}")
     ripieghi = config.get("fallback_providers") or []
     print(f"ripieghi       : {[r.get('model') for r in ripieghi if isinstance(r, dict)] or 'nessuno'}")
+    if slmix_attivo():
+        print(f"SLMIX          : ACCESO — i compiti minori girano su "
+              f"{ENGINES[SLMIX['contorno']]['model']} (T600), fuori dal PC")
+    else:
+        print("SLMIX          : spento — tutto sul modello principale "
+              "(`momo-motore slmix` per accenderlo)")
     return 0
 
 
@@ -253,6 +337,9 @@ def main(argv: list[str]) -> int:
         return elenco()
     if args[0] in {"stato", "status"}:
         return stato()
+    if args[0] == "slmix":
+        spegni = len(args) > 1 and args[1].lower() in {"off", "spegni", "no"}
+        return slmix(not spegni)
     return cambia(args[0].lower())
 
 
