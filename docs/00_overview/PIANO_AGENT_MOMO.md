@@ -106,7 +106,10 @@ sempre cosa ci costerà il prossimo aggiornamento.
 
 | # | File | Cosa | Perché | Proposto a monte? |
 |---|---|---|---|---|
-| — | — | *(ancora nessuna: si compila mentre si lavora)* | — | — |
+| **1** | `agent/system_prompt.py`, tier "stable" (2026-08-01) | `HERMES_AGENT_HELP_GUIDANCE` viene aggiunto **solo se `SOUL.md` non ha già fornito l'identità**. A monte è incondizionato | Momo si presentava in arabo come *«مساعد هيرمس (Hermes AI)»* **pur avendo la nostra persona caricata**. Il loro codice sostituisce `DEFAULT_AGENT_IDENTITY` con `SOUL.md` — e fin qui è giusto — ma subito dopo **aggiunge comunque** una riga che dice *«You run on Hermes Agent (by Nous Research)»*. Il modello vedeva due identità e le fondeva. La stessa riga rimanda a `skill_view('hermes-agent')`, che qui **non può funzionare**: il toolset delle skill è spento per scelta, perché costava 6,7 KB di prompt fisso per 64 skill loro che non useremo mai. Verificato dopo la modifica: *«Mi chiamo Momo. Sono un assistente IA creato da Mohamed Abou El Seod»* | **Sì, buona candidata.** A monte basterebbe lo stesso `if not _soul_loaded`, o un `identity.branding_guidance: bool` in configurazione: chi si porta una persona propria non vuole il rimando al prodotto |
+
+Backup dell'originale sul server: `agent/system_prompt.py.bak-sovereign-identity`.
+**Costo al prossimo aggiornamento**: una riga di `if` da riapplicare.
 
 Le due modifiche previste (entrambe piccole e generiche, quindi buone
 candidate per una PR a monte, che è la strada che la loro stessa policy
