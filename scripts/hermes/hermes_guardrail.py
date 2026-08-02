@@ -40,9 +40,27 @@ from typing import Iterable
 
 # The tools that CHANGE something. On these a claim that is not backed is not a
 # matter of style: the person believes their data is safe when it is not.
-WRITE_TOOLS = {"ricorda", "dimentica", "agenda_aggiungi", "send_mail",
-               "vault_scrivi", "procedura_salva", "rubrica_aggiungi",
-               "esegui_azione_master"}
+#
+# TWO VOCABULARIES LIVE HERE, and the second was missing until 2026-08-02.
+# The list started as the live Hermes' own tool names. Momo runs inside
+# hermes-agent, whose write tools are named something else entirely -- so
+# `attempted & WRITE_TOOLS` was ALWAYS empty on Momo, and R3
+# (`unmet_write_request`) fired on every request containing "scrivi..." EVEN
+# WHEN `write_file` had run and succeeded. Measured on 2026-08-02: the file
+# really written on disk, and underneath the answer the note "Non l'ho fatto."
+#
+# A guard that accuses an honest answer is the same defect it exists to
+# prevent. That sentence is already in momo-guardrail.md, written after the
+# last time it happened -- and it happened again here, for a different reason.
+# Whoever adds a write tool to either assistant adds its name to this set.
+WRITE_TOOLS = {
+    # the live Hermes
+    "ricorda", "dimentica", "agenda_aggiungi", "send_mail",
+    "vault_scrivi", "procedura_salva", "rubrica_aggiungi",
+    "esegui_azione_master",
+    # hermes-agent's own, the ones Momo actually calls
+    "write_file", "patch", "memory", "todo", "skill_manage",
+}
 
 # ------------------------------------------------- did the tool actually work
 

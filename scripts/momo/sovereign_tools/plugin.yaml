@@ -1,4 +1,18 @@
 name: sovereign-tools
+# `kind` DEVE stare qui, esplicito. Senza, hermes-agent tira a indovinare
+# leggendo il sorgente (hermes_cli/plugins.py:1624): se ci trova la stringa
+# "MemoryProvider" lo classifica come fornitore di memoria, kind='exclusive',
+# e poi NON lo carica -- gli esclusivi si caricano solo se selezionati da
+# `memory.provider`, che qui punta all'altro plugin.
+#
+# Il nostro __init__.py contiene quella stringa in un COMMENTO ("The memory
+# tools are NOT here: they come from the sovereign MemoryProvider"), che dice
+# l'esatto contrario. Risultato, trovato il 2026-08-02: Momo girava senza
+# NESSUNO strumento di casa -- niente vault, niente stato dell'impianto,
+# niente rubrica, niente MASTER -- e nessuno se n'era accorto, perche' il
+# test di visibilita' importa il plugin direttamente e salta proprio la
+# scoperta che lo stava scartando.
+kind: standalone
 version: 1.0.0
 description: "Sovereign tools — vault Obsidian, stato dell'impianto, accessi, email, web: gli strumenti di casa, con la guardia privato/non-privato attaccata."
 author: Sovereign Homelab

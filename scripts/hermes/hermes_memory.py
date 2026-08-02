@@ -643,6 +643,47 @@ class MemoryStore:
         return {"ok": True, "id": row["id"], "nome": row["name"],
                 "usata_volte": row["times_used"]}
 
+    def procedure_forget(self, owner: str, ref: str | int) -> dict[str, Any]:
+        """Delete a procedure for real — the verb this store was missing.
+
+        Added on 2026-08-02 for `/memoria`, which lets the owner review and
+        remove what Momo learned by itself (docs/04_apps/momo-memoria-automatica.md).
+        It belongs HERE and not in Momo's plugin: this class is the one memory
+        of this house, and writing a second DELETE beside it would be exactly
+        the divergence that «non reimplementarla» exists to prevent.
+
+        Mirrors `forget()` deliberately, including its promise: the row goes,
+        every vector chunk goes, and the log keeps that it happened and which
+        procedure it was — never the steps. A procedure you can undelete is
+        not forgotten.
+
+        Unlike a fact, a procedure has SEVERAL points in Qdrant (index_texts
+        splits it into overlapping chunks), so the point ids are read back
+        from `vector_index` instead of being recomputed: recomputing them
+        would silently leave the chunks of a long procedure behind, still
+        answering searches for something that no longer exists.
+        """
+        where = "id = %s" if str(ref).isdigit() else "name ILIKE %s"
+        value: Any = int(ref) if str(ref).isdigit() else f"%{ref}%"
+        row = self._query(
+            f"DELETE FROM procedures WHERE owner = %s AND {where} RETURNING id, name",
+            (owner, value), fetch="one")
+        if not row:
+            return {"ok": False, "error": "procedura non trovata"}
+
+        points = self._query(
+            "SELECT point_id FROM vector_index WHERE owner = %s AND origin = 'procedura' "
+            "AND origin_ref = %s", (owner, str(row["id"])))
+        for point in points:
+            self._delete_vector(point["point_id"])
+        self._query("DELETE FROM vector_index WHERE owner = %s AND origin = 'procedura' "
+                    "AND origin_ref = %s", (owner, str(row["id"])), fetch="none")
+
+        self._log(owner, "procedura_dimentica", ref_id=row["id"], subject=row["name"],
+                  detail=f"passi non registrati di proposito, pezzi={len(points)}")
+        return {"ok": True, "dimenticata_id": row["id"], "nome": row["name"],
+                "pezzi_indice": len(points)}
+
     # -- contacts (W4) -------------------------------------------------------
 
     def contact_add(self, owner: str, name: str, email: str, *, note: str = "") -> dict[str, Any]:

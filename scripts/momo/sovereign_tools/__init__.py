@@ -173,14 +173,32 @@ def _configured_engines() -> list[tuple[str, str]]:
         engines.append((primary, str(os.environ.get("CUSTOM_BASE_URL", ""))
                         .strip().rstrip("/").removesuffix("/v1")))
 
+        primary_url = engines[0][1]
+
+        def _add(entry: Any) -> None:
+            """A fallback that declares no base_url INHERITS the primary's.
+
+            That is what hermes-agent actually does: an entry that only says
+            `provider: custom, model: qwen3.5:4b` speaks to the same endpoint
+            as the primary -- there is no second URL to speak to. Treating it
+            as "under-specified, therefore external" was wrong, and it cost
+            real damage: on 2026-08-02 the household tools were dark because a
+            fallback pointing at the SAME local Ollama was judged remote.
+            The rule still fails closed where it matters: a fallback with a
+            DIFFERENT provider, or with its own URL, is judged on that URL.
+            """
+            if not (isinstance(entry, dict) and entry.get("provider")):
+                return
+            provider = str(entry["provider"]).lower()
+            url = _base_url_of(entry)
+            if not url and provider == engines[0][0]:
+                url = primary_url
+            engines.append((provider, url))
+
         raw = cfg_get(config, "fallback_providers") or []
-        entries = raw if isinstance(raw, list) else [raw]
-        for entry in entries:
-            if isinstance(entry, dict) and entry.get("provider"):
-                engines.append((str(entry["provider"]).lower(), _base_url_of(entry)))
-        single = cfg_get(config, "fallback_model")
-        if isinstance(single, dict) and single.get("provider"):
-            engines.append((str(single["provider"]).lower(), _base_url_of(single)))
+        for entry in (raw if isinstance(raw, list) else [raw]):
+            _add(entry)
+        _add(cfg_get(config, "fallback_model"))
     except Exception:  # noqa: BLE001 - unreadable config must fail closed
         return [("", "")]
     return engines or [("", "")]

@@ -222,6 +222,100 @@ chiave è il modo in cui hermes-agent tiene separate le conversazioni, ed è la
 cosa giusta per chi i topic li usa davvero. Il difetto è che qui i topic
 nascono da soli, non che esistano.
 
+### Il secondo guasto, nato dalla cura del primo
+
+Aggiunto il 2026-08-02, ed è la parte che mancava a questa sezione. Spegnere i
+topic in BotFather ha risolto la frammentazione **e rotto la consegna**, perché
+un `thread_id` era rimasto **inciso nella configurazione**:
+
+```yaml
+platforms.telegram.home_channel:
+  thread_id: '1752'      # il topic da cui il canale era stato registrato
+```
+
+Quel topic non esisteva più, e Momo rispondeva dentro un contenitore cancellato.
+Il sintomo nei log di `momo-gateway`, il 2026-08-01:
+
+```
+05:49:09 WARNING gateway.platforms.base: [Telegram] Send failed:
+         Message thread not found — trying plain-text fallback
+05:49:09 ERROR   gateway.platforms.base: [Telegram] Fallback send also failed:
+         Message thread not found
+05:49:55 (identico, secondo messaggio)
+```
+
+**Quattro righe, due messaggi perduti**, e in mezzo un utente che vede il bot
+muto. Il `thread_id` è stato rimosso da `config.yaml` (backup
+`config.yaml.bak-thread`, che lo contiene ancora alla riga 25) e il gateway
+riavviato alle 05:50:58.
+
+La prova che la consegna è tornata **non è nei log ma nel registro delle
+obbligazioni di consegna**, `delivery_obligations` in
+`/opt/momo/home/.hermes/state.db`, che è il posto giusto perché registra
+l'esito e non solo il tentativo:
+
+| Orario (UTC) | `thread_id` | Stato | Tentativi |
+|---|---|---|---|
+| 05:49:09 | `1752` | delivered | **1** |
+| 05:49:55 | `1752` | delivered | **1** |
+| 05:51:29 | `NULL` | delivered | 0 |
+| 05:51:59 | `NULL` | delivered | 0 |
+| 05:52:24 | `NULL` | delivered | 0 |
+| 05:52:46 | `NULL` | delivered | 0 |
+
+Quelle due sono le **uniche** obbligazioni con `attempts > 0` di tutta la
+tabella, e dopo il riavvio il `thread_id` è `NULL` e i tentativi tornano a
+zero. Non «sembra che funzioni»: è misurato, e la riga che lo dimostra è la
+colonna dei tentativi.
+
+### Quello che la cura NON ha ripulito — verificato, e ancora aperto
+
+Due cose sono state annotate come fatte e **non lo sono**. Si scrivono qui
+perché un runbook che dichiara pulito ciò che è sporco è peggio di uno che tace.
+
+**1. Il `thread_id` 1752 è ancora vivo altrove.** `config.yaml` non lo ha più
+dal 2026-08-01 (verificato su tutti i backup in ordine di tempo), ma
+`/opt/momo/home/.hermes/channel_directory.json` elenca ancora **sette canali
+fantasma**, uno per topic morto:
+
+```json
+{ "id": "6805681257:1752", "name": "… / topic 1752", "thread_id": "1752" }
+```
+
+Conseguenza misurata: **allo spegnimento del gateway il messaggio di commiato
+viene ancora indirizzato al topic 1752**, e l'ultima occorrenza è di **oggi**,
+2026-08-02 alle 11:32:53:
+
+```
+[Telegram] Thread 1752 not found, retrying once with same thread_id
+[Telegram] Thread 1752 not found, retrying without message_thread_id
+```
+
+Stavolta **non è un guasto**: l'adattatore di Telegram ha una sua ricaduta
+(`retrying without message_thread_id`) e il messaggio parte lo stesso — è il
+percorso `gateway.platforms.base` del 1° agosto a non averla avuta. Ma è
+rumore permanente in un log, e un avviso che si ripete a ogni riavvio è
+esattamente il tipo di allarme che addestra a ignorare gli allarmi. **Da
+ripulire**, con attenzione: `channel_directory.json` è stato riscritto oggi
+alle 11:33:09, quindi il gateway lo rigenera e cancellarlo a mano potrebbe non
+bastare. Non è stato tentato.
+
+**2. Le sessioni orfane non sono archiviate.** Erano state annotate come
+«archiviate»; nella tabella `sessions` di `state.db` hanno tutte
+`archived = 0`, e le sette chiavi con `thread_id` sono ancora sia in
+`sessions/sessions.json` sia in `gateway_routing`:
+
+| Sessione | Messaggi | `archived` |
+|---|---|---|
+| `…:1744` `…:1756` `…:1760` `…:1765` `…:1768` `…:1775` | 3–7 ciascuna | `0` |
+| `…:1752` | 21 | `0` |
+| `…` (senza thread, dal 05:51:24) | 34 | `0` |
+
+Non fa danno — sono conversazioni morte che nessuno riaprirà, e la memoria vera
+è altrove (Postgres/Qdrant) — ma **«archiviate» era una parola sbagliata**:
+sono semplicemente *inattive*. La sessione senza `thread_id` è quella viva, ed è
+l'unica che cresce.
+
 ### Le due memorie, che restano due anche dopo
 
 Richiesta del proprietario: *«ci sono 2 memorie: memoria a sessione per non
@@ -322,6 +416,249 @@ modifica, un divieto no.
   enum o regex, mai come shell libera. È il disegno A5 di Nexi, e regge
   proprio perché il modello sceglie da un elenco invece di comporre comandi.
 
+## 3-sexies. La finestra di contesto di Ollama, e il prefisso fisso del prompt
+
+Trovato il 2026-08-01. Tre sintomi che sembravano tre guasti diversi — Momo
+non ricordava la domanda precedente, non chiamava **mai** uno strumento, e si
+presentava come «Hermes AI» invece che come Momo — erano **un guasto solo**, e
+non stava nel modello.
+
+### 3-sexies.1 La causa: un prompt più grande della finestra
+
+Ollama sul PC (`192.168.1.100`) serviva `qwen3.5:9b` con **4.096 token** di
+finestra. Il solo prompt di sistema di Momo ne occupava **6.694**: il prefisso
+non ci stava nemmeno da solo, prima ancora che l'utente scrivesse una parola.
+
+Quando il prompt eccede `num_ctx`, Ollama **non dà errore e non tronca dal
+fondo**: tiene il messaggio di sistema e scarta il resto. Il resto, qui, erano
+le due cose che rendono Momo un assistente invece di una chat.
+
+| Sintomo | Perché |
+|---|---|
+| non ricorda la domanda precedente | la **cronologia** veniva scartata |
+| non chiama mai uno strumento | gli **schemi degli strumenti** venivano scartati: non sapeva che esistessero |
+| si presenta come «Hermes AI» | anche il prompt di sistema arrivava tagliato, e sotto restava l'identità di serie del pacchetto |
+
+Nessuno dei tre dà un errore, ed è il motivo per cui è costato una giornata:
+è la stessa classe di guasto del §2.2 della
+[visione](../00_overview/VISIONE_COMPLETA.md) — il sistema non mente, **tace**,
+e il silenzio si legge come incapacità del modello. Si è cercato a lungo dalla
+parte sbagliata (il prompt, la persona, il plugin degli strumenti) perché tutte
+e tre le ipotesi sbagliate spiegavano *un* sintomo, e nessuno guardava i tre
+insieme.
+
+Attenzione all'ordine causale, perché è controintuitivo: **non è il modello che
+ignora gli strumenti, è il server che non glieli manda.** Un modello che non
+riceve gli schemi si comporta esattamente come un modello troppo piccolo per
+usarli, e le due cose si distinguono solo guardando il server.
+
+### 3-sexies.2 Perché la protezione che c'era non è scattata
+
+hermes-agent il problema lo aveva previsto. Non ha funzionato per **due**
+ragioni indipendenti, e vanno sapute entrambe perché la seconda vale per
+qualunque Ollama servito dietro un endpoint in forma OpenAI.
+
+**1. `options` viene ignorato in silenzio sull'endpoint `/v1`.** La catena è
+corretta fino all'ultimo passo:
+
+```
+agent/model_metadata.py:1595          query_ollama_num_ctx() interroga /api/show
+                                      e legge 262.144 (il massimo del GGUF)
+        ↓
+agent/agent_init.py:2583-2585         il valore finisce in agent._ollama_num_ctx
+        ↓
+plugins/model-providers/custom/__init__.py:34-38
+                                      lo mette in extra_body.options.num_ctx
+        ↓
+POST http://192.168.1.100:11434/v1/chat/completions
+                                      ← QUI il campo cade nel vuoto
+```
+
+Verificato provando le due strade sulla stessa macchina: con `options.num_ctx`
+nel corpo di una richiesta a **`/v1`** il contesto caricato resta **4.096**;
+la stessa richiesta all'endpoint nativo **`/api/chat`** lo onora. Il campo
+`options` è di Ollama, il percorso `/v1` è il guscio di compatibilità OpenAI,
+e quel guscio scarta ciò che non riconosce senza dirlo. **Non è un difetto di
+hermes-agent**: è un'incompatibilità fra due API dello stesso server, e chiunque
+passi `num_ctx` in un corpo OpenAI la incontrerà.
+
+**2. L'allarme legge il valore dichiarato, non quello caricato.**
+`_ollama_context_limit_error()`
+(`agent/conversation_loop.py:226-247`, chiamato a `:1770`) confronta
+`agent._ollama_num_ctx` con `MINIMUM_CONTEXT_LENGTH = 64_000`
+(`agent/model_metadata.py:279`) e, se il contesto è troppo piccolo, avvisa
+l'utente. Ma `agent._ollama_num_ctx` è il numero **dichiarato** da `/api/show`,
+cioè il massimo che il GGUF sopporta — 262.144 — non quello con cui il modello
+è **davvero caricato** — 4.096. `262144 >= 64000`, quindi la guardia restituisce
+`None` e non scatta mai. È il caso peggiore: una protezione che esiste, sembra
+attiva, e misura la cosa sbagliata.
+
+La differenza fra i due numeri si vede solo su `/api/ps`, che è l'unico
+endpoint che dice cosa è stato **caricato**. `/api/show` dice cosa il modello
+*potrebbe* reggere.
+
+### 3-sexies.3 La cura, e la trappola dentro la trappola
+
+Il contesto si impone **sul server Ollama**, non nella richiesta. Sul PC
+Windows:
+
+```powershell
+OLLAMA_CONTEXT_LENGTH = 32768   # la finestra vera per ogni modello caricato
+OLLAMA_NUM_PARALLEL   = 1       # una richiesta per volta: la KV cache non si divide
+# poi Ollama va RIAVVIATO, e va riavviato da una shell nuova
+```
+
+**La trappola dentro la trappola, che è costata il primo tentativo**: impostare
+la variabile con `[Environment]::SetEnvironmentVariable(...,'User')` **non
+basta** se poi si lancia Ollama da una shell che aveva già catturato l'ambiente
+vecchio. Un processo eredita l'ambiente alla nascita e non lo rilegge mai più.
+La prima prova è fallita esattamente così, e il sintomo era il peggiore
+possibile: nessun errore, nessun cambiamento, e la sensazione che la diagnosi
+fosse sbagliata. **La variabile si verifica nel processo che la deve usare, non
+nel registro dove è stata scritta.**
+
+**Verificato il 2026-08-02** da LXC 102 — il PC risponde sulla LAN, quindi
+questo controllo si può rifare senza toccare il PC:
+
+```bash
+pct exec 102 -- curl -s http://192.168.1.100:11434/api/ps
+```
+
+| Modello | `context_length` caricato | `size_vram` |
+|---|---|---|
+| `qwen3.5:9b` | **32.768** | 6.735.779.593 B (**6,27 GiB**) |
+| `embeddinggemma:latest` | 2.048 | 681.417.113 B (0,63 GiB) |
+
+Due cose da leggere in questa tabella. La prima: la cura **tiene ancora**, a un
+giorno di distanza e attraverso un riavvio del gateway. La seconda:
+`embeddinggemma` è rimasto a **2.048**, e va bene così —
+`OLLAMA_CONTEXT_LENGTH` alza il *default*, non forza ogni modello oltre il
+massimo del suo GGUF. Un modello di embedding non ha bisogno di 32k e
+occuperebbe VRAM per niente.
+
+> **Numero che non torna, dichiarato invece che nascosto**: il 2026-08-01, subito
+> dopo il riavvio, la VRAM del modello era stata annotata come cresciuta da
+> **5,25 a 6,16 GB**. Oggi la misura è **6.735.779.593 B**, cioè 6,27 GiB (6,74 GB
+> decimali): il verso è quello giusto — più contesto, più KV cache, più VRAM — ma
+> il valore assoluto **non si riproduce**, e il «prima» non è più misurabile
+> perché il modello a 4.096 non esiste più. Si scrive il numero di oggi, misurato;
+> il 6,16 GB resta come annotazione del momento, non come fatto verificato.
+
+`OLLAMA_NUM_PARALLEL=1` **non è verificabile da qui**: `/api/ps` non lo espone
+e il PC non è interrogabile in altro modo dal server. Resta dichiarato, non
+confermato.
+
+### 3-sexies.4 Il prefisso fisso, misurato e dimezzato
+
+Alzare la finestra risolve il sintomo; **ridurre quello che ci si mette dentro**
+è la parte che vale nel tempo, perché ogni byte del prefisso è pagato a **ogni
+singolo turno**, per sempre, prima che l'utente abbia scritto qualcosa.
+
+Lo strumento è loro e gira **offline, senza inferenza** — si può eseguire su un
+impianto vivo senza disturbarlo:
+
+```bash
+pct exec 102 -- bash -lc 'HOME=/opt/momo/home HERMES_HOME=/opt/momo/home/.hermes \
+  /opt/momo/venv/bin/hermes prompt-size'
+```
+
+| Blocco | Prima (1 ago) | Dopo (rimisurato il 2 ago) |
+|---|---|---|
+| prompt di sistema | 26.552 B | **17.047 B** |
+| — di cui **solo indice delle skill** | 6.732 B | **0 B** |
+| schemi degli strumenti | 31.520 B (13 strumenti) | **13.483 B (8 strumenti)** |
+| **prefisso fisso totale** | **~58 KB** | **~30,5 KB** |
+
+Il pezzo più assurdo era l'indice delle skill: **6.732 byte spesi a ogni turno**
+per elencare le skill di serie di hermes-agent — `p5js`, `powerpoint`,
+`comfyui`, `humanizer`, `claude-code` e decine di altre — che in questa casa
+**non si useranno mai**. Non erano caricate: era il solo *elenco*, che il modello
+doveva leggere ogni volta per poi ignorarlo.
+
+Le due mosse, entrambe in `/opt/momo/home/.hermes/config.yaml`:
+
+```yaml
+toolsets:            # la CLI risolveva 55 strumenti: troppi per un 9B,
+- file               # che a quel punto smette di chiamarli del tutto
+- web
+- memory
+- clarify
+- todo
+- vision
+
+platform_toolsets:
+  telegram: [file, web, memory, clarify, todo, vision, tts, stt]
+
+skills:
+  enabled: false     # l'indice sparisce, non si accorcia
+```
+
+**Perché ridurre gli strumenti e non solo allargare il contesto**: un modello da
+9B con 55 schemi davanti sceglie peggio che con 8. Il contesto è una condizione
+necessaria, il campo ristretto è quella che fa scegliere bene. Sono due
+correzioni allo stesso sintomo, e servono tutte e due.
+
+**Tre onestà su questi numeri:**
+
+- La misura del «dopo» è **17.047 B**, non 17.049 come annotato il giorno prima.
+  La differenza sono 2 byte del blocco volatile (77 B: memoria, profilo,
+  marcatempo), che cambia a ogni esecuzione. Il numero non è stabile all'unità e
+  non deve esserlo.
+- Il **`web` è in `toolsets` ma contribuisce zero strumenti**: `check_web_api_key`
+  ritorna `False` (nessuna chiave), e i log lo dicono a ogni turno — *«dependent
+  tools will be unavailable this turn»*. Gli 8 strumenti misurati sono
+  `file` (4), `memory` (1), `clarify` (1), `todo` (1), `vision` (1). È il motivo
+  per cui la riga «web» non compare nella ripartizione di `prompt-size`.
+- I **valori del «prima» non sono più riproducibili**: la configurazione è
+  cambiata, e per rimisurarli bisognerebbe riaccendere `skills.enabled` e i
+  toolset larghi sull'impianto vivo. Non è stato fatto. Restano come annotati il
+  2026-08-01. Nota di contorno: le skill di serie oggi presenti in
+  `/opt/momo/home/.hermes/skills` sono **70** (`SKILL.md` contati), non 64 come
+  annotato — l'indice ne contava 64, e la differenza non è stata indagata.
+
+### 3-sexies.5 L'errore fatto qui, scritto perché non si ripeta
+
+Modificando `config.yaml` per ridurre i toolset ho usato **espressioni regolari
+su testo YAML**, e ho **troncato il file**. Momo è rimasto senza modello
+configurato: *«No inference provider configured»*. Il rottame è ancora sul
+server come `/opt/momo/home/.hermes/config.yaml.rotto` — **330 byte** contro i
+1.984 del backup, cioè l'83% del file sparito.
+
+Ripristinato da `config.yaml.bak-toolsets` e rifatto caricando e riscrivendo la
+**struttura** (`yaml.safe_load` → modifica dell'oggetto → `yaml.safe_dump`).
+
+La lezione, che vale ovunque e non solo qui: **un file YAML si modifica come
+struttura, non come testo.** Una regex non conosce l'indentazione, che in YAML
+*è* la sintassi; e — la parte velenosa — **un YAML tagliato a metà resta
+sintatticamente valido**. Nessun parser protesta, nessun errore compare al
+salvataggio: il guasto si manifesta molto dopo, come una funzione mancante,
+lontano dalla causa. Un JSON troncato almeno dà errore subito.
+
+### 3-sexies.6 Cosa resta APERTO
+
+**Momo via hermes-agent ancora non chiama gli strumenti.** Il contesto era una
+causa reale, ed è stata rimossa; non era l'unica.
+
+La prova che separa le due cose: chiamando **direttamente l'API** del PC con
+`system = SOUL.md` e 35 strumenti dichiarati, il modello risponde con
+`tool_calls` su `write_file`. Quindi:
+
+- il modello **è capace** di chiamare strumenti;
+- il contesto **basta** per contenere prompt e schemi;
+- ma **attraverso hermes-agent** non succede.
+
+Resta perciò qualcosa nella loro catena — fra la costruzione della richiesta e
+il parsing della risposta — che non è la finestra di contesto. **Non ancora
+diagnosticato**, e non va scritto come risolto: le tre cure di questa sezione
+sono vere e misurate, il risultato finale no.
+
+Il sospetto da verificare per primo, non ancora provato: che il gateway usi un
+percorso di richiesta diverso da quello provato a mano (`api_mode:
+chat_completions` è quello registrato in `state.db`), e che gli strumenti vadano
+persi lì. Da confrontare catturando la richiesta vera — i `request_dump_*.json`
+in `/opt/momo/home/.hermes/sessions/` sono già quello, e sono il posto da cui
+ripartire.
+
 ## 4. DNS / domain names / alias
 
 **Nessuno, e volutamente.** Telegram si raggiunge in uscita; non c'è niente da
@@ -396,6 +733,11 @@ accoda i messaggi non consegnati per 24 ore e poi li scarta.
 | Risponde ma non sa niente di casa | il motore che risponde non è privato, quindi gli strumenti sono nascosti | `grep provider /opt/momo/home/.hermes/config.yaml`; deve essere `custom`/`ollama`/`local` |
 | Risponde lentissimo | PC spento, si sta usando la CPU del server | atteso; vedi punto 20 del piano generale |
 | I vocali non vengono trascritti | `ffmpeg` assente o STT non configurato | `pct exec 102 -- which ffmpeg` |
+| **Non ricorda la domanda prima, non chiama mai uno strumento, e si presenta col nome sbagliato** | i tre insieme sono **un sintomo solo**: la finestra di Ollama è più piccola del prefisso del prompt | `curl -s http://192.168.1.100:11434/api/ps` e guardare `context_length` — è il **caricato**, non il dichiarato. Sotto ~16k con gli strumenti attivi è troppo poco. Si corregge con `OLLAMA_CONTEXT_LENGTH` **sul server Ollama**, non nella richiesta (§3-sexies) |
+| Ho impostato `OLLAMA_CONTEXT_LENGTH` e non cambia niente | Ollama è stato lanciato da una shell che aveva già l'ambiente vecchio, oppure si sta passando `num_ctx` nel corpo verso `/v1` | riavviare Ollama **da una shell nuova**; verificare su `/api/ps`, non nel registro di Windows. `options.num_ctx` su `/v1` viene ignorato in silenzio (§3-sexies.2) |
+| «No inference provider configured» | `config.yaml` corrotto o troncato | ripristinare dal `config.yaml.bak-*` più recente e rifare l'edit con `yaml.safe_load`/`safe_dump`, mai con regex (§3-sexies.5) |
+| `Message thread not found` nei log | un `thread_id` di un topic cancellato è rimasto inciso in `home_channel` o in `channel_directory.json` | togliere `thread_id` da `config.yaml`; se compare solo allo spegnimento è il residuo noto in `channel_directory.json`, rumore e non guasto (§3-ter) |
+| Il prefisso del prompt è cresciuto senza motivo | skill o toolset riattivati | `hermes prompt-size` — gira **offline**, si può eseguire sull'impianto vivo |
 
 ## 11. Verifica di funzionamento
 
@@ -424,3 +766,15 @@ pct exec 102 -- systemctl is-active momo-gateway
 - [PIANO_MOMO_DIGITAL_TWIN](../00_overview/PIANO_MOMO_DIGITAL_TWIN.md) §4 — il punteggio delle undici voci
 - [sovereign-interruttore.md](sovereign-interruttore.md) · [momo-guardrail.md](momo-guardrail.md) — le guardie che valgono anche qui
 - Telegram Bot API, long polling e `getUpdates` — <https://core.telegram.org/bots/api>
+- Codice letto per §3-sexies, tutto in `/opt/hermes-agent-study/`:
+  `agent/model_metadata.py:1595` (`query_ollama_num_ctx`, legge `/api/show`) e
+  `:279` (`MINIMUM_CONTEXT_LENGTH = 64_000`);
+  `agent/agent_init.py:2583-2585` (dove il valore diventa `agent._ollama_num_ctx`);
+  `plugins/model-providers/custom/__init__.py:34-38` (`extra_body.options.num_ctx`);
+  `agent/conversation_loop.py:226-247` (l'allarme che non scatta, chiamato a `:1770`)
+- Stato vivo consultato in sola lettura il 2026-08-02: `/opt/momo/home/.hermes/`
+  — `config.yaml` e i suoi `*.bak-*`, `channel_directory.json`,
+  `sessions/sessions.json`, e le tabelle `sessions`, `gateway_routing`,
+  `delivery_obligations` di `state.db`
+- `OLLAMA_CONTEXT_LENGTH` / `OLLAMA_NUM_PARALLEL` — variabili del server Ollama,
+  non parametri di richiesta: <https://github.com/ollama/ollama/blob/main/docs/faq.md>

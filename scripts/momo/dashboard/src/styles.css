@@ -1,0 +1,334 @@
+/*
+ * Sovereign console - dashboard plugin styles.
+ *
+ * Everything is scoped under .sv-root. A plugin stylesheet is injected into
+ * the host's <head> as a plain <link>, so an unscoped rule here would repaint
+ * the whole dashboard; the prefix is the isolation.
+ *
+ * Colours come from the host's CSS custom properties wherever it defines
+ * them, with a fallback for hosts (or themes) that don't. That way the page
+ * follows the dashboard's light/dark theme instead of hard-coding one.
+ */
+
+.sv-root {
+  --sv-bordo: var(--border, rgba(127, 127, 127, 0.28));
+  --sv-tenue: var(--muted-foreground, rgba(127, 127, 127, 0.95));
+  --sv-sfondo: var(--card, transparent);
+  --sv-ok: #2f9e5f;
+  --sv-ko: #c2503c;
+
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 0 32px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ------------------------------------------------------------------ header */
+
+.sv-testata {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sv-titolo {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  letter-spacing: 0.2px;
+}
+
+.sv-hint {
+  margin: 0;
+  color: var(--sv-tenue);
+  font-size: 12.5px;
+}
+
+/* Spaced-out inline facts (latency, counters) read as a row, not a paragraph. */
+.sv-riga.sv-hint {
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.sv-commento {
+  font-style: italic;
+  opacity: 0.85;
+}
+
+/* ---------------------------------------------------------------- tab strip */
+
+.sv-schede {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  border-bottom: 1px solid var(--sv-bordo);
+  padding-bottom: 0;
+}
+
+.sv-scheda {
+  appearance: none;
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 8px 8px 0 0;
+  padding: 8px 14px;
+  font: inherit;
+  font-weight: 550;
+  color: var(--sv-tenue);
+  cursor: pointer;
+  margin-bottom: -1px;
+}
+
+.sv-scheda:hover {
+  color: inherit;
+}
+
+.sv-scheda-attiva {
+  color: inherit;
+  border-color: var(--sv-bordo);
+  border-bottom: 1px solid var(--sv-sfondo, transparent);
+  background: var(--sv-sfondo, transparent);
+}
+
+.sv-contenuto {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* -------------------------------------------------------------------- cards */
+
+.sv-card {
+  border: 1px solid var(--sv-bordo);
+  border-radius: 10px;
+}
+
+.sv-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+}
+
+.sv-card-title {
+  font-size: 15px;
+  font-weight: 650;
+}
+
+/* ------------------------------------------------------------------- lists */
+
+.sv-elenco {
+  display: flex;
+  flex-direction: column;
+}
+
+.sv-voce {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 0;
+  border-top: 1px solid var(--sv-bordo);
+}
+
+.sv-voce:first-child {
+  border-top: none;
+}
+
+.sv-riga {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sv-riga-fine {
+  justify-content: flex-end;
+}
+
+.sv-riga-campi {
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.sv-spazio {
+  flex: 1 1 auto;
+}
+
+.sv-barra {
+  padding-top: 6px;
+  border-top: 1px solid var(--sv-bordo);
+  margin-top: 4px;
+}
+
+.sv-griglia {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* ------------------------------------------------------------------ fields */
+
+.sv-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 160px;
+}
+
+.sv-campo-largo {
+  flex: 1 1 320px;
+}
+
+.sv-campo-flag {
+  flex-direction: row;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-bottom: 6px;
+}
+
+.sv-etichetta {
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--sv-tenue);
+}
+
+.sv-input,
+.sv-select {
+  font: inherit;
+  padding: 6px 8px;
+  border-radius: 7px;
+  border: 1px solid var(--sv-bordo);
+  background: transparent;
+  color: inherit;
+  min-width: 160px;
+}
+
+/* A native <select> paints its list with the OS palette; on a dark dashboard
+   the options would otherwise be unreadable. */
+.sv-select option {
+  background: var(--background, #ffffff);
+  color: var(--foreground, #111111);
+}
+
+.sv-input:focus,
+.sv-select:focus {
+  outline: 2px solid var(--ring, rgba(127, 127, 127, 0.5));
+  outline-offset: 1px;
+}
+
+.sv-code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  border: 1px solid var(--sv-bordo);
+  color: var(--sv-tenue);
+  word-break: break-all;
+}
+
+.sv-code-larga {
+  display: block;
+  padding: 6px 8px;
+  white-space: pre-wrap;
+}
+
+/* ----------------------------------------------------------------- buttons */
+
+.sv-btn {
+  appearance: none;
+  font: inherit;
+  font-weight: 550;
+  padding: 6px 12px;
+  border-radius: 7px;
+  border: 1px solid var(--sv-bordo);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.sv-btn:hover {
+  border-color: currentColor;
+}
+
+.sv-btn-primario {
+  border-color: currentColor;
+  font-weight: 650;
+}
+
+.sv-btn-ghost {
+  color: var(--sv-tenue);
+}
+
+/* MASTER arms real, irreversible-adjacent actions. The button that does it
+   must not look like the button that reloads a list. */
+.sv-btn-pericolo {
+  color: var(--sv-ko);
+  border-color: var(--sv-ko);
+}
+
+/* ------------------------------------------------------- pills and messages */
+
+.sv-pill {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.sv-pill-on {
+  color: var(--sv-ok);
+}
+
+.sv-pill-off {
+  color: var(--sv-ko);
+}
+
+.sv-msg {
+  font-size: 12.5px;
+}
+
+.sv-msg-ok {
+  color: var(--sv-ok);
+}
+
+.sv-msg-ko {
+  color: var(--sv-ko);
+}
+
+.sv-stato {
+  min-width: 70px;
+}
+
+.sv-errore {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--sv-ko);
+  color: var(--sv-ko);
+  font-size: 13px;
+}
+
+/* ------------------------------------------------------------------ narrow */
+
+@media (max-width: 640px) {
+  .sv-campo,
+  .sv-input,
+  .sv-select {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .sv-campo {
+    flex: 1 1 100%;
+  }
+}
