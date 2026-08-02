@@ -340,5 +340,51 @@ def register(ctx) -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("sovereign_tools: hook pre_tool_call non registrato (%s)", exc)
 
+    # `/motore` — cambia il motore da Telegram, endpoint compreso.
+    #
+    # WHY THIS EXISTS. Their own `/model` changes the model NAME and nothing
+    # else, but in this house a model and the machine that serves it are one
+    # thing: `/model qwen2.5:3b` leaves the base_url pointing at the PC, which
+    # does not have that model, and every later turn fails. Worse, `/model`
+    # with no argument can land the session on `default`, which routes to MOA,
+    # which wants OpenRouter -- not configured here -- so the chat dies with an
+    # error about a provider nobody asked for. Both happened on 2026-08-02.
+    # La firma e' `fn(raw_args: str) -> str | None`, POSIZIONALE -- letta in
+    # plugins.py:556, non indovinata. Scritta come `**kwargs` il comando si
+    # registra lo stesso e poi Telegram risponde "unknown command", che manda
+    # a cercare nel posto sbagliato.
+    def comando_motore(raw_args: str = "") -> str:
+        args = str(raw_args or "").strip().lower()
+        try:
+            import subprocess  # noqa: PLC0415 - only needed on this path
+            if not args or args in {"stato", "status"}:
+                fatto = subprocess.run(["/usr/local/bin/momo-motore"],
+                                       capture_output=True, text=True, timeout=30)
+            elif args in {"elenco", "lista", "list"}:
+                fatto = subprocess.run(["/usr/local/bin/momo-motore", "--elenco"],
+                                       capture_output=True, text=True, timeout=30)
+            else:
+                # Un nome solo, e lo valida lo script: qui NON si costruisce un
+                # comando da testo libero.
+                nome = args.split()[0]
+                if not nome.replace("-", "").isalnum():
+                    return "Nome non valido. Usa `/motore elenco` per vedere quelli che ci sono."
+                fatto = subprocess.run(["/usr/local/bin/momo-motore", nome],
+                                       capture_output=True, text=True, timeout=180)
+            uscita = (fatto.stdout or fatto.stderr or "").strip()
+            return uscita[:3000] or "(nessuna risposta dal commutatore)"
+        except Exception as exc:  # noqa: BLE001 - a slash command must not kill the gateway
+            return f"Non sono riuscito a cambiare motore: {exc}"
+
+    try:
+        ctx.register_command(
+            name="motore",
+            handler=comando_motore,
+            description="Cambia il motore che risponde (modello E indirizzo insieme)",
+            args_hint="[elenco | pc | pc-q8 | server | bedrock | slmix]",
+        )
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("sovereign_tools: comando /motore non registrato (%s)", exc)
+
     logger.info("sovereign_tools: %d strumenti registrati (motore privato: %s)",
                 registered, _engine_is_private())
