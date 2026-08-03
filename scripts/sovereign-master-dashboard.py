@@ -183,6 +183,14 @@ LINKS: list[dict[str, Any]] = [
         # no memory/privacy filter/Guardrail -- Hermes and Momo cover the
         # same ground with those guards attached).
         {"name": "Momo", "slug": "momo", "icon": "⚡", "href": "https://momo.internal", "desc": "Assistente della casa: conosce lo stato dei servizi e i tuoi appunti Obsidian, parla italiano, inglese e arabo, e risponde anche su Telegram", "kw": "momo hermes assistente"},
+        # RustDesk non ha una pagina web: e' un servizio a porte, non un sito.
+        # Sta comunque qui perche' il 2026-08-03 il proprietario ha dovuto
+        # CHIEDERE se esisteva -- e un servizio che c'e' da mesi, e' pure
+        # sorvegliato da due monitor, ma che nessuno sa di avere, in pratica
+        # non ce l'hai. L'href punta alla guida (il tasto "i"), non a una
+        # pagina che non esiste: un link che apre il vuoto e' peggio di
+        # nessun link.
+        {"name": "RustDesk", "slug": "rustdesk", "icon": "🖥", "href": "", "desc": "Schermo remoto: dal Mac, dal telefono o da fuori casa in VPN, comandi il PC Windows. Premi «i» per come si configura", "kw": "rustdesk remoto desktop schermo mac pc"},
     ]},
 ]
 
@@ -2677,7 +2685,38 @@ if(_momoIco)ICON_OVERRIDE.momo=_momoIco;
 /* ---------- guide operative, per slug ----------
    Istruzioni che servono col telefono in mano: stanno qui, non solo sul repo.
    Mai mettere password qui dentro: si dice DOVE prenderle. */
-const GUIDES={obsidian:`
+const GUIDES={rustdesk:`
+<p style="margin:0 0 12px;color:var(--ink2)">Il server gira in casa: nessun account, nessun servizio esterno,
+niente esce dalla rete. Dal Mac, dal telefono o da fuori casa (prima la VPN) comandi il PC Windows.</p>
+
+<div class="gsec">1 · Su ogni dispositivo, una volta sola</div>
+<ol class="glist">
+<li>Installa RustDesk (<code>brew install --cask rustdesk</code> sul Mac, oppure da rustdesk.com).</li>
+<li><b>Impostazioni → Rete → ID/Relay server</b>.</li>
+<li><b>ID server</b> e <b>Relay server</b>: <code>rustdesk.internal</code>
+    (oppure <code>192.168.1.52</code>, che funziona anche senza il DNS di casa).</li>
+<li><b>Key</b>: la chiave pubblica del server. Se non ce l'hai a portata:
+    <code>pct exec 102 -- docker exec rustdesk-hbbs cat /root/id_ed25519.pub</code></li>
+<li>Salva. Quando è registrato compare un <b>ID di 9-10 cifre</b>.</li>
+</ol>
+
+<div class="gsec">2 · Collegarsi</div>
+<ol class="glist">
+<li>Sul PC Windows lascia RustDesk avviato e segnati il suo ID.</li>
+<li>Dal Mac scrivi quell'ID e premi <b>Connetti</b>.</li>
+</ol>
+
+<div class="gsec">Da sapere</div>
+<ul class="glist">
+<li><b>Serve essere in casa o in VPN.</b> Le porte non sono esposte su internet, per scelta:
+    da fuori ci si arriva dopo essersi collegati al tailnet, come per ogni altro servizio.</li>
+<li>Il nome <code>rustdesk.internal</code> ha una voce DNS <b>sua</b>, che punta a
+    <code>192.168.1.52</code> e non al proxy: RustDesk non parla HTTP, e fino al
+    2026-08-03 il nome portava al proxy — nessun client riusciva a registrarsi.</li>
+<li>Due monitor sorvegliano le porte 21115 e 21117: se cadono, lo vedi nella tab Servizi.</li>
+</ul>
+`,
+obsidian:`
 <p style="margin:0 0 12px;color:var(--ink2)">Le note si sincronizzano da sole fra tutti i dispositivi.
 Il primo lo configuri a mano una volta; gli altri si collegano scansionando un QR code.</p>
 
