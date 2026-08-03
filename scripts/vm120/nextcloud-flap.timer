@@ -1,0 +1,13 @@
+[Unit]
+Description=Controlla Nextcloud ogni 30 secondi
+
+[Timer]
+# Ogni 30 secondi. Gli episodi durano da quattro a otto minuti, quindi anche
+# perdendo il primo istante ne restano molti dentro la finestra: piu' spesso
+# non aggiungerebbe niente e riempirebbe il diario di righe inutili.
+OnBootSec=90
+OnUnitActiveSec=30
+AccuracySec=5
+
+[Install]
+WantedBy=timers.target
