@@ -639,6 +639,62 @@ dispositivo, o si accende la sincronizzazione dei file nascosti.
 
 ---
 
+#### **18-bis · Momo cerca PRIMA in casa: dentro Nextcloud, poi sul web** ⏱ ~5 ore
+
+Chiesto dal proprietario il 2026-08-03: *«tutti i software pesanti e robe vanno
+su Nextcloud, l'AI se vuole cerca lì, poi va sul web»*.
+
+**Oggi non c'è**, verificato contando gli strumenti invece di ricordarli: Momo
+ha `vault_search`, `vault_read` e `vault_list` per il vault Obsidian, e
+`web_search`/`web_fetch` per fuori. **Fra i due non c'è niente**: i file su
+Nextcloud — che è dove finiscono le cose pesanti, proprio perché il vault deve
+restare leggero — sono un buco fra la memoria e Internet.
+
+**L'ordine che si vuole**, ed è la parte che conta più degli strumenti:
+
+```
+memoria  →  vault (note)  →  Nextcloud (file)  →  web
+ già c'è      già c'è           MANCA             già c'è
+```
+
+È la stessa regola che governa già i motori: **quello che sta in casa si guarda
+per primo, e si esce solo se in casa non c'è**. Qui vale doppio, perché uscire
+significa mandare a un motore di ricerca una domanda che descrive i propri file.
+
+**Due strade, e la scelta non è ovvia:**
+
+| | Solo nomi di file | Ricerca a tutto testo |
+|---|---|---|
+| Come | API di ricerca di Nextcloud, provider `files` | app *Full text search* + Elasticsearch |
+| Costo | zero, c'è già | un contenitore in più su VM 120 |
+| Trova | «quel PDF si chiamava più o meno…» | «il documento dove parlavo di…» |
+| Rischio | poco utile su file dai nomi generici | RAM, e un indice da mantenere |
+
+Misurato il 2026-08-03 su VM 120: **5,1 GB di RAM liberi su 10**, 97 GB di
+disco liberi su 118. Elasticsearch ne vuole 1-2: **ci sta**. Ma va deciso, non
+subìto — un indice a tutto testo è una copia in più dei propri documenti, e va
+messa nel conto dei backup e in quello della privacy.
+
+**Vincoli non negoziabili:**
+
+- lo strumento è **privato**: un motore fuori casa non lo vede mai, come già
+  vale per vault, impianto e rubrica (`PRIVATE_TOOLS`);
+- **niente credenziali nella configurazione**: una password applicativa
+  dedicata in `/root/sovereign-secrets/`, letta per percorso, come ogni altra
+  chiave di questa casa;
+- **restituisce riferimenti, non contenuti**: nome, cartella, data, un
+  estratto. Chi vuole il file lo apre. Un assistente che riversa un documento
+  intero nel contesto lo fa anche quando bastava dire dov'è;
+- **sola lettura**. Scrivere su Nextcloud non è in questo punto e non ci entra
+  di straforo.
+
+**Da verificare prima di scrivere una riga**: quale API espone davvero AIO.
+L'OCS `search/providers` esiste, ma va provato **dietro il forward-auth di
+Authentik** — che è esattamente il genere di cosa che funziona da `curl` e poi
+non dall'applicazione.
+
+---
+
 #### **19 · `agent-reach` e gli agenti di Ruflo** ⏱ ~4 ore
 
 - **agent-reach** (R9): arrivare dove SearXNG non arriva — YouTube, Reddit, X,

@@ -230,6 +230,7 @@
 | **Forgejo `ACCOUNT_LINKING = auto`** | unisce gli account per email: stessa classe di rischio dell'incidente Jellyfin | da valutare |
 | Escludere `06 Templates/Images` dalla sincronizzazione | **36 MB** misurati di mp3/gif scaricati da ogni dispositivo | opzionale |
 | **Time Garden**: la nota giornaliera nasceva col template grezzo | Causa trovata leggendo il codice dei due plugin: **corsa all'avvio** — `journals` con `openOnStartup` crea la nota prima che Templater sia caricato, non trova la sua API e incolla il testo letterale. Aggravante: la config di Time Garden usa `trigger_on_file_creation_mode`, **un'impostazione che in Templater non esiste**. Corretto: template a `journals` (che sa chiamare Templater da solo), `openOnStartup` spento, `trigger_on_file_creation` spento perché non deve intromettersi sul file vuoto | ✅ da confermare con un clic |
+| **Momo non sa cercare dentro Nextcloud** | chiesto il 2026-08-03: «i software pesanti vanno su Nextcloud, l'AI cerca lì e poi sul web». Verificato contando gli strumenti: c'è `vault_search` per le note e `web_search` per fuori, **in mezzo niente**. Disegno completo, vincoli e le due strade (solo nomi / tutto testo) nel punto **18-bis** del [PIANO_GENERALE](PIANO_GENERALE.md) | da fare |
 | I plugin di Time Garden restano **sul solo PC** | LiveSync ha `syncInternalFiles = false`: `.obsidian` non si sincronizza. Sul telefono i plugin vanno installati a parte, o si attiva la sincronizzazione dei file nascosti | da decidere |
 
 ---
