@@ -1,57 +1,52 @@
 # Sovereign Homelab
 
-Sovereign Homelab is an operational infrastructure manual and stack template repository for a VPN-first, self-hosted home platform. The goal is data sovereignty: DNS, remote access, passwords, photos, files, monitoring, and recovery stay under local control.
+**A house that keeps its own data.** Photos, files, passwords, notes, home
+automation, and an AI assistant — all on one server in one flat, reachable
+from anywhere through a private network, with nothing of consequence exposed
+to the internet.
 
-The repository is written in English and is designed to be used like an infrastructure runbook, not as loose notes.
+One machine, four containers and four virtual machines, **31 private services**
+behind a single VPN door. Its own certificate authority, its own single
+sign-on, 39 monitors, and backups whose restores have actually been rehearsed
+rather than assumed.
 
-## Architecture Rules
+This repository is the manual for it. Not a showcase: every service has a
+runbook that says how it was built, what broke, and how to bring it back.
 
-- **Only one public default entrypoint:** `vpn.yourdomain.duckdns.org` for Headscale.
-- **Private service namespace:** every internal UI uses `.internal`.
-- **VPN-first access:** admin and personal services are reached through LAN/VPN and optionally Authentik.
-- **Nginx Proxy Manager is the active reverse proxy:** Traefik/Caddy remain future comparisons only.
-- **Every web UI must be visible and monitored:** `.internal` alias, NPM proxy host, Homepage card, Uptime Kuma monitor, backup rule, and restore path.
-- **Critical data requires restore testing:** Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, and Home Assistant are not production until restore is proven.
+### What is unusual about it
 
-The canonical dependency, trust-zone, monitoring, and recovery flows are defined in [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md). Read that document before changing DNS, VPN routes, proxy targets, authentication, or backup ownership.
+- **One public door, and only one.** A single hostname reaches the VPN
+  control plane. Every service lives under `.internal` and is invisible from
+  the internet — there is no "we'll secure it later" list.
+- **A household assistant that can act, not just chat.** Momo reads the
+  estate's live state and its owner's notes, understands Italian, English and
+  Arabic, and answers by voice. Which model answers is a **security** decision:
+  a model running inside the house is offered 20 tools, a model outside it
+  exactly one — the web. Enforced in code, counted by a test.
+- **Little leaves home.** Transcription, speech, web search and memory all run
+  on the server's own GPU. An outside model is a fallback, and Momo says so
+  before using one.
+- **The wrong turns are written down too.** The runbooks carry the drivers
+  that would not compile, the config a regular expression truncated, the test
+  that passed for the wrong reason. That is the part usually missing when you
+  try to copy someone else's homelab.
 
-## Target Platform
+### Where to start
 
-| Layer | Target |
+| If you are… | Read this |
 |---|---|
-| Hypervisor | Proxmox VE on P710 |
-| Hardware baseline | 20 physical CPU cores / 40 logical threads, 64 GB RAM, 2 TB usable mirrored storage |
-| Core network | LXC 100 `core-network`, currently `192.168.1.50` |
-| Platform services | LXC 101 `platform-services`, live at `192.168.1.51` |
-| Lightweight apps | LXC 102 `apps-light` |
-| Operations extensions | LXC 103 `ops-extensions`, live at `192.168.1.53` |
-| Critical app VMs | Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, Wazuh as dedicated VMs when appropriate |
+| just curious | the two diagrams below — the network, then the assistant |
+| planning something similar | [START_HERE](START_HERE.md), then [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md) |
+| looking for one service | the [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md), then its runbook under [docs/04_apps](docs/04_apps/) |
+| running it day to day | [OPERATIONAL_GUIDE](OPERATIONAL_GUIDE.md) |
 
-## Live Foundation Status
+> **Before copying anything.** This is one house's infrastructure, not a
+> product. Addresses, hostnames and hardware are real and specific; secrets
+> are not in this repository and never were. What transfers is the *method* —
+> the ordering, the invariants, the checks — far more than the exact commands.
 
-Last live build log: [2026-07-03](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-03.md).
-
-| Area | Current state |
-|---|---|
-| VPN | public Headscale endpoint online; DuckDNS public A record updater active on LXC 100; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
-| DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
-| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; every web card uses HTTPS and the Proxmox/PBS widgets use dedicated `sole_monitor` read-only API tokens |
-| Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
-| Identity | Authentik is live and remains the source for users, groups, MFA, and app access policy; LDAP/LDAPS is planned only as a compatibility outpost for services such as Proxmox or Linux/SSSD that need directory login |
-| Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
-| Immich | VM 110 `immich` deployed at `192.168.1.110`; the data disk currently uses about 91 GB and has a fresh PBS checkpoint, root-only DB/metadata/SHA-256 safety bundle, scheduled app-aware protection, and isolated restore validation; the planned 2 TB removable SSD and a later offsite copy remain required |
-| Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
-| Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
-| Monitoring | Uptime Kuma has 39 live monitors covering VPN, DNS, all private aliases, apps, operations extensions, CA health, trust onboarding, and protocol checks |
-| Household assistant | **Momo** runs on LXC 102 on `hermes-agent` (NousResearch), reachable at `momo.internal` and on Telegram. Eight selectable engines — three on the owner's PC, three on the server's own GPU, two outside the house — switched with `/motore <n>`; per-session with `/model --provider <name>`. Tools are split by trust: 20 available to a household engine, 1 to an external one. Memory is shared with the retiring Hermes (Postgres + Qdrant + Valkey) and learns from finished turns by itself, reviewable and deletable with `/memoria`. See [Il passaggio del testimone](docs/00_overview/PIANO_TESTIMONE_HERMES_MOMO.md) |
-| GPU | NVIDIA T600 (4 GB, driver 610.43.02) passed through to LXC 102, so the house always has an engine even with the owner's PC off. **What fits in 4 GB is measured, not assumed** — see [ai_ollama.md](docs/04_apps/ai_ollama.md) §9.0: at the 32k context in use, `qwen2.5:3b` sits 100% in VRAM while `qwen3.5:4b` spills 55% onto the CPU |
-| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
-| Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 26 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
-| Local credentials | root-only credential inventories exist on the Proxmox host; the 2026-06-29 app-login rotation was verified for PBS root and every initialized supported web account except the explicitly excluded AdGuard login; Proxmox and PBS monitoring use non-expiring, revocable `sole_monitor` API tokens with read-only roles, never human/root passwords; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
-| Alerting and reports | The LXC 101 relay sends Gmail-compatible HTML plus plain-text alerts with one alert, one reminder, and one recovery per incident; a Proxmox timer sends a complete weekly operations report every Monday at 09:00 Europe/Rome and checks certificate, root-account, monitoring-token, and Headscale-node expiration state |
-| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
-| Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
-| Open gates | Complete CA onboarding on every personal client, commission and test the planned 2 TB removable Immich recovery SSD, add a later offsite photo copy, finish Authentik MFA/app protection policy, and repeat production-data restore rehearsals |
+The repository is written in English and is meant to be used like an
+infrastructure runbook, not as loose notes.
 
 ## Network and Access Model
 
@@ -119,28 +114,6 @@ Traffic rules:
 - `.internal` aliases resolve in AdGuard to NPM, then NPM proxies to the real service.
 - Selecting an exit node changes the default internet route only; DNS must still go to AdGuard.
 - Private app hostnames are never created under DuckDNS.
-
-## Services and Aliases
-
-The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
-
-Everything published, taken from NPM's own host list on 2026-08-03 — 31
-private names plus the one public door. If a name is not here, it is not
-reachable.
-
-| Category | Alias | Service |
-|---|---|---|
-| Public door | `vpn.…duckdns.org` | Headscale control plane — the **only** public entrypoint |
-| Core network | `adguard` · `npm` · `headscale` · `headplane` | AdGuard Home, Nginx Proxy Manager, Headscale, Headplane UI |
-| Admin | `proxmox` · `pbs` | Proxmox VE, Proxmox Backup Server |
-| Identity and TLS | `auth` · `trust` | Authentik; `trust.internal` onboards clients to the internal CA (`step-ca` on `ca.internal:9002`) |
-| Operations panels | `dash` · `homepage` · `monitor` · `status` | Sovereign Master Dashboard (on the Proxmox host itself), Homepage, Uptime Kuma and its status page |
-| Observability | `logs` · `alerts` · `disks` · `netalert` | Dozzle, ntfy, Scrutiny (fed by a host-side SMART collector), NetAlertX. Beszel and CrowdSec run without their own alias |
-| Critical data | `pwd` · `foto` · `files` · `sync` · `paper` | Vaultwarden, Immich, Nextcloud AIO, Syncthing, Paperless-ngx |
-| Notes | `obsidian` · `fauxton` | **Obsidian Self-hosted LiveSync** on CouchDB (`obsidian.internal:5984`) with Fauxton as its admin UI. This is also the vault Momo reads |
-| Apps | `ha` · `media` · `rss` · `bookmarks` · `search` · `git` | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
-| AI | `momo` · `omniroute` | **Momo**, the household assistant; **OmniRoute**, the gateway to outside models. `hermes.internal` was retired on 2026-08-03 |
-| Protocol/API exceptions | — | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, CouchDB replication, CrowdSec LAPI: ports, not web aliases |
 
 ## The Household Assistant
 
@@ -217,6 +190,77 @@ Runbooks: [momo-telegram.md](docs/04_apps/momo-telegram.md) ·
 [momo-pannello.md](docs/04_apps/momo-pannello.md) ·
 [momo-memoria-automatica.md](docs/04_apps/momo-memoria-automatica.md) ·
 [momo-guardrail.md](docs/04_apps/momo-guardrail.md)
+
+## Architecture Rules
+
+- **Only one public default entrypoint:** `vpn.yourdomain.duckdns.org` for Headscale.
+- **Private service namespace:** every internal UI uses `.internal`.
+- **VPN-first access:** admin and personal services are reached through LAN/VPN and optionally Authentik.
+- **Nginx Proxy Manager is the active reverse proxy:** Traefik/Caddy remain future comparisons only.
+- **Every web UI must be visible and monitored:** `.internal` alias, NPM proxy host, Homepage card, Uptime Kuma monitor, backup rule, and restore path.
+- **Critical data requires restore testing:** Vaultwarden, Immich, Nextcloud, Paperless, Forgejo, and Home Assistant are not production until restore is proven.
+
+The canonical dependency, trust-zone, monitoring, and recovery flows are defined in [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md). Read that document before changing DNS, VPN routes, proxy targets, authentication, or backup ownership.
+
+## Target Platform
+
+| Layer | Target |
+|---|---|
+| Hypervisor | Proxmox VE on P710 |
+| Hardware baseline | 20 physical CPU cores / 40 logical threads, 64 GB RAM, 2 TB usable mirrored storage |
+| Core network | LXC 100 `core-network`, currently `192.168.1.50` |
+| Platform services | LXC 101 `platform-services`, live at `192.168.1.51` |
+| Lightweight apps | LXC 102 `apps-light` |
+| Operations extensions | LXC 103 `ops-extensions`, live at `192.168.1.53` |
+| Critical app VMs | Immich, Nextcloud AIO, Home Assistant OS, PBS, Jellyfin, Wazuh as dedicated VMs when appropriate |
+
+## Live Foundation Status
+
+Last live build log: [2026-07-03](docs/06_operations_security/LIVE_BUILD_LOG_2026-07-03.md).
+
+| Area | Current state |
+|---|---|
+| VPN | public Headscale endpoint online; DuckDNS public A record updater active on LXC 100; LXC 100 serves `192.168.1.0/24`; Proxmox serves exit node `0.0.0.0/0` and `::/0` |
+| DNS | AdGuard resolves `.internal` aliases to NPM on `192.168.1.50` |
+| Platform dashboards | Homepage, Uptime Kuma, Beszel Hub/agent, and Dozzle deployed on LXC 101; every web card uses HTTPS and the Proxmox/PBS widgets use dedicated `sole_monitor` read-only API tokens |
+| Operations extensions | NetAlertX, Scrutiny, and ntfy deployed on LXC 103 with `.internal` aliases and Kuma monitors; Scrutiny receives SMART data from a Proxmox host-side collector |
+| Identity | Authentik is live and remains the source for users, groups, MFA, and app access policy; LDAP/LDAPS is planned only as a compatibility outpost for services such as Proxmox or Linux/SSSD that need directory login |
+| Lightweight apps | LXC 102 `apps-light` deployed at `192.168.1.52` with Vaultwarden, Syncthing, Paperless, FreshRSS, Karakeep, SearXNG, Forgejo, RustDesk OSS server, Jellyfin, Ollama, and Open WebUI |
+| Immich | VM 110 `immich` deployed at `192.168.1.110`; the data disk currently uses about 91 GB and has a fresh PBS checkpoint, root-only DB/metadata/SHA-256 safety bundle, scheduled app-aware protection, and isolated restore validation; the planned 2 TB removable SSD and a later offsite copy remain required |
+| Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
+| Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
+| Monitoring | Uptime Kuma has 39 live monitors covering VPN, DNS, all private aliases, apps, operations extensions, CA health, trust onboarding, and protocol checks |
+| Household assistant | **Momo** runs on LXC 102 on `hermes-agent` (NousResearch), reachable at `momo.internal` and on Telegram. Eight selectable engines — three on the owner's PC, three on the server's own GPU, two outside the house — switched with `/motore <n>`; per-session with `/model --provider <name>`. Tools are split by trust: 20 available to a household engine, 1 to an external one. Memory is shared with the retiring Hermes (Postgres + Qdrant + Valkey) and learns from finished turns by itself, reviewable and deletable with `/memoria`. See [Il passaggio del testimone](docs/00_overview/PIANO_TESTIMONE_HERMES_MOMO.md) |
+| GPU | NVIDIA T600 (4 GB, driver 610.43.02) passed through to LXC 102, so the house always has an engine even with the owner's PC off. **What fits in 4 GB is measured, not assumed** — see [ai_ollama.md](docs/04_apps/ai_ollama.md) §9.0: at the 32k context in use, `qwen2.5:3b` sits 100% in VRAM while `qwen3.5:4b` spills 55% onto the CPU |
+| Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
+| Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 26 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
+| Local credentials | root-only credential inventories exist on the Proxmox host; the 2026-06-29 app-login rotation was verified for PBS root and every initialized supported web account except the explicitly excluded AdGuard login; Proxmox and PBS monitoring use non-expiring, revocable `sole_monitor` API tokens with read-only roles, never human/root passwords; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
+| Alerting and reports | The LXC 101 relay sends Gmail-compatible HTML plus plain-text alerts with one alert, one reminder, and one recovery per incident; a Proxmox timer sends a complete weekly operations report every Monday at 09:00 Europe/Rome and checks certificate, root-account, monitoring-token, and Headscale-node expiration state |
+| Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
+| Storage model | `ssd_pool` now uses sparse ZFS allocation; thick zvol reservations were cleared after validation, reducing reported usage from about 93% to about 15%. Keep monitoring enabled before large photo, media, and file growth |
+| Open gates | Complete CA onboarding on every personal client, commission and test the planned 2 TB removable Immich recovery SSD, add a later offsite photo copy, finish Authentik MFA/app protection policy, and repeat production-data restore rehearsals |
+
+## Services and Aliases
+
+The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
+
+Everything published, taken from NPM's own host list on 2026-08-03 — 31
+private names plus the one public door. If a name is not here, it is not
+reachable.
+
+| Category | Alias | Service |
+|---|---|---|
+| Public door | `vpn.…duckdns.org` | Headscale control plane — the **only** public entrypoint |
+| Core network | `adguard` · `npm` · `headscale` · `headplane` | AdGuard Home, Nginx Proxy Manager, Headscale, Headplane UI |
+| Admin | `proxmox` · `pbs` | Proxmox VE, Proxmox Backup Server |
+| Identity and TLS | `auth` · `trust` | Authentik; `trust.internal` onboards clients to the internal CA (`step-ca` on `ca.internal:9002`) |
+| Operations panels | `dash` · `homepage` · `monitor` · `status` | Sovereign Master Dashboard (on the Proxmox host itself), Homepage, Uptime Kuma and its status page |
+| Observability | `logs` · `alerts` · `disks` · `netalert` | Dozzle, ntfy, Scrutiny (fed by a host-side SMART collector), NetAlertX. Beszel and CrowdSec run without their own alias |
+| Critical data | `pwd` · `foto` · `files` · `sync` · `paper` | Vaultwarden, Immich, Nextcloud AIO, Syncthing, Paperless-ngx |
+| Notes | `obsidian` · `fauxton` | **Obsidian Self-hosted LiveSync** on CouchDB (`obsidian.internal:5984`) with Fauxton as its admin UI. This is also the vault Momo reads |
+| Apps | `ha` · `media` · `rss` · `bookmarks` · `search` · `git` | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
+| AI | `momo` · `omniroute` | **Momo**, the household assistant; **OmniRoute**, the gateway to outside models. `hermes.internal` was retired on 2026-08-03 |
+| Protocol/API exceptions | — | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, CouchDB replication, CrowdSec LAPI: ports, not web aliases |
 
 ## Repository Layout
 
