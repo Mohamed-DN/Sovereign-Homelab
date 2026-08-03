@@ -394,10 +394,14 @@ def register(ctx) -> None:
             # silenzio, perche' l'except lo declassa a un log: il motore
             # cambiava su disco e non veniva mai applicato.
             import subprocess  # noqa: PLC0415 - solo su questo percorso
+            # Non `systemctl restart` diretto ma lo script, perche' dopo il
+            # riavvio qualcuno deve dire «sono tornato»: senza, chi aspetta non
+            # distingue un servizio ripartito da uno morto, e l'unico modo di
+            # sapere e' scrivergli e vedere se risponde.
             subprocess.run(
                 ["systemd-run", "--collect", f"--on-active={secondi}",
                  "--unit", "momo-motore-riavvio",
-                 "systemctl", "restart", "momo-gateway"],
+                 "/usr/local/bin/momo-riavvia-e-avvisa"],
                 capture_output=True, text=True, timeout=15, check=False)
         except Exception as exc:  # noqa: BLE001
             logger.warning("riavvio rimandato non programmato (%s): "

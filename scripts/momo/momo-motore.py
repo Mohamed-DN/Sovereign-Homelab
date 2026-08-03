@@ -398,11 +398,54 @@ def risolvi(scelta: str) -> str | None:
     return None
 
 
+def raggiungibile(base_url: str, secondi: float = 4.0) -> tuple[bool, str]:
+    """Il motore risponde? Solo libreria standard, e un solo tentativo.
+
+    Si apre una connessione TCP e basta: non si interroga il modello. Serve a
+    sapere se c'e' qualcuno dall'altra parte, non se il modello e' caricato --
+    quello lo scopre il primo turno, e non e' un motivo per rifiutare il
+    cambio. Quattro secondi bastano: verso una macchina spenta sulla LAN il
+    fallimento arriva in circa tre (e' il timeout ARP, misurato).
+    """
+    import socket  # noqa: PLC0415 - solo su questo percorso
+    from urllib.parse import urlparse  # noqa: PLC0415
+    u = urlparse(base_url)
+    porta = u.port or (443 if u.scheme == "https" else 80)
+    if not u.hostname:
+        return True, "indirizzo non interpretabile: non blocco il cambio"
+    try:
+        with socket.create_connection((u.hostname, porta), timeout=secondi):
+            return True, "risponde"
+    except OSError as exc:
+        return False, f"{u.hostname}:{porta} — {exc.strerror or exc}"
+
+
 def cambia(chiave: str) -> int:
     motore = ENGINES.get(chiave)
     if motore is None:
         print(f"motore sconosciuto: {chiave}. Quelli noti: {', '.join(ENGINES)}", file=sys.stderr)
         return 2
+
+    # PRIMA DI CAMBIARE, SI GUARDA SE C'E' QUALCUNO. Senza questo controllo
+    # `/motore 1` a PC spento cambiava lo stesso e riavviava il gateway su un
+    # motore morto: Momo tornava su e non rispondeva piu', e la causa (il PC
+    # spento) non era scritta da nessuna parte. Chiesto da Mohamed il
+    # 2026-08-03: «se il pc non va, come fa?».
+    # Un motore FUORI CASA non si sonda: dipende da internet e da un fornitore,
+    # e un timeout qui direbbe «non raggiungibile» per una rete lenta.
+    if motore["casa"]:
+        vivo, dettaglio = raggiungibile(str(motore["base_url"]))
+        if not vivo:
+            print(f"«{chiave}» non risponde: {dettaglio}", file=sys.stderr)
+            print(f"   {motore['etichetta']}", file=sys.stderr)
+            print("   Il motore NON e' stato cambiato: cambiarlo adesso ti "
+                  "lascerebbe senza risposta.", file=sys.stderr)
+            print("   Se e' il PC: accendilo e riprova. Oppure scegli un motore "
+                  "del server (`/motore elenco`).", file=sys.stderr)
+            print("   Per forzare comunque: FORZA=1 davanti al comando.", file=sys.stderr)
+            if os.environ.get("FORZA") != "1":
+                return 1
+            print("   FORZA=1: cambio comunque.", file=sys.stderr)
 
     percorso_chiave = motore.get("api_key_file")
     if percorso_chiave and not Path(str(percorso_chiave)).is_file():
