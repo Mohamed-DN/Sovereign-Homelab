@@ -1946,7 +1946,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb .bot .ruota-a{transform-box:view-box;transform-origin:30.5px 58.5px}
 #orb .bot .ruota-b{transform-box:view-box;transform-origin:37.6px 66.4px}
 #orb .bot .ruota-c{transform-box:view-box;transform-origin:31px 67.5px}
-#orb .bot .stella{transform-box:view-box;transform-origin:45px 18px}
+#orb .bot .stella{transform-box:view-box;transform-origin:42px 26px}
 @media(prefers-reduced-motion:no-preference){
  #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
  #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
@@ -2585,14 +2585,14 @@ footer a:hover{text-decoration:underline}
         LA FASCIA e' dello stesso cyan della bocca: due accenti dello stesso
         colore legano il marchio, tre colori lo slegano. -->
    <path class="cappello-cono" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
-    d="M32 41C33 30 37 18 46 10c7-6 17-8 24-4 5 3 6 8 2 10-5 2-11 0-15 4-4 5-2 14 3 21Z"/>
+    d="M33 43C34 29 39 16 46 8c4.5-5.5 12-7.5 16.5-4s3.5 9-2 11c-5.5 2-8.5 2-10 6.5-2.5 7 4 15.5 16.5 21.5Z"/>
    <path class="cappello-tesa" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
-    d="M13 46C17 38 26 36 35 38c7 1.5 23 1.5 30 0 9-2 18 0 22 8-6 9-20 12-37 12S19 55 13 46Z"/>
-   <path class="cappello-fascia" fill="none" stroke="#35e8e0" stroke-width="4.6" stroke-linecap="round"
-    d="M32.5 39C41 42 53 42 61 38.5"/>
+    d="M11 46C15 37 25 35 34.5 37c7.5 1.5 24 1.5 31.5 0 9.5-2 19 0 23 9-6 9.5-21 12.5-39 12.5S17 55.5 11 46Z"/>
+   <path class="cappello-fascia" fill="none" stroke="url(#momoOro)" stroke-width="5.2" stroke-linecap="round"
+    d="M34 41C42 45 58 45 66 40.5"/>
   </g>
   <path class="stella" fill="#fdf3cd"
-   d="M45 12 46.9 16.1 51 18 46.9 19.9 45 24 43.1 19.9 39 18 43.1 16.1Z"/>
+   d="M42 20.5 43.7 24.3 47.5 26 43.7 27.7 42 31.5 40.3 27.7 36.5 26 40.3 24.3Z"/>
  </symbol>
  <symbol id="momo-mini" viewBox="0 0 100 100">
   <circle cx="50" cy="62" r="31" fill="none" stroke="url(#momoOro)" stroke-width="5"/>

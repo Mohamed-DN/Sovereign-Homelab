@@ -297,10 +297,12 @@ def stato() -> int:
     # successiva costringe a ricordarsela, e nessuno se la ricorda.
     print()
     print("COME SI CAMBIA — scrivi il nome dopo il comando:")
-    for c, m in ENGINES.items():
+    for i, (c, m) in enumerate(ENGINES.items(), 1):
         segno = "→" if c == chiave else " "
         dove = "in casa" if m["casa"] else "FUORI CASA"
-        print(f"  {segno} /motore {c:<15} {m['model']:<24} {dove}")
+        print(f"  {segno} {i}  /motore {i}  ({c:<14}) {m['model']:<24} {dove}")
+    print()
+    print("  Vanno bene tutti e due: /motore 4 oppure /motore server.")
     print()
     print("  /motore elenco    la stessa lista con le note e i tempi misurati")
     print("  /motore slmix     accende o spegne la modalita' mista")
@@ -316,12 +318,37 @@ def stato() -> int:
 
 
 def elenco() -> int:
-    for chiave, motore in ENGINES.items():
-        segno = "→" if chiave == attuale() else " "
+    corrente = attuale()
+    for i, (chiave, motore) in enumerate(ENGINES.items(), 1):
+        segno = "→" if chiave == corrente else " "
         dove = "in casa" if motore["casa"] else "FUORI CASA"
-        print(f"{segno} {chiave:<9} {motore['etichetta']:<34} {dove}")
+        print(f"{segno} {i}  {chiave:<9} {motore['etichetta']:<34} {dove}")
         print(f"             {motore['nota']}")
     return 0
+
+
+def risolvi(scelta: str) -> str | None:
+    """Dal nome o dal NUMERO alla chiave del motore.
+
+    Chiesto da Mohamed il 2026-08-03: «tipo motore 1, motore 2, motore 3, poi
+    i numeri si collegano alle varie robe». Da telefono `/motore 4` si scrive
+    in un secondo, `/motore server-granite` no -- e un nome scritto storto
+    non cambia niente e non dice perche'.
+
+    I numeri seguono l'ORDINE DELLA LISTA che il comando stampa, quindi il
+    numero che si legge e' il numero che si scrive. E' anche il motivo per
+    cui l'ordine di ENGINES non va cambiato alla leggera: cambiarlo
+    rimescolerebbe i numeri sotto le dita di chi li ha imparati.
+    """
+    testo = (scelta or "").strip().lower()
+    if testo in ENGINES:
+        return testo
+    if testo.isdigit():
+        chiavi = list(ENGINES)
+        i = int(testo)
+        if 1 <= i <= len(chiavi):
+            return chiavi[i - 1]
+    return None
 
 
 def cambia(chiave: str) -> int:
@@ -375,7 +402,16 @@ def main(argv: list[str]) -> int:
     if args[0] == "slmix":
         spegni = len(args) > 1 and args[1].lower() in {"off", "spegni", "no"}
         return slmix(not spegni)
-    return cambia(args[0].lower())
+    scelta = risolvi(args[0])
+    if scelta is None:
+        # Un errore che non dice la mossa giusta costringe a indovinare.
+        print(f"«{args[0]}» non e' un motore. Le scelte, per numero o per nome:",
+              file=sys.stderr)
+        for i, (c, m) in enumerate(ENGINES.items(), 1):
+            dove = "in casa" if m["casa"] else "FUORI CASA"
+            print(f"  {i}  {c:<15} {m['model']:<24} {dove}", file=sys.stderr)
+        return 2
+    return cambia(scelta)
 
 
 if __name__ == "__main__":
