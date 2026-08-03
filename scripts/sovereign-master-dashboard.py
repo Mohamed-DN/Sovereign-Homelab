@@ -1942,12 +1942,12 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
    transform-box:view-box e' la riga che conta: senza, ogni rotazione
    prenderebbe origine dal centro del riquadro del singolo pezzo, e una
    lancetta girerebbe attorno a se' stessa invece che attorno al perno. */
-#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:23px 42px}
-#orb .bot .iride{transform-box:view-box;transform-origin:41px 42px}
+#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:23px 41.5px}
+#orb .bot .iride{transform-box:view-box;transform-origin:41px 41.5px}
 /* Il perno del battito sta sulla sua LINEA DI BASE, non al centro del suo
    riquadro: e' cio' che fa salire il picco invece di farlo scivolare. */
-#orb .bot .bocca-battito{transform-box:view-box;transform-origin:32px 51.8px}
-#orb .bot .stella{transform-box:view-box;transform-origin:28px 12px}
+#orb .bot .bocca-battito{transform-box:view-box;transform-origin:32px 58.6px}
+#orb .bot .stella{transform-box:view-box;transform-origin:28.5px 13.4px}
 @media(prefers-reduced-motion:no-preference){
  #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
  #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
@@ -2449,23 +2449,23 @@ footer a:hover{text-decoration:underline}
      diaframma fotografico dall'altra, una bocca che e' un
      elettrocardiogramma, e un cappello da mago.
 
-     PERCHE' LA COMPOSIZIONE E' RIFATTA DA CAPO. Il primo cappello era
-     posato sopra una testa che occupava gia' tutto: restavano cinque unita'
-     di spazio in alto, il cono e' venuto schiacciato e il risultato
-     sembrava un fungo appiccicato ("fa schifo", detto giustamente da
-     Mohamed il 2026-08-03). Il difetto non era il cappello: era aver tenuto
-     ferma la testa e infilato il cappello nell'avanzo.
-     Ora testa e cappello sono UNA SILHOUETTE SOLA. Il cranio scende a
-     raggio 18,5 con centro in (32; 39,5) e occupa la meta' bassa; la tesa
-     attraversa TUTTO il disegno da 5 a 59, piu' larga della testa; il cono
-     sale fino a y=1,8, cioe' al bordo del riquadro. Il cappello e' un terzo
-     dell'altezza totale invece che un ottavo.
+     TERZA COMPOSIZIONE, e i difetti della seconda erano tre, tutti veri:
+       * IL CONO ERA UN TRIANGOLINO SU UNA TESA ENORME. Avevo allargato la
+         tesa fino a 54 unita' lasciando il cono alto 22: un cappello si
+         riconosce dal RAPPORTO fra cono e tesa, non dalla larghezza della
+         tesa. Ora il cono e' alto 23 su una base di 20 (piu' alto che
+         largo, com'e' un cappello da mago) ed e' PIEGATO in punta, che e'
+         il gesto che lo rende un cappello da mago e non un cono;
+       * LA BOCCA FINIVA ADDOSSO AGLI OCCHI. Fra il fondo dell'occhio e la
+         cima del battito c'erano 1,2 unita': a 46px sono zero, e i due
+         pezzi si toccavano. Ora ce ne sono 3,7;
+       * ERA TUTTO PICCOLO DENTRO UN ANELLO VUOTO. Il disegno occupava 56x38
+         di un riquadro da 64. Ora occupa 56x60: quasi tutta l'altezza.
 
      IL FONDO DEL CAPPELLO E' PIENO, non solo contorno: in un disegno a
-     tratto due linee sovrapposte si vedono entrambe, e la calotta
-     trasparirebbe attraverso la tesa. Per la stessa ragione il gruppo del
-     cappello sta DOPO gli occhi nel documento: in SVG vince chi e'
-     disegnato per ultimo.
+     tratto due linee sovrapposte si vedono entrambe e la calotta
+     trasparirebbe. Per la stessa ragione il cappello sta DOPO gli occhi nel
+     documento: in SVG vince chi e' disegnato per ultimo.
 
      PERCHE' NON C'E' NESSUNA ANIMAZIONE SMIL QUI DENTRO. La copia che vive
      nell'orb viene clonata con innerHTML, e SMIL inserito cosi' non entra
@@ -2484,55 +2484,55 @@ footer a:hover{text-decoration:underline}
      dell'orologio, non attorno a se' stessa. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
  <symbol id="momo-marchio" viewBox="0 0 64 64">
-  <g fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-   <circle class="piastre" cx="32" cy="39.5" r="18.5" stroke="#d8b45a"/>
+  <g fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+   <circle class="piastre" cx="32" cy="43.5" r="18.5" stroke="#d8b45a"/>
    <g class="quadrante" stroke="#e8d48a">
-    <circle cx="23" cy="42" r="7.5"/><circle cx="23" cy="42" r="6.3" opacity=".5"/>
-    <path d="M28.1 42h1M23 47.1v1M17.9 42h-1"/>
+    <circle cx="23" cy="41.5" r="7.8"/><circle cx="23" cy="41.5" r="6.5" opacity=".5"/>
+    <path d="M28.3 41.5h1.1M23 46.8v1.1M17.7 41.5h-1.1"/>
    </g>
-   <path class="lancetta-ore" stroke="#f7e9b8" d="M23 42 23 38.5"/>
-   <path class="lancetta-min" stroke="#f7e9b8" d="M23 42 23 36.8"/>
-   <circle class="lente" cx="41" cy="42" r="7.5" stroke="#c9a227"/>
-   <circle class="lente" cx="41" cy="42" r="6.3" stroke="#c9a227" opacity=".5"/>
+   <path class="lancetta-ore" stroke="#f7e9b8" d="M23 41.5 23 37.9"/>
+   <path class="lancetta-min" stroke="#f7e9b8" d="M23 41.5 23 36.1"/>
+   <circle class="lente" cx="41" cy="41.5" r="7.8" stroke="#c9a227"/>
+   <circle class="lente" cx="41" cy="41.5" r="6.5" stroke="#c9a227" opacity=".5"/>
    <g class="iride" stroke="#43b4c4">
-    <circle cx="41" cy="42" r="4.6"/>
-    <path d="M44 42 42.5 44.6 39.5 44.6 38 42 39.5 39.4 42.5 39.4Z"/>
-    <path d="M44 42 44.98 44.3M42.5 44.6 41 46.6M39.5 44.6 37.02 44.3M38 42 37.02 39.7M39.5 39.4 41 37.4M42.5 39.4 44.98 39.7"/>
+    <circle cx="41" cy="41.5" r="4.8"/>
+    <path d="M44.1 41.5 42.55 44.18 39.45 44.18 37.9 41.5 39.45 38.82 42.55 38.82Z"/>
+    <path d="M44.1 41.5 45.16 43.9M42.55 44.18 41 46.3M39.45 44.18 36.84 43.9M37.9 41.5 36.84 39.1M39.45 38.82 41 36.7M42.55 38.82 45.16 39.1"/>
    </g>
-   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="1.9" d="M21 47q3.6 3.4 6.6 4.6"/>
-   <path class="bocca-battito" stroke="#2dd4a7" stroke-width="1.9"
-    d="M27.6 51.6 29 49.4 30.3 52.1 31 52.3 32 47.6 33 55.6 34 52.3 35.1 49.4 36.4 51.6"/>
-   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="1.9" d="M36.4 51.6q3-1.2 6.6-4.6"/>
+   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="2" d="M20.5 53.5q3.8 3.6 6.9 4.8"/>
+   <path class="bocca-battito" stroke="#2dd4a7" stroke-width="2"
+    d="M27.4 58.3 28.8 56 30.2 58.6 31 58.8 32 53 33 60.5 34 58.8 35.2 56 36.6 58.3"/>
+   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="2" d="M36.6 58.3q3.1-1.2 6.9-4.8"/>
    <g class="cappello">
     <path class="cappello-cono" fill="#17130c" stroke="#c9a227"
-     d="M19.5 23.5C21 13.5 26.5 5 36 1.8c-1 6.2.5 13.7 8.5 21.7Z"/>
+     d="M22 25.5C22.5 16.5 25.5 8.5 31 4C33.5 2 37 2 38.5 4.2C37 6.8 35 8.8 34.5 11.5C36 16.5 38.5 21.5 42 25.5Z"/>
     <path class="cappello-tesa" fill="#17130c" stroke="#c9a227"
-     d="M5 26.5C15 18 49 18 59 26.5 49 44 15 44 5 26.5Z"/>
-    <path class="cappello-fascia" stroke="#f0d264" stroke-width="2" d="M20.6 22Q32 26 43.4 22"/>
+     d="M4 26C14 16 50 16 60 26 50 42 14 42 4 26Z"/>
+    <path class="cappello-fascia" stroke="#f0d264" stroke-width="2.1" d="M22.8 23.4Q32 27.4 41.2 23.4"/>
    </g>
   </g>
   <g stroke="none">
-   <circle class="perno" cx="23" cy="42" r=".9" fill="#f7e9b8"/>
-   <circle class="pupilla" cx="41" cy="42" r="1.4" fill="#0b1015"/>
-   <circle class="pupilla-luce" cx="41" cy="42" r="2.4" fill="none" stroke="#7fe3f0" stroke-width=".7" opacity=".55"/>
-   <circle class="viti" cx="15" cy="45.5" r="1.1" fill="#c9a227"/>
-   <circle class="viti" cx="49" cy="45.5" r="1.1" fill="#c9a227"/>
-   <path class="stella" fill="#f7e9b8" d="M28 8.4 28.9 11.1 31.6 12 28.9 12.9 28 15.6 27.1 12.9 24.4 12 27.1 11.1Z"/>
+   <circle class="perno" cx="23" cy="41.5" r="1" fill="#f7e9b8"/>
+   <circle class="pupilla" cx="41" cy="41.5" r="1.5" fill="#0b1015"/>
+   <circle class="pupilla-luce" cx="41" cy="41.5" r="2.5" fill="none" stroke="#7fe3f0" stroke-width=".75" opacity=".55"/>
+   <circle class="viti" cx="16" cy="47" r="1.1" fill="#c9a227"/>
+   <circle class="viti" cx="48" cy="47" r="1.1" fill="#c9a227"/>
+   <path class="stella" fill="#f7e9b8" d="M28.5 9.5 29.5 12.4 32.4 13.4 29.5 14.4 28.5 17.3 27.5 14.4 24.6 13.4 27.5 12.4Z"/>
   </g>
  </symbol>
  <symbol id="momo-mini" viewBox="0 0 64 64">
-  <g fill="none" stroke="#d8b45a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
-   <circle cx="32" cy="40" r="18"/>
-   <circle cx="23" cy="42" r="6.6"/>
-   <circle cx="41" cy="42" r="6.6" stroke="#43b4c4"/>
-   <path d="M21.5 47q3.6 4.2 6.6 3.6L32 55l3.9-4.4q3 .6 6.6-3.6" stroke="#2dd4a7"/>
+  <g fill="none" stroke="#d8b45a" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round">
+   <circle cx="32" cy="43.5" r="18"/>
+   <circle cx="23" cy="41.5" r="6.8"/>
+   <circle cx="41" cy="41.5" r="6.8" stroke="#43b4c4"/>
+   <path d="M21 53.5q4 4.6 6.8 4L32 61l4.2-3.5q2.8.6 6.8-4" stroke="#2dd4a7"/>
   </g>
-  <path fill="#17130c" stroke="#c9a227" stroke-width="3.4" stroke-linejoin="round"
-   d="M19.5 24C21 13.5 26.5 5 36 1.5c-1 6.4.5 14 8.5 22.5Z"/>
-  <path fill="#17130c" stroke="#c9a227" stroke-width="3.4" stroke-linejoin="round"
-   d="M4 26.5C14.5 17.5 49.5 17.5 60 26.5 49.5 40.5 14.5 40.5 4 26.5Z"/>
-  <circle cx="41" cy="42" r="2.8" fill="#43b4c4"/>
-  <path d="M23 42 23 36.6" fill="none" stroke="#f7e9b8" stroke-width="3.2" stroke-linecap="round"/>
+  <path fill="#17130c" stroke="#c9a227" stroke-width="3.6" stroke-linejoin="round"
+   d="M21.5 26C22 16.5 25 8 31 3.5c2.8-2.2 6.6-2.2 8 .3-1.6 2.8-3.8 5-4.3 7.9 1.6 5.3 4.3 10.6 7.8 14.3Z"/>
+  <path fill="#17130c" stroke="#c9a227" stroke-width="3.6" stroke-linejoin="round"
+   d="M3 26C13.5 15.5 50.5 15.5 61 26 50.5 42.5 13.5 42.5 3 26Z"/>
+  <circle cx="41" cy="41.5" r="2.9" fill="#43b4c4"/>
+  <path d="M23 41.5 23 36" fill="none" stroke="#f7e9b8" stroke-width="3.4" stroke-linecap="round"/>
  </symbol>
 </defs></svg>
 <div id="asst">
