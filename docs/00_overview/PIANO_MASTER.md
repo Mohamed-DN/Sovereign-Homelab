@@ -107,7 +107,7 @@
 
 | # | Cosa manca | Perché sta qui | Dove |
 |---:|---|---|---|
-| 1 | **Il PC spento degrada Momo per 15-20 s al primo messaggio** | il ripiego ora è corretto (`qwen2.5:3b`, che entra tutto in GPU) ma scatta solo dopo aver esaurito i tentativi sul PC. Misurato: 3,1 s per tentativo | §5 |
+| 1 | **A PC spento il primo messaggio aspetta**, e quanto non lo so ancora | il ripiego ora è corretto (`qwen2.5:3b`, tutto in GPU) ma scatta solo dopo i tentativi sul PC. **Misurato davvero**: 3,1 s per tentativo (è il timeout ARP verso una macchina spenta) e `api_max_retries` era 3. **NON misurato**: il totale, perché fra un tentativo e l'altro c'è un ritardo crescente e non esiste un comando a colpo singolo da cronometrare — e non spengo il servizio vivo per farlo. Il «15-20 s» che avevo detto era una stima mia, non una misura. Fatto intanto: `api_max_retries` da 3 a **2**, che riduce l'attesa qualunque sia il ritardo. Il numero vero si legge alla prossima assenza vera del PC: `journalctl -u momo-gateway \| grep 'trying fallback'` e la distanza dal messaggio precedente | §5 |
 | 2 | **Una risposta in arabo viene letta dalla voce italiana** | le tre voci sono installate, ma `tts.piper.voice` accetta **un** nome e a monte non c'è scelta per lingua. Serve una divergenza dichiarata | [architettura](ARCHITECTURE_AND_DATA_FLOWS.md) |
 | 3 | **Momo non sa cercare dentro Nextcloud** | fra `vault_search` e `web_search` non c'è niente, e lì stanno i file pesanti | [punto 18-bis](PIANO_GENERALE.md) |
 | 4 | **Tappa 5 del testimone**: fermare `sovereign-hermes` | il nome è uscito il 2026-08-03; resta il processo. Ha una condizione: giorni di pannello usato davvero | [testimone](PIANO_TESTIMONE_HERMES_MOMO.md) |
