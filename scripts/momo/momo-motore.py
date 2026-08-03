@@ -432,6 +432,17 @@ def cambia(chiave: str) -> int:
     if not motore["casa"]:
         print("ATTENZIONE: questo motore NON è in casa. Quello che gli passi esce,\n"
               "            e Momo ti avvisa prima di scrivere (SOUL.md).")
+
+    # SENZA RIAVVIO: c'e' un solo caso, ed e' il comando /motore su Telegram.
+    # La' questo script gira DENTRO momo-gateway, quindi riavviare il servizio
+    # uccide il processo che sta eseguendo il comando: il cambio va a buon
+    # fine ma la conferma non parte mai, e da fuori sembra che non sia
+    # successo niente. E' esattamente cio' che Mohamed ha visto il 2026-08-03
+    # provando /motore 2 e /motore 4 -- il motore ERA cambiato, la risposta no.
+    if os.environ.get("MOMO_NO_RESTART") == "1":
+        print("riavvio rimandato a chi ha chiamato (MOMO_NO_RESTART=1).")
+        return 0
+
     esito = subprocess.run(["systemctl", "restart", SERVICE], capture_output=True, text=True)
     if esito.returncode:
         print(f"riavvio fallito: {esito.stderr.strip()[:200]}", file=sys.stderr)
