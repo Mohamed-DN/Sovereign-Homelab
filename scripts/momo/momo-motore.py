@@ -289,6 +289,29 @@ def stato() -> int:
     else:
         print("SLMIX          : spento — tutto sul modello principale "
               "(`momo-motore slmix` per accenderlo)")
+
+    # PERCHE QUESTA PARTE ESISTE. Fino al 2026-08-03 questo comando diceva
+    # DOVE SEI e non diceva mai COME CAMBIARE. Mohamed: «non e' chiaro se
+    # lancio /motore o /model, non mi dice come switchare, non mi dice
+    # neanche come scegliere il modello». Uno stato che non offre la mossa
+    # successiva costringe a ricordarsela, e nessuno se la ricorda.
+    print()
+    print("COME SI CAMBIA — scrivi il nome dopo il comando:")
+    for c, m in ENGINES.items():
+        segno = "→" if c == chiave else " "
+        dove = "in casa" if m["casa"] else "FUORI CASA"
+        print(f"  {segno} /motore {c:<15} {m['model']:<24} {dove}")
+    print()
+    print("  /motore elenco    la stessa lista con le note e i tempi misurati")
+    print("  /motore slmix     accende o spegne la modalita' mista")
+    print()
+    # La confusione fra i due comandi non e' sua: sono due cose che sembrano
+    # la stessa e non lo sono, e la differenza si paga al turno dopo.
+    print("NON usare /model: cambia solo il NOME del modello e lascia")
+    print("l'indirizzo dov'e'. Qui il modello e la macchina che lo serve sono")
+    print("una cosa sola, quindi /model qwen3.5:9b lascia Momo a parlare col")
+    print("PC chiedendogli un modello che il PC non ha, e ogni turno dopo")
+    print("fallisce. /motore cambia tutti e due insieme.")
     return 0
 
 

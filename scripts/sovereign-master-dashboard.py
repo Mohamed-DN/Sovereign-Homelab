@@ -2520,7 +2520,7 @@ footer a:hover{text-decoration:underline}
   <!-- La testa e' un ARCO, non un cerchio: con una tesa ondulata il cerchio
        chiuso spuntava fuori nei due spicchi che ne' il cono ne' la tesa
        coprono. Un arco che parte da sotto la tesa non ha quel problema. -->
-  <path class="testa" d="M19 48C15 72 29 93 50 93s35-21 31-45" fill="none"
+  <path class="testa" d="M21 50C13 74 28 95 50 95s37-21 29-45" fill="none"
    stroke="url(#momoOro)" stroke-width="2.6" stroke-linecap="round"/>
 
   <!-- OCCHIO SINISTRO: orologio scheletrato. Prima la cavita' scura, poi le
@@ -2587,7 +2587,7 @@ footer a:hover{text-decoration:underline}
    <path class="cappello-cono" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
     d="M32 41C33 30 37 18 46 10c7-6 17-8 24-4 5 3 6 8 2 10-5 2-11 0-15 4-4 5-2 14 3 21Z"/>
    <path class="cappello-tesa" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
-    d="M12 47c4-7 12-9 21-7 8 1.5 19 1.5 27 0 9-2 15 0 19 7-5 7-20 10-38 10S17 54 12 47Z"/>
+    d="M13 46C17 38 26 36 35 38c7 1.5 23 1.5 30 0 9-2 18 0 22 8-6 9-20 12-37 12S19 55 13 46Z"/>
    <path class="cappello-fascia" fill="none" stroke="#35e8e0" stroke-width="4.6" stroke-linecap="round"
     d="M32.5 39C41 42 53 42 61 38.5"/>
   </g>
