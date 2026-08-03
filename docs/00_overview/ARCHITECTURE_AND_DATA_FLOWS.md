@@ -28,7 +28,27 @@ This document is the canonical description of how the Sovereign Homelab works. U
 ## Authoritative Traffic Flows
 
 ```mermaid
-flowchart LR<br/>    Internet((Internet))<br/>    Phone[Remote client on 4G/5G]<br/>    Router[Home router NAT]<br/>    NPM[Nginx Proxy Manager]<br/>    HS[Headscale control plane]<br/>    Tailnet[Tailscale encrypted data plane]<br/>    Subnet[LXC 100 subnet router]<br/>    Exit[Proxmox exit node]<br/>    AGH[AdGuard Home 192.168.1.50]<br/>    Apps[Private services under .internal]<br/><br/>    Phone -->|HTTPS control only| Internet --> Router -->|TCP 443| NPM --> HS<br/>    Phone -->|WireGuard peer traffic| Tailnet<br/>    Tailnet -->|192.168.1.0/24| Subnet<br/>    Subnet -->|DNS 53| AGH<br/>    Subnet -->|private app traffic| Apps<br/>    Tailnet -->|optional 0.0.0.0/0 and ::/0| Exit --> Internet<br/>    AGH -->|filtered upstream DNS| Internet<br/>    AGH -->|.internal rewrite| NPM --> Apps<br/>```
+flowchart LR
+    Internet((Internet))
+    Phone[Remote client on 4G/5G]
+    Router[Home router NAT]
+    NPM[Nginx Proxy Manager]
+    HS[Headscale control plane]
+    Tailnet[Tailscale encrypted data plane]
+    Subnet[LXC 100 subnet router]
+    Exit[Proxmox exit node]
+    AGH[AdGuard Home 192.168.1.50]
+    Apps[Private services under .internal]
+
+    Phone -->|HTTPS control only| Internet --> Router -->|TCP 443| NPM --> HS
+    Phone -->|WireGuard peer traffic| Tailnet
+    Tailnet -->|192.168.1.0/24| Subnet
+    Subnet -->|DNS 53| AGH
+    Subnet -->|private app traffic| Apps
+    Tailnet -->|optional 0.0.0.0/0 and ::/0| Exit --> Internet
+    AGH -->|filtered upstream DNS| Internet
+    AGH -->|.internal rewrite| NPM --> Apps
+```
 
 ### The household assistant, and what a spoken message goes through
 
@@ -42,7 +62,23 @@ and everything below follows from them:
   PC being off degrades the answer, never removes it.
 
 ```mermaid
-flowchart LR<br/>    Voice["Voice message\nTelegram"]<br/>    Text["Typed message\nTelegram or momo.internal"]<br/>    STT["faster-whisper medium\nlocal on LXC 102\nVAD on, language auto"]<br/>    Lang["sovereign_lang\nscript first,\nthen function words"]<br/>    Engine["The chosen engine\n/motore n"]<br/>    Reply["Reply text"]<br/>    TTS["Piper\nlocal, on CPU"]<br/>    Mem["Automatic memory\nbackground worker"]<br/><br/>    Voice --> STT --> Lang<br/>    Text --> Lang<br/>    Lang -->|states the language as a FACT| Engine<br/>    Engine --> Reply<br/>    Reply --> TTS<br/>    Reply -.->|off the answer path| Mem<br/>```
+flowchart LR
+    Voice["Voice message<br/>Telegram"]
+    Text["Typed message<br/>Telegram or momo.internal"]
+    STT["faster-whisper medium<br/>local on LXC 102<br/>VAD on, language auto"]
+    Lang["sovereign_lang<br/>script first,<br/>then function words"]
+    Engine["The chosen engine<br/>/motore n"]
+    Reply["Reply text"]
+    TTS["Piper<br/>local, on CPU"]
+    Mem["Automatic memory<br/>background worker"]
+
+    Voice --> STT --> Lang
+    Text --> Lang
+    Lang -->|states the language as a FACT| Engine
+    Engine --> Reply
+    Reply --> TTS
+    Reply -.->|off the answer path| Mem
+```
 
 Four things this drawing is meant to settle:
 
@@ -110,14 +146,34 @@ Selecting the exit node must not replace AdGuard with a public resolver. Validat
 ### Monitoring and alert delivery
 
 ```mermaid
-flowchart LR<br/>    Targets[Service endpoints] --> Kuma[Uptime Kuma]<br/>    Targets --> Beszel[Beszel metrics]<br/>    Targets --> Logs[Dozzle logs]<br/>    Kuma --> Relay[Token-authenticated alert relay]<br/>    Relay --> Gmail[Gmail SMTP]<br/>    Kuma --> Status[Private status page]<br/>    Kuma --> Homepage[Homepage presentation]<br/>    Beszel --> Homepage<br/>    NetAlertX[NetAlertX device watch] --> Homepage<br/>    Scrutiny[Scrutiny SMART health] --> Homepage<br/>    ntfy[ntfy push notifications] --> Homepage<br/>```
+flowchart LR
+    Targets[Service endpoints] --> Kuma[Uptime Kuma]
+    Targets --> Beszel[Beszel metrics]
+    Targets --> Logs[Dozzle logs]
+    Kuma --> Relay[Token-authenticated alert relay]
+    Relay --> Gmail[Gmail SMTP]
+    Kuma --> Status[Private status page]
+    Kuma --> Homepage[Homepage presentation]
+    Beszel --> Homepage
+    NetAlertX[NetAlertX device watch] --> Homepage
+    Scrutiny[Scrutiny SMART health] --> Homepage
+    ntfy[ntfy push notifications] --> Homepage
+```
 
 Homepage is a presentation layer, not the monitoring authority. Uptime Kuma owns availability state. Beszel owns host metrics. Scrutiny owns SMART state. A broken dashboard must not suppress alerts.
 
 ### Backup and recovery
 
 ```mermaid
-flowchart LR<br/>    Immich[Immich VM 110] -->|daily DB and metadata| AppAware[Application-aware artifacts]<br/>    Immich -->|guest snapshot| PBS[Local PBS VM 140]<br/>    AppAware --> Verify[Database and checksum tests]<br/>    PBS --> Restore[Isolated VM and file restore tests]<br/>    PBS -->|future removable copy| External[2 TB external SSD]<br/>    AppAware -->|future encrypted portable copy| External<br/>    External --> Offsite[Physically disconnected or off-site storage]<br/>```
+flowchart LR
+    Immich[Immich VM 110] -->|daily DB and metadata| AppAware[Application-aware artifacts]
+    Immich -->|guest snapshot| PBS[Local PBS VM 140]
+    AppAware --> Verify[Database and checksum tests]
+    PBS --> Restore[Isolated VM and file restore tests]
+    PBS -->|future removable copy| External[2 TB external SSD]
+    AppAware -->|future encrypted portable copy| External
+    External --> Offsite[Physically disconnected or off-site storage]
+```
 
 Local PBS is recovery from software failure and accidental deletion, but it is not disaster recovery while it shares the P710. The external SSD becomes the second physical medium only while it is disconnected or stored away from the server after a verified backup.
 
