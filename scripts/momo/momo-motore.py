@@ -212,6 +212,50 @@ def slmix_attivo() -> bool:
                for c in SLMIX["compiti"])
 
 
+def sincronizza_provider(config: dict) -> int:
+    """Dichiara ogni motore come PROVIDER con un nome, e restituisce quanti.
+
+    PERCHE ESISTE. `/motore` cambia il default per tutti, e va bene per la
+    scelta di fondo. Ma Mohamed ha chiesto anche di cambiare modello PER UNA
+    SESSIONE, senza toccare il default -- e quella cosa hermes-agent la sa
+    gia' fare: `/model <nome> --session`, `--once`, `--global`, e soprattutto
+    `/model --provider <provider>`.
+
+    Il pezzo che mancava era proprio `--provider`: senza, `/model` cambia solo
+    il NOME del modello e lascia l'indirizzo dov'era, e il turno dopo fallisce
+    perche' si chiede al PC un modello che il PC non ha. Con i provider
+    dichiarati qui sotto, `--provider pc` cambia nome E indirizzo insieme,
+    che in questa casa sono una cosa sola.
+
+    UNA SOLA FONTE DI VERITA': i provider si generano da ENGINES a ogni
+    cambio, quindi non possono divergere dall'elenco che `/motore` stampa.
+    Un secondo elenco scritto a mano nel config sarebbe la stessa lista in
+    due posti, e prima o poi uno dei due mente.
+
+    NON SCRIVE MAI UNA CHIAVE: dove serve, mette il PERCORSO del file
+    (`key_env`/`api_key_file` restano fuori da qui) -- e i motori che una
+    chiave ce l'hanno vengono comunque dichiarati, perche' la chiave la
+    risolve il codice che li usa, non questo elenco.
+    """
+    # SOLO le chiavi che il loro schema conosce (hermes_cli/config.py:1310).
+    # Il primo tentativo ci aveva messo anche `enabled`, `label` e
+    # `api_key_file`: vengono ignorate, ma stampano
+    # «unknown config keys ignored» per OGNI provider a OGNI caricamento
+    # della configurazione -- otto righe di rumore, tutte mie, in un log dove
+    # poi si cercano i guasti veri. Una chiave che non serve a niente e' un
+    # avviso in piu' da imparare a ignorare, ed e' cosi' che i log muoiono.
+    # L'etichetta leggibile resta in `/motore elenco`, che e' il posto dove
+    # la si va a leggere davvero.
+    provider = {}
+    for chiave, motore in ENGINES.items():
+        provider[chiave] = {
+            "base_url": motore["base_url"],
+            "default_model": motore["model"],
+        }
+    config["providers"] = provider
+    return len(provider)
+
+
 def scrivi_config(data: dict) -> None:
     """Read-modify-write as a STRUCTURE, never as text.
 
@@ -305,6 +349,9 @@ def stato() -> int:
     print("  Vanno bene tutti e due: /motore 4 oppure /motore server.")
     print()
     print("  /motore elenco    la stessa lista con le note e i tempi misurati")
+    print("  /model --provider <nome>   cambia SOLO per questa sessione,")
+    print("                             senza toccare il default (aggiungi")
+    print("                             --global se vuoi che resti)")
     print("  /motore slmix     accende o spegne la modalita' mista")
     print()
     # La confusione fra i due comandi non e' sua: sono due cose che sembrano
@@ -366,6 +413,11 @@ def cambia(chiave: str) -> int:
 
     config = leggi_config()
     config["model"] = {"default": motore["model"], "provider": motore["provider"]}
+    # I provider con nome si riscrivono a ogni cambio: sono generati da
+    # ENGINES, quindi non possono divergere dall'elenco che questo comando
+    # stampa. Servono a `/model --provider <nome>`, che e' il cambio PER
+    # SESSIONE -- questo qui invece cambia il default per tutti.
+    quanti = sincronizza_provider(config)
     scrivi_config(config)
 
     scrivi_env("CUSTOM_BASE_URL", str(motore["base_url"]))
@@ -399,6 +451,19 @@ def main(argv: list[str]) -> int:
         return elenco()
     if args[0] in {"stato", "status"}:
         return stato()
+    if args[0] in {"provider", "--provider", "sincronizza"}:
+        config = leggi_config()
+        quanti = sincronizza_provider(config)
+        scrivi_config(config)
+        print(f"{quanti} motori dichiarati come provider con nome.")
+        print("Ora si puo' cambiare SOLO PER QUESTA SESSIONE, senza toccare il default:")
+        for i, c in enumerate(ENGINES, 1):
+            print(f"  /model --provider {c}")
+            if i >= 3:
+                print("  ... (gli altri con /motore elenco)")
+                break
+        print("Aggiungi --global se invece vuoi che resti anche dopo.")
+        return 0
     if args[0] == "slmix":
         spegni = len(args) > 1 and args[1].lower() in {"off", "spegni", "no"}
         return slmix(not spegni)

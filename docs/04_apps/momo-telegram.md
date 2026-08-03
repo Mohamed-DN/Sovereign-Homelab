@@ -826,6 +826,41 @@ accoda i messaggi non consegnati per 24 ore e poi li scarta.
 | **`/motore` non si trova nel menu dei comandi** | c'è, ma è sepolto: il menu ha un tetto e hermes-agent porta ~50 comandi di serie | §10.1 — si mette in cima con `platforms.telegram.extra.command_menu.priority` |
 | Il menu dei comandi è **completamente vuoto** dopo aver alzato il tetto | oltre ~4096 byte Telegram rifiuta l'elenco **intero**, non lo tronca | riabbassare `max_commands`; §10.1 per il conto |
 
+### 10.0 Cambiare l'AI: per sempre, o solo per questa chiacchierata
+
+Due comandi, due mestieri diversi. La confusione fra i due non è del
+proprietario: sembrano la stessa cosa e non lo sono.
+
+| Voglio… | Comando | Cosa tocca |
+|---|---|---|
+| cambiare l'AI **per tutti, da adesso** | `/motore 3` oppure `/motore pc-qwen` | scrive `config.yaml`: vale per ogni sessione, anche future |
+| cambiarla **solo qui, adesso** | `/model --provider pc-qwen` | solo questa sessione; il default resta |
+| **un turno solo** | `/model --provider server --once` | il turno dopo, poi torna al default |
+| vedere le scelte, con i numeri | `/motore` (breve) o `/motore list` (con le note e i tempi) | niente |
+| farla restare anche dopo | aggiungere `--global` | scrive `config.yaml` |
+
+**Perché `/model` da solo non basta, e perché ora funziona.** `/model
+qwen3.5:9b` cambia il **nome** del modello e lascia l'**indirizzo** dov'era:
+Momo continua a parlare col PC chiedendogli un modello che il PC non ha, e
+ogni turno dopo fallisce. In questa casa il modello e la macchina che lo
+serve sono **una cosa sola**.
+
+Il pezzo che mancava era `--provider`. Dal 2026-08-03 `momo-motore` dichiara
+ogni motore come provider con un nome nella sezione `providers:` del
+`config.yaml`, generandoli **da `ENGINES`** a ogni cambio — una sola fonte di
+verità, così l'elenco che `/motore` stampa e i nomi che `/model --provider`
+accetta non possono divergere. Con quelli dichiarati, `--provider pc-qwen`
+cambia nome **e** indirizzo insieme.
+
+Per rigenerarli senza cambiare motore: `momo-motore provider`.
+
+**Solo le chiavi che il loro schema conosce** (`base_url`, `default_model`).
+Il primo tentativo aggiungeva anche `enabled`, `label` e `api_key_file`:
+vengono ignorate, ma stampano *«unknown config keys ignored»* per ogni
+provider a ogni caricamento — otto righe di rumore in un log dove poi si
+cercano i guasti veri. L'etichetta leggibile vive in `/motore elenco`, che è
+il posto dove la si legge davvero.
+
 ### 10.1 Il menu dei comandi di Telegram: due tetti, e uno non è documentato
 
 Segnalato da Mohamed il 2026-08-03: *«da Telegram voglio poter lanciare un
