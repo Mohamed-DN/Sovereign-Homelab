@@ -39,6 +39,7 @@ runbook that says how it was built, what broke, and how to bring it back.
 | planning something similar | [START_HERE](START_HERE.md), then [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md) |
 | looking for one service | the [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md), then its runbook under [docs/04_apps](docs/04_apps/) |
 | running it day to day | [OPERATIONAL_GUIDE](OPERATIONAL_GUIDE.md) |
+| interested in the identity side | [IAM_LDAP_SSO_PLAN](docs/03_platform_services/IAM_LDAP_SSO_PLAN.md) — eight integrations, and what each one nearly broke |
 
 > **Before copying anything.** This is one house's infrastructure, not a
 > product. Addresses, hostnames and hardware are real and specific; secrets
@@ -191,6 +192,68 @@ Runbooks: [momo-telegram.md](docs/04_apps/momo-telegram.md) ·
 [momo-memoria-automatica.md](docs/04_apps/momo-memoria-automatica.md) ·
 [momo-guardrail.md](docs/04_apps/momo-guardrail.md)
 
+## One Login, and Certificates Nobody Has to Click Through
+
+Every private service sits behind **Authentik**: one account, one password
+policy, one place to revoke. Eight applications are integrated properly rather
+than merely proxied —
+
+| Service | How | The interesting part |
+|---|---|---|
+| Forgejo `git` | OIDC | the first, and the template for the rest |
+| Uptime Kuma `status` | forward-auth | it has no OIDC of its own, so the proxy carries the identity |
+| **Immich** `foto` | OIDC | the photos already belonged to an account: it had to be **linked**, never duplicated |
+| **Nextcloud** `files` | OIDC | same problem, solved with a provider-scoped mapping instead of a global one |
+| Jellyfin `media` | SSO plugin | |
+| Headplane `headplane` | OIDC | the VPN admin UI itself |
+| **Paperless-ngx** `paper` | OIDC | Authentik's stock mapping always says `email_verified: false`, so allauth would have created a **second** account beside the one holding every scanned document |
+| Obsidian / CouchDB | forward-auth | the notes Momo reads |
+
+The recurring danger is the same every time and it is not authentication: it
+is **orphaning data into a brand-new account** that happens to share your
+name. Anything holding data is linked in place and verified twice before the
+local login is retired. Each integration, with the trap it hit, is written up
+in [IAM_LDAP_SSO_PLAN](docs/03_platform_services/IAM_LDAP_SSO_PLAN.md).
+
+**Certificates: a private CA, not warnings.** Smallstep `step-ca` runs on
+`ca.internal` and issues one certificate covering every private alias, renewed
+weekly with a daily expiry audit. `trust.internal` walks a new phone or laptop
+through trusting it.
+
+> A trap worth knowing before you copy this: a wildcard `*.internal` **is
+> not accepted** by curl, OpenSSL or browsers for names directly under a
+> TLD-like label. Every alias must be listed explicitly. When `momo.internal`
+> was added, it failed with *"subjectAltName does not match"* while the
+> certificate plainly showed `DNS:*.internal` first — which is exactly the
+> kind of evidence that sends you looking in the wrong place.
+
+## When Something Goes Wrong
+
+The parts that matter most are the ones that run when nobody is watching.
+
+- **A global brake.** One switch puts everything that *acts* — the assistant's
+  tools, the app controls — into `PAUSED`, without touching the parts that only
+  read. It is one file of standard library, imported by every component rather
+  than reimplemented in each, because two copies of a rule drift and the drift
+  stays invisible until one of them lets something through. Its defaults point
+  in **opposite directions on purpose**: file missing means RUNNING, file
+  present but corrupt means PAUSED.
+  ([sovereign-interruttore](docs/04_apps/sovereign-interruttore.md))
+- **A second look before waking anyone.** Before sending the first alert email,
+  the relay **re-probes the monitor itself** and classifies what it sees:
+  `REAL_CRITICAL`, `REAL_WARNING`, `FALSE_ALARM`, `UNVERIFIED`. One rule governs
+  it: *the probe's own failure is never the service's failure.* Two independent
+  ceilings mean an alarm can be delayed but never cancelled.
+  ([sovereign-verificatore](docs/04_apps/sovereign-verificatore.md))
+- **One alert, one reminder, one recovery.** Per incident. An inbox that cries
+  wolf every five minutes trains you to ignore it, and then it is worse than no
+  alerting at all.
+- **A weekly report, every Monday at 09:00**, that also checks what is about to
+  expire: certificates, root accounts, monitoring tokens, VPN nodes.
+- **Restores are rehearsed, not assumed.** Every guest has been restored at
+  least once; Immich was rebuilt from backup at 110 GiB in an isolated
+  environment. A backup nobody has restored is a hope with a schedule.
+
 ## Architecture Rules
 
 - **Only one public default entrypoint:** `vpn.yourdomain.duckdns.org` for Headscale.
@@ -233,7 +296,7 @@ Last live build log: [2026-07-03](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Household assistant | **Momo** runs on LXC 102 on `hermes-agent` (NousResearch), reachable at `momo.internal` and on Telegram. Eight selectable engines — three on the owner's PC, three on the server's own GPU, two outside the house — switched with `/motore <n>`; per-session with `/model --provider <name>`. Tools are split by trust: 20 available to a household engine, 1 to an external one. Memory is shared with the retiring Hermes (Postgres + Qdrant + Valkey) and learns from finished turns by itself, reviewable and deletable with `/memoria`. See [Il passaggio del testimone](docs/00_overview/PIANO_TESTIMONE_HERMES_MOMO.md) |
 | GPU | NVIDIA T600 (4 GB, driver 610.43.02) passed through to LXC 102, so the house always has an engine even with the owner's PC off. **What fits in 4 GB is measured, not assumed** — see [ai_ollama.md](docs/04_apps/ai_ollama.md) §9.0: at the 32k context in use, `qwen2.5:3b` sits 100% in VRAM while `qwen3.5:4b` spills 55% onto the CPU |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
-| Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 26 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
+| Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 32 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
 | Local credentials | root-only credential inventories exist on the Proxmox host; the 2026-06-29 app-login rotation was verified for PBS root and every initialized supported web account except the explicitly excluded AdGuard login; Proxmox and PBS monitoring use non-expiring, revocable `sole_monitor` API tokens with read-only roles, never human/root passwords; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
 | Alerting and reports | The LXC 101 relay sends Gmail-compatible HTML plus plain-text alerts with one alert, one reminder, and one recovery per incident; a Proxmox timer sends a complete weekly operations report every Monday at 09:00 Europe/Rome and checks certificate, root-account, monitoring-token, and Headscale-node expiration state |
 | Host fixes | Intel `e1000e` offload mitigation persisted with `nic0-offload-hardening.service`; stale `zfs-import@TESD` masked after confirming no such pool exists; unused NFS block-layout service disabled; NVIDIA GSP and wireless regulatory firmware installed; Proxmox and service LXCs aligned to the `.internal` search domain |
