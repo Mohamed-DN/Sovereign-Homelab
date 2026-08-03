@@ -403,8 +403,11 @@ def register(ctx) -> None:
         ctx.register_command(
             name="motore",
             handler=comando_motore,
-            description="Cambia il motore che risponde (modello E indirizzo insieme)",
-            args_hint="[elenco | pc | pc-q8 | server | bedrock | slmix]",
+            # La descrizione finisce nel menu di Telegram, dove e' l'unica
+            # cosa che si legge prima di premere: deve dire cosa fa E come
+            # scoprire le scelte, perche' il menu non ha spazio per altro.
+            description="Cambia l'AI che risponde — scrivi /motore per vedere le scelte",
+            args_hint="[elenco | pc | server | openrouter | slmix]",
         )
     except Exception as exc:  # noqa: BLE001
         logger.warning("sovereign_tools: comando /motore non registrato (%s)", exc)
