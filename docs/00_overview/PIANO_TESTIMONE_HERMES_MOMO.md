@@ -58,12 +58,40 @@ degli stessi dati (`backends.json`, la memoria, `actions.json`), che sono
 
 ### Tappa 4 — `momo.internal` diventa l'indirizzo, `hermes.internal` sparisce
 
+**FATTA il 2026-08-03.**
+
 Deciso dal proprietario: **ovunque**. NPM, Authentik, Homepage, Kuma, i
 documenti, gli script. `hermes.internal` viene rimosso dal certificato e
 dall'elenco degli alias.
 
 *Verifica*: `hermes.internal` non risolve più a niente di utile e
-`momo.internal` fa tutto quello che faceva prima.
+`momo.internal` fa tutto quello che faceva prima. **Passata**:
+`hermes.internal → 000`, `momo.internal → 302`.
+
+Cosa è stato tolto, e dove sta la copia per tornare indietro:
+
+| Cosa | Come | Copia |
+|---|---|---|
+| Host NPM `hermes.internal` (id 33) | `DELETE /api/nginx/proxy-hosts/33` — **mai** dal database: una riga scritta a mano nel SQLite di NPM non genera nessuna configurazione nginx | `/root/sovereign-secrets/backups/npm-hermes.internal-*.json` |
+| Applicazione Authentik `hermes` | ORM, con la sua `PolicyBinding` | `/root/sovereign-secrets/backups/authentik-hermes-*.json` |
+| Provider `Hermes forward-auth` | ORM — era nell'*Embedded Outpost* con altri quattro | idem |
+| `hermes` dagli alias del certificato | `sovereign-renew-npm-internal-certs.sh` | git |
+| Il link nella pagina di login di Hermes | ora punta a `momo.internal` | git |
+
+**La verifica che conta non era «funziona ancora Hermes?» ma «funziona
+ancora tutto il resto?»**. Quel provider stava in un outpost condiviso con
+Dashboard, Kuma, Fauxton e OmniRoute, e rimuoverlo poteva portarsi dietro gli
+altri: la rimozione ha infatti cancellato 9 righe, fra cui un legame
+`Outpost_providers`. Controllati prima e dopo, tutti a `302`:
+`dash.internal`, `files.internal`, `auth.internal`.
+
+Contato dopo: Momo carica ancora **21 strumenti** da
+`/opt/sovereign/sovereign-hermes.py` — che è il motivo per cui quel file
+resta anche dopo che il suo nome DNS non c'è più.
+
+**Il servizio `sovereign-hermes` NON è stato toccato**: gira ancora sulla
+8093 ed è la tappa 5, che ha una sua condizione. Qui è uscito il **nome**,
+non il processo.
 
 ### Tappa 5 — Il servizio si ferma
 

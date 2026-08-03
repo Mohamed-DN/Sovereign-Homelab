@@ -3411,10 +3411,14 @@ showTab(localStorage.getItem('hermes-tab')||'motori');
 </script></body></html>"""
 
 
+# Il nome `hermes.internal` non esiste piu' dal 2026-08-03 (tappa 4 del
+# passaggio del testimone: host NPM e applicazione Authentik rimossi). Questa
+# pagina compare a chi arriva qui senza essere passato dal login, e mandarlo
+# a un indirizzo che non risponde sarebbe peggio che non dirgli niente.
 LOGIN_HINT = ("<meta charset=utf-8><body style='background:#06080b;color:#e5e7eb;"
               "font-family:Segoe UI,sans-serif;text-align:center;padding:60px'>"
-              "<h2>⚡ Hermes</h2><p>Questa pagina si apre da "
-              "<a href='https://hermes.internal' style='color:#43b4c4'>hermes.internal</a>, "
+              "<h2>⚡ Momo</h2><p>Questa pagina si apre da "
+              "<a href='https://momo.internal' style='color:#43b4c4'>momo.internal</a>, "
               "dopo il login unico.</p>")
 
 

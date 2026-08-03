@@ -24,7 +24,11 @@ LOGDIR="${LOGDIR:-/root/sovereign-secrets/logs}"
 aliases=(
   adguard npm headscale headplane proxmox pbs auth dash homepage status monitor logs
   pwd sync paper rss bookmarks search git foto media ai files
-  netalert disks alerts ha trust obsidian fauxton hermes omniroute
+  netalert disks alerts ha trust obsidian fauxton omniroute
+  # `hermes` e' uscito il 2026-08-03 con la tappa 4 del passaggio del
+  # testimone: host NPM e applicazione Authentik rimossi. Un certificato che
+  # continua a coprire un nome che non risponde piu' e' solo un nome in piu'
+  # da spiegare a chi legge il SAN fra un anno.
   momo
 )
 
