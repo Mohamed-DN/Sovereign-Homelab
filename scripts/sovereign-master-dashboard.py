@@ -2412,8 +2412,17 @@ footer a:hover{text-decoration:underline}
 </div>
 <!-- IL MARCHIO DI MOMO. Testa meccanica a tratto, sul modello dell'immagine
      passata da Mohamed il 2026-08-03: orologio da una parte, diaframma
-     fotografico dall'altra, manometro al centro, bocca che e' un
-     elettrocardiogramma, auricolare col cavo a spirale.
+     fotografico dall'altra, manometro al centro, e una bocca che e' un
+     elettrocardiogramma.
+
+     Tre correzioni chieste da lui dopo averlo visto in pagina:
+       * la testa e' TONDA (prima era un ovale a mandorla, piu' cupo);
+       * il battito SORRIDE -- la linea di base non e' piatta ma curva verso
+         l'alto alle estremita', cosi' il tracciato legge come un sorriso pur
+         restando un elettrocardiogramma vero, con le sue punte;
+       * via il cavo a spirale a sinistra. L'auricolare resta, spostato a
+         cavallo del bordo: su una testa tonda un padiglione al centro della
+         guancia sembrava un errore, sul bordo sembra un orecchio.
 
      DUE VERSIONI, e non e' una svista. L'originale vive a 2000 pixel; qui
      l'icona sta a 18px sui pulsanti, dove un tratto da 1px si impasta.
@@ -2432,20 +2441,22 @@ footer a:hover{text-decoration:underline}
      disegno chiede da solo -- l'obiettivo cyan e il tracciato verde vitale,
      che sono gia' due colori di questa dashboard.
 
-     TRE SCELTE rispetto all'originale: niente numeri 12/9/3 sul quadrante
-     (a 44px diventano tre grumi), meno tracce di circuito, e il tratto piu'
-     spesso -- l'originale puo' permettersi un capello, qui no. -->
+     NOTA DI GEOMETRIA: la testa e' un cerchio di raggio 26,5 centrato in
+     (32; 31,5). Ogni pezzo aggiunto va tenuto DENTRO quel raggio -- con la
+     testa a mandorla di prima gli angoli in alto erano vuoti e ci stava
+     tutto; su un cerchio no. Le tracce di circuito e le viti sono state
+     rientrate proprio per questo. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
  <symbol id="momo-marchio" viewBox="0 0 64 64">
   <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-   <path class="piastre" stroke="#d8b45a" d="M32 4C20 4 11 13 10 25c-.6 7 .5 14 3 20 2.5 6 7 11 13 13.2 4 1.5 10 1.5 14.5-.2 5.5-2 10-6.5 12.3-12.5 2.2-6 2.8-13.5 2.2-20C54 13.5 44 4 32 4Z"/>
-   <path class="ombra" fill="#d8b45a" stroke="none" opacity=".16" d="M51.6 33.5c1 6-.5 12.2-4 16.3 1.9-5.6 2.9-10.7 2.9-16.3Z"/>
-   <path class="cuciture" stroke="#9c7f3c" d="M12 22l10-4 8 2M34 11l10-2M15 44l6-2M48 42l5-2"/>
-   <path class="circuiti" stroke="#b9975a" d="M30 9.5v3.5h5M38.5 7.5H43v4M18.5 17l4.5-1.5M46 15h3.5v3"/>
+   <path class="piastre" stroke="#d8b45a" d="M32 5C17.2 5 5.5 16.7 5.5 31.5S17.2 58 32 58s26.5-11.7 26.5-26.5S46.8 5 32 5Z"/>
+   <path class="ombra" fill="#d8b45a" stroke="none" opacity=".16" d="M52 34c.6 6-1 12-4.6 16.2 2.2-5.6 3.4-10.6 3.6-16.2Z"/>
+   <path class="cuciture" stroke="#9c7f3c" d="M11.5 23l10.5-4.5 8 2M34 12l9.5-1.5M13.5 42l6.5-2M47.5 41.5l5-2"/>
+   <path class="circuiti" stroke="#b9975a" d="M30 11.5v3.5h5M38 10h4v4M19.5 18.5l4.5-1.5M45 16.5h3.5v3"/>
    <g class="ingranaggio" stroke="#b9975a">
-    <animateTransform attributeName="transform" type="rotate" from="0 23.5 11.5" to="360 23.5 11.5" dur="14s" repeatCount="indefinite"/>
-    <circle cx="23.5" cy="11.5" r="2.4"/>
-    <path d="M25.9 11.5h1M25.2 13.2l.7.7M23.5 13.9v1M21.8 13.2l-.7.7M21.1 11.5h-1M21.8 9.8l-.7-.7M23.5 9.1v-1M25.2 9.8l.7-.7"/>
+    <animateTransform attributeName="transform" type="rotate" from="0 24 13" to="360 24 13" dur="14s" repeatCount="indefinite"/>
+    <circle cx="24" cy="13" r="2.4"/>
+    <path d="M26.4 13h1M25.7 14.7l.7.7M24 15.4v1M22.3 14.7l-.7.7M21.6 13h-1M22.3 11.3l-.7-.7M24 10.6v-1M25.7 11.3l.7-.7"/>
    </g>
    <g class="quadrante" stroke="#e8d48a">
     <circle cx="24" cy="27" r="7.4"/><circle cx="24" cy="27" r="6.2" opacity=".5"/>
@@ -2467,49 +2478,47 @@ footer a:hover{text-decoration:underline}
     <path d="M46.8 25.5 45.15 28.36 41.85 28.36 40.2 25.5 41.85 22.64 45.15 22.64Z"/>
     <path d="M46.8 25.5 47.83 28M45.15 28.36 43.5 30.5M41.85 28.36 39.17 28M40.2 25.5 39.17 23M41.85 22.64 43.5 20.5M45.15 22.64 47.83 23"/>
    </g>
-   <path class="cuciture" stroke="#9c7f3c" d="M51.5 20.5h2.2M52 25.5h1.8"/>
+   <path class="cuciture" stroke="#9c7f3c" d="M50.8 20.5h2M51.2 25.5h1.6"/>
    <g class="manometro" stroke="#d8b45a">
-    <circle cx="34" cy="39.5" r="4.8"/>
-    <path d="M31 36.5l.8.8M34 35.4v1.1M37 36.5l-.8.8" opacity=".8"/>
+    <circle cx="34" cy="38.5" r="4.6"/>
+    <path d="M31.1 35.6l.8.8M34 34.5v1.1M36.9 35.6l-.8.8" opacity=".8"/>
    </g>
-   <g class="ago" stroke="#f0d264" transform="translate(34 39.5)">
+   <g class="ago" stroke="#f0d264" transform="translate(34 38.5)">
     <animateTransform attributeName="transform" type="rotate" additive="sum" values="-32;24;-14;30;-32" keyTimes="0;.3;.55;.8;1" dur="9s" repeatCount="indefinite"/>
-    <path d="M0 0 2.4 2.6"/></g>
-   <path class="tubi" stroke="#b9975a" d="M30 33c1.5 2 2.5 3.5 3 4.5M38.5 32c-1 2.5-2 4-3 5.2"/>
-   <rect class="ecg-cornice" x="21" y="46" width="23" height="9.5" rx="1.4" stroke="#b9975a"/>
-   <path class="ecg-griglia" stroke="#6b5a2e" d="M27 46v9.5M33 46v9.5M39 46v9.5M21 50.8h23" opacity=".55"/>
+    <path d="M0 0 2.3 2.5"/></g>
+   <path class="tubi" stroke="#b9975a" d="M30 33c1.4 1.8 2.3 3.2 2.8 4.1M38.2 32c-.9 2.3-1.8 3.7-2.7 4.8"/>
+   <rect class="ecg-cornice" x="20" y="42.5" width="24" height="10" rx="1.6" stroke="#b9975a"/>
+   <path class="ecg-griglia" stroke="#6b5a2e" d="M26 42.5v10M32 42.5v10M38 42.5v10M20 47.5h24" opacity=".5"/>
    <path class="ecg-traccia" stroke="#2dd4a7" stroke-width="1.6"
-    d="M22.5 51H26l1.4-3.4 2 6.8 1.8-5 1.6 1.6H36l1.4-2.6 1.6 4.8 1.6-2.2H43"
-    stroke-dasharray="46" stroke-dashoffset="46">
-    <animate attributeName="stroke-dashoffset" values="46;0;0;-46" keyTimes="0;.45;.6;1" dur="4.5s" repeatCount="indefinite"/></path>
+    d="M22 45.8q2.2 1.3 4 1.8l1.4-2.7 2 6.9 1.8-4.8 1.6 1.6q1.7-.1 3.2-.7l1.4-2.7 1.6 4.3 1.6-3.3q.9-.3 1.6-.7"
+    stroke-dasharray="48" stroke-dashoffset="48">
+    <animate attributeName="stroke-dashoffset" values="48;0;0;-48" keyTimes="0;.45;.6;1" dur="4.5s" repeatCount="indefinite"/></path>
    <g class="auricolare" stroke="#a8873f">
-    <ellipse cx="11.5" cy="33" rx="4.2" ry="6.4" transform="rotate(-18 11.5 33)"/>
-    <rect x="9.6" y="30.4" width="3.2" height="5.2" rx="1" transform="rotate(-18 11.5 33)" opacity=".8"/>
-    <path d="M7.4 26.6l2 .6M6.6 30.4l2 .5"/>
-    <path d="M10.5 39.5c-3.7 1.1-4.3 4.1-.9 4.9-3.4 1.1-4 4.1-.6 4.9-3.4 1.1-4 4.1-.6 4.9-2.4 1-3.8 3.4-2.4 4.8"/>
+    <ellipse cx="7.6" cy="32" rx="3.6" ry="6.2" transform="rotate(-14 7.6 32)"/>
+    <rect x="6.1" y="29.6" width="2.8" height="4.8" rx=".9" transform="rotate(-14 7.6 32)" opacity=".8"/>
    </g>
   </g>
   <g stroke="none">
-   <circle class="circuiti-nodi" cx="35" cy="13" r="1" fill="#b9975a"/>
-   <circle class="circuiti-nodi" cx="43" cy="11.5" r="1" fill="#b9975a"/>
-   <circle class="circuiti-nodi" cx="23" cy="15.5" r=".9" fill="#b9975a"/>
+   <circle class="circuiti-nodi" cx="35" cy="15" r="1" fill="#b9975a"/>
+   <circle class="circuiti-nodi" cx="42" cy="14" r="1" fill="#b9975a"/>
+   <circle class="circuiti-nodi" cx="24" cy="17" r=".9" fill="#b9975a"/>
    <circle class="perno" cx="24" cy="27" r=".9" fill="#f7e9b8"/>
    <circle class="pupilla" cx="43.5" cy="25.5" r="1.5" fill="#0b1015"/>
    <circle class="pupilla-luce" cx="43.5" cy="25.5" r="2.4" fill="none" stroke="#7fe3f0" stroke-width=".7" opacity=".9">
     <animate attributeName="opacity" values=".25;.95;.25" dur="3.2s" repeatCount="indefinite"/></circle>
-   <circle class="viti" cx="54.6" cy="20.5" r="1.4" fill="#c9a227"/>
-   <circle class="viti" cx="54.2" cy="25.5" r="1.1" fill="#c9a227"/>
-   <circle class="perno" cx="34" cy="39.5" r=".7" fill="#f0d264"/>
-   <circle class="viti" cx="33" cy="37.6" r=".8" fill="#b9975a"/>
-   <circle class="viti" cx="35.2" cy="37.4" r=".8" fill="#b9975a"/>
+   <circle class="viti" cx="51.6" cy="19.6" r="1.3" fill="#c9a227"/>
+   <circle class="viti" cx="52" cy="24.6" r="1" fill="#c9a227"/>
+   <circle class="perno" cx="34" cy="38.5" r=".7" fill="#f0d264"/>
+   <circle class="viti" cx="32.8" cy="36.7" r=".8" fill="#b9975a"/>
+   <circle class="viti" cx="35.2" cy="36.5" r=".8" fill="#b9975a"/>
   </g>
  </symbol>
  <symbol id="momo-mini" viewBox="0 0 64 64">
   <g fill="none" stroke="#d8b45a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
-   <path d="M32 4C20 4 11 13 10 25c-.6 7 .5 14 3 20 2.5 6 7 11 13 13.2 4 1.5 10 1.5 14.5-.2 5.5-2 10-6.5 12.3-12.5 2.2-6 2.8-13.5 2.2-20C54 13.5 44 4 32 4Z"/>
+   <circle cx="32" cy="31.5" r="26.5"/>
    <circle cx="24" cy="27" r="7"/>
    <circle cx="43.5" cy="25.5" r="7" stroke="#43b4c4"/>
-   <path d="M23 51h4l2-5 2.6 9 2.4-7 2 3h4" stroke="#2dd4a7"/>
+   <path d="M21 46q3 2.2 5.5 2.6l2-5 2.6 9 2.4-7 2 3q2.6-.3 4.5-2.6" stroke="#2dd4a7"/>
   </g>
   <circle cx="43.5" cy="25.5" r="2.8" fill="#43b4c4"/>
   <path d="M24 27 24 21.4" fill="none" stroke="#f7e9b8" stroke-width="3" stroke-linecap="round"/>
