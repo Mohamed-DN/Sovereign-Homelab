@@ -122,12 +122,31 @@ If you do not use RustDesk web clients, keep `21118` and `21119` closed.
 
 ## Client Configuration
 
-In each RustDesk client:
+> **Corretto il 2026-08-03.** Questa sezione diceva di puntare i client a
+> `rustdesk.internal`, e **non poteva funzionare**: quel nome cadeva nella
+> riscrittura generale `*.internal → 192.168.1.50`, cioè su NPM. Ma RustDesk
+> non parla HTTP — usa TCP/UDP grezzi sulle 21115-21119, che un proxy HTTP non
+> inoltra. Verificato: la 21116 su `.50` è **muta**, su `.52` risponde.
+> Aggiunta in AdGuard una riscrittura specifica `rustdesk.internal →
+> 192.168.1.52`, come già esisteva per `ca.internal`. Chi aveva seguito il
+> runbook prima di oggi aveva un client che non si registrava mai, senza un
+> errore che spiegasse perché.
 
-1. Open the client settings.
-2. Set the ID server to `rustdesk.internal`.
-3. Set the relay server to `rustdesk.internal`.
-4. Save.
+In ogni client RustDesk (Windows, macOS, iOS, Android):
+
+1. Impostazioni → Rete → **ID/Relay server**.
+2. **ID server**: `rustdesk.internal` (oppure `192.168.1.52`, che funziona
+   anche se il DNS di casa non è in uso).
+3. **Relay server**: lo stesso.
+4. **Key**: la chiave pubblica del server. Si legge sul server, non è scritta
+   qui perché questo file sta su GitHub:
+   `pct exec 102 -- docker exec rustdesk-hbbs cat /root/id_ed25519.pub`
+5. Salvare. Il client mostra un ID a 9-10 cifre quando si è registrato.
+
+**Serve essere in casa o in VPN.** Le porte di RustDesk non sono esposte su
+internet, per scelta: da fuori ci si arriva dopo essersi collegati al tailnet
+Headscale, esattamente come per ogni altro servizio.
+
 5. Test from one LAN device and one VPN device.
 
 Acceptance test:
