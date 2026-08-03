@@ -50,6 +50,66 @@ flowchart LR
     AGH -->|.internal rewrite| NPM --> Apps
 ```
 
+### The household assistant, and what a spoken message goes through
+
+Momo is the one service that both **reads** the estate and can **act** on it,
+so its data flow is a trust question, not a feature list. Two rules govern it,
+and everything below follows from them:
+
+- **the tools are gated on the ENGINE, not on the question** — a household
+  engine is offered 20 tools, an external one exactly 1 (the web);
+- **the house always has an engine** — the T600 in LXC 102 means the owner's
+  PC being off degrades the answer, never removes it.
+
+```mermaid
+flowchart LR
+    Voice["Voice message\nTelegram"]
+    Text["Typed message\nTelegram or momo.internal"]
+    STT["faster-whisper medium\nlocal on LXC 102\nVAD on, language auto"]
+    Lang["sovereign_lang\nscript first,\nthen function words"]
+    Engine["The chosen engine\n/motore n"]
+    Reply["Reply text"]
+    TTS["Piper\nlocal, on CPU"]
+    Mem["Automatic memory\nbackground worker"]
+
+    Voice --> STT --> Lang
+    Text --> Lang
+    Lang -->|states the language as a FACT| Engine
+    Engine --> Reply
+    Reply --> TTS
+    Reply -.->|off the answer path| Mem
+```
+
+Four things this drawing is meant to settle:
+
+1. **The model never receives audio.** By the time it answers, a voice message
+   is already a transcript — which is why the language layer works on text and
+   there is no separate branch for audio that could drift from the typed one.
+2. **The language is established, not guessed.** A transcript of Arabic can
+   come back mangled: measured on a real message, `faster-whisper` returned
+   `مرحباً أستزموا مجايفة حالك`. A model reading that has to guess; the layer
+   decides by script first — Arabic is certain even on a garbled transcript —
+   then by function words, never by content words, because *backup*,
+   *container* and *Proxmox* are the same word in Italian and English.
+3. **Transcription is local, and the model size was a decision.** `medium`,
+   not `small`: on real Italian and Arabic messages `small` invented Spanish
+   and Portuguese.
+4. **The memory writes on a background worker**, off the answer path — their
+   dispatcher, not a thread of ours. A memory that costs the person a wait
+   would be paid for on every single turn.
+
+**Known gap, stated rather than hidden.** Three Piper voices are installed —
+`it_IT-paola`, `en_US-amy`, `ar_JO-kareem` — but `tts.piper.voice` takes **one
+name**, and upstream has no per-language selection: `config_defaults.py`
+carries a single `voice` string and `_generate_piper_tts()` reads it from the
+config dict at synthesis time. So a reply *written* in Arabic is *spoken* by
+the Italian voice. Every piece the fix needs is already there — the language is
+known before the answer, `synthesize()` already accepts a per-call `voice`, and
+voice models are cached per path so switching costs nothing after the first
+load — but there is **no plugin hook at synthesis time**, so it needs a
+declared divergence in their code or a wrapper around the TTS call. Not done,
+and not pretended.
+
 ### Public VPN enrollment
 
 ```text
@@ -95,9 +155,9 @@ flowchart LR
     Kuma --> Status[Private status page]
     Kuma --> Homepage[Homepage presentation]
     Beszel --> Homepage
-    NetAlertX --> Homepage
-    Scrutiny --> Homepage
-    ntfy --> Homepage
+    NetAlertX[NetAlertX device watch] --> Homepage
+    Scrutiny[Scrutiny SMART health] --> Homepage
+    ntfy[ntfy push notifications] --> Homepage
 ```
 
 Homepage is a presentation layer, not the monitoring authority. Uptime Kuma owns availability state. Beszel owns host metrics. Scrutiny owns SMART state. A broken dashboard must not suppress alerts.

@@ -152,7 +152,10 @@ so the tools are gated on it.
 ```mermaid
 flowchart TD
     Owner["Owner\nTelegram, or momo.internal"]
+    STT["faster-whisper medium\nlocal — a voice message\nbecomes text before anything else"]
+    Lang["Language layer\nscript first, then function words\nit · en · ar"]
     Gateway["Momo\nLXC 102 · hermes-agent\ngateway + web panel"]
+    TTS["Piper — speaks the reply\nlocal, on CPU"]
 
     subgraph Engines["Eight engines, one command away — /motore n"]
       PCG["Owner's PC · RTX 5070 Ti\ngpt-oss:20b · qwen3.5:9b\nIN THE HOUSE"]
@@ -170,7 +173,10 @@ flowchart TD
     Vault["Obsidian vault\nsearch by meaning"]
     Search["SearXNG\nweb search that stays home"]
 
-    Owner --> Gateway
+    Owner -->|"voice"| STT --> Lang
+    Owner -->|"typed"| Lang
+    Lang --> Gateway
+    Gateway --> TTS --> Owner
     Gateway -->|"first choice"| PCG
     Gateway -->|"fallback when the PC is off"| SRV
     Gateway -.->|"only if nobody at home answers"| OUT
@@ -198,6 +204,14 @@ Four rules the drawing is meant to make obvious:
 4. **Memory is one store, shared.** Momo and the retiring Hermes read and
    write the same Postgres/Qdrant/Valkey. A second copy would drift, and the
    drift would stay invisible until one of them lost something.
+5. **Speaking and listening both stay home.** `faster-whisper medium`
+   transcribes, Piper speaks, both on LXC 102 — no audio leaves the house.
+   The model never receives audio: by the time it answers, a voice message is
+   already text, which is why one language layer serves both the spoken and
+   the typed path. **Open gap**: three voices are installed (Italian, English,
+   Arabic) but upstream pins **one** at a time, so a reply written in Arabic is
+   still spoken in Italian — the reason, and everything the fix needs, is in
+   [Architecture and Data Flows](docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md).
 
 Runbooks: [momo-telegram.md](docs/04_apps/momo-telegram.md) ·
 [momo-pannello.md](docs/04_apps/momo-pannello.md) ·
