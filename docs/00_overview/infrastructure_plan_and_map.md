@@ -11,12 +11,86 @@ The important design split is:
 ## 1. Network Flow
 
 ```mermaid
-flowchart TD<br/>    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]<br/>    LAN["LAN clients"]<br/>    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]<br/>    RouterNAT["Home router/NAT\nTCP 443 to NPM"]<br/>    HS["Headscale\nidentity, keys, routes, DNS settings"]<br/>    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]<br/>    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]<br/>    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]<br/>    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]<br/>    Platform["Platform services\nAuthentik, Homepage, Kuma, Beszel, Dozzle"]<br/>    CA["Internal CA\nSmallstep step-ca\nca.internal"]<br/>    Trust["Client trust portal\ntrust.internal\nbootstrap on LXC101:8095"]<br/>    Apps["Internal apps\n*.internal"]<br/>    Internet(("Internet"))<br/><br/>    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS<br/>    Remote -->|DNS to 192.168.1.50| Subnet --> AGH<br/>    Remote -->|LAN access 192.168.1.0/24| Subnet<br/>    Remote -->|optional default route| Exit --> Internet<br/><br/>    LAN -->|DNS| AGH<br/>    AGH -->|filtered upstream DNS| Internet<br/>    AGH -->|.internal to NPM IP| NPM<br/>    NPM --> Platform<br/>    LAN -->|CA API| CA<br/>    Remote -->|CA API after VPN| CA<br/>    LAN -->|untrusted HTTP bootstrap| Trust<br/>    Remote -->|untrusted HTTP bootstrap after VPN| Trust<br/>    NPM --> Trust<br/>    NPM --> Apps<br/>```
+flowchart TD
+    Remote["Remote clients<br/>phone/laptop on 4G or travel Wi-Fi"]
+    LAN["LAN clients"]
+    PublicVPN["vpn.yourdomain.duckdns.org<br/>public Headscale control plane"]
+    RouterNAT["Home router/NAT<br/>TCP 443 to NPM"]
+    HS["Headscale<br/>identity, keys, routes, DNS settings"]
+    Subnet["LXC 100 subnet router<br/>serves 192.168.1.0/24"]
+    Exit["Selected exit node<br/>Proxmox or future router<br/>0.0.0.0/0"]
+    AGH["AdGuard Home<br/>192.168.1.50<br/>DNS filtering + .internal rewrites"]
+    NPM["Nginx Proxy Manager<br/>HTTP/HTTPS aliases"]
+    Platform["Platform services<br/>Authentik, Homepage, Kuma, Beszel, Dozzle"]
+    CA["Internal CA<br/>Smallstep step-ca<br/>ca.internal"]
+    Trust["Client trust portal<br/>trust.internal<br/>bootstrap on LXC101:8095"]
+    Apps["Internal apps<br/>*.internal"]
+    Internet(("Internet"))
+
+    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
+    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
+    Remote -->|LAN access 192.168.1.0/24| Subnet
+    Remote -->|optional default route| Exit --> Internet
+
+    LAN -->|DNS| AGH
+    AGH -->|filtered upstream DNS| Internet
+    AGH -->|.internal to NPM IP| NPM
+    NPM --> Platform
+    LAN -->|CA API| CA
+    Remote -->|CA API after VPN| CA
+    LAN -->|untrusted HTTP bootstrap| Trust
+    Remote -->|untrusted HTTP bootstrap after VPN| Trust
+    NPM --> Trust
+    NPM --> Apps
+```
 
 ## 2. Physical Architecture
 
 ```mermaid
-mindmap<br/>  root((Proxmox P710))<br/>    Host Layer<br/>      Tailscale client<br/>      Exit Node<br/>      Optional backup subnet route<br/>    LXC 100: Core Network<br/>      AdGuard Home<br/>      Nginx Proxy Manager<br/>      Headscale<br/>      Headscale-UI<br/>      Tailscale Subnet Router<br/>    LXC 101: Services and Apps<br/>      Authentik<br/>      Homepage.dev<br/>      Uptime Kuma<br/>      Beszel<br/>      Dozzle<br/>      Smallstep CA<br/>      Client Trust Portal<br/>    LXC 103: Operations Extensions<br/>      NetAlertX<br/>      Scrutiny<br/>      ntfy<br/>    LXC 102: Apps Light<br/>      Vaultwarden<br/>      Syncthing<br/>      Paperless<br/>      FreshRSS<br/>      Forgejo<br/>      RustDesk<br/>    Security Layer<br/>      CrowdSec<br/>      Wazuh optional<br/>    Virtual Machines<br/>      Proxmox Backup Server<br/>      Immich<br/>      Nextcloud AIO<br/>      Home Assistant<br/>      Jellyfin<br/>    HA Reserve<br/>      Secondary AdGuard<br/>      Keepalived VIP<br/>```
+mindmap
+  root((Proxmox P710))
+    Host Layer
+      Tailscale client
+      Exit Node
+      Optional backup subnet route
+    LXC 100: Core Network
+      AdGuard Home
+      Nginx Proxy Manager
+      Headscale
+      Headscale-UI
+      Tailscale Subnet Router
+    LXC 101: Services and Apps
+      Authentik
+      Homepage.dev
+      Uptime Kuma
+      Beszel
+      Dozzle
+      Smallstep CA
+      Client Trust Portal
+    LXC 103: Operations Extensions
+      NetAlertX
+      Scrutiny
+      ntfy
+    LXC 102: Apps Light
+      Vaultwarden
+      Syncthing
+      Paperless
+      FreshRSS
+      Forgejo
+      RustDesk
+    Security Layer
+      CrowdSec
+      Wazuh optional
+    Virtual Machines
+      Proxmox Backup Server
+      Immich
+      Nextcloud AIO
+      Home Assistant
+      Jellyfin
+    HA Reserve
+      Secondary AdGuard
+      Keepalived VIP
+```
 
 ## Action Plan
 
