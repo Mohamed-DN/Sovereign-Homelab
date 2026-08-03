@@ -2458,6 +2458,32 @@ const ICON_OVERRIDE={paperless:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cD
     login redirect instead of a clean 404 -- skip straight to the CDN
     brand icon. */
  obsidian:ICON_CDN_BASE+'obsidian.svg'};
+/* La tessera di Momo mostrava il logo di NOUS RESEARCH, segnalato da Mohamed
+   il 2026-08-03. Non era un residuo dimenticato: la tessera prova per prima
+   `href + /favicon.ico`, e momo.internal e' servito da hermes-agent, che
+   risponde col PROPRIO favicon. Rinominare le nostre cose non poteva bastare
+   -- quell'icona non e' nostra, arriva dal loro pannello.
+   L'icona si RICAVA dal <symbol> gia' nella pagina invece di incollarne una
+   seconda copia in base64: una copia sarebbe un secondo volto di Momo da
+   tenere allineato a mano, e prima o poi i due divergono. */
+function momoDataURI(){
+ const sim=document.getElementById('momo-faccia');
+ if(!sim||!sim.parentNode)return'';
+ /* I gradienti stanno nel <defs> ACCANTO al simbolo, non dentro: senza di
+    loro l'icona uscirebbe nera. Si porta via tutto il <defs>. */
+ const dentro=new XMLSerializer().serializeToString(sim.parentNode)
+   .replace(/<animateTransform[\s\S]*?\/>/gi,'');  /* niente occhi che sbattono su una tessera */
+ const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
+   +dentro+'<use href="#momo-faccia"/></svg>';
+ try{return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(s)));}
+ catch(e){return'';}
+}
+/* Si assegna qui e non piu' avanti: questo script e' in linea e il <symbol>
+   sta SOPRA di esso nel documento, quindi a questo punto e' gia' nel DOM.
+   Se un giorno non lo fosse, momoDataURI() torna '' e la tessera ricade sul
+   favicon di prima invece di mostrare un'immagine rotta. */
+const _momoIco=momoDataURI();
+if(_momoIco)ICON_OVERRIDE.momo=_momoIco;
 /* ---------- guide operative, per slug ----------
    Istruzioni che servono col telefono in mano: stanno qui, non solo sul repo.
    Mai mettere password qui dentro: si dice DOVE prenderle. */
