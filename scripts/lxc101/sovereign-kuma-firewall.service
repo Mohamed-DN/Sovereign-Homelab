@@ -1,0 +1,21 @@
+[Unit]
+Description=Restringe la porta 3001 di Uptime Kuma a NPM, all'host e alle reti Docker
+Documentation=file:/opt/sovereign-kuma-firewall.sh
+# Deve girare DOPO docker: la catena DOCKER-USER esiste solo quando il demone
+# l'ha creata, e docker la svuota quando parte. Un'unita' che gira prima
+# fallisce in silenzio e lascia la porta aperta credendo di averla chiusa.
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+User=root
+Group=root
+ExecStart=/opt/sovereign-kuma-firewall.sh
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

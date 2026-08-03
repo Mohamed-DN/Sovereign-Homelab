@@ -96,6 +96,42 @@
 
 ---
 
+## 2-bis. COSA MANCA — un elenco solo, in ordine di quanto conta
+
+> Aggiunto il **2026-08-03** su richiesta del proprietario: «organizzalo per
+> bene, elencami le cose che mancano». Le fasi qui sotto (§3) restano perché
+> raccontano *come* si è arrivati fin qui; questa tabella risponde all'unica
+> domanda che serve aprendo il file: **cosa resta da fare, e da dove comincio.**
+>
+> L'ordine non è per difficoltà ma per **cosa costa non averlo**.
+
+| # | Cosa manca | Perché sta qui | Dove |
+|---:|---|---|---|
+| 1 | **Il PC spento degrada Momo per 15-20 s al primo messaggio** | il ripiego ora è corretto (`qwen2.5:3b`, che entra tutto in GPU) ma scatta solo dopo aver esaurito i tentativi sul PC. Misurato: 3,1 s per tentativo | §5 |
+| 2 | **Una risposta in arabo viene letta dalla voce italiana** | le tre voci sono installate, ma `tts.piper.voice` accetta **un** nome e a monte non c'è scelta per lingua. Serve una divergenza dichiarata | [architettura](ARCHITECTURE_AND_DATA_FLOWS.md) |
+| 3 | **Momo non sa cercare dentro Nextcloud** | fra `vault_search` e `web_search` non c'è niente, e lì stanno i file pesanti | [punto 18-bis](PIANO_GENERALE.md) |
+| 4 | **Tappa 5 del testimone**: fermare `sovereign-hermes` | il nome è uscito il 2026-08-03; resta il processo. Ha una condizione: giorni di pannello usato davvero | [testimone](PIANO_TESTIMONE_HERMES_MOMO.md) |
+| 5 | **Perché Nextcloud cade** | escluso quasi tutto; il registratore è installato e aspetta il prossimo episodio | [nextcloud](../04_apps/nextcloud.md) §7.1 |
+| 6 | **Armare MASTER da Telegram** | tecnicamente banale (il file di stato è condiviso). È una **decisione di sicurezza**, non di comodità: serve la sua parola | §3 fase 6 |
+| 7 | **`db_query` in sola lettura** + Oracle thin | il proprietario è DBA e non può interrogare i propri database da Momo | §3 fase 7 |
+| 8 | **Controlli programmati** | domanda + orario + dove riferire. Un controllo **riferisce**, non aggiusta | §3 fase 7 |
+| 9 | **Google Calendar** | gli appuntamenti stanno solo nell'agenda interna. Serve OAuth | §3 fase 3 |
+| 10 | **Mostrare il ragionamento** | il campo `thinking` arriva già, viene scartato | §3 fase 4 |
+| 11 | **Clonazione voce** (XTTS-v2) | il copione in tre lingue è pronto: **servono le sue registrazioni** | §6 |
+| 12 | **`agent-reach`** | YouTube, Reddit, X, GitHub, RSS dove SearXNG non arriva | [punto 19](PIANO_GENERALE.md) |
+| 13 | **Langfuse** | vedere cosa fa davvero un turno, invece di dedurlo dai log | [punto 5](PIANO_GENERALE.md) |
+| 14 | **`sovereign-service.py new/drop`** | aggiungere un servizio è ancora una procedura a mano di dodici passi | [punti 6-7](PIANO_GENERALE.md) |
+| 15 | **SSO su Proxmox e PBS** | sono gli unici due amministrativi ancora fuori da Authentik | [ROADMAP](ROADMAP.md) §1 |
+| 16 | **Healthcheck CouchDB rotto** | sonda senza credenziali → `401` a ogni giro: un allarme sempre acceso maschera il prossimo vero | §3 fase 9 |
+| 17 | **Account orfano Immich**, **Forgejo `ACCOUNT_LINKING=auto`** | due residui di identità, stessa classe di rischio dell'incidente Jellyfin | §4 |
+| 18 | **Ente Photos** per la sorella | l'unica risposta vera a «non voglio che l'admin veda le mie foto» | [privacy](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) §4 |
+
+**Aspettano una decisione sua, non un lavoro mio**: Ceph acceso a vuoto
+sull'host, i plugin di Time Garden che restano sul solo PC, e le voci 6, 11 e
+18 qui sopra.
+
+---
+
 ## 3. DA FARE — l'elenco completo, niente escluso
 
 ### Fase 1 — Memoria e database ✅ FATTA
@@ -223,8 +259,9 @@
 | Cosa | Nota | Stato |
 |---|---|---|
 | **Nextcloud 502 intermittente** | diagnosticato: il backend rifiuta le connessioni ~1 volta su 4, ogni ~5 minuti. Backend sano 20/20 se interrogato diretto. **Serve accesso SSH alla VM 120**, oggi non autorizzato | bloccato |
-| **Monitor Kuma per Hermes** | da creare a mano: Kuma non ha API REST e su LXC 101 manca l'uscita internet per `python-socketio`. HTTP su `https://hermes.internal/health`, 60s | da fare |
-| **Tolleranza monitor Nextcloud** | alzare i tentativi così un singolo 502 non colora tutto di rosso | da fare |
+| ~~Monitor Kuma per Hermes~~ → **per Momo** | ✅ **fatto 2026-08-03**, id 49, `https://momo.internal/`, 60s, 2 tentativi. Batte 200 OK. Il vecchio blocco («niente API REST, e su LXC 101 manca l'uscita internet») è **caduto**: l'uscita c'è, e il client 1.x non serve — Kuma 2.4 ha riscritto l'API ma gli **eventi** sono gli stessi, letti nel loro `server.js` e provati sul vivo. Strumento riusabile: `scripts/sovereign-kuma-monitor.py` | ✅ |
+| **Kuma era raggiungibile senza login da tutta la LAN** | scoperto il 2026-08-03 mentre creavo il monitor. `disableAuth = true` (l'autenticazione è delegata ad Authentik davanti a `status.internal`) **ma Docker pubblica la 3001 su 0.0.0.0**, e quel percorso non passa da NPM: collegandosi col socket nudo arrivavano `monitorList`, `apiKeyList` e `certInfo` **senza fare login**. È il terzo caso dello stesso schema in questa casa (Ollama sul PC, OmniRoute su LXC 102). Chiuso con `sovereign-kuma-firewall.sh` + unit, sullo stesso modello di OmniRoute | ✅ |
+| ~~Tolleranza monitor Nextcloud~~ | **da NON fare, e la ragione conta.** Misurato il 2026-08-03: il monitor ha già `maxretries=3` a 60s, quindi un singolo 502 dà giallo, non rosso. Diventa rosso perché gli episodi durano **4-8 minuti veri**. Alzare i tentativi non toglierebbe un falso allarme: nasconderebbe un guasto vero. La strada giusta è il registratore già installato sulla VM 120 | ✅ chiusa con una decisione |
 | **Ente Photos** per la sorella | l'unica risposta tecnica vera a «non voglio che l'admin veda le mie foto»: cifratura end-to-end | [privacy](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) §4 |
 | **Account orfano Immich** `luna222@gmail.com` | 0 foto, l'utente Authentik non esiste più | da pulire |
 | **Forgejo `ACCOUNT_LINKING = auto`** | unisce gli account per email: stessa classe di rischio dell'incidente Jellyfin | da valutare |
