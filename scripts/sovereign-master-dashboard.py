@@ -1898,17 +1898,41 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 .note{color:var(--muted);font-size:.77rem;margin:6px 0 14px}
 /* Assistant: a faceless animated orb that speaks tips (toggle-able) */
 #asst{position:fixed;right:20px;bottom:20px;z-index:55;display:flex;align-items:flex-end;gap:12px;flex-direction:row-reverse}
+/* Il fondo dell'orb era una palla d'ORO. Con il marchio nuovo -- che e'
+   ottone su tratto -- ottone su oro non si legge: due gialli vicini a bassa
+   distanza di luminosita'. Quindi il fondo diventa scuro e l'oro resta dove
+   serve, cioe' sull'anello e nell'alone. Il marchio ci guadagna il contrasto
+   che il disegno originale aveva col nero su carta chiara, ribaltato. */
 #orb{width:58px;height:58px;border-radius:50%;cursor:pointer;flex:0 0 auto;position:relative;border:none;
- background:radial-gradient(circle at 32% 28%, #fbf1c7, #e8d48a 34%, #c9a227 62%, #8a7a5c 100%);box-shadow:0 0 0 1px #6d5a1e,0 10px 30px rgba(0,0,0,.45),0 0 26px rgba(201,162,39,.45)}
+ background:radial-gradient(circle at 34% 26%, #2b2418, #1a1610 45%, #0e0c09 100%);
+ box-shadow:0 0 0 1.5px #a8873f,0 10px 30px rgba(0,0,0,.5),0 0 26px rgba(201,162,39,.38);
+ transition:box-shadow .25s}
+#orb:hover{box-shadow:0 0 0 1.5px #f0d264,0 10px 30px rgba(0,0,0,.5),0 0 34px rgba(240,210,100,.55)}
 #orb::before,#orb::after{content:"";position:absolute;inset:0;border-radius:50%;border:2px solid #d7c07a;opacity:.45}
 #orb .wv{position:absolute;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);display:flex;gap:2.5px;align-items:center}
 #orb .wv i{width:3px;background:#04222e;border-radius:3px;opacity:.85}
-/* Il volto di Momo. Riempie quasi tutto l'orb: sotto i 30px un viso perde
-   prima gli occhi e poi ogni espressione, e resta una macchia scura.
-   I colori NON stanno qui ma dentro <symbol>: il contenuto di <use> vive in
-   uno shadow tree, dove "#orb .bot .qualcosa" non arriva mai. */
-#orb .bot{position:absolute;left:50%;top:50%;width:44px;height:44px;transform:translate(-50%,-50%);
- filter:drop-shadow(0 2px 3px rgba(0,0,0,.35))}
+/* Il marchio dentro l'orb. Qui il CSS ARRIVA a ogni pezzo, perche' il
+   disegno viene CLONATO nel documento invece di essere incluso con <use> --
+   vedi clonaMarchioNellOrb(). Queste regole vincono sugli attributi di
+   presentazione del simbolo: e' la normale precedenza del CSS, ed e'
+   esattamente il motivo per cui i colori stanno li' come attributi. */
+#orb .bot{position:absolute;left:50%;top:50%;width:46px;height:46px;transform:translate(-50%,-50%);
+ filter:drop-shadow(0 1px 2px rgba(0,0,0,.55));transition:transform .28s cubic-bezier(.22,1,.36,1)}
+#orb:hover .bot,#orb:focus-visible .bot{transform:translate(-50%,-50%) scale(1.07)}
+/* Al passaggio del dito l'ottone si scalda e l'obiettivo si accende. */
+#orb .bot .piastre,#orb .bot .quadrante,#orb .bot .lente,#orb .bot .iride{transition:stroke .22s}
+#orb:hover .bot .piastre{stroke:#f4dc93}
+#orb:hover .bot .lente{stroke:#f0d264}
+#orb:hover .bot .iride{stroke:#7fe3f0}
+/* Alla pressione l'obiettivo SCATTA come un otturatore, e tutto il marchio
+   rincula di un soffio. transform-box:fill-box e' obbligatorio: senza,
+   la scala prende origine dall'angolo del viewBox e il diaframma schizza
+   via invece di chiudersi su se stesso. */
+#orb .bot .iride,#orb .bot .pupilla-luce{transform-box:fill-box;transform-origin:center;
+ transition:transform .16s cubic-bezier(.34,1.56,.64,1)}
+#orb:active .bot{transform:translate(-50%,-50%) scale(.94)}
+#orb:active .bot .iride{transform:scale(.34)}
+#orb:active .bot .pupilla-luce{transform:scale(1.6)}
 .momoico{vertical-align:-3px;flex:0 0 auto}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
  padding:12px 14px;font-size:.83rem;line-height:1.5;box-shadow:var(--shadow);opacity:0;transform:translateY(10px) scale(.96);
@@ -2386,49 +2410,113 @@ footer a:hover{text-decoration:underline}
  <div class="mh"><span class="lic" id="m-ic"></span><b id="m-t"></b><button class="x" id="m-x">&times;</button></div>
  <div class="mb" id="m-b"></div>
 </div>
-<!-- Il volto di Momo, disegnato UNA volta sola e riusato con <use> ovunque
-     serva: l'orb, i pulsanti, la finestra della chat. Un solo disegno perche'
-     due copie della stessa faccia prima o poi divergono, e ci si accorge del
-     disallineamento solo guardando due schermate affiancate.
-     Chiesto da Mohamed il 2026-08-02: non la foto, ma un volto ISPIRATO a
-     quella -- occhi grandi e scuri, capelli neri, viso tondo -- disegnato
-     perche' sia bello e accogliente invece che inquietante.
-     I colori stanno DENTRO il simbolo, non nel CSS: il contenuto di <use>
-     vive in uno shadow tree, dove i selettori del documento non arrivano.
-     Percio' anche le palpebre battono in SMIL (<animateTransform>) e non in
-     CSS -- e chi ha chiesto meno animazioni se le vede togliere da JS. -->
+<!-- IL MARCHIO DI MOMO. Testa meccanica a tratto, sul modello dell'immagine
+     passata da Mohamed il 2026-08-03: orologio da una parte, diaframma
+     fotografico dall'altra, manometro al centro, bocca che e' un
+     elettrocardiogramma, auricolare col cavo a spirale.
+
+     DUE VERSIONI, e non e' una svista. L'originale vive a 2000 pixel; qui
+     l'icona sta a 18px sui pulsanti, dove un tratto da 1px si impasta.
+       #momo-marchio  il marchio pieno, leggibile da ~36px in su
+       #momo-mini     quattro forme sole, per 18-24px
+     E' la stessa ragione per cui i loghi veri hanno una favicon a parte.
+
+     I COLORI stanno come ATTRIBUTI di presentazione, non nel CSS. Cosi' le
+     copie fatte con <use> (pulsanti, tessere) sono gia' colorate da sole, e
+     allo stesso tempo il CSS puo' ancora cambiarle: una regola CSS vince
+     sempre su un attributo di presentazione. E' quello che permette alla
+     copia dentro l'orb di reagire al tocco senza che ne esista una seconda.
+
+     Ottone su fondo scuro invece che inchiostro su carta: il pannello e'
+     scuro, e il nero su nero non si vede. Restano i due accenti che il
+     disegno chiede da solo -- l'obiettivo cyan e il tracciato verde vitale,
+     che sono gia' due colori di questa dashboard.
+
+     TRE SCELTE rispetto all'originale: niente numeri 12/9/3 sul quadrante
+     (a 44px diventano tre grumi), meno tracce di circuito, e il tratto piu'
+     spesso -- l'originale puo' permettersi un capello, qui no. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
- <linearGradient id="momoCapelli" x1="0" y1="0" x2="0" y2="1">
-  <stop offset="0" stop-color="#4a3f78"/><stop offset="1" stop-color="#201a38"/></linearGradient>
- <linearGradient id="momoPelle" x1="0" y1="0" x2="0" y2="1">
-  <stop offset="0" stop-color="#fbdcb9"/><stop offset="1" stop-color="#e7b184"/></linearGradient>
- <linearGradient id="momoOro" x1="0" y1="0" x2="1" y2="1">
-  <stop offset="0" stop-color="#f7e79f"/><stop offset="1" stop-color="#c9a227"/></linearGradient>
- <symbol id="momo-faccia" viewBox="0 0 32 32">
-  <ellipse cx="16" cy="16.6" rx="10.8" ry="12" fill="url(#momoCapelli)"/>
-  <path d="M10.4 8.8 C 12.1 6.4 14.8 5.3 17.6 5.6 C 15.1 6.5 13 7.7 11.6 9.6 Z" fill="#8f83c4" opacity=".42"/>
-  <ellipse cx="16" cy="18" rx="7.4" ry="8.2" fill="url(#momoPelle)"/>
-  <path d="M8.8 14.6 C 9.5 9.4 12.4 7 16 7 C 19.6 7 22.5 9.4 23.2 14.6 C 21.5 11.6 19.3 12.7 16.5 12.3 C 13.5 11.9 10.8 12.1 8.8 14.6 Z" fill="url(#momoCapelli)"/>
-  <path d="M11.1 15.1 Q12.9 14.1 14.7 15" stroke="#2a2142" stroke-width=".85" fill="none" stroke-linecap="round" opacity=".75"/>
-  <path d="M17.3 15 Q19.1 14.1 20.9 15.1" stroke="#2a2142" stroke-width=".85" fill="none" stroke-linecap="round" opacity=".75"/>
-  <ellipse cx="10.5" cy="21.1" rx="1.7" ry="1.05" fill="#e8927e" opacity=".36"/>
-  <ellipse cx="21.5" cy="21.1" rx="1.7" ry="1.05" fill="#e8927e" opacity=".36"/>
-  <g transform="translate(12.9 18.3)">
-   <animateTransform attributeName="transform" type="scale" additive="sum"
-    values="1 1;1 1;1 .08;1 1" keyTimes="0;.94;.965;1" dur="5.4s" repeatCount="indefinite"/>
-   <ellipse rx="1.85" ry="2.25" fill="#1b1630"/>
-   <circle cx=".62" cy="-.75" r=".62" fill="#fff" opacity=".92"/></g>
-  <g transform="translate(19.1 18.3)">
-   <animateTransform attributeName="transform" type="scale" additive="sum"
-    values="1 1;1 1;1 .08;1 1" keyTimes="0;.94;.965;1" dur="5.4s" repeatCount="indefinite"/>
-   <ellipse rx="1.85" ry="2.25" fill="#1b1630"/>
-   <circle cx=".62" cy="-.75" r=".62" fill="#fff" opacity=".92"/></g>
-  <path d="M14.1 22.5 Q16 24.3 17.9 22.5" stroke="#b4705e" stroke-width="1.1" fill="none" stroke-linecap="round"/>
-  <path d="M9.5 6.8 L10.2 8.5 L11.9 9.2 L10.2 9.9 L9.5 11.6 L8.8 9.9 L7.1 9.2 L8.8 8.5 Z" fill="url(#momoOro)"/>
+ <symbol id="momo-marchio" viewBox="0 0 64 64">
+  <g fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+   <path class="piastre" stroke="#d8b45a" d="M32 4C20 4 11 13 10 25c-.6 7 .5 14 3 20 2.5 6 7 11 13 13.2 4 1.5 10 1.5 14.5-.2 5.5-2 10-6.5 12.3-12.5 2.2-6 2.8-13.5 2.2-20C54 13.5 44 4 32 4Z"/>
+   <path class="ombra" fill="#d8b45a" stroke="none" opacity=".16" d="M51.6 33.5c1 6-.5 12.2-4 16.3 1.9-5.6 2.9-10.7 2.9-16.3Z"/>
+   <path class="cuciture" stroke="#9c7f3c" d="M12 22l10-4 8 2M34 11l10-2M15 44l6-2M48 42l5-2"/>
+   <path class="circuiti" stroke="#b9975a" d="M30 9.5v3.5h5M38.5 7.5H43v4M18.5 17l4.5-1.5M46 15h3.5v3"/>
+   <g class="ingranaggio" stroke="#b9975a">
+    <animateTransform attributeName="transform" type="rotate" from="0 23.5 11.5" to="360 23.5 11.5" dur="14s" repeatCount="indefinite"/>
+    <circle cx="23.5" cy="11.5" r="2.4"/>
+    <path d="M25.9 11.5h1M25.2 13.2l.7.7M23.5 13.9v1M21.8 13.2l-.7.7M21.1 11.5h-1M21.8 9.8l-.7-.7M23.5 9.1v-1M25.2 9.8l.7-.7"/>
+   </g>
+   <g class="quadrante" stroke="#e8d48a">
+    <circle cx="24" cy="27" r="7.4"/><circle cx="24" cy="27" r="6.2" opacity=".5"/>
+    <path d="M24 22.2v-1.1M28.8 27h1.1M24 31.8v1.1M19.2 27h-1.1"/>
+   </g>
+   <g class="lancette" stroke="#f7e9b8">
+    <g transform="translate(24 27)">
+     <animateTransform attributeName="transform" type="rotate" additive="sum" from="0" to="360" dur="720s" repeatCount="indefinite"/>
+     <path d="M0 0 0 -3.4"/></g>
+    <g transform="translate(24 27)">
+     <animateTransform attributeName="transform" type="rotate" additive="sum" from="0" to="360" dur="60s" repeatCount="indefinite"/>
+     <path d="M0 0 0 -5"/></g>
+   </g>
+   <circle class="lente" cx="43.5" cy="25.5" r="8.2" stroke="#c9a227"/>
+   <circle class="lente" cx="43.5" cy="25.5" r="6.6" stroke="#c9a227" opacity=".55"/>
+   <g class="iride" stroke="#43b4c4">
+    <animateTransform attributeName="transform" type="scale" additive="sum" values="1;1;.82;1" keyTimes="0;.72;.82;1" dur="6s" repeatCount="indefinite"/>
+    <circle cx="43.5" cy="25.5" r="5"/>
+    <path d="M46.8 25.5 45.15 28.36 41.85 28.36 40.2 25.5 41.85 22.64 45.15 22.64Z"/>
+    <path d="M46.8 25.5 47.83 28M45.15 28.36 43.5 30.5M41.85 28.36 39.17 28M40.2 25.5 39.17 23M41.85 22.64 43.5 20.5M45.15 22.64 47.83 23"/>
+   </g>
+   <path class="cuciture" stroke="#9c7f3c" d="M51.5 20.5h2.2M52 25.5h1.8"/>
+   <g class="manometro" stroke="#d8b45a">
+    <circle cx="34" cy="39.5" r="4.8"/>
+    <path d="M31 36.5l.8.8M34 35.4v1.1M37 36.5l-.8.8" opacity=".8"/>
+   </g>
+   <g class="ago" stroke="#f0d264" transform="translate(34 39.5)">
+    <animateTransform attributeName="transform" type="rotate" additive="sum" values="-32;24;-14;30;-32" keyTimes="0;.3;.55;.8;1" dur="9s" repeatCount="indefinite"/>
+    <path d="M0 0 2.4 2.6"/></g>
+   <path class="tubi" stroke="#b9975a" d="M30 33c1.5 2 2.5 3.5 3 4.5M38.5 32c-1 2.5-2 4-3 5.2"/>
+   <rect class="ecg-cornice" x="21" y="46" width="23" height="9.5" rx="1.4" stroke="#b9975a"/>
+   <path class="ecg-griglia" stroke="#6b5a2e" d="M27 46v9.5M33 46v9.5M39 46v9.5M21 50.8h23" opacity=".55"/>
+   <path class="ecg-traccia" stroke="#2dd4a7" stroke-width="1.6"
+    d="M22.5 51H26l1.4-3.4 2 6.8 1.8-5 1.6 1.6H36l1.4-2.6 1.6 4.8 1.6-2.2H43"
+    stroke-dasharray="46" stroke-dashoffset="46">
+    <animate attributeName="stroke-dashoffset" values="46;0;0;-46" keyTimes="0;.45;.6;1" dur="4.5s" repeatCount="indefinite"/></path>
+   <g class="auricolare" stroke="#a8873f">
+    <ellipse cx="11.5" cy="33" rx="4.2" ry="6.4" transform="rotate(-18 11.5 33)"/>
+    <rect x="9.6" y="30.4" width="3.2" height="5.2" rx="1" transform="rotate(-18 11.5 33)" opacity=".8"/>
+    <path d="M7.4 26.6l2 .6M6.6 30.4l2 .5"/>
+    <path d="M10.5 39.5c-3.7 1.1-4.3 4.1-.9 4.9-3.4 1.1-4 4.1-.6 4.9-3.4 1.1-4 4.1-.6 4.9-2.4 1-3.8 3.4-2.4 4.8"/>
+   </g>
+  </g>
+  <g stroke="none">
+   <circle class="circuiti-nodi" cx="35" cy="13" r="1" fill="#b9975a"/>
+   <circle class="circuiti-nodi" cx="43" cy="11.5" r="1" fill="#b9975a"/>
+   <circle class="circuiti-nodi" cx="23" cy="15.5" r=".9" fill="#b9975a"/>
+   <circle class="perno" cx="24" cy="27" r=".9" fill="#f7e9b8"/>
+   <circle class="pupilla" cx="43.5" cy="25.5" r="1.5" fill="#0b1015"/>
+   <circle class="pupilla-luce" cx="43.5" cy="25.5" r="2.4" fill="none" stroke="#7fe3f0" stroke-width=".7" opacity=".9">
+    <animate attributeName="opacity" values=".25;.95;.25" dur="3.2s" repeatCount="indefinite"/></circle>
+   <circle class="viti" cx="54.6" cy="20.5" r="1.4" fill="#c9a227"/>
+   <circle class="viti" cx="54.2" cy="25.5" r="1.1" fill="#c9a227"/>
+   <circle class="perno" cx="34" cy="39.5" r=".7" fill="#f0d264"/>
+   <circle class="viti" cx="33" cy="37.6" r=".8" fill="#b9975a"/>
+   <circle class="viti" cx="35.2" cy="37.4" r=".8" fill="#b9975a"/>
+  </g>
+ </symbol>
+ <symbol id="momo-mini" viewBox="0 0 64 64">
+  <g fill="none" stroke="#d8b45a" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+   <path d="M32 4C20 4 11 13 10 25c-.6 7 .5 14 3 20 2.5 6 7 11 13 13.2 4 1.5 10 1.5 14.5-.2 5.5-2 10-6.5 12.3-12.5 2.2-6 2.8-13.5 2.2-20C54 13.5 44 4 32 4Z"/>
+   <circle cx="24" cy="27" r="7"/>
+   <circle cx="43.5" cy="25.5" r="7" stroke="#43b4c4"/>
+   <path d="M23 51h4l2-5 2.6 9 2.4-7 2 3h4" stroke="#2dd4a7"/>
+  </g>
+  <circle cx="43.5" cy="25.5" r="2.8" fill="#43b4c4"/>
+  <path d="M24 27 24 21.4" fill="none" stroke="#f7e9b8" stroke-width="3" stroke-linecap="round"/>
  </symbol>
 </defs></svg>
 <div id="asst">
- <button id="orb" title="Chiedi a Momo" aria-label="Chiedi a Momo"><svg class="bot" aria-hidden="true"><use href="#momo-faccia"/></svg></button>
+ <button id="orb" title="Chiedi a Momo" aria-label="Chiedi a Momo"><svg class="bot" aria-hidden="true"><use href="#momo-marchio"/></svg></button>
  <div id="bubble"><span class="x" id="asstx">&times;</span><span id="asstmsg">Sono Momo.</span><div id="qa"></div><span class="hint">Le risposte arrivano da Momo &middot; la &times; nasconde l'assistente</span></div>
 </div>
 <div id="toast"></div>
@@ -2467,14 +2555,20 @@ const ICON_OVERRIDE={paperless:"data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cD
    seconda copia in base64: una copia sarebbe un secondo volto di Momo da
    tenere allineato a mano, e prima o poi i due divergono. */
 function momoDataURI(){
- const sim=document.getElementById('momo-faccia');
+ const sim=document.getElementById('momo-marchio');
  if(!sim||!sim.parentNode)return'';
- /* I gradienti stanno nel <defs> ACCANTO al simbolo, non dentro: senza di
-    loro l'icona uscirebbe nera. Si porta via tutto il <defs>. */
+ /* Si porta via tutto il <defs> che contiene il simbolo, non solo il simbolo:
+    e' li' dentro che stanno le definizioni a cui il disegno si appoggia.
+    Via anche le animazioni -- SMIL gira anche dentro un <img>, e una tessera
+    in una griglia di venti che tiene ingranaggi in movimento e' rumore, non
+    vita. Servono ENTRAMBI i tag: <animateTransform> per ingranaggio, lancette,
+    diaframma e ago; <animate> per il tracciato dell'ECG e l'alone della
+    pupilla. Dimenticandone uno la tessera resterebbe mezza animata. */
  const dentro=new XMLSerializer().serializeToString(sim.parentNode)
-   .replace(/<animateTransform[\s\S]*?\/>/gi,'');  /* niente occhi che sbattono su una tessera */
- const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-   +dentro+'<use href="#momo-faccia"/></svg>';
+   .replace(/<animateTransform[\s\S]*?\/>/gi,'')
+   .replace(/<animate[\s\S]*?\/>/gi,'');
+ const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+   +dentro+'<use href="#momo-marchio"/></svg>';
  try{return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(s)));}
  catch(e){return'';}
 }
@@ -3185,17 +3279,33 @@ function QAset(){
   ['Se casca il server?', 'Sul PC apri <b>C:\\Sovereign-Restore\\LEGGIMI-EMERGENZA-IMMICH.txt</b>: ricrei Immich dai dati del backup (restore già testato).'],
  ];
 }
-// Il volto di Momo, ripreso dal <symbol> disegnato una volta sola nella
+// Il marchio di Momo, ripreso dal <symbol> disegnato una volta sola nella
 // pagina. Nessuna copia del disegno qui dentro: due copie divergono.
+// Sotto i 26px si prende la versione ridotta: il marchio pieno a quella
+// misura non e' un marchio piccolo, e' una macchia.
 function momoIcona(px){
  return '<svg class="momoico" width="'+px+'" height="'+px+'" aria-hidden="true">'
-  +'<use href="#momo-faccia"/></svg>';
+  +'<use href="#'+(px<26?'momo-mini':'momo-marchio')+'"/></svg>';
 }
-// Chi ha chiesto meno movimento non deve vedere le palpebre battere. Le
+// L'ORB REAGISCE AL TOCCO, e per farlo il disegno va CLONATO dentro di lui.
+// Il contenuto di <use> vive in uno shadow tree: "#orb .lente:hover" non ci
+// arriva mai. Clonandolo nel documento vero il CSS raggiunge ogni pezzo --
+// l'obiettivo che si chiude come un otturatore quando lo premi, l'ottone che
+// si accende quando ci passi sopra. Resta UN SOLO originale: questa e' una
+// copia fatta a runtime dal simbolo, non una seconda scritta a mano.
+(function clonaMarchioNellOrb(){
+ const sim=document.getElementById('momo-marchio'), bot=document.querySelector('#orb .bot');
+ if(!sim||!bot)return;                       // se manca, resta il <use> di prima
+ bot.setAttribute('viewBox', sim.getAttribute('viewBox'));
+ bot.innerHTML=sim.innerHTML;
+})();
+// Chi ha chiesto meno movimento non deve vedere ingranaggi che girano. Le
 // animazioni sono SMIL dentro l'SVG, quindi non si spengono con una media
-// query: si tolgono dal documento, una volta sola, all'avvio.
+// query: si tolgono dal documento, una volta sola, all'avvio. Va fatto DOPO
+// il clone, altrimenti la copia nell'orb se le porterebbe dietro.
 if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
- document.querySelectorAll('#momo-faccia animateTransform').forEach(a=>a.remove());
+ document.querySelectorAll('#momo-marchio animateTransform, #momo-marchio animate,'
+  +' #orb .bot animateTransform, #orb .bot animate').forEach(a=>a.remove());
 }
 
 // The canned answers stay: they are instant and work with Momo offline.
