@@ -56,60 +56,7 @@ Last live build log: [2026-07-03](docs/06_operations_security/LIVE_BUILD_LOG_202
 ## Network and Access Model
 
 ```mermaid
-flowchart TD
-    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]
-    LAN["LAN clients"]
-    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]
-    RouterNAT["Home router/NAT\nTCP 443 to NPM"]
-    HS["Headscale\nidentity, keys, routes, DNS settings"]
-    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]
-    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]
-    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
-    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
-    Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
-    Dash["Sovereign Master Dashboard\ndash.internal — on the Proxmox host"]
-    Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]
-    Notes["Obsidian LiveSync\nCouchDB + Fauxton\nthe vault Momo reads"]
-    Omni["OmniRoute\ngateway to outside models"]
-    CA["Internal CA\nSmallstep step-ca\nca.internal"]
-    Trust["CA Trust Portal\ntrust.internal\nprivate bootstrap on :8095"]
-    Apps["Internal apps\n*.internal"]
-    Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]
-    PBS["Proxmox Backup Server"]
-    Momo["Momo · household assistant\nmomo.internal + Telegram\nengines, memory, tools"]
-    GPU["NVIDIA T600 4 GB\npassed through to LXC 102"]
-    Internet(("Internet"))
-
-    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
-    Remote -->|DNS to 192.168.1.50| Subnet --> AGH
-    Remote -->|LAN access 192.168.1.0/24| Subnet
-    Remote -->|optional default route| Exit --> Internet
-
-    LAN -->|DNS| AGH
-    AGH -->|filtered upstream DNS| Internet
-    AGH -->|.internal to NPM IP| NPM
-    NPM --> Platform
-    NPM --> Ops
-    LAN -->|CA API| CA
-    Remote -->|CA API after VPN| CA
-    LAN -->|untrusted HTTP bootstrap| Trust
-    Remote -->|untrusted HTTP bootstrap after VPN| Trust
-    NPM --> Trust
-    NPM --> Apps
-    NPM --> Dash
-    NPM --> Notes
-    NPM --> Momo
-    Smart -->|disk metrics API| Ops
-    Platform --> PBS
-    Ops --> PBS
-    Apps --> PBS
-    Notes --> PBS
-
-    Momo -->|reads the estate| Dash
-    Momo -->|reads the vault| Notes
-    Momo -->|its own GPU| GPU
-    Momo -.->|only if nobody at home answers| Omni --> Internet
-```
+flowchart TD<br/>    Remote["Remote clients\nphone/laptop on 4G or travel Wi-Fi"]<br/>    LAN["LAN clients"]<br/>    PublicVPN["vpn.yourdomain.duckdns.org\npublic Headscale control plane"]<br/>    RouterNAT["Home router/NAT\nTCP 443 to NPM"]<br/>    HS["Headscale\nidentity, keys, routes, DNS settings"]<br/>    Subnet["LXC 100 subnet router\nserves 192.168.1.0/24"]<br/>    Exit["Selected exit node\nProxmox or future router\n0.0.0.0/0"]<br/>    AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]<br/>    NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]<br/>    Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]<br/>    Dash["Sovereign Master Dashboard\ndash.internal — on the Proxmox host"]<br/>    Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]<br/>    Notes["Obsidian LiveSync\nCouchDB + Fauxton\nthe vault Momo reads"]<br/>    Omni["OmniRoute\ngateway to outside models"]<br/>    CA["Internal CA\nSmallstep step-ca\nca.internal"]<br/>    Trust["CA Trust Portal\ntrust.internal\nprivate bootstrap on :8095"]<br/>    Apps["Internal apps\n*.internal"]<br/>    Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]<br/>    PBS["Proxmox Backup Server"]<br/>    Momo["Momo · household assistant\nmomo.internal + Telegram\nengines, memory, tools"]<br/>    GPU["NVIDIA T600 4 GB\npassed through to LXC 102"]<br/>    Internet(("Internet"))<br/><br/>    Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS<br/>    Remote -->|DNS to 192.168.1.50| Subnet --> AGH<br/>    Remote -->|LAN access 192.168.1.0/24| Subnet<br/>    Remote -->|optional default route| Exit --> Internet<br/><br/>    LAN -->|DNS| AGH<br/>    AGH -->|filtered upstream DNS| Internet<br/>    AGH -->|.internal to NPM IP| NPM<br/>    NPM --> Platform<br/>    NPM --> Ops<br/>    LAN -->|CA API| CA<br/>    Remote -->|CA API after VPN| CA<br/>    LAN -->|untrusted HTTP bootstrap| Trust<br/>    Remote -->|untrusted HTTP bootstrap after VPN| Trust<br/>    NPM --> Trust<br/>    NPM --> Apps<br/>    NPM --> Dash<br/>    NPM --> Notes<br/>    NPM --> Momo<br/>    Smart -->|disk metrics API| Ops<br/>    Platform --> PBS<br/>    Ops --> PBS<br/>    Apps --> PBS<br/>    Notes --> PBS<br/><br/>    Momo -->|reads the estate| Dash<br/>    Momo -->|reads the vault| Notes<br/>    Momo -->|its own GPU| GPU<br/>    Momo -.->|only if nobody at home answers| Omni --> Internet<br/>```
 
 Traffic rules:
 
@@ -150,44 +97,7 @@ makes **which engine answers** a security question, not a performance one —
 so the tools are gated on it.
 
 ```mermaid
-flowchart TD
-    Owner["Owner\nTelegram, or momo.internal"]
-    STT["faster-whisper medium\nlocal — a voice message\nbecomes text before anything else"]
-    Lang["Language layer\nscript first, then function words\nit · en · ar"]
-    Gateway["Momo\nLXC 102 · hermes-agent\ngateway + web panel"]
-    TTS["Piper — speaks the reply\nlocal, on CPU"]
-
-    subgraph Engines["Eight engines, one command away — /motore n"]
-      PCG["Owner's PC · RTX 5070 Ti\ngpt-oss:20b · qwen3.5:9b\nIN THE HOUSE"]
-      SRV["Server · NVIDIA T600 4 GB\nqwen2.5:3b · granite4:micro\nIN THE HOUSE — never absent"]
-      OUT["OpenRouter · AWS Bedrock\nOUTSIDE THE HOUSE"]
-    end
-
-    subgraph Memory["Shared memory — same store as the retiring Hermes"]
-      PG["PostgreSQL\nfacts, agenda, procedures, address book"]
-      QD["Qdrant\nsearch by meaning"]
-      VK["Valkey\nshort-term"]
-    end
-
-    Estate["Estate state\nProxmox · Kuma · PBS · Immich"]
-    Vault["Obsidian vault\nsearch by meaning"]
-    Search["SearXNG\nweb search that stays home"]
-
-    Owner -->|"voice"| STT --> Lang
-    Owner -->|"typed"| Lang
-    Lang --> Gateway
-    Gateway --> TTS --> Owner
-    Gateway -->|"first choice"| PCG
-    Gateway -->|"fallback when the PC is off"| SRV
-    Gateway -.->|"only if nobody at home answers"| OUT
-    Gateway --> PG & QD & VK
-    Gateway --> Estate
-    Gateway --> Vault
-    Gateway --> Search
-
-    PCG -.->|"20 tools"| Estate
-    OUT -.->|"1 tool: the web. Nothing from home"| Search
-```
+flowchart TD<br/>    Owner["Owner\nTelegram, or momo.internal"]<br/>    STT["faster-whisper medium\nlocal — a voice message\nbecomes text before anything else"]<br/>    Lang["Language layer\nscript first, then function words\nit · en · ar"]<br/>    Gateway["Momo\nLXC 102 · hermes-agent\ngateway + web panel"]<br/>    TTS["Piper — speaks the reply\nlocal, on CPU"]<br/><br/>    subgraph Engines["Eight engines, one command away — /motore n"]<br/>      PCG["Owner's PC · RTX 5070 Ti\ngpt-oss:20b · qwen3.5:9b\nIN THE HOUSE"]<br/>      SRV["Server · NVIDIA T600 4 GB\nqwen2.5:3b · granite4:micro\nIN THE HOUSE — never absent"]<br/>      OUT["OpenRouter · AWS Bedrock\nOUTSIDE THE HOUSE"]<br/>    end<br/><br/>    subgraph Memory["Shared memory — same store as the retiring Hermes"]<br/>      PG["PostgreSQL\nfacts, agenda, procedures, address book"]<br/>      QD["Qdrant\nsearch by meaning"]<br/>      VK["Valkey\nshort-term"]<br/>    end<br/><br/>    Estate["Estate state\nProxmox · Kuma · PBS · Immich"]<br/>    Vault["Obsidian vault\nsearch by meaning"]<br/>    Search["SearXNG\nweb search that stays home"]<br/><br/>    Owner -->|"voice"| STT --> Lang<br/>    Owner -->|"typed"| Lang<br/>    Lang --> Gateway<br/>    Gateway --> TTS --> Owner<br/>    Gateway -->|"first choice"| PCG<br/>    Gateway -->|"fallback when the PC is off"| SRV<br/>    Gateway -.->|"only if nobody at home answers"| OUT<br/>    Gateway --> PG & QD & VK<br/>    Gateway --> Estate<br/>    Gateway --> Vault<br/>    Gateway --> Search<br/><br/>    PCG -.->|"20 tools"| Estate<br/>    OUT -.->|"1 tool: the web. Nothing from home"| Search<br/>```
 
 Four rules the drawing is meant to make obvious:
 
