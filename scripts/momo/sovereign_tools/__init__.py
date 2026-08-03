@@ -376,6 +376,33 @@ def register(ctx) -> None:
     # plugins.py:556, non indovinata. Scritta come `**kwargs` il comando si
     # registra lo stesso e poi Telegram risponde "unknown command", che manda
     # a cercare nel posto sbagliato.
+    def _riavvio_rimandato(secondi: int = 6) -> None:
+        """Fa riavviare il gateway PIU' TARDI, e da un processo staccato.
+
+        `systemd-run --on-active` crea un timer transitorio: il riavvio non e'
+        piu' figlio di questo processo, quindi non muore insieme a lui e non
+        lo uccide prima che la risposta sia partita. Sei secondi bastano: la
+        consegna a Telegram e' immediata, e un margine piu' largo lascerebbe
+        l'utente a parlare col motore vecchio credendo di aver gia' cambiato.
+        Se fallisce non si solleva niente: il cambio e' gia' scritto su disco,
+        e al peggio si applica al prossimo riavvio.
+        """
+        try:
+            # `subprocess` va importato QUI: nell'altro gestore e' un import
+            # locale, quindi da questa funzione non si vede. Il primo tentativo
+            # falliva con «name 'subprocess' is not defined» -- e falliva in
+            # silenzio, perche' l'except lo declassa a un log: il motore
+            # cambiava su disco e non veniva mai applicato.
+            import subprocess  # noqa: PLC0415 - solo su questo percorso
+            subprocess.run(
+                ["systemd-run", "--collect", f"--on-active={secondi}",
+                 "--unit", "momo-motore-riavvio",
+                 "systemctl", "restart", "momo-gateway"],
+                capture_output=True, text=True, timeout=15, check=False)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("riavvio rimandato non programmato (%s): "
+                           "il motore e' cambiato, si applica al prossimo riavvio", exc)
+
     def comando_motore(raw_args: str = "") -> str:
         args = str(raw_args or "").strip().lower()
         try:
@@ -392,8 +419,25 @@ def register(ctx) -> None:
                 nome = args.split()[0]
                 if not nome.replace("-", "").isalnum():
                     return "Nome non valido. Usa `/motore elenco` per vedere quelli che ci sono."
+                # MOMO_NO_RESTART: cambiare motore richiede di riavviare il
+                # gateway (i segreti si leggono da os.environ, quindi un
+                # processo vivo non vede il .env cambiato). Ma noi SIAMO il
+                # gateway: riavviarlo qui uccide il processo che sta rispondendo,
+                # e il cambio riesce mentre la conferma non parte mai. Visto da
+                # Mohamed il 2026-08-03: «ho provato /motore 2 e /motore 4 ma
+                # nulla ha funzionato» -- il motore era cambiato, la risposta no.
+                # Quindi: si cambia SENZA riavviare, si risponde, e il riavvio
+                # parte da solo qualche secondo dopo, staccato da questo processo.
+                ambiente = dict(os.environ, MOMO_NO_RESTART="1")
                 fatto = subprocess.run(["/usr/local/bin/momo-motore", nome],
-                                       capture_output=True, text=True, timeout=180)
+                                       capture_output=True, text=True, timeout=180,
+                                       env=ambiente)
+                if fatto.returncode == 0:
+                    _riavvio_rimandato()
+                    uscita = (fatto.stdout or "").strip()
+                    return (uscita[:2800]
+                            + "\n\n🔄 Mi riavvio fra pochi secondi per applicarlo."
+                              " Riscrivimi fra una decina di secondi.")
             uscita = (fatto.stdout or fatto.stderr or "").strip()
             return uscita[:3000] or "(nessuna risposta dal commutatore)"
         except Exception as exc:  # noqa: BLE001 - a slash command must not kill the gateway
