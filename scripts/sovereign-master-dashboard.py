@@ -1946,7 +1946,7 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb .bot .ruota-a{transform-box:view-box;transform-origin:30.5px 58.5px}
 #orb .bot .ruota-b{transform-box:view-box;transform-origin:37.6px 66.4px}
 #orb .bot .ruota-c{transform-box:view-box;transform-origin:31px 67.5px}
-#orb .bot .stella{transform-box:view-box;transform-origin:46px 18.6px}
+#orb .bot .stella{transform-box:view-box;transform-origin:45px 18px}
 @media(prefers-reduced-motion:no-preference){
  #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
  #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
@@ -2517,7 +2517,11 @@ footer a:hover{text-decoration:underline}
   <stop offset="1" stop-color="#083f55"/>
  </radialGradient>
  <symbol id="momo-marchio" viewBox="0 0 100 100">
-  <circle class="testa" cx="50" cy="60" r="32" fill="none" stroke="url(#momoOro)" stroke-width="2.6"/>
+  <!-- La testa e' un ARCO, non un cerchio: con una tesa ondulata il cerchio
+       chiuso spuntava fuori nei due spicchi che ne' il cono ne' la tesa
+       coprono. Un arco che parte da sotto la tesa non ha quel problema. -->
+  <path class="testa" d="M19 48C15 72 29 93 50 93s35-21 31-45" fill="none"
+   stroke="url(#momoOro)" stroke-width="2.6" stroke-linecap="round"/>
 
   <!-- OCCHIO SINISTRO: orologio scheletrato. Prima la cavita' scura, poi le
        ruote dentate, poi il quadrante come ANELLO: il buco al centro lascia
@@ -2568,20 +2572,30 @@ footer a:hover{text-decoration:underline}
    d="M30 81H41L45.5 87h9L59 81h11"/>
 
   <g class="cappello">
-   <path class="cappello-cono" fill="url(#momoOro)" stroke="#8a6b1c" stroke-width="1.2" stroke-linejoin="round"
-    d="M34 39C35 27.5 39 16 47 8c3-3 8-3.6 9.4.4 1 2.8-2.4 6.6-3.4 10.6-1.4 6 .6 12.6 10 20Z"/>
-   <path class="cappello-tesa" fill="url(#momoOroTesa)" stroke="#8a6b1c" stroke-width="1.2" stroke-linejoin="round"
-    d="M11 45C15 34.5 29 30 50 30s35 4.5 39 15c-4 8.5-18 12.5-39 12.5S15 53.5 11 45Z"/>
-   <path class="tesa-dietro" fill="none" stroke="#8a6b1c" stroke-width="1" stroke-linecap="round" opacity=".7"
-    d="M37.5 34.2C43 31.4 57 31.4 62.5 34.2"/>
-   <path class="cappello-fascia" fill="none" stroke="#8a6b1c" stroke-width="1.8" stroke-linecap="round" opacity=".9"
-    d="M36 36.4C42 40.2 58 40.2 64 36.4"/>
+   <!-- Sul modello del cappello da strega passato da Mohamed il 2026-08-03:
+        CORPO SCURO col filo d'oro, non oro pieno. E' il contorno a disegnare
+        la forma, ed e' per questo che regge una sagoma complicata come
+        questa dove una campitura piena diventava una macchia.
+        LA PUNTA SI AFFLOSCIA a destra e piega verso il basso: e' quel
+        cedimento a dire "strega". Un cono dritto, per quanto alto, resta un
+        cono.
+        LA TESA E' ONDULATA, non un'ellisse: le due punte laterali stanno
+        piu' in basso e il bordo risale al centro. L'ellisse piatta delle
+        versioni precedenti e' cio' che faceva sembrare tutto un fungo.
+        LA FASCIA e' dello stesso cyan della bocca: due accenti dello stesso
+        colore legano il marchio, tre colori lo slegano. -->
+   <path class="cappello-cono" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
+    d="M32 41C33 30 37 18 46 10c7-6 17-8 24-4 5 3 6 8 2 10-5 2-11 0-15 4-4 5-2 14 3 21Z"/>
+   <path class="cappello-tesa" fill="#1c1610" stroke="url(#momoOro)" stroke-width="2" stroke-linejoin="round"
+    d="M12 47c4-7 12-9 21-7 8 1.5 19 1.5 27 0 9-2 15 0 19 7-5 7-20 10-38 10S17 54 12 47Z"/>
+   <path class="cappello-fascia" fill="none" stroke="#35e8e0" stroke-width="4.6" stroke-linecap="round"
+    d="M32.5 39C41 42 53 42 61 38.5"/>
   </g>
   <path class="stella" fill="#fdf3cd"
-   d="M46 10 48.2 16.4 54.6 18.6 48.2 20.8 46 27.2 43.8 20.8 37.4 18.6 43.8 16.4Z"/>
+   d="M45 12 46.9 16.1 51 18 46.9 19.9 45 24 43.1 19.9 39 18 43.1 16.1Z"/>
  </symbol>
  <symbol id="momo-mini" viewBox="0 0 100 100">
-  <circle cx="50" cy="60" r="31" fill="none" stroke="url(#momoOro)" stroke-width="5"/>
+  <circle cx="50" cy="62" r="31" fill="none" stroke="url(#momoOro)" stroke-width="5"/>
   <circle cx="34" cy="62" r="13" fill="url(#momoQuadrante)" stroke="url(#momoOro)" stroke-width="4"/>
   <circle cx="66" cy="62" r="13" fill="url(#momoCanna)" stroke="url(#momoOro)" stroke-width="4"/>
   <path d="M70.5 62 63.5 66 63.5 58Z" fill="url(#momoVetro)"/>
@@ -2589,9 +2603,9 @@ footer a:hover{text-decoration:underline}
   <path fill="none" stroke="#35e8e0" stroke-width="5.4" stroke-linecap="round" stroke-linejoin="round"
    d="M31 81H41L45.5 87h9L59 81h10"/>
   <path fill="url(#momoOro)" stroke="#8a6b1c" stroke-width="2.2" stroke-linejoin="round"
-   d="M34 39C35 27.5 39 16 47 8c3-3 8-3.6 9.4.4 1 2.8-2.4 6.6-3.4 10.6-1.4 6 .6 12.6 10 20Z"/>
+   d="M36 34C37 24 40 14 45.5 8c2-2.5 5.5-3.5 7.5-2s1 4.5-.5 7c-3 5-3.5 12-1.5 17 1.3 2.5 3 3.5 11 4Z"/>
   <path fill="url(#momoOroTesa)" stroke="#8a6b1c" stroke-width="2.2" stroke-linejoin="round"
-   d="M8 45C12 34 28.5 29.5 50 29.5S88 34 92 45c-4 9-20.5 13-42 13S12 54 8 45Z"/>
+   d="M12 42C15 32 29.5 29 50 29s35 3 38 13c-3 9-17.5 13-38 13S15 51 12 42Z"/>
  </symbol>
 </defs></svg>
 <div id="asst">
