@@ -105,6 +105,33 @@ reports "nessun motore raggiungibile" (never a silent failure — see
 | Una porta 11434 risponde dalla LAN quando non dovrebbe farlo pubblicamente | verificare che nessun host NPM la esponga (§4 — non deve essercene nessuno) |
 | **Dopo un riavvio dell'host: solo Ollama giù, `exit 128`, `failed to initialize NVML: Driver Not Loaded`** | i nodi `/dev/nvidia*` non esistevano quando LXC 102 è partito — vedi §9.1, e controllare `systemctl status nvidia-dev-nodes` sull'host |
 
+### 9.0 Cosa entra DAVVERO nella T600 — misurato, non dedotto dalle dimensioni
+
+Misure del 2026-08-03 col contesto vero in uso (`OLLAMA_CONTEXT_LENGTH=32768`),
+leggendo `size_vram` da `/api/ps` dopo un caricamento reale:
+
+| Modello | Totale | In VRAM | Esito |
+|---|---:|---:|---|
+| `qwen2.5:3b` | 2,16 GB | 2,16 GB | **100% su GPU** |
+| `granite4:micro` | 2,50 GB | 2,50 GB | **100% su GPU** |
+| `llama3.2:3b` | 2,55 GB | 2,55 GB | **100% su GPU** |
+| `qwen3.5:4b` | 3,78 GB | 1,71 GB | **45%** — il resto su CPU |
+
+`qwen3.5:4b` pesa 3,39 GB sul disco e la scheda ne ha 4,29: sembra che ci
+stia. Non ci sta, perché **il modello non è l'unica cosa che va in VRAM** — a
+32k di contesto la cache delle chiavi occupa il resto. È la ragione per cui la
+colonna che conta è quella misurata, non quella dichiarata da `ollama list`.
+
+**Conseguenza operativa, e un difetto vero corretto lo stesso giorno.** La
+catena di ripiego era `qwen3.5:4b`: l'unico modello in casa che *non* entra.
+Quindi a PC spento Momo non restava senza motore — cadeva sul **peggiore che
+abbiamo**, 22,5 secondi a risposta. Segnalato da Mohamed come *«se il PC non
+va, Momo va molto male»*: non era un guasto, era questa scelta.
+La catena ora è: `qwen2.5:3b` (100% GPU, 1,3 s) → `granite4:micro` (100% GPU,
+secondo di casa perché due modelli che funzionano valgono più di uno) →
+OpenRouter con lo stesso `gpt-oss-20b` che gira sul PC, fuori casa e solo se
+in casa non risponde più nessuno.
+
 ### 9.1 La trappola del riavvio: quattro file vuoti al posto della GPU
 
 Successa il 2026-08-02 alle 22:39, trovata il 2026-08-03. Vale la pena

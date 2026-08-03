@@ -823,6 +823,54 @@ accoda i messaggi non consegnati per 24 ore e poi li scarta.
 | «No inference provider configured» | `config.yaml` corrotto o troncato | ripristinare dal `config.yaml.bak-*` più recente e rifare l'edit con `yaml.safe_load`/`safe_dump`, mai con regex (§3-sexies.5) |
 | `Message thread not found` nei log | un `thread_id` di un topic cancellato è rimasto inciso in `home_channel` o in `channel_directory.json` | togliere `thread_id` da `config.yaml`; se compare solo allo spegnimento è il residuo noto in `channel_directory.json`, rumore e non guasto (§3-ter) |
 | Il prefisso del prompt è cresciuto senza motivo | skill o toolset riattivati | `hermes prompt-size` — gira **offline**, si può eseguire sull'impianto vivo |
+| **`/motore` non si trova nel menu dei comandi** | c'è, ma è sepolto: il menu ha un tetto e hermes-agent porta ~50 comandi di serie | §10.1 — si mette in cima con `platforms.telegram.extra.command_menu.priority` |
+| Il menu dei comandi è **completamente vuoto** dopo aver alzato il tetto | oltre ~4096 byte Telegram rifiuta l'elenco **intero**, non lo tronca | riabbassare `max_commands`; §10.1 per il conto |
+
+### 10.1 Il menu dei comandi di Telegram: due tetti, e uno non è documentato
+
+Segnalato da Mohamed il 2026-08-03: *«da Telegram voglio poter lanciare un
+comando per cambiare l'AI, e non ci riesco»*.
+
+`/motore` **era già pubblicato** — verificato con `getMyCommands`, non
+supposto. Era solo in fondo a un elenco di 60: hermes-agent ne porta una
+cinquantina di serie e i comandi dei plugin finiscono in coda.
+
+I due tetti:
+
+- **100 comandi**, che è il limite delle API di Telegram;
+- **~4096 byte di payload**, che *non è documentato* e che si incontra molto
+  prima. Superandolo Telegram rifiuta l'elenco **intero**: il menu non si
+  tronca, si **svuota**.
+
+Misurato su questo impianto: 100 comandi = **6285 byte** → menu vuoto.
+52 comandi = **3376 byte** → funziona. Il conto si rifà così, senza indovinare:
+
+```bash
+cd /opt/hermes-agent-study && HERMES_HOME=/opt/momo/home/.hermes \
+  /opt/momo/venv/bin/python -c "
+from hermes_cli.commands import telegram_menu_commands, telegram_menu_max_commands
+c,_ = telegram_menu_commands(max_commands=telegram_menu_max_commands())
+print(len(c), sum(len(a)+len(b)+8 for a,b in c), 'byte')"
+```
+
+La configurazione, in `config.yaml`:
+
+```yaml
+platforms:
+  telegram:
+    extra:
+      command_menu:
+        max_commands: 52          # 3376 byte, sotto il tetto non documentato
+        priority_mode: prepend
+        priority: [motore, slmix, new, model, status, help, stop, sessions]
+```
+
+**Il token non sta in `config.yaml`, sta in `.env`.** Detto qui perché mi è
+costato: cercandolo con `grep` nel solo `config.yaml` si ottiene una stringa
+vuota, `https://api.telegram.org/bot/getMyCommands` risponde **404**, e un 404
+letto di fretta sembra «il menu è vuoto». Ho quasi riparato un guasto che non
+esisteva. Quando la misura dà un risultato assurdo, il primo sospettato è lo
+strumento di misura.
 
 ## 11. Verifica di funzionamento
 
