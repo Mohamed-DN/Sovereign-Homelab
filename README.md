@@ -42,7 +42,9 @@ Last live build log: [2026-07-03](docs/06_operations_security/LIVE_BUILD_LOG_202
 | Immich | VM 110 `immich` deployed at `192.168.1.110`; the data disk currently uses about 91 GB and has a fresh PBS checkpoint, root-only DB/metadata/SHA-256 safety bundle, scheduled app-aware protection, and isolated restore validation; the planned 2 TB removable SSD and a later offsite copy remain required |
 | Nextcloud | VM 120 `nextcloud-aio` runs healthy AIO containers at `192.168.1.120`; `files.internal` is HTTPS on the client side and proxies to AIO Apache on port `11000`; full restore drill passed |
 | Home Assistant | VM 130 `home-assistant-os` deployed at `192.168.1.130`; `ha.internal` works through NPM after HA proxy trust configuration |
-| Monitoring | Uptime Kuma has 38 live monitors covering VPN, DNS, all private aliases, apps, operations extensions, CA health, trust onboarding, and protocol checks |
+| Monitoring | Uptime Kuma has 39 live monitors covering VPN, DNS, all private aliases, apps, operations extensions, CA health, trust onboarding, and protocol checks |
+| Household assistant | **Momo** runs on LXC 102 on `hermes-agent` (NousResearch), reachable at `momo.internal` and on Telegram. Eight selectable engines — three on the owner's PC, three on the server's own GPU, two outside the house — switched with `/motore <n>`; per-session with `/model --provider <name>`. Tools are split by trust: 20 available to a household engine, 1 to an external one. Memory is shared with the retiring Hermes (Postgres + Qdrant + Valkey) and learns from finished turns by itself, reviewable and deletable with `/memoria`. See [Il passaggio del testimone](docs/00_overview/PIANO_TESTIMONE_HERMES_MOMO.md) |
+| GPU | NVIDIA T600 (4 GB, driver 610.43.02) passed through to LXC 102, so the house always has an engine even with the owner's PC off. **What fits in 4 GB is measured, not assumed** — see [ai_ollama.md](docs/04_apps/ai_ollama.md) §9.0: at the 32k context in use, `qwen2.5:3b` sits 100% in VRAM while `qwen3.5:4b` spills 55% onto the CPU |
 | Backup | PBS VM 140 deployed at `192.168.1.20`; datastore `p710-local`; Proxmox storage `pbs-p710`; scheduled backup covers guests `100,101,102,103,110,120,130`; LXC 101, LXC 102, LXC 103, VM 110, VM 120, and VM 130 restore drills completed; LXC102 app-aware checks passed for Vaultwarden, Paperless, and Forgejo |
 | Internal TLS | Smallstep `step-ca` runs on LXC 101 at `ca.internal:9002`; all 26 private web aliases use one CA-signed certificate with explicit SANs through NPM; `trust.internal` provides managed client onboarding, and weekly renewal plus daily expiry auditing are active |
 | Local credentials | root-only credential inventories exist on the Proxmox host; the 2026-06-29 app-login rotation was verified for PBS root and every initialized supported web account except the explicitly excluded AdGuard login; Proxmox and PBS monitoring use non-expiring, revocable `sole_monitor` API tokens with read-only roles, never human/root passwords; public template is [LOCAL_CREDENTIALS_TEMPLATE.md](docs/99_reference/LOCAL_CREDENTIALS_TEMPLATE.md) |
@@ -65,12 +67,17 @@ flowchart TD
     AGH["AdGuard Home\n192.168.1.50\nDNS filtering + .internal rewrites"]
     NPM["Nginx Proxy Manager\nHTTP/HTTPS aliases"]
     Platform["Authentik + Homepage + Kuma + Beszel + Dozzle"]
+    Dash["Sovereign Master Dashboard\ndash.internal — on the Proxmox host"]
     Ops["Operations panels\nNetAlertX + Scrutiny + ntfy"]
+    Notes["Obsidian LiveSync\nCouchDB + Fauxton\nthe vault Momo reads"]
+    Omni["OmniRoute\ngateway to outside models"]
     CA["Internal CA\nSmallstep step-ca\nca.internal"]
     Trust["CA Trust Portal\ntrust.internal\nprivate bootstrap on :8095"]
     Apps["Internal apps\n*.internal"]
     Smart["Proxmox host SMART collector\nscrutiny-collector.timer"]
     PBS["Proxmox Backup Server"]
+    Momo["Momo · household assistant\nmomo.internal + Telegram\nengines, memory, tools"]
+    GPU["NVIDIA T600 4 GB\npassed through to LXC 102"]
     Internet(("Internet"))
 
     Remote -->|control-plane login only| PublicVPN --> RouterNAT --> NPM --> HS
@@ -89,10 +96,19 @@ flowchart TD
     Remote -->|untrusted HTTP bootstrap after VPN| Trust
     NPM --> Trust
     NPM --> Apps
+    NPM --> Dash
+    NPM --> Notes
+    NPM --> Momo
     Smart -->|disk metrics API| Ops
     Platform --> PBS
     Ops --> PBS
     Apps --> PBS
+    Notes --> PBS
+
+    Momo -->|reads the estate| Dash
+    Momo -->|reads the vault| Notes
+    Momo -->|its own GPU| GPU
+    Momo -.->|only if nobody at home answers| Omni --> Internet
 ```
 
 Traffic rules:
@@ -108,16 +124,85 @@ Traffic rules:
 
 The source of truth is [Service Visibility Matrix](docs/99_reference/SERVICE_VISIBILITY_MATRIX.md).
 
-| Category | Services |
-|---|---|
-| Core network | AdGuard, Headscale, Headscale-UI, NPM |
-| Admin | Proxmox, PBS |
-| Platform | Authentik, Homepage, Uptime Kuma, Beszel, Dozzle, CrowdSec |
-| Internal TLS | Smallstep `step-ca` plus `trust.internal` client onboarding for private certificates |
-| Operations extensions | NetAlertX, Scrutiny, ntfy |
-| Critical data | Vaultwarden, Immich, Nextcloud, Syncthing, Paperless |
-| High-value apps | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo, Open WebUI |
-| Protocol/API exceptions | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, Wazuh API, CrowdSec LAPI |
+Everything published, taken from NPM's own host list on 2026-08-03 — 31
+private names plus the one public door. If a name is not here, it is not
+reachable.
+
+| Category | Alias | Service |
+|---|---|---|
+| Public door | `vpn.…duckdns.org` | Headscale control plane — the **only** public entrypoint |
+| Core network | `adguard` · `npm` · `headscale` · `headplane` | AdGuard Home, Nginx Proxy Manager, Headscale, Headplane UI |
+| Admin | `proxmox` · `pbs` | Proxmox VE, Proxmox Backup Server |
+| Identity and TLS | `auth` · `trust` | Authentik; `trust.internal` onboards clients to the internal CA (`step-ca` on `ca.internal:9002`) |
+| Operations panels | `dash` · `homepage` · `monitor` · `status` | Sovereign Master Dashboard (on the Proxmox host itself), Homepage, Uptime Kuma and its status page |
+| Observability | `logs` · `alerts` · `disks` · `netalert` | Dozzle, ntfy, Scrutiny (fed by a host-side SMART collector), NetAlertX. Beszel and CrowdSec run without their own alias |
+| Critical data | `pwd` · `foto` · `files` · `sync` · `paper` | Vaultwarden, Immich, Nextcloud AIO, Syncthing, Paperless-ngx |
+| Notes | `obsidian` · `fauxton` | **Obsidian Self-hosted LiveSync** on CouchDB (`obsidian.internal:5984`) with Fauxton as its admin UI. This is also the vault Momo reads |
+| Apps | `ha` · `media` · `rss` · `bookmarks` · `search` · `git` | Home Assistant, Jellyfin, FreshRSS, Karakeep, SearXNG, Forgejo |
+| AI | `momo` · `omniroute` | **Momo**, the household assistant; **OmniRoute**, the gateway to outside models. `hermes.internal` was retired on 2026-08-03 |
+| Protocol/API exceptions | — | RustDesk, Syncthing sync, Forgejo SSH, Ollama API, CouchDB replication, CrowdSec LAPI: ports, not web aliases |
+
+## The Household Assistant
+
+Momo is not a chat window bolted onto the estate: it reads the estate's own
+state, its owner's Obsidian vault, and its own memory, and it can act. That
+makes **which engine answers** a security question, not a performance one —
+so the tools are gated on it.
+
+```mermaid
+flowchart TD
+    Owner["Owner\nTelegram, or momo.internal"]
+    Gateway["Momo\nLXC 102 · hermes-agent\ngateway + web panel"]
+
+    subgraph Engines["Eight engines, one command away — /motore n"]
+      PCG["Owner's PC · RTX 5070 Ti\ngpt-oss:20b · qwen3.5:9b\nIN THE HOUSE"]
+      SRV["Server · NVIDIA T600 4 GB\nqwen2.5:3b · granite4:micro\nIN THE HOUSE — never absent"]
+      OUT["OpenRouter · AWS Bedrock\nOUTSIDE THE HOUSE"]
+    end
+
+    subgraph Memory["Shared memory — same store as the retiring Hermes"]
+      PG["PostgreSQL\nfacts, agenda, procedures, address book"]
+      QD["Qdrant\nsearch by meaning"]
+      VK["Valkey\nshort-term"]
+    end
+
+    Estate["Estate state\nProxmox · Kuma · PBS · Immich"]
+    Vault["Obsidian vault\nsearch by meaning"]
+    Search["SearXNG\nweb search that stays home"]
+
+    Owner --> Gateway
+    Gateway -->|"first choice"| PCG
+    Gateway -->|"fallback when the PC is off"| SRV
+    Gateway -.->|"only if nobody at home answers"| OUT
+    Gateway --> PG & QD & VK
+    Gateway --> Estate
+    Gateway --> Vault
+    Gateway --> Search
+
+    PCG -.->|"20 tools"| Estate
+    OUT -.->|"1 tool: the web. Nothing from home"| Search
+```
+
+Four rules the drawing is meant to make obvious:
+
+1. **Tools are gated on the engine, not on the question.** A household engine
+   sees 20 tools; an external one sees 1 — the web. The estate, the vault,
+   the address book and MASTER are simply not offered. Counted by a test, not
+   remembered: `scripts/momo/tests/test_tool_visibility.py`.
+2. **The house always has an engine.** The T600 exists so that the owner's PC
+   being off degrades the answer, never removes it. The fallback chain is
+   ordered by what actually fits in 4 GB.
+3. **Web searches do not leave home either.** They go through the house's own
+   SearXNG, using `hermes-agent`'s search tool — which is stronger than ours
+   was, with real SSRF protection and a fallback if SearXNG is down.
+4. **Memory is one store, shared.** Momo and the retiring Hermes read and
+   write the same Postgres/Qdrant/Valkey. A second copy would drift, and the
+   drift would stay invisible until one of them lost something.
+
+Runbooks: [momo-telegram.md](docs/04_apps/momo-telegram.md) ·
+[momo-pannello.md](docs/04_apps/momo-pannello.md) ·
+[momo-memoria-automatica.md](docs/04_apps/momo-memoria-automatica.md) ·
+[momo-guardrail.md](docs/04_apps/momo-guardrail.md)
 
 ## Repository Layout
 
