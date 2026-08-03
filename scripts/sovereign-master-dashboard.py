@@ -1933,6 +1933,33 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb:active .bot{transform:translate(-50%,-50%) scale(.94)}
 #orb:active .bot .iride{transform:scale(.34)}
 #orb:active .bot .pupilla-luce{transform:scale(1.6)}
+/* IL MOVIMENTO STA QUI, non dentro l'SVG. Le animazioni SMIL inserite con
+   innerHTML non entrano nella linea del tempo del documento e restano ferme
+   al primo fotogramma: e' cio' che faceva sparire la bocca e poi la lasciava
+   fissa e bianca. Il CSS invece arriva, perche' la copia clonata vive nel
+   documento vero. Un solo sistema di animazione, e prefers-reduced-motion
+   torna a essere una media query normale.
+   transform-box:view-box e' la riga che conta: senza, ogni rotazione
+   prenderebbe origine dal centro del riquadro del singolo pezzo, e una
+   lancetta girerebbe attorno a se' stessa invece che attorno al perno. */
+#orb .bot .ingranaggio{transform-box:view-box;transform-origin:32px 13px}
+#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:21px 28px}
+#orb .bot .iride{transform-box:view-box;transform-origin:43px 28px}
+@media(prefers-reduced-motion:no-preference){
+ #orb .bot .ingranaggio{animation:momoGira 16s linear infinite}
+ #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
+ #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
+ #orb .bot .iride{animation:momoIride 6s ease-in-out infinite}
+ #orb .bot .pupilla-luce{animation:momoAlone 3.2s ease-in-out infinite}
+ /* La scia e' invisibile a riposo (opacity 0 nel disegno) e la accende SOLO
+    questa regola: dove il CSS non arriva -- tessere, pulsanti -- non si vede
+    niente, invece di un trattino chiaro fermo in mezzo al sorriso. */
+ #orb .bot .ecg-scia{opacity:.95;animation:momoScia 2.6s linear infinite}
+ @keyframes momoGira{to{transform:rotate(360deg)}}
+ @keyframes momoIride{0%,72%,100%{transform:scale(1)}82%{transform:scale(.84)}}
+ @keyframes momoAlone{0%,100%{opacity:.35}50%{opacity:.95}}
+ @keyframes momoScia{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+}
 .momoico{vertical-align:-3px;flex:0 0 auto}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
  padding:12px 14px;font-size:.83rem;line-height:1.5;box-shadow:var(--shadow);opacity:0;transform:translateY(10px) scale(.96);
@@ -2414,43 +2441,49 @@ footer a:hover{text-decoration:underline}
      passata da Mohamed il 2026-08-03: un orologio da una parte, un diaframma
      fotografico dall'altra, e una bocca che e' un elettrocardiogramma.
 
-     DUE DIFETTI VERI, visti in pagina e corretti qui.
+     PERCHE' QUI DENTRO NON C'E' NESSUNA ANIMAZIONE SMIL, ed e' la terza
+     versione di questa storia.
+     Le animazioni erano <animate> e <animateTransform> dentro il simbolo.
+     Funzionano in un file SVG normale, ma la copia che vive nell'orb viene
+     CLONATA con innerHTML, e SMIL inserito cosi' non entra nella linea del
+     tempo del documento: resta fermo al primo fotogramma. Da li' due
+     sintomi che sembravano diversi e avevano una causa sola:
+       * la bocca "spariva"  -> il tracciato era disegnato da dashoffset
+         animato, e fermo al primo fotogramma vuol dire nascosto;
+       * poi la bocca era "fissa e bianca" -> la scia luminosa, ferma al
+         primo fotogramma, e' un trattino chiaro immobile.
+     Ho provato due volte a curare il sintomo. La causa e' che SMIL li' non
+     parte. Quindi il movimento passa tutto al CSS, che nella copia clonata
+     arriva senza problemi perche' quella vive nel documento vero.
 
-     1. NELL'ORB IL SORRISO NON C'ERA. Il tracciato era disegnato con
-        stroke-dasharray + dashoffset animato, cioe' NASCOSTO a riposo e
-        rivelato dall'animazione. Nella copia clonata dentro l'orb quella
-        animazione non riparte, e il risultato e' una faccia senza bocca --
-        un difetto che si vede solo li' e non nelle copie con <use>.
-        Regola imparata: il disegno deve essere GIA' GIUSTO da fermo.
-        L'animazione puo' aggiungere vita, mai essere la condizione perche'
-        una cosa esista. Ora il sorriso e' sempre disegnato.
+     COSA CI GUADAGNA, oltre a funzionare: un solo sistema di animazione
+     invece di due, prefers-reduced-motion torna a essere una media query
+     normale invece di JavaScript che strappa nodi, e le copie statiche
+     (tessere, pulsanti) non hanno piu' bisogno di essere ripulite.
+     La SCIA del battito e' invisibile a riposo (opacity 0) e la accende il
+     CSS solo dove si muove davvero: dove il CSS non arriva non si vede,
+     invece di lasciare un trattino bianco fermo in mezzo al sorriso.
 
-     2. ERA TUTTO TROPPO PICCOLO DENTRO UN CERCHIO TROPPO GRANDE. Occhi da
-        7,6 dentro un raggio 26,5 lasciavano un anello vuoto largo quanto la
-        faccia, e le cuciture ai lati sembravano graffi -- a 46px leggevano
-        come baffi. Occhi portati a 9, sorriso piu' largo e piu' basso, via
-        le cuciture e le tracce inferiori. Meno pezzi, piu' grandi.
-
-     DUE VERSIONI, e non e' una svista. L'originale vive a 2000 pixel; qui
-     l'icona sta a 18px sui pulsanti, dove un tratto da 1px si impasta.
+     DUE VERSIONI del disegno, e non e' una svista. L'originale vive a 2000
+     pixel; qui l'icona sta a 18px sui pulsanti, dove un tratto si impasta.
        #momo-marchio  il marchio pieno, leggibile da ~36px in su
        #momo-mini     poche forme sole, per 18-24px
 
-     I COLORI stanno come ATTRIBUTI di presentazione, non nel CSS. Cosi' le
-     copie fatte con <use> sono gia' colorate da sole, e allo stesso tempo il
-     CSS puo' ancora cambiarle: una regola CSS vince sempre su un attributo
-     di presentazione. E' quello che permette alla copia dentro l'orb di
-     reagire al tocco senza che ne esista una seconda.
+     I COLORI stanno come ATTRIBUTI di presentazione, non nel CSS: cosi' le
+     copie con <use> sono gia' colorate da sole, e il CSS puo' comunque
+     cambiarle, perche' vince sempre su un attributo di presentazione.
 
      GEOMETRIA: testa = cerchio di raggio 26,5 in (32; 31,5). Tutto dentro
-     quel raggio, e ogni coppia specchiata verificata su entrambi i lati. -->
+     quel raggio, e ogni coppia specchiata verificata su entrambi i lati.
+     Le parti che ruotano hanno il perno scritto nel CSS in coordinate del
+     viewBox (transform-box: view-box), non al centro del loro riquadro:
+     una lancetta ruota attorno al perno dell'orologio, non attorno a se'. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
  <symbol id="momo-marchio" viewBox="0 0 64 64">
   <g fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
    <path class="piastre" stroke="#d8b45a" d="M32 5C17.2 5 5.5 16.7 5.5 31.5S17.2 58 32 58s26.5-11.7 26.5-26.5S46.8 5 32 5Z"/>
    <path class="circuiti" stroke="#b9975a" d="M25.6 17.6 28 15.6M38.4 17.6 36 15.6"/>
    <g class="ingranaggio" stroke="#b9975a">
-    <animateTransform attributeName="transform" type="rotate" from="0 32 13" to="360 32 13" dur="16s" repeatCount="indefinite"/>
     <circle cx="32" cy="13" r="2.8"/>
     <path d="M34.8 13h1.2M33.98 14.98l.85.85M32 15.8v1.2M30.02 14.98l-.85.85M29.2 13H28M30.02 11.02l-.85-.85M32 10.2V9M33.98 11.02l.85-.85"/>
    </g>
@@ -2458,48 +2491,27 @@ footer a:hover{text-decoration:underline}
     <circle cx="21" cy="28" r="9"/><circle cx="21" cy="28" r="7.6" opacity=".5"/>
     <path d="M21 22v-1.1M27 28h1.1M21 34v1.1M15 28h-1.1"/>
    </g>
-   <g class="lancette" stroke="#f7e9b8">
-    <g transform="translate(21 28)">
-     <animateTransform attributeName="transform" type="rotate" additive="sum" from="0" to="360" dur="720s" repeatCount="indefinite"/>
-     <path d="M0 0 0 -4.2"/></g>
-    <g transform="translate(21 28)">
-     <animateTransform attributeName="transform" type="rotate" additive="sum" from="0" to="360" dur="60s" repeatCount="indefinite"/>
-     <path d="M0 0 0 -6"/></g>
-   </g>
+   <path class="lancetta-ore" stroke="#f7e9b8" d="M21 28 21 23.8"/>
+   <path class="lancetta-min" stroke="#f7e9b8" d="M21 28 21 22"/>
    <circle class="lente" cx="43" cy="28" r="9" stroke="#c9a227"/>
    <circle class="lente" cx="43" cy="28" r="7.6" stroke="#c9a227" opacity=".5"/>
    <g class="iride" stroke="#43b4c4">
-    <animateTransform attributeName="transform" type="scale" additive="sum" values="1;1;.84;1" keyTimes="0;.72;.82;1" dur="6s" repeatCount="indefinite"/>
     <circle cx="43" cy="28" r="5.6"/>
     <path d="M46.7 28 44.85 31.2 41.15 31.2 39.3 28 41.15 24.8 44.85 24.8Z"/>
     <path d="M46.7 28 47.85 30.8M44.85 31.2 43 33.6M41.15 31.2 38.15 30.8M39.3 28 38.15 25.2M41.15 24.8 43 22.4M44.85 24.8 47.85 25.2"/>
    </g>
    <path class="ecg-traccia" stroke="#2dd4a7" stroke-width="1.9"
     d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"/>
-   <!-- La bocca si muove SENZA MAI SPARIRE. Prima il tracciato era disegnato
-        con dasharray+dashoffset animato: nascosto a inizio ciclo, rivelato, e
-        nascosto di nuovo  - cioe' assente per meta' del tempo, che a colpo
-        d'occhio e' una faccia senza bocca (visto da Mohamed il 2026-08-03).
-        Ora la linea sopra e' SEMPRE disegnata e il movimento lo fa questa
-        SCIA: lo stesso percorso, piu' chiaro e piu' spesso, ridotto a un
-        trattino corto che ci corre sopra come su un monitor.
-        pathLength="100" rende il conto indipendente dalla lunghezza vera del
-        percorso: il trattino e' l'8% comunque io cambi la forma del sorriso.
-        La scia ha senso solo mentre si muove: dove le animazioni si tolgono
-        (tessere, e chi ha chiesto meno movimento) viene tolta anche lei,
-        altrimenti resterebbe un frammento fermo in mezzo al sorriso. -->
-   <path class="ecg-scia" stroke="#a8ffe4" stroke-width="2.5" opacity=".95"
+   <path class="ecg-scia" stroke="#7df5cd" stroke-width="2.4" opacity="0"
     d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"
-    pathLength="100" stroke-dasharray="8 92">
-    <animate attributeName="stroke-dashoffset" from="100" to="0" dur="2.6s" repeatCount="indefinite"/></path>
+    pathLength="100" stroke-dasharray="9 91"/>
   </g>
   <g stroke="none">
    <circle class="circuiti-nodi" cx="25.6" cy="17.6" r="1" fill="#b9975a"/>
    <circle class="circuiti-nodi" cx="38.4" cy="17.6" r="1" fill="#b9975a"/>
    <circle class="perno" cx="21" cy="28" r="1" fill="#f7e9b8"/>
    <circle class="pupilla" cx="43" cy="28" r="1.7" fill="#0b1015"/>
-   <circle class="pupilla-luce" cx="43" cy="28" r="2.8" fill="none" stroke="#7fe3f0" stroke-width=".8" opacity=".9">
-    <animate attributeName="opacity" values=".3;.95;.3" dur="3.2s" repeatCount="indefinite"/></circle>
+   <circle class="pupilla-luce" cx="43" cy="28" r="2.8" fill="none" stroke="#7fe3f0" stroke-width=".8" opacity=".55"/>
    <circle class="viti" cx="11" cy="31.5" r="1.2" fill="#c9a227"/>
    <circle class="viti" cx="53" cy="31.5" r="1.2" fill="#c9a227"/>
   </g>
@@ -3302,15 +3314,10 @@ function momoIcona(px){
  bot.setAttribute('viewBox', sim.getAttribute('viewBox'));
  bot.innerHTML=sim.innerHTML;
 })();
-// Chi ha chiesto meno movimento non deve vedere ingranaggi che girano. Le
-// animazioni sono SMIL dentro l'SVG, quindi non si spengono con una media
-// query: si tolgono dal documento, una volta sola, all'avvio. Va fatto DOPO
-// il clone, altrimenti la copia nell'orb se le porterebbe dietro.
-if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
- document.querySelectorAll('#momo-marchio animateTransform, #momo-marchio animate,'
-  +' #orb .bot animateTransform, #orb .bot animate,'
-  +' #momo-marchio .ecg-scia, #orb .bot .ecg-scia').forEach(a=>a.remove());
-}
+// Chi ha chiesto meno movimento non ha piu' bisogno di JavaScript: il
+// movimento e' CSS, quindi lo spegne la media query qui sopra. Questo blocco
+// e' stato tolto di proposito -- se un giorno tornasse un <animate> dentro
+// l'SVG, servirebbe di nuovo, e servirebbe anche capire perche' e' tornato.
 
 // The canned answers stay: they are instant and work with Momo offline.
 // Anything they do not cover goes to Momo, which reads the live system.
