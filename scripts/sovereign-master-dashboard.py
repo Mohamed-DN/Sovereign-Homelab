@@ -1942,23 +1942,31 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
    transform-box:view-box e' la riga che conta: senza, ogni rotazione
    prenderebbe origine dal centro del riquadro del singolo pezzo, e una
    lancetta girerebbe attorno a se' stessa invece che attorno al perno. */
-#orb .bot .ingranaggio{transform-box:view-box;transform-origin:32px 13px}
-#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:21px 28px}
-#orb .bot .iride{transform-box:view-box;transform-origin:43px 28px}
+#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:23px 42px}
+#orb .bot .iride{transform-box:view-box;transform-origin:41px 42px}
+/* Il perno del battito sta sulla sua LINEA DI BASE, non al centro del suo
+   riquadro: e' cio' che fa salire il picco invece di farlo scivolare. */
+#orb .bot .bocca-battito{transform-box:view-box;transform-origin:32px 51.8px}
+#orb .bot .stella{transform-box:view-box;transform-origin:28px 12px}
 @media(prefers-reduced-motion:no-preference){
- #orb .bot .ingranaggio{animation:momoGira 16s linear infinite}
  #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
  #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
  #orb .bot .iride{animation:momoIride 6s ease-in-out infinite}
  #orb .bot .pupilla-luce{animation:momoAlone 3.2s ease-in-out infinite}
- /* La scia e' invisibile a riposo (opacity 0 nel disegno) e la accende SOLO
-    questa regola: dove il CSS non arriva -- tessere, pulsanti -- non si vede
-    niente, invece di un trattino chiaro fermo in mezzo al sorriso. */
- #orb .bot .ecg-scia{opacity:.95;animation:momoScia 2.6s linear infinite}
+ /* La BOCCA batte davvero: i due archi del sorriso restano fermi e il
+    tracciato in mezzo si allunga e si riabbassa. Due colpi e una pausa, che
+    e' il ritmo vero di un battito -- uno solo sembra un tremolio. */
+ #orb .bot .bocca-battito{animation:momoBattito 2.2s ease-in-out infinite}
+ /* La stella sul cappello brilla piano. E' l'unico pezzo che pulsa in alto
+    da quando l'ingranaggio e' finito sotto la tesa. */
+ #orb .bot .stella{animation:momoStella 4.2s ease-in-out infinite}
  @keyframes momoGira{to{transform:rotate(360deg)}}
  @keyframes momoIride{0%,72%,100%{transform:scale(1)}82%{transform:scale(.84)}}
  @keyframes momoAlone{0%,100%{opacity:.35}50%{opacity:.95}}
- @keyframes momoScia{from{stroke-dashoffset:100}to{stroke-dashoffset:0}}
+ @keyframes momoBattito{0%,52%,100%{transform:scaleY(1)}
+  58%{transform:scaleY(1.5)}64%{transform:scaleY(.88)}
+  71%{transform:scaleY(1.28)}78%{transform:scaleY(1)}}
+ @keyframes momoStella{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
 }
 .momoico{vertical-align:-3px;flex:0 0 auto}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
@@ -2437,94 +2445,94 @@ footer a:hover{text-decoration:underline}
  <div class="mh"><span class="lic" id="m-ic"></span><b id="m-t"></b><button class="x" id="m-x">&times;</button></div>
  <div class="mb" id="m-b"></div>
 </div>
-<!-- IL MARCHIO DI MOMO. Testa meccanica a tratto, sul modello dell'immagine
-     passata da Mohamed il 2026-08-03: un orologio da una parte, un diaframma
-     fotografico dall'altra, e una bocca che e' un elettrocardiogramma.
+<!-- IL MARCHIO DI MOMO: mago meccanico. Un orologio da una parte, un
+     diaframma fotografico dall'altra, una bocca che e' un
+     elettrocardiogramma, e un cappello da mago.
 
-     PERCHE' QUI DENTRO NON C'E' NESSUNA ANIMAZIONE SMIL, ed e' la terza
-     versione di questa storia.
-     Le animazioni erano <animate> e <animateTransform> dentro il simbolo.
-     Funzionano in un file SVG normale, ma la copia che vive nell'orb viene
-     CLONATA con innerHTML, e SMIL inserito cosi' non entra nella linea del
-     tempo del documento: resta fermo al primo fotogramma. Da li' due
-     sintomi che sembravano diversi e avevano una causa sola:
-       * la bocca "spariva"  -> il tracciato era disegnato da dashoffset
-         animato, e fermo al primo fotogramma vuol dire nascosto;
-       * poi la bocca era "fissa e bianca" -> la scia luminosa, ferma al
-         primo fotogramma, e' un trattino chiaro immobile.
-     Ho provato due volte a curare il sintomo. La causa e' che SMIL li' non
-     parte. Quindi il movimento passa tutto al CSS, che nella copia clonata
-     arriva senza problemi perche' quella vive nel documento vero.
+     PERCHE' LA COMPOSIZIONE E' RIFATTA DA CAPO. Il primo cappello era
+     posato sopra una testa che occupava gia' tutto: restavano cinque unita'
+     di spazio in alto, il cono e' venuto schiacciato e il risultato
+     sembrava un fungo appiccicato ("fa schifo", detto giustamente da
+     Mohamed il 2026-08-03). Il difetto non era il cappello: era aver tenuto
+     ferma la testa e infilato il cappello nell'avanzo.
+     Ora testa e cappello sono UNA SILHOUETTE SOLA. Il cranio scende a
+     raggio 18,5 con centro in (32; 39,5) e occupa la meta' bassa; la tesa
+     attraversa TUTTO il disegno da 5 a 59, piu' larga della testa; il cono
+     sale fino a y=1,8, cioe' al bordo del riquadro. Il cappello e' un terzo
+     dell'altezza totale invece che un ottavo.
 
-     COSA CI GUADAGNA, oltre a funzionare: un solo sistema di animazione
-     invece di due, prefers-reduced-motion torna a essere una media query
-     normale invece di JavaScript che strappa nodi, e le copie statiche
-     (tessere, pulsanti) non hanno piu' bisogno di essere ripulite.
-     La SCIA del battito e' invisibile a riposo (opacity 0) e la accende il
-     CSS solo dove si muove davvero: dove il CSS non arriva non si vede,
-     invece di lasciare un trattino bianco fermo in mezzo al sorriso.
+     IL FONDO DEL CAPPELLO E' PIENO, non solo contorno: in un disegno a
+     tratto due linee sovrapposte si vedono entrambe, e la calotta
+     trasparirebbe attraverso la tesa. Per la stessa ragione il gruppo del
+     cappello sta DOPO gli occhi nel documento: in SVG vince chi e'
+     disegnato per ultimo.
 
-     DUE VERSIONI del disegno, e non e' una svista. L'originale vive a 2000
-     pixel; qui l'icona sta a 18px sui pulsanti, dove un tratto si impasta.
-       #momo-marchio  il marchio pieno, leggibile da ~36px in su
-       #momo-mini     poche forme sole, per 18-24px
+     PERCHE' NON C'E' NESSUNA ANIMAZIONE SMIL QUI DENTRO. La copia che vive
+     nell'orb viene clonata con innerHTML, e SMIL inserito cosi' non entra
+     nella linea del tempo del documento: resta fermo al primo fotogramma.
+     Tutto il movimento sta nel CSS, che nella copia clonata arriva perche'
+     quella vive nel documento vero.
 
-     I COLORI stanno come ATTRIBUTI di presentazione, non nel CSS: cosi' le
-     copie con <use> sono gia' colorate da sole, e il CSS puo' comunque
-     cambiarle, perche' vince sempre su un attributo di presentazione.
+     LA BOCCA E' DIVISA IN TRE perche' la divisione e' la funzione: i due
+     archi del sorriso stanno fermi e il battito in mezzo pulsa davvero.
 
-     GEOMETRIA: testa = cerchio di raggio 26,5 in (32; 31,5). Tutto dentro
-     quel raggio, e ogni coppia specchiata verificata su entrambi i lati.
-     Le parti che ruotano hanno il perno scritto nel CSS in coordinate del
-     viewBox (transform-box: view-box), non al centro del loro riquadro:
-     una lancetta ruota attorno al perno dell'orologio, non attorno a se'. -->
+     DUE VERSIONI: #momo-marchio da ~36px in su, #momo-mini per 18-24px.
+     I COLORI stanno come attributi di presentazione, non nel CSS, cosi' le
+     copie con <use> sono gia' colorate e il CSS puo' comunque cambiarle.
+     Le parti che ruotano hanno il perno in coordinate del viewBox
+     (transform-box: view-box): una lancetta gira attorno al perno
+     dell'orologio, non attorno a se' stessa. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
  <symbol id="momo-marchio" viewBox="0 0 64 64">
   <g fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-   <path class="piastre" stroke="#d8b45a" d="M32 5C17.2 5 5.5 16.7 5.5 31.5S17.2 58 32 58s26.5-11.7 26.5-26.5S46.8 5 32 5Z"/>
-   <path class="circuiti" stroke="#b9975a" d="M25.6 17.6 28 15.6M38.4 17.6 36 15.6"/>
-   <g class="ingranaggio" stroke="#b9975a">
-    <circle cx="32" cy="13" r="2.8"/>
-    <path d="M34.8 13h1.2M33.98 14.98l.85.85M32 15.8v1.2M30.02 14.98l-.85.85M29.2 13H28M30.02 11.02l-.85-.85M32 10.2V9M33.98 11.02l.85-.85"/>
-   </g>
+   <circle class="piastre" cx="32" cy="39.5" r="18.5" stroke="#d8b45a"/>
    <g class="quadrante" stroke="#e8d48a">
-    <circle cx="21" cy="28" r="9"/><circle cx="21" cy="28" r="7.6" opacity=".5"/>
-    <path d="M21 22v-1.1M27 28h1.1M21 34v1.1M15 28h-1.1"/>
+    <circle cx="23" cy="42" r="7.5"/><circle cx="23" cy="42" r="6.3" opacity=".5"/>
+    <path d="M28.1 42h1M23 47.1v1M17.9 42h-1"/>
    </g>
-   <path class="lancetta-ore" stroke="#f7e9b8" d="M21 28 21 23.8"/>
-   <path class="lancetta-min" stroke="#f7e9b8" d="M21 28 21 22"/>
-   <circle class="lente" cx="43" cy="28" r="9" stroke="#c9a227"/>
-   <circle class="lente" cx="43" cy="28" r="7.6" stroke="#c9a227" opacity=".5"/>
+   <path class="lancetta-ore" stroke="#f7e9b8" d="M23 42 23 38.5"/>
+   <path class="lancetta-min" stroke="#f7e9b8" d="M23 42 23 36.8"/>
+   <circle class="lente" cx="41" cy="42" r="7.5" stroke="#c9a227"/>
+   <circle class="lente" cx="41" cy="42" r="6.3" stroke="#c9a227" opacity=".5"/>
    <g class="iride" stroke="#43b4c4">
-    <circle cx="43" cy="28" r="5.6"/>
-    <path d="M46.7 28 44.85 31.2 41.15 31.2 39.3 28 41.15 24.8 44.85 24.8Z"/>
-    <path d="M46.7 28 47.85 30.8M44.85 31.2 43 33.6M41.15 31.2 38.15 30.8M39.3 28 38.15 25.2M41.15 24.8 43 22.4M44.85 24.8 47.85 25.2"/>
+    <circle cx="41" cy="42" r="4.6"/>
+    <path d="M44 42 42.5 44.6 39.5 44.6 38 42 39.5 39.4 42.5 39.4Z"/>
+    <path d="M44 42 44.98 44.3M42.5 44.6 41 46.6M39.5 44.6 37.02 44.3M38 42 37.02 39.7M39.5 39.4 41 37.4M42.5 39.4 44.98 39.7"/>
    </g>
-   <path class="ecg-traccia" stroke="#2dd4a7" stroke-width="1.9"
-    d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"/>
-   <path class="ecg-scia" stroke="#7df5cd" stroke-width="2.4" opacity="0"
-    d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"
-    pathLength="100" stroke-dasharray="9 91"/>
+   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="1.9" d="M21 47q3.6 3.4 6.6 4.6"/>
+   <path class="bocca-battito" stroke="#2dd4a7" stroke-width="1.9"
+    d="M27.6 51.6 29 49.4 30.3 52.1 31 52.3 32 47.6 33 55.6 34 52.3 35.1 49.4 36.4 51.6"/>
+   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="1.9" d="M36.4 51.6q3-1.2 6.6-4.6"/>
+   <g class="cappello">
+    <path class="cappello-cono" fill="#17130c" stroke="#c9a227"
+     d="M19.5 23.5C21 13.5 26.5 5 36 1.8c-1 6.2.5 13.7 8.5 21.7Z"/>
+    <path class="cappello-tesa" fill="#17130c" stroke="#c9a227"
+     d="M5 26.5C15 18 49 18 59 26.5 49 44 15 44 5 26.5Z"/>
+    <path class="cappello-fascia" stroke="#f0d264" stroke-width="2" d="M20.6 22Q32 26 43.4 22"/>
+   </g>
   </g>
   <g stroke="none">
-   <circle class="circuiti-nodi" cx="25.6" cy="17.6" r="1" fill="#b9975a"/>
-   <circle class="circuiti-nodi" cx="38.4" cy="17.6" r="1" fill="#b9975a"/>
-   <circle class="perno" cx="21" cy="28" r="1" fill="#f7e9b8"/>
-   <circle class="pupilla" cx="43" cy="28" r="1.7" fill="#0b1015"/>
-   <circle class="pupilla-luce" cx="43" cy="28" r="2.8" fill="none" stroke="#7fe3f0" stroke-width=".8" opacity=".55"/>
-   <circle class="viti" cx="11" cy="31.5" r="1.2" fill="#c9a227"/>
-   <circle class="viti" cx="53" cy="31.5" r="1.2" fill="#c9a227"/>
+   <circle class="perno" cx="23" cy="42" r=".9" fill="#f7e9b8"/>
+   <circle class="pupilla" cx="41" cy="42" r="1.4" fill="#0b1015"/>
+   <circle class="pupilla-luce" cx="41" cy="42" r="2.4" fill="none" stroke="#7fe3f0" stroke-width=".7" opacity=".55"/>
+   <circle class="viti" cx="15" cy="45.5" r="1.1" fill="#c9a227"/>
+   <circle class="viti" cx="49" cy="45.5" r="1.1" fill="#c9a227"/>
+   <path class="stella" fill="#f7e9b8" d="M28 8.4 28.9 11.1 31.6 12 28.9 12.9 28 15.6 27.1 12.9 24.4 12 27.1 11.1Z"/>
   </g>
  </symbol>
  <symbol id="momo-mini" viewBox="0 0 64 64">
   <g fill="none" stroke="#d8b45a" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
-   <circle cx="32" cy="31.5" r="26.5"/>
-   <circle cx="21" cy="28" r="8"/>
-   <circle cx="43" cy="28" r="8" stroke="#43b4c4"/>
-   <path d="M20.5 43.5q4.5 5 8 4.2L32 53l3.5-5.3q3.5.8 8-4.2" stroke="#2dd4a7"/>
+   <circle cx="32" cy="40" r="18"/>
+   <circle cx="23" cy="42" r="6.6"/>
+   <circle cx="41" cy="42" r="6.6" stroke="#43b4c4"/>
+   <path d="M21.5 47q3.6 4.2 6.6 3.6L32 55l3.9-4.4q3 .6 6.6-3.6" stroke="#2dd4a7"/>
   </g>
-  <circle cx="43" cy="28" r="3.2" fill="#43b4c4"/>
-  <path d="M21 28 21 21.6" fill="none" stroke="#f7e9b8" stroke-width="3.2" stroke-linecap="round"/>
+  <path fill="#17130c" stroke="#c9a227" stroke-width="3.4" stroke-linejoin="round"
+   d="M19.5 24C21 13.5 26.5 5 36 1.5c-1 6.4.5 14 8.5 22.5Z"/>
+  <path fill="#17130c" stroke="#c9a227" stroke-width="3.4" stroke-linejoin="round"
+   d="M4 26.5C14.5 17.5 49.5 17.5 60 26.5 49.5 40.5 14.5 40.5 4 26.5Z"/>
+  <circle cx="41" cy="42" r="2.8" fill="#43b4c4"/>
+  <path d="M23 42 23 36.6" fill="none" stroke="#f7e9b8" stroke-width="3.2" stroke-linecap="round"/>
  </symbol>
 </defs></svg>
 <div id="asst">
