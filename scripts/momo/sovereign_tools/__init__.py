@@ -412,5 +412,45 @@ def register(ctx) -> None:
     except Exception as exc:  # noqa: BLE001
         logger.warning("sovereign_tools: comando /motore non registrato (%s)", exc)
 
+    # `/memoria` VIENE REGISTRATO DA QUI, e non dal plugin che possiede la
+    # memoria. Non e' una scelta di comodo: il plugin `sovereign` e'
+    # `kind: exclusive`, e per quel tipo hermes-agent NON carica il modulo dal
+    # caricatore generale -- lo dice il loro commento in plugins.py:1417
+    # ("exclusive plugins have their own discovery/activation path... does not
+    # load the module"). Il modulo viene istanziato solo dalla scoperta di
+    # categoria, che costruisce la classe MemoryProvider e basta: `register()`
+    # non viene mai chiamato, quindi un comando dichiarato li' non esiste.
+    # Trovato il 2026-08-03 installando la memoria automatica: il comando era
+    # scritto e provato, e semplicemente non compariva in nessun menu.
+    # Questo plugin invece e' `standalone`, quindi il suo `register()` gira.
+    # La memoria resta una sola: si costruisce un provider, ma lo store sotto
+    # e' il singleton pigro di `apprendimento.memoria()`.
+    try:
+        # Si carica PER PERCORSO, non con `import sovereign`. I plugin di
+        # hermes-agent sono caricati dal file, non come pacchetti su
+        # sys.path: un `import sovereign` da qui dentro fallisce con
+        # «No module named 'sovereign'» anche se la cartella e' li' accanto.
+        # Sbagliato una prima volta il 2026-08-03, e l'errore si vedeva solo
+        # nella riga di log che avevo avuto la fortuna di scrivere.
+        import importlib.util  # noqa: PLC0415
+        _vicino = os.path.join(os.path.dirname(os.path.dirname(
+            os.path.abspath(__file__))), "sovereign", "__init__.py")
+        _spec = importlib.util.spec_from_file_location("sovereign_mem_cmd", _vicino)
+        _mem = importlib.util.module_from_spec(_spec)
+        sys.modules.setdefault("sovereign_mem_cmd", _mem)
+        _spec.loader.exec_module(_mem)
+        ctx.register_command(
+            name="memoria",
+            handler=_mem._comando_memoria(_mem.SovereignMemoryProvider()),
+            description="Quello che ho imparato da solo — e come cancellarlo",
+            args_hint="[n|tutto|cerca <parole>|dimentica f12|stato|pausa|riprendi]",
+        )
+        logger.info("sovereign_tools: comando /memoria registrato")
+    except Exception as exc:  # noqa: BLE001
+        # Se salta, la memoria automatica continua a SCRIVERE ma non c'e' modo
+        # di rivederla: e' un difetto che va visto, non un dettaglio.
+        logger.error("sovereign_tools: /memoria NON registrato (%s) — la memoria "
+                     "automatica scriverebbe senza che si possa rileggerla", exc)
+
     logger.info("sovereign_tools: %d strumenti registrati (motore privato: %s)",
                 registered, _engine_is_private())

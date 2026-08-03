@@ -619,9 +619,46 @@ di §3 esiste comunque.
 | Lo stesso fatto compare due volte con parole diverse | è lo strato 3, e ha una soglia | abbassare `SOVEREIGN_MEMORIA_SOGLIA` **con cautela**: sotto ~0.80 comincia a scartare fatti veri e diversi. Prima verificare che Qdrant risponda: senza embedding lo strato 3 non gira affatto |
 | Un fatto assurdo, con parole da pagina web | iniezione passata in mezzo | `/memoria dimentica f<id>`, poi **aggiungere il pattern** a `PATTERN_INIEZIONE` in `sovereign_memoria.py` e il caso al test. Se il testo è inglese, va proposto a monte in `threat_patterns.py`: è il loro elenco |
 | `/memoria` risponde «memoria non disponibile» | Postgres giù o DSN mancante | `pct exec 102 -- python3 -c "import hermes_memory; print(hermes_memory.MemoryStore().status())"` |
-| `/memoria` non esiste su Telegram | il plugin `sovereign` non si è caricato, o il nome collide | `grep 'memoria automatica\|register_command' logs/agent.log`; `register_command` scarta con un warning i nomi che collidono con i comandi interni (`/memory` è interno, `/memoria` no) |
+| `/memoria` non esiste su Telegram | **quasi sempre una delle due cose in §10.1**, non un errore di scrittura | leggere §10.1 prima di cercare altrove |
 | `/memoria dimentica` dice «non trovato» su un id che si vede nell'elenco | l'`owner` della sessione non è quello del fatto | `/memoria stato` mostra l'owner in uso; su CLI è `HERMES_VAULT_OWNER`, sul gateway è lo `user_id` della piattaforma |
 | Le risposte sono diventate lente | **non è questo**: l'estrazione è su un loro thread di sfondo | verificare con `MOMO_GUARDRAIL_LLM` e con il router: se `/memoria pausa` non cambia niente, la causa è altrove |
+
+### 10.1 Perché `/memoria` non compariva — due trappole in fila
+
+Trovate il 2026-08-03 installando la memoria automatica. Il comando era
+scritto e provato, e semplicemente non esisteva. Le cause sono due, e si
+nascondono l'una dietro l'altra.
+
+**Prima: un plugin `kind: exclusive` non può registrare comandi.** Il plugin
+`sovereign` è la memoria, quindi è `exclusive`. Per quel tipo il caricatore
+generale **non carica il modulo** — è scritto nel loro codice
+(`hermes_cli/plugins.py:1417`): *«exclusive plugins have their own
+discovery/activation path… does not load the module»*. Il modulo viene
+istanziato solo dalla scoperta di categoria, che costruisce la classe
+`MemoryProvider` e basta: **`register()` non viene mai chiamato**. Un comando
+dichiarato lì dentro non esiste, e non c'è nessun errore che lo dica.
+
+Rimedio: `/memoria` viene registrato da `sovereign_tools`, che è
+`kind: standalone` e il cui `register()` gira davvero. La memoria resta una
+sola — si costruisce un provider, ma lo store sotto è il singleton pigro di
+`apprendimento.memoria()`.
+
+**Seconda: un plugin non può importare il vicino per nome.** I plugin sono
+caricati **dal file**, non come pacchetti su `sys.path`: dentro
+`sovereign_tools`, `import sovereign` fallisce con *«No module named
+'sovereign'»* anche se la cartella è lì accanto. Si carica per percorso con
+`importlib.util.spec_from_file_location`, come fanno le prove.
+
+Quel fallimento era visibile **solo** perché la registrazione ha un
+`logger.error` che lo dice. Senza quella riga la memoria automatica avrebbe
+continuato a *scrivere* senza che nessuno potesse *rileggerla*, ed è la
+ragione per cui quel `try/except` non registra a livello `warning`.
+
+**Terza cosa, non un errore ma un tetto**: il menu di Telegram mostra 52
+comandi su 125 (§10 di [momo-telegram.md](momo-telegram.md)). Sia `/motore`
+sia `/memoria` stanno in `platforms.telegram.extra.command_menu.priority`,
+altrimenti esistono ma non si trovano — e un comando che non si trova, per
+chi lo usa, non c'è.
 
 ## 11. Verifica di funzionamento
 

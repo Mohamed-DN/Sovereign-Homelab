@@ -482,8 +482,25 @@ check("nessun motore risponde -> niente, e nessun ripiego su regole",
       esito["scritti"] == 0 and store.fatti == [],
       "un fatto indovinato da una regexp sarebbe un ricordo inventato")
 
-app._store = None
-esito = app.impara(RACCONTO, RISPOSTA, session_id="s13")
+# Azzerare `app._store` NON basta a simulare "nessuna memoria": `memoria()` e'
+# un getter pigro e ne ricrea una al volo. Su una macchina senza Postgres
+# tornava None e questo caso passava -- per il motivo sbagliato; su LXC 102,
+# dove Postgres c'e', proseguiva fino al modello e finiva in "niente da
+# imparare". Trovato il 2026-08-03 eseguendo le prove sul server invece che
+# a mano. Si sostituisce la FUNZIONE, che e' l'unica cosa che il getter non
+# puo' annullare.
+# Va reimpostata anche la risposta del finto motore: il caso precedente la
+# lascia vuota, e un caso che eredita lo stato del precedente prova due cose
+# insieme e non ne dimostra nessuna.
+finto_hermes.risposta = json.dumps(
+    [{"testo": "Un fatto qualunque abbastanza lungo da passare", "soggetto": "io"}],
+    ensure_ascii=False)
+_vera_memoria = app.memoria
+app.memoria = lambda: None
+try:
+    esito = app.impara(RACCONTO, RISPOSTA, session_id="s13")
+finally:
+    app.memoria = _vera_memoria
 check("memoria non configurata -> nessun errore, nessuna scrittura",
       esito["scritti"] == 0 and "configurata" in esito["esito"], str(esito))
 
