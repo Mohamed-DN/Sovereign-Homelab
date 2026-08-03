@@ -133,6 +133,61 @@ Live 2026-06-22 note:
 - VM120 is included in PBS and has a successful manual backup.
 - The AIO boot/service restore drill has passed. Treat Nextcloud as gated for irreplaceable files until client trust for the internal certificate path and offsite backup are handled.
 
+### 7.1 «Ogni tanto Nextcloud casca» — cosa si sa, e cosa manca
+
+Chiesto da Mohamed il 2026-08-03 vedendo il monitor rosso. Indagato con i
+dati; qui c'è quello che è stato **escluso**, che vale quanto una risposta.
+
+**La forma del guasto.** Uptime Kuma (monitor 44, `https://files.internal`)
+riprova **3 volte a 60 secondi** prima di dichiarare DOWN: ogni episodio è
+quindi almeno quattro minuti di fallimenti consecutivi, non un lampo. Dal
+2026-06-24 al 2026-08-03 sono dieci episodi, a ore sparse.
+
+**La causa immediata, dal log di NPM** (`proxy-host-*_error.log` nel
+container `npm` su LXC 100):
+
+```
+connect() failed (111: Connection refused) while connecting to upstream,
+upstream: "http://192.168.1.120:11000/", host: "files.internal"
+```
+
+*Rifiuto attivo*, non un timeout: in quei minuti la VM è viva e risponde
+«no». Questa distinzione conta — un timeout avrebbe indicato saturazione,
+un rifiuto indica che **nessuno ascolta** su quella porta.
+
+**Cosa è stato escluso, e con che prova:**
+
+| Ipotesi | Perché no |
+|---|---|
+| Nextcloud si riavvia | i contenitori mostrano `Up 8 hours` *durante* l'episodio |
+| È il backup notturno | il backup di VM 120 gira alle **03:22** e dura 3:45; le cadute sono alle 08:56, 23:25, 15:43, 21:24… nessuna coincide |
+| Memoria esaurita | nessun OOM nel kernel, 1,9 GB usati su 10 |
+| Docker si ricarica | `docker.service` avviato una volta sola, mai ricaricato |
+| Firewall Proxmox | nessuna regola per la VM 120 |
+| CrowdSec ha bandito il proxy | nessuna decisione sugli indirizzi di casa |
+| Log dei contenitori | **zero righe** nella finestra: Apache non registra le richieste (38 righe in tutto, tutte di avvio) |
+
+**Perché l'indagine si è fermata qui.** Dopo l'episodio è tutto pulito, e gli
+eventi Docker restano in memoria solo per gli ultimi minuti. Le prove
+svaniscono prima di poterle guardare.
+
+**Il registratore.** `scripts/sovereign-nextcloud-flap-recorder.sh`, installato
+su VM 120 come `nextcloud-flap.timer` (ogni 30 s). Non ripara niente di
+proposito: un rimedio automatico su una causa non capita nasconde le prove.
+Scrive in `/var/log/nextcloud-flap.log` una riga per controllo e, alla prima
+caduta, una fotografia completa in `/var/log/nextcloud-flap.d/`.
+
+**La domanda che deciderà**, ed è il motivo per cui prova da dentro *e* da
+fuori la VM:
+
+- porta **muta da fuori ma viva da dentro** → il guasto è la pubblicazione
+  della porta (regole NAT di Docker sparite, `docker-proxy` morto). Apache
+  sta benissimo, e riavviare Nextcloud sarebbe la cura sbagliata;
+- **muta da entrambe** → è Apache che smette di ascoltare.
+
+Sono due guasti diversi con due rimedi diversi. Senza quella distinzione si
+tira a indovinare, ed è esattamente ciò che questo file serve a evitare.
+
 ## 8. Official Sources
 
 - Nextcloud AIO reverse proxy docs: <https://github.com/nextcloud/all-in-one/blob/main/reverse-proxy.md>

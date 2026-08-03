@@ -1,0 +1,7 @@
+[Unit]
+Description=Fotografa lo stato quando Nextcloud rifiuta le connessioni
+Documentation=file:/usr/local/bin/sovereign-nextcloud-flap-recorder.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/sovereign-nextcloud-flap-recorder.sh
