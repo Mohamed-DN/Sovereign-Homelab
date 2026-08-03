@@ -2476,6 +2476,22 @@ footer a:hover{text-decoration:underline}
    </g>
    <path class="ecg-traccia" stroke="#2dd4a7" stroke-width="1.9"
     d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"/>
+   <!-- La bocca si muove SENZA MAI SPARIRE. Prima il tracciato era disegnato
+        con dasharray+dashoffset animato: nascosto a inizio ciclo, rivelato, e
+        nascosto di nuovo  - cioe' assente per meta' del tempo, che a colpo
+        d'occhio e' una faccia senza bocca (visto da Mohamed il 2026-08-03).
+        Ora la linea sopra e' SEMPRE disegnata e il movimento lo fa questa
+        SCIA: lo stesso percorso, piu' chiaro e piu' spesso, ridotto a un
+        trattino corto che ci corre sopra come su un monitor.
+        pathLength="100" rende il conto indipendente dalla lunghezza vera del
+        percorso: il trattino e' l'8% comunque io cambi la forma del sorriso.
+        La scia ha senso solo mentre si muove: dove le animazioni si tolgono
+        (tessere, e chi ha chiesto meno movimento) viene tolta anche lei,
+        altrimenti resterebbe un frammento fermo in mezzo al sorriso. -->
+   <path class="ecg-scia" stroke="#a8ffe4" stroke-width="2.5" opacity=".95"
+    d="M20 43.8q4 3.8 7.4 5.1l1.4-2.5 1.4 3 .8.2L32 44.2l1 9.2 1-3.8 1.2-3.2 1.4 2.5q3.4-1.3 7.4-5.1"
+    pathLength="100" stroke-dasharray="8 92">
+    <animate attributeName="stroke-dashoffset" from="100" to="0" dur="2.6s" repeatCount="indefinite"/></path>
   </g>
   <g stroke="none">
    <circle class="circuiti-nodi" cx="25.6" cy="17.6" r="1" fill="#b9975a"/>
@@ -2550,7 +2566,10 @@ function momoDataURI(){
     pupilla. Dimenticandone uno la tessera resterebbe mezza animata. */
  const dentro=new XMLSerializer().serializeToString(sim.parentNode)
    .replace(/<animateTransform[\s\S]*?\/>/gi,'')
-   .replace(/<animate[\s\S]*?\/>/gi,'');
+   .replace(/<animate[\s\S]*?\/>/gi,'')
+   /* la scia del battito e' un trattino corto che ha senso solo mentre
+      scorre: ferma sarebbe un frammento in mezzo al sorriso */
+   .replace(/<path class="ecg-scia"[\s\S]*?<\/path>/gi,'');
  const s='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
    +dentro+'<use href="#momo-marchio"/></svg>';
  try{return 'data:image/svg+xml;base64,'+btoa(unescape(encodeURIComponent(s)));}
@@ -3289,7 +3308,8 @@ function momoIcona(px){
 // il clone, altrimenti la copia nell'orb se le porterebbe dietro.
 if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){
  document.querySelectorAll('#momo-marchio animateTransform, #momo-marchio animate,'
-  +' #orb .bot animateTransform, #orb .bot animate').forEach(a=>a.remove());
+  +' #orb .bot animateTransform, #orb .bot animate,'
+  +' #momo-marchio .ecg-scia, #orb .bot .ecg-scia').forEach(a=>a.remove());
 }
 
 // The canned answers stay: they are instant and work with Momo offline.
