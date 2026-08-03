@@ -1935,38 +1935,37 @@ a.link .ld{color:var(--muted);font-size:.72rem;margin-top:2px}
 #orb:active .bot .pupilla-luce{transform:scale(1.6)}
 /* IL MOVIMENTO STA QUI, non dentro l'SVG. Le animazioni SMIL inserite con
    innerHTML non entrano nella linea del tempo del documento e restano ferme
-   al primo fotogramma: e' cio' che faceva sparire la bocca e poi la lasciava
-   fissa e bianca. Il CSS invece arriva, perche' la copia clonata vive nel
-   documento vero. Un solo sistema di animazione, e prefers-reduced-motion
-   torna a essere una media query normale.
-   transform-box:view-box e' la riga che conta: senza, ogni rotazione
+   al primo fotogramma; il CSS invece arriva, perche' la copia clonata vive
+   nel documento vero. Un solo sistema di animazione, e
+   prefers-reduced-motion torna a essere una media query normale.
+   transform-box:view-box e' la riga che regge tutto: senza, ogni rotazione
    prenderebbe origine dal centro del riquadro del singolo pezzo, e una
    lancetta girerebbe attorno a se' stessa invece che attorno al perno. */
-#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:23px 41.5px}
-#orb .bot .iride{transform-box:view-box;transform-origin:41px 41.5px}
-/* Il perno del battito sta sulla sua LINEA DI BASE, non al centro del suo
-   riquadro: e' cio' che fa salire il picco invece di farlo scivolare. */
-#orb .bot .bocca-battito{transform-box:view-box;transform-origin:32px 58.6px}
-#orb .bot .stella{transform-box:view-box;transform-origin:28.5px 13.4px}
+#orb .bot .lancetta-ore,#orb .bot .lancetta-min{transform-box:view-box;transform-origin:36px 69px}
+#orb .bot .iride{transform-box:view-box;transform-origin:64px 69px}
+#orb .bot .ingranaggio-sx{transform-box:view-box;transform-origin:24px 63px}
+#orb .bot .ingranaggio-dx{transform-box:view-box;transform-origin:76px 63px}
+#orb .bot .stella{transform-box:view-box;transform-origin:46.5px 24px}
 @media(prefers-reduced-motion:no-preference){
  #orb .bot .lancetta-min{animation:momoGira 60s linear infinite}
  #orb .bot .lancetta-ore{animation:momoGira 720s linear infinite}
+ /* I due ingranaggi girano in VERSI OPPOSTI: due ruote dentate che girano
+    nello stesso verso non ingranano, e l'occhio se ne accorge anche se non
+    sa dire perche'. */
+ #orb .bot .ingranaggio-sx{animation:momoGira 18s linear infinite}
+ #orb .bot .ingranaggio-dx{animation:momoGira 18s linear infinite reverse}
  #orb .bot .iride{animation:momoIride 6s ease-in-out infinite}
- #orb .bot .pupilla-luce{animation:momoAlone 3.2s ease-in-out infinite}
- /* La BOCCA batte davvero: i due archi del sorriso restano fermi e il
-    tracciato in mezzo si allunga e si riabbassa. Due colpi e una pausa, che
-    e' il ritmo vero di un battito -- uno solo sembra un tremolio. */
- #orb .bot .bocca-battito{animation:momoBattito 2.2s ease-in-out infinite}
- /* La stella sul cappello brilla piano. E' l'unico pezzo che pulsa in alto
-    da quando l'ingranaggio e' finito sotto la tesa. */
  #orb .bot .stella{animation:momoStella 4.2s ease-in-out infinite}
+ /* La bocca batte con la luce invece che con la forma: il tracciato ora e'
+    piatto e allungarlo lo storcerebbe. Due colpi e una pausa, che e' il
+    ritmo vero di un battito -- uno solo sembra un tremolio. */
+ #orb .bot .bocca{animation:momoBattito 2.2s ease-in-out infinite}
  @keyframes momoGira{to{transform:rotate(360deg)}}
- @keyframes momoIride{0%,72%,100%{transform:scale(1)}82%{transform:scale(.84)}}
- @keyframes momoAlone{0%,100%{opacity:.35}50%{opacity:.95}}
- @keyframes momoBattito{0%,52%,100%{transform:scaleY(1)}
-  58%{transform:scaleY(1.5)}64%{transform:scaleY(.88)}
-  71%{transform:scaleY(1.28)}78%{transform:scaleY(1)}}
- @keyframes momoStella{0%,100%{opacity:.55;transform:scale(.9)}50%{opacity:1;transform:scale(1.15)}}
+ @keyframes momoIride{0%,72%,100%{transform:scale(1)}82%{transform:scale(.86)}}
+ @keyframes momoStella{0%,100%{opacity:.7;transform:scale(.92)}50%{opacity:1;transform:scale(1.12)}}
+ @keyframes momoBattito{0%,52%,100%{stroke-width:3;opacity:.9}
+  58%{stroke-width:4.2;opacity:1}64%{stroke-width:3;opacity:.9}
+  71%{stroke-width:3.8;opacity:1}78%{stroke-width:3;opacity:.9}}
 }
 .momoico{vertical-align:-3px;flex:0 0 auto}
 #bubble{max-width:min(340px,70vw);background:var(--raised);border:1px solid var(--line-strong);border-radius:14px 14px 4px 14px;
@@ -2445,94 +2444,129 @@ footer a:hover{text-decoration:underline}
  <div class="mh"><span class="lic" id="m-ic"></span><b id="m-t"></b><button class="x" id="m-x">&times;</button></div>
  <div class="mb" id="m-b"></div>
 </div>
-<!-- IL MARCHIO DI MOMO: mago meccanico. Un orologio da una parte, un
-     diaframma fotografico dall'altra, una bocca che e' un
-     elettrocardiogramma, e un cappello da mago.
+<!-- IL MARCHIO DI MOMO: mago meccanico, medaglione in oro.
+     Rifatto il 2026-08-03 sul riferimento passato da Mohamed. Le quattro
+     versioni precedenti erano LINEE PIATTE di spessore costante, ed e' per
+     questo che sembravano un disegnino invece di un marchio: l'oro non e'
+     un colore, e' un GRADIENTE (chiaro in alto, scuro in basso) piu' un
+     bordo piu' scuro. Con quello solo, le stesse forme cambiano mestiere.
 
-     TERZA COMPOSIZIONE, e i difetti della seconda erano tre, tutti veri:
-       * IL CONO ERA UN TRIANGOLINO SU UNA TESA ENORME. Avevo allargato la
-         tesa fino a 54 unita' lasciando il cono alto 22: un cappello si
-         riconosce dal RAPPORTO fra cono e tesa, non dalla larghezza della
-         tesa. Ora il cono e' alto 23 su una base di 20 (piu' alto che
-         largo, com'e' un cappello da mago) ed e' PIEGATO in punta, che e'
-         il gesto che lo rende un cappello da mago e non un cono;
-       * LA BOCCA FINIVA ADDOSSO AGLI OCCHI. Fra il fondo dell'occhio e la
-         cima del battito c'erano 1,2 unita': a 46px sono zero, e i due
-         pezzi si toccavano. Ora ce ne sono 3,7;
-       * ERA TUTTO PICCOLO DENTRO UN ANELLO VUOTO. Il disegno occupava 56x38
-         di un riquadro da 64. Ora occupa 56x60: quasi tutta l'altezza.
+     Il riquadro passa da 64 a 100 unita': non e' un dettaglio estetico,
+     e' quello che permette il quadrante con le tacche e l'obiettivo con
+     tre anelli senza che le linee si tocchino fra loro.
 
-     IL FONDO DEL CAPPELLO E' PIENO, non solo contorno: in un disegno a
-     tratto due linee sovrapposte si vedono entrambe e la calotta
-     trasparirebbe. Per la stessa ragione il cappello sta DOPO gli occhi nel
-     documento: in SVG vince chi e' disegnato per ultimo.
+     COSA COMPONE IL MARCHIO, e in quest'ordine perche' in SVG vince chi e'
+     disegnato per ultimo:
+       1. i due anelli del medaglione;
+       2. il contorno del viso, che scende da sotto la tesa;
+       3. due ingranaggi che spuntano ai lati e girano;
+       4. l'occhio-orologio (quadrante chiaro, tacche, due lancette);
+       5. l'occhio-obiettivo (canna scura, tre anelli, iride che respira);
+       6. la bocca, un tracciato che sorride;
+       7. IL CAPPELLO PER ULTIMO, cosi' la tesa copre davvero la cima degli
+          occhi invece di trasparirci attraverso;
+       8. la stella, sopra a tutto.
 
-     PERCHE' NON C'E' NESSUNA ANIMAZIONE SMIL QUI DENTRO. La copia che vive
-     nell'orb viene clonata con innerHTML, e SMIL inserito cosi' non entra
-     nella linea del tempo del documento: resta fermo al primo fotogramma.
-     Tutto il movimento sta nel CSS, che nella copia clonata arriva perche'
-     quella vive nel documento vero.
+     PERCHE' NON C'E' NESSUNA ANIMAZIONE SMIL. La copia che vive nell'orb
+     viene clonata con innerHTML, e SMIL inserito cosi' non entra nella
+     linea del tempo del documento: resta fermo al primo fotogramma. Tutto
+     il movimento sta nel CSS, che nella copia clonata arriva perche' quella
+     vive nel documento vero.
 
-     LA BOCCA E' DIVISA IN TRE perche' la divisione e' la funzione: i due
-     archi del sorriso stanno fermi e il battito in mezzo pulsa davvero.
-
-     DUE VERSIONI: #momo-marchio da ~36px in su, #momo-mini per 18-24px.
-     I COLORI stanno come attributi di presentazione, non nel CSS, cosi' le
-     copie con <use> sono gia' colorate e il CSS puo' comunque cambiarle.
+     DUE VERSIONI: #momo-marchio da ~36px in su, #momo-mini per 18-24px,
+     dove le tacche del quadrante diventerebbero una macchia.
      Le parti che ruotano hanno il perno in coordinate del viewBox
      (transform-box: view-box): una lancetta gira attorno al perno
      dell'orologio, non attorno a se' stessa. -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
- <symbol id="momo-marchio" viewBox="0 0 64 64">
-  <g fill="none" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-   <circle class="piastre" cx="32" cy="43.5" r="18.5" stroke="#d8b45a"/>
-   <g class="quadrante" stroke="#e8d48a">
-    <circle cx="23" cy="41.5" r="7.8"/><circle cx="23" cy="41.5" r="6.5" opacity=".5"/>
-    <path d="M28.3 41.5h1.1M23 46.8v1.1M17.7 41.5h-1.1"/>
+ <linearGradient id="momoOro" x1="0" y1="0" x2=".35" y2="1">
+  <stop offset="0" stop-color="#fdf3cd"/><stop offset=".3" stop-color="#eccb63"/>
+  <stop offset=".64" stop-color="#c9a227"/><stop offset="1" stop-color="#7d6119"/>
+ </linearGradient>
+ <linearGradient id="momoOroTesa" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#f7e6a6"/><stop offset=".45" stop-color="#d9b445"/>
+  <stop offset="1" stop-color="#8a6b1c"/>
+ </linearGradient>
+ <linearGradient id="momoQuadrante" x1="0" y1="0" x2="0" y2="1">
+  <stop offset="0" stop-color="#fdf6df"/><stop offset="1" stop-color="#e4cd97"/>
+ </linearGradient>
+ <linearGradient id="momoCanna" x1="0" y1="0" x2=".4" y2="1">
+  <stop offset="0" stop-color="#6c757e"/><stop offset=".5" stop-color="#39414a"/>
+  <stop offset="1" stop-color="#1c2228"/>
+ </linearGradient>
+ <radialGradient id="momoIrideG" cx=".38" cy=".34" r=".75">
+  <stop offset="0" stop-color="#d8fbff"/><stop offset=".42" stop-color="#3ccfe8"/>
+  <stop offset="1" stop-color="#0a5f7a"/>
+ </radialGradient>
+ <symbol id="momo-marchio" viewBox="0 0 100 100">
+  <circle class="anello" cx="50" cy="50" r="47.2" fill="none" stroke="url(#momoOro)" stroke-width="2.6"/>
+  <circle class="anello" cx="50" cy="50" r="43.4" fill="none" stroke="url(#momoOro)" stroke-width="1" opacity=".65"/>
+  <path class="viso" fill="none" stroke="url(#momoOro)" stroke-width="2.2" stroke-linecap="round"
+   d="M22.5 58C18.5 78 30 95.5 50 95.5S81.5 78 77.5 58"/>
+  <g class="ingranaggio-sx" fill="url(#momoOro)">
+   <circle cx="24" cy="63" r="3.4"/>
+   <path d="M24 56.6l1.5 2.1-3 0ZM24 69.4l-1.5-2.1 3 0ZM17.6 63l2.1-1.5 0 3ZM30.4 63l-2.1 1.5 0-3ZM19.5 58.5l2.5.6-1.8 1.8ZM28.5 67.5l-2.5-.6 1.8-1.8ZM28.5 58.5l-.6 2.5-1.8-1.8ZM19.5 67.5l.6-2.5 1.8 1.8Z"/>
+  </g>
+  <g class="ingranaggio-dx" fill="url(#momoOro)">
+   <circle cx="76" cy="63" r="3.4"/>
+   <path d="M76 56.6l1.5 2.1-3 0ZM76 69.4l-1.5-2.1 3 0ZM69.6 63l2.1-1.5 0 3ZM82.4 63l-2.1 1.5 0-3ZM71.5 58.5l2.5.6-1.8 1.8ZM80.5 67.5l-2.5-.6 1.8-1.8ZM80.5 58.5l-.6 2.5-1.8-1.8ZM71.5 67.5l.6-2.5 1.8 1.8Z"/>
+  </g>
+  <g class="orologio">
+   <circle cx="36" cy="69" r="13.4" fill="url(#momoOro)"/>
+   <circle cx="36" cy="69" r="11.4" fill="url(#momoQuadrante)"/>
+   <circle cx="36" cy="69" r="11.4" fill="none" stroke="#a98a2e" stroke-width=".5" opacity=".7"/>
+   <g fill="#3b3524">
+    <rect x="35.2" y="59.4" width="1.6" height="2.8" rx=".5"/>
+    <rect x="35.2" y="75.8" width="1.6" height="2.8" rx=".5"/>
+    <rect x="26.4" y="68.2" width="2.8" height="1.6" rx=".5"/>
+    <rect x="42.8" y="68.2" width="2.8" height="1.6" rx=".5"/>
    </g>
-   <path class="lancetta-ore" stroke="#f7e9b8" d="M23 41.5 23 37.9"/>
-   <path class="lancetta-min" stroke="#f7e9b8" d="M23 41.5 23 36.1"/>
-   <circle class="lente" cx="41" cy="41.5" r="7.8" stroke="#c9a227"/>
-   <circle class="lente" cx="41" cy="41.5" r="6.5" stroke="#c9a227" opacity=".5"/>
-   <g class="iride" stroke="#43b4c4">
-    <circle cx="41" cy="41.5" r="4.8"/>
-    <path d="M44.1 41.5 42.55 44.18 39.45 44.18 37.9 41.5 39.45 38.82 42.55 38.82Z"/>
-    <path d="M44.1 41.5 45.16 43.9M42.55 44.18 41 46.3M39.45 44.18 36.84 43.9M37.9 41.5 36.84 39.1M39.45 38.82 41 36.7M42.55 38.82 45.16 39.1"/>
-   </g>
-   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="2" d="M20.5 53.5q3.8 3.6 6.9 4.8"/>
-   <path class="bocca-battito" stroke="#2dd4a7" stroke-width="2"
-    d="M27.4 58.3 28.8 56 30.2 58.6 31 58.8 32 53 33 60.5 34 58.8 35.2 56 36.6 58.3"/>
-   <path class="bocca-arco" stroke="#2dd4a7" stroke-width="2" d="M36.6 58.3q3.1-1.2 6.9-4.8"/>
-   <g class="cappello">
-    <path class="cappello-cono" fill="#17130c" stroke="#c9a227"
-     d="M22 25.5C22.5 16.5 25.5 8.5 31 4C33.5 2 37 2 38.5 4.2C37 6.8 35 8.8 34.5 11.5C36 16.5 38.5 21.5 42 25.5Z"/>
-    <path class="cappello-tesa" fill="#17130c" stroke="#c9a227"
-     d="M4 26C14 16 50 16 60 26 50 42 14 42 4 26Z"/>
-    <path class="cappello-fascia" stroke="#f0d264" stroke-width="2.1" d="M22.8 23.4Q32 27.4 41.2 23.4"/>
+   <g fill="#6b5c33">
+    <rect x="41.9" y="62.1" width="2" height="1.1" rx=".4" transform="rotate(45 42.9 62.6)"/>
+    <rect x="30.1" y="62.1" width="2" height="1.1" rx=".4" transform="rotate(-45 31.1 62.6)"/>
+    <rect x="41.9" y="74.8" width="2" height="1.1" rx=".4" transform="rotate(-45 42.9 75.3)"/>
+    <rect x="30.1" y="74.8" width="2" height="1.1" rx=".4" transform="rotate(45 31.1 75.3)"/>
    </g>
   </g>
-  <g stroke="none">
-   <circle class="perno" cx="23" cy="41.5" r="1" fill="#f7e9b8"/>
-   <circle class="pupilla" cx="41" cy="41.5" r="1.5" fill="#0b1015"/>
-   <circle class="pupilla-luce" cx="41" cy="41.5" r="2.5" fill="none" stroke="#7fe3f0" stroke-width=".75" opacity=".55"/>
-   <circle class="viti" cx="16" cy="47" r="1.1" fill="#c9a227"/>
-   <circle class="viti" cx="48" cy="47" r="1.1" fill="#c9a227"/>
-   <path class="stella" fill="#f7e9b8" d="M28.5 9.5 29.5 12.4 32.4 13.4 29.5 14.4 28.5 17.3 27.5 14.4 24.6 13.4 27.5 12.4Z"/>
+  <path class="lancetta-ore" d="M36 69 36 62.4" stroke="#1d3f63" stroke-width="1.9" stroke-linecap="round" fill="none"/>
+  <path class="lancetta-min" d="M36 69 36 59.8" stroke="#1d3f63" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+  <circle class="perno" cx="36" cy="69" r="1.5" fill="#1d3f63"/>
+  <g class="obiettivo">
+   <circle cx="64" cy="69" r="13.4" fill="url(#momoOro)"/>
+   <circle cx="64" cy="69" r="11.8" fill="url(#momoCanna)"/>
+   <circle cx="64" cy="69" r="9.2" fill="none" stroke="#8d959d" stroke-width="1.1" opacity=".8"/>
+   <circle cx="64" cy="69" r="7.4" fill="none" stroke="#59616a" stroke-width="1.6"/>
   </g>
+  <g class="iride">
+   <circle cx="64" cy="69" r="6.1" fill="url(#momoIrideG)"/>
+   <circle cx="64" cy="69" r="2.5" fill="#04202c"/>
+   <circle cx="61.8" cy="66.6" r="1.5" fill="#eafdff" opacity=".85"/>
+  </g>
+  <path class="bocca" fill="none" stroke="#35e8e0" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"
+   d="M30 85.5H41L45.5 91h9L59 85.5h11"/>
+  <g class="cappello">
+   <path class="cappello-cono" fill="url(#momoOro)" stroke="#8a6b1c" stroke-width="1.1" stroke-linejoin="round"
+    d="M33 47C35 30 41.5 16.5 53.5 8.5c5-3.3 9-1 6.8 4-3.8 8.6-2.8 21 6.7 34.5Z"/>
+   <path class="cappello-tesa" fill="url(#momoOroTesa)" stroke="#8a6b1c" stroke-width="1.1" stroke-linejoin="round"
+    d="M11 47.5C11 41 28.5 36 50 36s39 5 39 11.5C89 55 71.5 59.5 50 59.5S11 55 11 47.5Z"/>
+   <path class="cappello-fascia" fill="none" stroke="#8a6b1c" stroke-width="1.6" stroke-linecap="round" opacity=".85"
+    d="M34.6 44.4C40 48 60 48 65.6 44.4"/>
+  </g>
+  <path class="stella" fill="#fdf3cd"
+   d="M46.5 12 49 21.5 58.5 24 49 26.5 46.5 36 44 26.5 34.5 24 44 21.5Z"/>
  </symbol>
- <symbol id="momo-mini" viewBox="0 0 64 64">
-  <g fill="none" stroke="#d8b45a" stroke-width="3.8" stroke-linecap="round" stroke-linejoin="round">
-   <circle cx="32" cy="43.5" r="18"/>
-   <circle cx="23" cy="41.5" r="6.8"/>
-   <circle cx="41" cy="41.5" r="6.8" stroke="#43b4c4"/>
-   <path d="M21 53.5q4 4.6 6.8 4L32 61l4.2-3.5q2.8.6 6.8-4" stroke="#2dd4a7"/>
-  </g>
-  <path fill="#17130c" stroke="#c9a227" stroke-width="3.6" stroke-linejoin="round"
-   d="M21.5 26C22 16.5 25 8 31 3.5c2.8-2.2 6.6-2.2 8 .3-1.6 2.8-3.8 5-4.3 7.9 1.6 5.3 4.3 10.6 7.8 14.3Z"/>
-  <path fill="#17130c" stroke="#c9a227" stroke-width="3.6" stroke-linejoin="round"
-   d="M3 26C13.5 15.5 50.5 15.5 61 26 50.5 42.5 13.5 42.5 3 26Z"/>
-  <circle cx="41" cy="41.5" r="2.9" fill="#43b4c4"/>
-  <path d="M23 41.5 23 36" fill="none" stroke="#f7e9b8" stroke-width="3.4" stroke-linecap="round"/>
+ <symbol id="momo-mini" viewBox="0 0 100 100">
+  <circle cx="50" cy="50" r="46" fill="none" stroke="url(#momoOro)" stroke-width="4"/>
+  <circle cx="36" cy="69" r="12" fill="url(#momoQuadrante)" stroke="url(#momoOro)" stroke-width="3.5"/>
+  <circle cx="64" cy="69" r="12" fill="url(#momoCanna)" stroke="url(#momoOro)" stroke-width="3.5"/>
+  <circle cx="64" cy="69" r="5.4" fill="url(#momoIrideG)"/>
+  <path d="M36 69 36 61" stroke="#1d3f63" stroke-width="3.4" stroke-linecap="round" fill="none"/>
+  <path fill="none" stroke="#35e8e0" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"
+   d="M31 85.5H41L45.5 91h9L59 85.5h10"/>
+  <path fill="url(#momoOro)" stroke="#8a6b1c" stroke-width="2" stroke-linejoin="round"
+   d="M33 47C35 30 41.5 16.5 53.5 8.5c5-3.3 9-1 6.8 4-3.8 8.6-2.8 21 6.7 34.5Z"/>
+  <path fill="url(#momoOroTesa)" stroke="#8a6b1c" stroke-width="2" stroke-linejoin="round"
+   d="M10 47.5C10 40.5 28.5 35.5 50 35.5s40 5 40 12C90 55 71.5 60 50 60S10 55 10 47.5Z"/>
  </symbol>
 </defs></svg>
 <div id="asst">
