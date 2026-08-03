@@ -103,6 +103,50 @@ reports "nessun motore raggiungibile" (never a silent failure — see
 | `ollama ps` non mostra il modello atteso | il `keep_alive` è scaduto o non è mai stato caricato: `docker exec ollama ollama run <modello>` lo carica |
 | Hermes/Momo dicono "nessun motore raggiungibile" | `docker ps --filter name=ollama` — se non è `healthy`, `docker logs ollama` |
 | Una porta 11434 risponde dalla LAN quando non dovrebbe farlo pubblicamente | verificare che nessun host NPM la esponga (§4 — non deve essercene nessuno) |
+| **Dopo un riavvio dell'host: solo Ollama giù, `exit 128`, `failed to initialize NVML: Driver Not Loaded`** | i nodi `/dev/nvidia*` non esistevano quando LXC 102 è partito — vedi §9.1, e controllare `systemctl status nvidia-dev-nodes` sull'host |
+
+### 9.1 La trappola del riavvio: quattro file vuoti al posto della GPU
+
+Successa il 2026-08-02 alle 22:39, trovata il 2026-08-03. Vale la pena
+raccontarla perché **ogni singolo pezzo sembrava a posto**.
+
+Il driver NVIDIA **non crea `/dev/nvidia*` all'avvio**: li crea quando il primo
+processo apre il dispositivo. Sull'host nessuno lo faceva prima che partissero
+i container. E LXC 102 monta quei dispositivi così:
+
+```
+lxc.mount.entry: /dev/nvidia0 dev/nvidia0 none bind,optional,create=file
+```
+
+`optional` significa «se la sorgente non c'è, non fallire». Quindi il
+container è partito con **quattro file regolari vuoti** al posto dei
+dispositivi (`----------`, 0 byte, invece di `crw-rw-rw-` con major/minor), il
+modificatore CDI di Docker non ha potuto inizializzare NVML, e il solo
+contenitore `ollama` è morto con `exit 128`. Tutto il resto di LXC 102 stava
+benissimo: la dashboard diceva **38/39**, che sembra quasi sano.
+
+Tre cose da sapere prima di rimetterci le mani:
+
+1. **Lanciare `nvidia-smi` sull'host ripara i sintomi e nasconde la causa.**
+   Crea i nodi lì per lì. Un riavvio del container fatto subito dopo
+   *funziona*, e la prossima accensione della macchina si rompe identica. Se i
+   nodi hanno una data recente e l'host ha giorni di uptime, è questo.
+2. **Dentro il container non si rimedia con `mknod`.** LXC 102 non è
+   privilegiato: `mknod` è vietato lì dentro qualunque cosa dica
+   `lxc.cgroup2.devices.allow`. È esattamente il motivo per cui si usano i
+   bind mount. Serve riavviare il container.
+3. **`optional` non si toglie.** Senza, un guasto alla GPU impedirebbe
+   l'avvio dell'**intero** container — Vaultwarden, Forgejo, i database.
+   Meglio un servizio giù e visibile che tutta la casa ferma.
+
+Il rimedio permanente è `nvidia-dev-nodes.service` sull'host: un `oneshot` che
+esegue `nvidia-modprobe -c 0 -u` **prima** di `pve-guests.service`, e poi
+verifica con `test -c` che i nodi ci siano davvero (senza quella seconda riga
+un fallimento silenzioso si dichiarerebbe comunque riuscito). Usa
+`nvidia-modprobe` e non `mknod` perché i major **non sono fissi fra kernel**
+(oggi 195 per nvidia/nvidiactl, 511 per uvm).
+
+Chi ha dato l'allarme: il monitor Kuma `Ollama API TCP`. Ha funzionato.
 
 ## 10. Official Sources
 
