@@ -1,0 +1,19 @@
+[Unit]
+Description=Nega alla sandbox Docker di Momo l'uscita verso la LAN di casa
+# Deve girare dopo docker: la catena DOCKER-USER esiste solo dopo che il
+# demone l'ha costruita, e Docker la svuota ad ogni avvio.
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+User=root
+Group=root
+ExecStart=/opt/sovereign-momo-sandbox/sovereign-momo-sandbox-firewall.sh
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
