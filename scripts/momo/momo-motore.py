@@ -111,6 +111,11 @@ ENGINES: dict[str, dict[str, object]] = {
         "model": "openai/gpt-oss-20b:free",
         "base_url": "https://openrouter.ai/api/v1",
         "api_key_file": "/root/sovereign-secrets/hermes/key-openrouter",
+        # Il nome della variabile NON e' libero: con provider `custom`
+        # hermes-agent lo deriva dall'HOST del base_url
+        # (runtime_provider.py, `_host_derived_api_key`), quindi per
+        # openrouter.ai cerca OPENROUTER_API_KEY e nient'altro.
+        "key_env": "OPENROUTER_API_KEY",
         "casa": False,
         "nota": "lo STESSO modello che gira in casa, ma sul loro computer e "
                 "gratis: e' il ripiego naturale a PC spento. Provato il "
@@ -123,6 +128,11 @@ ENGINES: dict[str, dict[str, object]] = {
         "model": "openai.gpt-oss-20b-1:0",
         "base_url": "https://bedrock-runtime.us-east-1.amazonaws.com/openai/v1",
         "api_key_file": "/root/sovereign-secrets/hermes/key-bedrock",
+        # Stessa regola: l'host e' amazonaws.com -> AMAZONAWS_API_KEY.
+        # Non verificata sul vivo come quella di OpenRouter: se un giorno
+        # bedrock desse «No LLM provider configured», e' il primo posto da
+        # guardare.
+        "key_env": "AMAZONAWS_API_KEY",
         "casa": False,
         "nota": "il ripiego quando il PC e' spento e serve capacita' vera. "
                 "Strumenti 6 su 6 al banco, ma lo fanno anche i motori di "
@@ -465,7 +475,28 @@ def cambia(chiave: str) -> int:
 
     scrivi_env("CUSTOM_BASE_URL", str(motore["base_url"]))
     if percorso_chiave:
-        scrivi_env("CUSTOM_API_KEY", Path(str(percorso_chiave)).read_text(encoding="utf-8").strip())
+        # NON si chiama `chiave`: quello e' gia' il nome del motore, cioe' il
+        # parametro di questa funzione. Sovrascriverlo avrebbe fatto scrivere
+        # il segreto al posto del nome nelle righe successive.
+        valore_chiave = Path(str(percorso_chiave)).read_text(encoding="utf-8").strip()
+        # DUE nomi, e servono tutti e due.
+        #   CUSTOM_API_KEY      lo legge `models.py` per elencare i modelli;
+        #   <VENDOR>_API_KEY    e' quello che conta davvero: con provider
+        #     `custom` hermes-agent deriva il nome dall'HOST del base_url e
+        #     cerca SOLO quello. Scrivere il primo e non il secondo lasciava
+        #     la chiave introvabile: il provider nasceva con `api_key: ''` e
+        #     l'agente moriva con «No LLM provider configured».
+        # E' il difetto che ha tenuto Mohamed senza assistente la notte del
+        # 2026-08-03, dopo aver messo /motore 7 col PC spento: ogni messaggio
+        # rispondeva «Sorry, I encountered an unexpected error». I motori di
+        # casa non lo mostravano perche' a Ollama la chiave non serve.
+        scrivi_env("CUSTOM_API_KEY", valore_chiave)
+        nome_var = str(motore.get("key_env") or "").strip()
+        if nome_var:
+            scrivi_env(nome_var, valore_chiave)
+        else:
+            print(f"attenzione: «{chiave}» ha una chiave ma non dichiara "
+                  f"`key_env`: hermes-agent potrebbe non trovarla.", file=sys.stderr)
     else:
         # A home Ollama wants no key. Leaving the previous engine's key behind
         # would send a real credential to a local daemon that never asked.
