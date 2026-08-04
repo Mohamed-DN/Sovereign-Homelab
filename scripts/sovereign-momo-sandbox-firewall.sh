@@ -30,14 +30,37 @@ set -euo pipefail
 #   - il tetto di durata dei container: lo fa sovereign-momo-sandbox-
 #     reaper.py, perche' reap_orphan_containers() di hermes-agent non tocca
 #     mai un container "running" (vedi il piano).
-#   - l'immagine e l'etichetta dei container: le mette la config di
-#     hermes-agent (docker_network=momo-sandbox, docker_extra_args con
-#     --label sovereign.momo.sandbox=1), non questo script.
+#
+# CORREZIONE del 2026-08-04, trovata provando P2 dal vivo: il piano
+# presumeva che bastasse "docker_extra_args: [--network, momo-sandbox]" in
+# config.yaml per attaccare i container alla rete dedicata. NON e' vero.
+# tools/code_execution_tool.py:_get_or_create_env() (e la stessa funzione
+# in file_tools.py) ricostruiscono un dizionario "container_config" a mano
+# e DIMENTICANO la chiave docker_extra_args (e docker_env) - anche se
+# _create_environment() la legge correttamente, non arriva mai li' perche'
+# il dizionario che gliela dovrebbe passare non ce l'ha. Verificato dal
+# vivo: un container creato da execute_code con TERMINAL_DOCKER_EXTRA_ARGS
+# impostato e' finito sulla bridge di Docker normale, non su momo-sandbox,
+# senza nessuna etichetta sovereign.momo.sandbox=1.
+#
+# Quindi questo script blocca la LAN per DUE reti, non una: quella dedicata
+# (nel caso venga corretto il bug, o per chi la usa via docker run diretto)
+# E la bridge di default di Docker (dove finiscono per davvero, oggi, i
+# container di execute_code/terminal). La bridge di default non ha nessun
+# altro container sopra (verificato: tutti gli altri 22 servizi della LXC
+# stanno ciascuno sulla propria rete di progetto docker-compose) quindi
+# bloccarla non rompe nulla.
 
 NETWORK="${MOMO_SANDBOX_NETWORK:-momo-sandbox}"
 SUBNET="${MOMO_SANDBOX_SUBNET:-172.30.0.0/24}"
 BRIDGE_IFACE="${MOMO_SANDBOX_BRIDGE:-momo-sbx0}"
 LAN="${MOMO_SANDBOX_LAN:-192.168.1.0/24}"
+DEFAULT_BRIDGE_SUBNET="${MOMO_SANDBOX_DEFAULT_BRIDGE_SUBNET:-172.17.0.0/16}"
+# /etc/resolv.conf di LXC 102 punta ad AdGuard (LXC 100), dentro la stessa
+# LAN che blocchiamo. Senza un'eccezione la sandbox non risolve piu' nessun
+# nome - trovato provando P2 dal vivo (pypi.org e' andato in timeout di
+# risoluzione, non solo di connessione). Solo la porta 53, solo verso li'.
+DNS_SERVER="${MOMO_SANDBOX_DNS_SERVER:-192.168.1.50}"
 CHAIN=DOCKER-USER
 
 command -v docker >/dev/null || { echo "docker mancante" >&2; exit 1; }
@@ -66,11 +89,27 @@ while iptables -n -L "$CHAIN" --line-numbers | grep -q "momo-sandbox-guard"; do
   iptables -D "$CHAIN" "$line"
 done
 
-# Un solo verso basta: il traffico di ritorno di una connessione mai aperta
-# non esiste. Chi e' sulla LAN e vuole entrare nella sandbox non ha comunque
-# una rotta (172.30.0.0/24 non e' instradata da nessun altro host di casa).
+# Ordine (ricreato ogni volta togliendo e rimettendo, quindi l'ordine di
+# inserimento qui sotto e' l'ordine finale nella catena): prima le eccezioni
+# DNS, poi il divieto generale. -I "$CHAIN" 1 mette sempre in testa, quindi
+# si inserisce PRIMA il DROP e POI le ACCEPT/RETURN del DNS, cosi' il DNS
+# finisce sopra al DROP.
 iptables -I "$CHAIN" 1 -s "$SUBNET" -d "$LAN" \
   -m comment --comment "momo-sandbox-guard: niente LAN dalla sandbox" -j DROP
 
-echo "momo-sandbox-guard applicato: $SUBNET non raggiunge $LAN"
+# La stessa regola per la bridge di default: e' li' che i container di
+# execute_code/terminal finiscono per davvero, per il bug descritto sopra.
+iptables -I "$CHAIN" 1 -s "$DEFAULT_BRIDGE_SUBNET" -d "$LAN" \
+  -m comment --comment "momo-sandbox-guard: niente LAN dalla bridge di default" -j DROP
+
+# Eccezione DNS, per entrambe le reti: solo porta 53 verso AdGuard, niente
+# altro. Inserita per ultima cosi' finisce sopra ai due DROP.
+for subnet in "$SUBNET" "$DEFAULT_BRIDGE_SUBNET"; do
+  for proto in udp tcp; do
+    iptables -I "$CHAIN" 1 -s "$subnet" -d "$DNS_SERVER" -p "$proto" --dport 53 \
+      -m comment --comment "momo-sandbox-guard: DNS verso $DNS_SERVER" -j RETURN
+  done
+done
+
+echo "momo-sandbox-guard applicato: $SUBNET e $DEFAULT_BRIDGE_SUBNET non raggiungono $LAN (DNS verso $DNS_SERVER escluso)"
 iptables -n -L "$CHAIN" --line-numbers | grep momo-sandbox-guard || true
