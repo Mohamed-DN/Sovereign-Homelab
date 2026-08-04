@@ -1,13 +1,15 @@
 # La sandbox di Momo — P1+P2 del piano "Momo che programma"
 
-> **Stato (2026-08-04): P1 fatto. P2 provato dal vivo con successo, ma
-> NON acceso in modo permanente — vedi §12, è una decisione del
-> proprietario, non un lavoro rimasto a metà.** La gabbia esiste, è stata
-> attaccata due volte (una manualmente in P1, una attraverso il vero
-> strumento `execute_code` in P2) e non ha ceduto — anzi, il secondo
-> tentativo ha trovato un bug vero nel codice di hermes-agent (§9) che il
-> primo non poteva vedere. Il teardown ha smontato un container vero, creato
-> dal vero strumento, senza toccare gli altri 22.
+> **Stato (2026-08-04): P1 fatto. P2 provato dal vivo, un bug vero di
+> hermes-agent trovato e aggirato, e acceso — ma solo come strumento a
+> parte (`momo-esegui-codice.py`), non come toolset permanente della Momo
+> che risponde su Telegram.** La gabbia esiste, è stata attaccata due
+> volte (una manualmente in P1, una attraverso il vero strumento
+> `execute_code` in P2) e non ha ceduto. Cercata la raccomandazione
+> ufficiale di NousResearch (§12): per un gateway come Telegram serve
+> "whole-process wrapping", non solo l'isolamento del backend comandi —
+> un cambio dell'intero modo in cui Momo gira, pianificato a parte, non
+> improvvisato la sera stessa su un servizio già in produzione.
 
 ---
 
@@ -331,6 +333,36 @@ tetto di 1 secondo, tornando esattamente al conteggio di container di
 prima. Nessuna label custom coinvolta: ha funzionato sulle sole label native
 `hermes-agent=1` + `hermes-profile=default`.
 
+### Il canale RPC dentro lo script: anche quello resta confinato
+
+`SECURITY.md` di NousResearch (upstream, letto il 2026-08-04) dice
+testualmente: *"terminal-backend isolation [...] does not confine [...]
+the code-execution tool (spawned as a host subprocess)"* — cioè, secondo
+i loro stessi documenti, `execute_code` non sarebbe confinato dal backend
+Docker. **Provato dal vivo, per la configurazione che usiamo qui, non è
+quello che succede.**
+
+`execute_code` dà allo script che gira nella sandbox uno stub `terminal()`
+che parla con un ascoltatore RPC sull'host (`code_execution_tool.py:579`,
+`_rpc_server_loop`). Il punto critico è come quell'ascoltatore esegue la
+richiesta: `result = handle_function_call(tool_name, tool_args,
+task_id=task_id)` — lo **stesso** `task_id` della sessione di
+`execute_code`. Poiché l'ambiente Docker per quel `task_id` è già in
+cache (`_active_environments`), la chiamata a `terminal()` fatta DENTRO lo
+script viene rieseguita nello **stesso container**, non sull'host.
+
+Verificato chiedendo a Momo di eseguire, dentro `execute_code`, uno script
+che chiama `terminal('hostname')` e `terminal('cat /root/sovereign-secrets/* 2>&1')`:
+l'hostname tornato è stato l'ID di un container (`9dd827f3c846`), non
+`apps-light` (il vero hostname della LXC), e i segreti sono risultati
+irraggiungibili. La frase di SECURITY.md non si è materializzata in questo
+percorso specifico, ma resta un avviso scritto dagli stessi autori del
+codice e va tenuto: potrebbe descrivere un caso non ancora provato qui
+(caricamento di skill, plugin, server MCP — nessuno dei tre è acceso su
+Momo oggi). Non si scarta un avviso di sicurezza upstream solo perché un
+test non l'ha confermato: si scrive cosa è stato provato e cosa no, e si
+resta caute finché skills/MCP (P4, fuori piano) non vengono accesi.
+
 ## 10. Troubleshooting
 
 | Problema | Causa probabile | Rimedio |
@@ -356,6 +388,10 @@ prima. Nessuna label custom coinvolta: ha funzionato sulle sole label native
 - [PIANO_MOMO_PROGRAMMATORE](../00_overview/PIANO_MOMO_PROGRAMMATORE.md) —
   l'architettura a quattro anelli e l'ordine P1-P10
 - [PIANO_MASTER](../00_overview/PIANO_MASTER.md) §2-bis voce 19
+- [NousResearch/hermes-agent SECURITY.md](https://github.com/NousResearch/hermes-agent/blob/main/SECURITY.md) —
+  letto per intero il 2026-08-04: "terminal-backend isolation" contro
+  "whole-process wrapping", cosa confina l'uno e non l'altro, perché un
+  gateway multi-canale come Telegram vuole il secondo
 
 ## 12. Perché `code_execution` non è ancora acceso in modo permanente
 
@@ -410,10 +446,64 @@ lavoro:
 | **B. Un contesto di codice separato**: `execute_code` acceso SOLO in un flusso dedicato (un comando apposito, non la chat normale), mai insieme a `file`/`memory` nella stessa sessione | Momo non può, a metà chat, decidere da solo di scrivere ed eseguire uno script — serve un comando esplicito che apra "una sessione di programmazione" | zero rischio per la memoria/vault di oggi, zero lavoro aggiuntivo su hermes-agent |
 | **C. Un correttivo scritto da noi** (un plugin che aggiunge quello che manca: `docker_extra_args` nel `container_config` di `code_execution_tool.py`, e un vero meccanismo di isolamento per `task_id`) | è una divergenza vera dal loro core, da ripagare ad ogni aggiornamento di NousResearch — la stessa categoria di costo descritta in [PIANO_AGENT_MOMO](../00_overview/PIANO_AGENT_MOMO.md) | l'unica strada che risolve il problema invece di aggirarlo, ma è settimane di lavoro, non ore |
 
-Fino a una decisione, `code_execution` resta **utilizzabile solo nel modo
-provato in §9-bis**: un comando `hermes -z` a parte, con le variabili
-`TERMINAL_*` sul singolo comando, mai nella config permanente che serve la
-Momo di Telegram. Questo di per sé è già un risultato reale — un operatore
-umano (o uno script futuro, es. la pipeline Forgejo di P6) può invocarlo in
-sicurezza oggi — ma non è ciò che il piano intende con "Momo che programma"
-dentro la conversazione normale.
+### La decisione: B adesso, formalizzato — e cosa dice davvero NousResearch sul futuro
+
+Chiesto di cercare cosa consigliano gli stessi autori di hermes-agent prima
+di scegliere. `SECURITY.md` (upstream, letto per intero il 2026-08-04) non
+propone la scelta fra A/B/C qui sopra: propone una terza categoria,
+**"whole-process wrapping"**, non "terminal-backend isolation" (quella che
+P1/P2 hanno costruito):
+
+> *"Terminal-backend isolation is the right posture when the concern is
+> LLM-emitted destructive shell or unwanted file-tool writes, and the
+> operator is otherwise trusted."*
+>
+> *"Whole-process wrapping runs the entire agent process tree inside a
+> sandbox. Every code path — shell, code-execution, MCP, file tools,
+> plugins, hooks, skill loading — is subject to the same filesystem,
+> network, process, and inference policy. [...] This is the supported
+> posture when the agent ingests content from surfaces the operator does
+> not control — the open web, inbound email, **multi-user channels** —
+> and for production or shared deployments."*
+>
+> *"Operators running [...] a terminal-backend sandbox and expecting it
+> to contain code paths that don't go through the shell, are operating
+> outside the supported security posture."*
+
+Momo è esattamente questo caso: un gateway Telegram, un canale a più
+utenti per costruzione anche se oggi filtrato a un solo `chat_id`. La
+risposta ufficiale non è "isola il backend dei comandi" (la strada A/C qui
+sopra) — è "isola l'intero processo di Momo", con `read_file`/`memory`/
+`execute_code` tutti dentro **lo stesso** confine, montando dentro quel
+confine solo ciò che serve (`HERMES_HOME`, il vault) e nient'altro
+(niente `/root/sovereign-secrets`, niente resto della LXC). In
+quell'architettura il conflitto fra "file locale" e "code_execution nella
+sandbox" **sparisce da solo**: non c'è più un "locale" da tenere separato,
+c'è un solo confine per tutto.
+
+Questo pero' e' un cambio del modo in cui **l'intero servizio Momo gira**
+— oggi un processo nativo (`systemctl`, non un container) — non una riga
+di config. Farlo la sera stessa, su un servizio che risponde già su
+Telegram, sarebbe esattamente il tipo di azione rischiosa e difficile da
+invertire che le regole di questa casa chiedono di non prendere di fretta.
+**Va pianificato a parte**, come voce nuova del piano generale (aggiunta:
+vedi [PIANO_MOMO_PROGRAMMATORE](../00_overview/PIANO_MOMO_PROGRAMMATORE.md) §7-bis).
+
+Per adesso, applicata la strada **B**, resa uno strumento vero invece che
+uno script usa-e-getta: [`scripts/momo/momo-esegui-codice.py`](../../scripts/momo/momo-esegui-codice.py).
+Chiama `hermes -z` con le stesse variabili `TERMINAL_*` provate in §9-bis,
+scoped al solo processo — Momo su Telegram non le vede mai — e ripulisce
+il container appena finito (il guardiano TTL resta la rete di sicurezza
+per i casi in cui non ci riesce). Provato dal vivo: `17+25=42`, conferma
+che `/root/sovereign-secrets` non è raggiungibile, container smontato,
+tornati esattamente a 22.
+
+```bash
+/opt/momo/venv/bin/python3 /opt/momo/scripts/momo-esegui-codice.py "il tuo compito qui"
+```
+
+Questo è già un risultato reale e usabile oggi — un operatore umano, o una
+pipeline futura come Forgejo in P6, può far scrivere ed eseguire codice a
+Momo in sicurezza — ma **non** è "Momo che decide da solo, a metà di una
+chat su Telegram, di scrivere ed eseguire uno script". Quello resta dietro
+al whole-process wrapping, non dietro a una riga di config in più.
