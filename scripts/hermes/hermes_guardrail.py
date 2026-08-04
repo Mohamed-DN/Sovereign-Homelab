@@ -12,7 +12,7 @@ live Hermes at the end of `converse()`, and Momo inside hermes-agent's
 the drift would be invisible until one of them let a lie through. One file,
 imported by both.
 
-THE THREE RULES, in the order they are applied:
+THE FOUR RULES, in the order they are applied:
 
   R1  claim over a FAILED tool   the model says "sent" and the send tool ran
                                  and returned a failure. This is the hole that
@@ -23,11 +23,20 @@ THE THREE RULES, in the order they are applied:
   R2  claim with NO tool at all  the model says "saved" and nothing was called.
   R3  order not carried out      the person asked for a write and no write
                                  happened, whatever the model then said.
+  R4  "it passed" over a FAILED execution   added 2026-08-04, P3 of
+                                 PIANO_MOMO_PROGRAMMATORE.md, once `execute_code`
+                                 existed to lie about. Same shape as R1, but for
+                                 a different pair: the tool is `execute_code`/
+                                 `terminal`, not a write tool, and the claim is
+                                 "it passed"/"it works", not "I saved it". A
+                                 script that exits non-zero and gets narrated as
+                                 a success is the exact case this rule exists
+                                 for — see `failed_execution_claim`.
 
-R3 is the one that actually holds. R1 and R2 read the ANSWER, and an answer
-can be phrased in infinite ways — the pattern list has already been beaten
-three times (see `_CLAIM_PATTERNS`). R3 reads the REQUEST, which is a sentence
-written by a person and does not change shape to please anybody.
+R3 is the one that actually holds. R1, R2 and R4 read the ANSWER, and an
+answer can be phrased in infinite ways — the pattern list has already been
+beaten three times (see `_CLAIM_PATTERNS`). R3 reads the REQUEST, which is a
+sentence written by a person and does not change shape to please anybody.
 """
 
 from __future__ import annotations
@@ -61,6 +70,14 @@ WRITE_TOOLS = {
     # hermes-agent's own, the ones Momo actually calls
     "write_file", "patch", "memory", "todo", "skill_manage",
 }
+
+# Tools that run code and report an exit status, not a persistent write.
+# Deliberately kept OUT of WRITE_TOOLS: R2/R3 ask "did a real write happen",
+# and a script running is not a write — mixing the two would make R3 stay
+# quiet on "salva questo in memoria" when only `execute_code` had run, which
+# is the opposite of what R3 exists to catch. R4 (`failed_execution_claim`)
+# is the parallel check for this set, with its own claim vocabulary.
+EXECUTION_TOOLS = {"execute_code", "terminal"}
 
 # ------------------------------------------------- did the tool actually work
 
@@ -122,6 +139,18 @@ def tool_outcome(result: str) -> tuple[str, str]:
             for key in ("errore", "error"):
                 if payload.get(key):
                     return "failed", str(payload[key])[:200]
+            # execute_code and terminal (tools/code_execution_tool.py,
+            # tools/terminal_tool.py) answer with "exit_code", not "ok"/
+            # "error" — terminal in particular NEVER sets an error key, only
+            # {"output": ..., "exit_code": N}. Read the code, not a guess:
+            # 0 is the only code that means success; -1 (never started) and
+            # every other value are a failure the model can still narrate
+            # as a pass if nothing reads the number. This is P3 of
+            # PIANO_MOMO_PROGRAMMATORE.md: the exit code, not the model's
+            # opinion of it.
+            exit_code = payload.get("exit_code")
+            if isinstance(exit_code, int) and exit_code != 0:
+                return "failed", f"uscito con codice {exit_code}"
             return "ok", ""
 
     low = text.lower()
@@ -239,11 +268,60 @@ def claim_phrase(answer: str) -> str:
     return ""
 
 
+# --------------------------------------------- how a claim of SUCCESS sounds (R4)
+#
+# A different vocabulary from _CLAIM_VERBS on purpose: nobody says "ho
+# salvato" about a test, and nobody says "il test è passato" about a memory
+# write. Two lists, kept apart, so extending one never quietly widens the
+# other's reach into claims it was never meant to judge.
+_EXECUTION_CLAIM_VERBS = (r"passat|funzionat|riuscit|superat|completat|compilat")
+_EXECUTION_CLAIM_PATTERNS = [
+    # Il soggetto ("i test", "tutti") sta spesso fra il verbo essere/avere e il
+    # participio ("sono TUTTI passati"): un gap non vorace, chiuso da
+    # punteggiatura di fine frase, cattura quello senza sconfinare nella frase
+    # dopo.
+    rf"\b(?:è|e'|sono|ha|hanno)\b[^.!?;:]{{0,20}}?\b(?:{_EXECUTION_CLAIM_VERBS})[oaie]?\b",
+    r"\bfunzion[ai]\b",
+    r"\bsenza errori\b",
+    r"\bnessun errore\b",
+    r"\btutto (?:ok|a posto|regolare|corretto)\b",
+    r"\btest (?:superat[oi]|passat[oi]|verdi|ok)\b",
+    r"\bcodice di uscita (?:0|zero)\b",
+]
+
+
+def execution_claim_phrase(answer: str) -> str:
+    """The phrase in which the model claimed the code/test SUCCEEDED, or "".
+
+    Same negation handling as `claim_phrase`: "non è passato" must not match.
+    """
+    low = (answer or "").lower()
+    for pattern in _EXECUTION_CLAIM_PATTERNS:
+        for found in re.finditer(pattern, low):
+            if not _is_negated(low, found.start()):
+                return found.group(0)
+    return ""
+
+
+
+# "eseguit" (eseguito/a) sta in _CLAIM_VERBS per `esegui_azione_master`
+# (un WRITE_TOOLS vero, R1 se fallisce), ma e' anche la parola piu' naturale
+# per descrivere execute_code/terminal riusciti — che non sono scritture.
+# Senza questo controllo, "Ho eseguito lo script" dopo un execute_code
+# RIUSCITO farebbe scattare R2 accusando "non ho salvato niente": la stessa
+# classe di difetto che questo file esiste per prevenire, applicata a se
+# stesso. Trovato scrivendo i test di R4 (P3), non dal vivo.
+_EXECUTION_VERB = re.compile(r"eseguit")
+
+
 def unverified_write_claim(answer: str, called: set[str]) -> str:
     """R2 — a claim with no successful write behind it at all."""
     if called & WRITE_TOOLS:
         return ""
-    return claim_phrase(answer)
+    phrase = claim_phrase(answer)
+    if phrase and _EXECUTION_VERB.search(phrase) and (called & EXECUTION_TOOLS):
+        return ""
+    return phrase
 
 
 def unmet_write_request(question: str, attempted: set[str]) -> str:
@@ -280,6 +358,21 @@ def failed_write_claim(answer: str, failed: dict[str, str]) -> tuple[str, str]:
     return hit[0], failed[hit[0]]
 
 
+def failed_execution_claim(answer: str, failed: dict[str, str]) -> tuple[str, str]:
+    """R4 — a claim of success standing on execute_code/terminal that failed.
+
+    Same shape as `failed_write_claim`, deliberately: it is the same lie
+    (narrating a failure as a success), just over a different tool set and a
+    different claim vocabulary. Kept as a separate function rather than a
+    parameterised one because the two are read independently in `check()`,
+    and a bug in one must not be able to silently change the other.
+    """
+    hit = sorted(name for name in failed if name in EXECUTION_TOOLS)
+    if not hit or not execution_claim_phrase(answer):
+        return "", ""
+    return hit[0], failed[hit[0]]
+
+
 # ------------------------------------------------------------------ the verdict
 
 NOTE_FAILED = ("**Non è andata come ho detto.** Ho usato «{tool}» ma non ha funzionato, "
@@ -290,6 +383,9 @@ NOTE_UNVERIFIED = ("**Non ho salvato niente.** Ho detto di averlo fatto ma non h
 NOTE_UNMET = ("**Non l'ho fatto.** Mi hai chiesto di «{evidence}» e non ho usato nessuno "
               "strumento di scrittura: quello che c'è qui sopra è solo testo. Ridimmelo "
               "e stavolta lo eseguo.")
+NOTE_EXECUTION_FAILED = ("**Non è andata come ho detto.** Ho usato «{tool}» e non ha "
+                         "funzionato, e nella risposta qui sopra ho parlato come se il "
+                         "codice o il test fossero passati. Il motivo vero: {reason}")
 
 
 def check(question: str, answer: str, done: set[str],
@@ -311,6 +407,11 @@ def check(question: str, answer: str, done: set[str],
     if tool:
         return {"rule": "claim_over_failed_tool", "evidence": tool,
                 "note": NOTE_FAILED.format(tool=tool, reason=reason or "non l'ha detto")}
+
+    tool, reason = failed_execution_claim(answer, failed)
+    if tool:
+        return {"rule": "claim_over_failed_execution", "evidence": tool,
+                "note": NOTE_EXECUTION_FAILED.format(tool=tool, reason=reason or "non l'ha detto")}
 
     evidence = unverified_write_claim(answer, done)
     if evidence:
