@@ -148,6 +148,7 @@ DECISIONI GIÀ PRESE, non ridiscuterle:
 | **Il token del bot sta in `.env`, non in `config.yaml`** | ho misurato sul file sbagliato, ottenuto un 404 e l'ho letto come «menu vuoto» |
 | **Un `.env` cambiato non lo vede un processo già avviato** | `load_hermes_dotenv()` copia in `os.environ` all'avvio: per questo cambiare motore richiede il riavvio |
 | **La SMIL inserita via `innerHTML` non parte mai** | non entra nella timeline del documento; e il contenuto di `<use>` sta in uno shadow tree che il CSS del documento non raggiunge |
+| **PRIMA DI PROPORRE UN SERVIZIO NUOVO, GUARDA SE È GIÀ NEL MOTORE** | il 4 agosto, due volte in un'ora: l'agente di programmazione (`code_execution`, `terminal`, `skills`, 7 sandbox) e **21 adattatori di piattaforma** fra cui WhatsApp con tre trasporti. Tutto installato, tutto spento. Cercare in `/opt/hermes-agent-study/tools/` e `plugins/platforms/` costa un minuto e ha già cancellato due integrazioni intere |
 
 ### 2.2 Un difetto noto e NON risolto
 Il `REVOKE UPDATE, DELETE` su `master_log` **non morde**: il ruolo `hermes` di
@@ -217,7 +218,9 @@ primi da prendere, e il perché:
 | 5 | **Perché Nextcloud cade** | il registratore è installato sulla VM 120 e aspetta il prossimo episodio. Sonda **dentro e fuori** la VM, per distinguere «Apache morto» da «pubblicazione della porta sparita» |
 | 6 | **`db_query` in sola lettura** | il proprietario è DBA e non può interrogare i propri database da Momo |
 | 19 | **Momo che programma** ([piano](PIANO_MOMO_PROGRAMMATORE.md)) | il lavoro grosso. Il motore c'è già ed è spento: si accende, dentro una gabbia costruita prima |
-| 20 | **Headroom** ([18-ter](PIANO_GENERALE.md)) | comprime il contesto del 60-95%: qui il contesto **è** il vincolo, perché decide quali modelli entrano in 4 GB di T600 |
+| 20 | **PixelRAG** ([18-quater](PIANO_GENERALE.md)) | cerca i documenti da come **sono fatti**: è la risposta migliore alla voce 3, e l'unica sulle scansioni |
+| 21 | **WhatsApp** ([22](PIANO_GENERALE.md)) | l'adattatore è già installato, ma la via non ufficiale brucia il numero e quella ufficiale vieta gli assistenti generalisti. **Decisione sua** |
+| 22 | **Headroom** ([18-ter](PIANO_GENERALE.md)) | comprime il contesto del 60-95%: qui il contesto **è** il vincolo, perché decide quali modelli entrano in 4 GB di T600 |
 
 **Aspettano lui, non noi**: armare MASTER da Telegram (decisione di sicurezza),
 le registrazioni della sua voce per XTTS-v2 (copione pronto in tre lingue),

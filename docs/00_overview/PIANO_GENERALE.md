@@ -695,6 +695,60 @@ non dall'applicazione.
 
 ---
 
+#### **18-quater · PixelRAG: cercare i documenti da come SONO FATTI** ⏱ ~6 ore
+
+Portato dal proprietario il 2026-08-04: *«con SearXNG cerca di integrare pure
+pixel rag»*.
+
+[StarTrail-org/PixelRAG](https://github.com/StarTrail-org/PixelRAG),
+**Apache-2.0**, ricerca di Berkeley SkyLab/BAIR. Ribalta l'idea del RAG: invece
+di estrarre il testo da una pagina o da un PDF e indicizzare i pezzi, ne fa uno
+**screenshot**, indicizza l'immagine, e lascia che sia un modello con gli occhi
+a leggere la risposta dai pixel.
+
+**Perché non è una stranezza.** L'estrazione del testo è il punto dove il RAG
+perde in silenzio: un parser HTML può buttare via il 40% di una pagina, e
+tabelle, grafici e impaginazione si appiattiscono o spariscono. Sui documenti
+del proprietario — PDF tecnici, scansioni, fatture, slide — quella perdita è
+esattamente sul contenuto che conta. Il progetto dichiara **+18,1% sul
+migliore RAG testuale anche su domande di solo testo**, cioè sul terreno dove
+il testo dovrebbe vincere.
+
+**Dove si aggancia qui**, in ordine di valore:
+
+| | |
+|---|---|
+| **Nextcloud** (punto 18-bis) | è la risposta migliore alla domanda «a tutto testo o solo nomi di file?»: nessuna delle due. Una scansione non ha testo da estrarre, ma **ha una faccia** |
+| **Paperless** | documenti scansionati: stesso identico problema |
+| **SearXNG** | SearXNG dà i risultati, PixelRAG legge le pagine dai pixel invece di parsarle. Il pezzo che serve — `browser_cdp_tool.py`, il pilota del browser — **è già dentro hermes-agent** ed è spento |
+
+**Cosa serve davvero**, verificato leggendo il progetto e non le note:
+`Qwen/Qwen3-VL-Embedding-2B` per gli embedding visivi, Playwright/CDP per
+fare gli screenshot, un indice FAISS, e `pixelrag serve` per interrogarlo. Ha
+una modalità **tutta in casa** (`source: local`, `path: ./my_docs`, PDF
+inclusi): l'endpoint pubblico `api.pixelrag.ai` **non si usa**, e va detto qui
+perché è acceso di default nella documentazione loro.
+
+**Le tre cose da mettere in conto prima di entusiasmarsi:**
+
+- **il modello con gli occhi non gira sulla T600.** 4 GB non bastano per un
+  embedding visivo più le immagini. L'indicizzazione va sul PC (5070 Ti,
+  16 GB) o si fa a lotti, di notte;
+- **le immagini costano contesto**, e il contesto è già il vincolo di questa
+  casa (vedi 18-ter). Una pagina letta a pixel pesa molto più della stessa
+  pagina in testo: se ne devono restituire **poche e giuste**, non dieci;
+- **è un secondo indice vettoriale** accanto a Qdrant, con FAISS dentro il
+  suo servizio. Si accetta com'è — riscriverlo su Qdrant sarebbe il tipo di
+  riscrittura senza guadagno che la
+  [valutazione del 4 agosto](VALUTAZIONE_TECNOLOGIE_2026-08.md) scarta — ma
+  **entra nei backup**, altrimenti è un pezzo di casa che nessuno salva.
+
+**Come si misura se ha funzionato**: dieci domande vere sui suoi documenti,
+la risposta di oggi contro quella con PixelRAG. Se non vince su documenti
+*veri*, non entra: il +18,1% è il loro banco, non il nostro.
+
+---
+
 #### **19 · `agent-reach` e gli agenti di Ruflo** ⏱ ~4 ore
 
 - **agent-reach** (R9): arrivare dove SearXNG non arriva — YouTube, Reddit, X,
@@ -806,6 +860,58 @@ settimane è peggio di un impianto che aspetta.
 4. Un periodo di convivenza verificata — la stessa regola della Fase 1 della
    fusione: *«l'Hermes attuale resta acceso e intatto finché Momo non ha
    passato le verifiche. Nessun giorno senza assistente.»*
+
+---
+
+#### **22 · Momo su WhatsApp** ⏱ ~3 ore di lavoro, ma la decisione non è tecnica
+
+Chiesto il 2026-08-04: *«kapso e openwa per avere WhatsApp con il mio AI»*.
+
+**Prima cosa, e cambia la domanda: l'adattatore WhatsApp è già installato.**
+`plugins/platforms/whatsapp/adapter.py`, 83 632 byte, di NousResearch,
+verificato dentro LXC 102 il 2026-08-04. Nella sua intestazione dichiara **tre
+trasporti**:
+
+```
+1. WhatsApp Business API (richiede la verifica Meta Business)
+2. whatsapp-web.js (sottoprocesso Node) — per account personali
+3. Baileys (sottoprocesso Node)        — per account personali
+```
+
+Sa già mandare sondaggi nativi, posizioni, note vocali, e gestire allowlist,
+gruppi e menzioni. Ci sono in tutto **21 adattatori di piattaforma** in quel
+motore — fra cui `matrix`, `signal`, `sms`, `email`, `homeassistant`, `ntfy`.
+
+Quindi **né Kapso né open-wa aggiungono una capacità che manca**: sarebbero un
+trasporto in più davanti a un trasporto che c'è già.
+
+**La ragione per cui questo punto è fermo non è il codice, è Meta.**
+
+| | |
+|---|---|
+| **Via non ufficiale** (open-wa, whatsapp-web.js, Baileys) | il codice è MIT e gira in casa, ma dal 2025 Meta ha alzato molto il rilevamento automatico: gli account che usano API non ufficiali durano **2-8 settimane** prima del blocco permanente. E il numero in questione è il **suo numero vero**, quello con cui lo cerca la famiglia |
+| **Via ufficiale** (Cloud API, ed è ciò che Kapso rivende) | nessun rischio di blocco tecnico, **ma** dal **15 gennaio 2026** i termini della WhatsApp Business Platform vietano gli **assistenti AI generalisti** come funzione primaria. Sono ammessi i bot con uno scopo definito (ordini, prenotazioni, assistenza). Momo è precisamente un assistente generalista |
+
+Cioè: la strada non ufficiale rischia il numero, e quella ufficiale è contro
+i termini per **questo** uso. Non è un problema che si risolve scegliendo
+meglio la libreria.
+
+**Cosa si può fare, e la scelta è del proprietario:**
+
+1. **Non farlo.** Telegram funziona, è dentro il menu, ha la voce, e nessuno
+   di questi vincoli. È l'opzione predefinita finché lui non dice altro.
+2. **Farlo su un numero dedicato** — una SIM/eSIM da pochi euro, **mai** il
+   numero di famiglia — accettando che possa essere bloccato. In quel caso si
+   accende l'adattatore già presente, trasporto Baileys, e si mette una
+   sveglia mentale sul fatto che un giorno smetterà.
+3. **La via sovrana, che nessuno ha chiesto ma esiste**: `matrix` è fra i 21
+   adattatori. Un server Matrix in casa dà la stessa cosa — messaggi, gruppi,
+   media, cifratura — senza chiedere il permesso a Meta e senza un numero da
+   perdere. Costa un servizio nuovo e il fatto che nessuno in famiglia ce l'ha.
+
+**Quando si farà, i vincoli sono gli stessi di Telegram**: allowlist di un id
+solo, filtro `private` immutato, e il token del ponte in
+`/root/sovereign-secrets/`, mai nella configurazione.
 
 *Verifica*: le stesse sette prove che oggi passa `sovereign-hermes.py` in
 modalità MASTER, tutte, su Momo; `qm stop 110` rifiutato; un motore non
