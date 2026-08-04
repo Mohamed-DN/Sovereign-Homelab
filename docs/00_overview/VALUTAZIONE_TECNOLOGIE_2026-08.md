@@ -30,6 +30,9 @@
 | 11 | **PyTorch** | **NO** | Ollama porta già il suo runtime. PyTorch entrerebbe solo per XTTS-v2 (la clonazione voce), e allora entra *lì* |
 | 12 | **scikit-learn** | **NO** | non c'è un problema di apprendimento automatico in questa casa. Aggiungerlo «perché è utile» è come tenere un tornio in cucina |
 | 13 | **CodeBurn** | **forse, e non è del server** | conta quanto spendi in token con Claude Code. Utile a te, non a Momo |
+| 14 | **PixelRAG** | **SÌ** | Apache-2.0, Berkeley. Cerca i documenti da **come sono fatti** invece che dal testo estratto. È la risposta migliore al punto 18-bis, e vale doppio sulle scansioni. Vedi §5 e [punto 18-quater](PIANO_GENERALE.md) |
+| 15 | **Kapso** | **NO — non aggiunge niente** | è un *inbox* open source davanti alla Cloud API ufficiale di Meta. L'adattatore WhatsApp **è già installato** dentro hermes-agent, con tre trasporti fra cui quello ufficiale. Vedi §6 |
+| 16 | **open-wa** | **NO, e non per la licenza** | MIT e self-hostable, ma è un trasporto non ufficiale: gli account che li usano durano **2-8 settimane** prima del blocco permanente. E il numero in gioco è quello vero. Vedi §6 |
 
 ---
 
@@ -111,9 +114,63 @@ più che non chiude un difetto vero è debito, non capacità.
 
 ---
 
+## 5. PixelRAG — il secondo «sì» della lista
+
+Portato il 2026-08-04 insieme a WhatsApp.
+[StarTrail-org/PixelRAG](https://github.com/StarTrail-org/PixelRAG),
+**Apache-2.0**, da Berkeley SkyLab/BAIR.
+
+Invece di estrarre il testo da una pagina e indicizzarne i pezzi, ne fa uno
+**screenshot** e indicizza l'immagine; poi un modello con gli occhi legge la
+risposta dai pixel. Dichiarano **+18,1%** rispetto al migliore RAG testuale
+*anche su domande di solo testo* — cioè sul terreno dove il testo dovrebbe
+vincere.
+
+**Perché qui c'entra.** L'estrazione del testo è il punto dove il RAG perde in
+silenzio: tabelle, grafici e impaginazione si appiattiscono, e un parser HTML
+può buttare via il 40% di una pagina. Sui documenti di questa casa — PDF
+tecnici, scansioni, fatture, slide — la perdita cade proprio sul contenuto che
+conta. **Una scansione non ha testo da estrarre, ma ha una faccia.**
+
+Il piano completo, con i tre costi da mettere in conto (il modello con gli
+occhi non entra nella T600; le immagini pesano sul contesto; è un secondo
+indice che deve entrare nei backup), sta nel
+[punto 18-quater](PIANO_GENERALE.md).
+
+## 6. WhatsApp — il codice c'è già, il problema è Meta
+
+Kapso e open-wa sono stati chiesti insieme, per la stessa cosa: *«avere
+WhatsApp con il mio AI»*. Entrambi **no**, e per due ragioni diverse da quelle
+che ci si aspetta.
+
+**Primo: l'adattatore WhatsApp è già dentro hermes-agent.**
+`plugins/platforms/whatsapp/adapter.py`, 83 632 byte, verificato dal vivo il
+2026-08-04, con tre trasporti dichiarati nella sua intestazione — Business API
+ufficiale, whatsapp-web.js, Baileys — più sondaggi nativi, posizioni, note
+vocali e allowlist. In tutto quel motore ha **21 adattatori di piattaforma**.
+Kapso e open-wa sarebbero un trasporto davanti a un trasporto.
+
+**Secondo, e decisivo:**
+
+- la via **non ufficiale** (open-wa e simili) fa durare un account **2-8
+  settimane** prima del blocco permanente, e il numero in gioco è il suo
+  numero vero;
+- la via **ufficiale** (Cloud API, che è ciò che Kapso rivende) dal
+  **15 gennaio 2026** vieta gli **assistenti AI generalisti** come funzione
+  primaria: ammessi i bot con uno scopo definito, non Momo.
+
+Le opzioni vere — non farlo, farlo su un numero sacrificabile, o Matrix —
+stanno nel [punto 22](PIANO_GENERALE.md). È una decisione sua, non una scelta
+di libreria.
+
+---
+
 ## Sorgenti
 
 - [headroomlabs-ai/headroom](https://github.com/headroomlabs-ai/headroom) — la compressione del contesto
+- [StarTrail-org/PixelRAG](https://github.com/StarTrail-org/PixelRAG) — il RAG che guarda invece di leggere
+- [open-wa/wa-automate-nodejs](https://github.com/open-wa/wa-automate-nodejs) — MIT, non ufficiale
+- [gokapso](https://github.com/gokapso) — l'inbox open source per la Cloud API
 - [DietrichGebert/ponytail](https://github.com/DietrichGebert/ponytail) — la skill che fa scrivere meno codice
 - [getagentseal/codeburn](https://github.com/getagentseal/codeburn) — il contatore di token locale
 - [PIANO_GENERALE §2.2](PIANO_GENERALE.md) — perché LangChain no
