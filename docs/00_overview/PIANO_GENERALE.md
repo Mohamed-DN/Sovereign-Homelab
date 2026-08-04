@@ -710,6 +710,33 @@ non dall'applicazione.
 
 ---
 
+#### **18-ter · Headroom: comprimere il contesto prima che arrivi al modello** ⏱ ~4 ore
+
+Dall'elenco portato il 2026-08-04. È l'unico della lista che chiude un vincolo
+**misurato** di questa casa, e va letto insieme a
+[ai_ollama §9.0](../04_apps/ai_ollama.md): a 32k di contesto `qwen3.5:4b` sta
+in VRAM solo per il 45%, e non per la sua dimensione ma per la **cache del
+contesto**. Comprimere ciò che entra nel contesto sposta il confine di quali
+modelli entrano nella T600.
+
+Si infila senza torsioni: tutti gli otto motori sono `provider: custom` con un
+`base_url` compatibile OpenAI, quindi Headroom si mette in mezzo cambiando un
+indirizzo — cosa che `momo-motore` già sa fare.
+
+**Tre verifiche prima di adottarlo, e nessuna è formale:**
+1. **la compressione è lossy.** Da provare sul Guardrail e sulla memoria
+   automatica: un output tagliato male lì non è una risposta imprecisa, è un
+   fatto sbagliato scritto per sempre;
+2. **è un pezzo in più nella catena.** Se cade, cadono *tutti* i motori
+   insieme: va monitorato come gli altri, e va deciso cosa fare se non risponde
+   (passare dritti, o fermarsi?);
+3. **i numeri sono i loro.** Il banco di casa esiste (`scripts/momo/tests/`):
+   si misura qui, sulle stesse domande usate per confrontare i motori.
+
+Valutazione completa: [VALUTAZIONE_TECNOLOGIE_2026-08](VALUTAZIONE_TECNOLOGIE_2026-08.md).
+
+---
+
 ### ONDATA F — La potenza
 
 ---
