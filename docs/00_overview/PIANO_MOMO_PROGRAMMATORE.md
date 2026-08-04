@@ -161,12 +161,15 @@ assoluto compilato a codice.
 
 ### Anello 4 — chi verifica che non menta: il Guardrail, esteso
 
-Il [Guardrail](../04_apps/momo-guardrail.md) esiste, ha 23 casi di test, e oggi
-prende le bugie sulle *scritture* («ho mandato la mail» senza invio). Con la
-sandbox nasce una bugia nuova e più pericolosa: **«il test è passato» quando i
-log dicono il contrario**. È esattamente il caso che il documento originale
-chiedeva alla Fase 4, ed è la ragione per cui `<automation_commit>` deve
-dipendere dall'esito reale, non dal parere del modello.
+✅ **Fatto il 2026-08-04 (P3).** Il [Guardrail](../04_apps/momo-guardrail.md)
+aveva 23 casi di test e prendeva le bugie sulle *scritture* («ho mandato la
+mail» senza invio). Con la sandbox è nata la bugia nuova e più pericolosa
+prevista qui — **«il test è passato» quando i log dicono il contrario** — ed
+è chiusa: R4, `tool_outcome()` ora legge anche `exit_code` (non solo
+`ok`/`error`), perché `terminal` non ha mai avuto una chiave d'errore, solo
+il numero. 35 casi di test ora, tutti passati dal vivo su LXC 102.
+`<automation_commit>` (P4) potrà dipendere da questo — l'esito reale, non il
+parere del modello — invece di essere la prima cosa a doverlo inventare.
 
 Regola: **il salvataggio in `skills` lo decide l'orchestratore leggendo il
 codice di uscita**, mai il modello dicendo che è andata bene.
@@ -195,15 +198,17 @@ codice e non nella memoria:
 | 4 | Voce real-time (LiveKit, barge-in) | ❌ | — |
 | 5 | STT Faster-Whisper | ✅ **fatto** | `stt.local.model: medium`, lingua riconosciuta da sola |
 | 6 | TTS | ✅ **fatto con Piper** | `it_IT-paola-medium`. XTTS-v2 (la sua voce) resta da fare: servono le registrazioni |
-| 7 | Automation Library | 🟡 **esiste nel motore, spenta** | `skill_manager_tool.py` + `skills_tool.py`, `skills.enabled: false` |
+| 7 | Automation Library | 🟡 **esiste nel motore, spenta** | `skill_manager_tool.py` + `skills_tool.py`, `skills.enabled: false` — P4 |
 | 8 | Riciclo degli script | 🟡 **idem** | è la stessa cosa della 7 |
-| 9 | Sandbox lifecycle | 🟡 **esiste nel motore, spento** | `environments/docker.py`, con `reap_orphan_containers()` già scritto |
-| 10 | Auto-salvataggio | 🟡 **idem** | ma la decisione va tolta al modello e data all'orchestratore |
-| 11 | Guardrail | ✅ **fatto** | 23 casi di test |
+| 9 | Sandbox lifecycle | ✅ **fatto 2026-08-04 (P1+P2)** | non era `reap_orphan_containers()` da solo (non tocca i container `running`): guardiano esterno scritto da noi, provato dal vivo — [momo-sandbox.md](../04_apps/momo-sandbox.md) |
+| 10 | Auto-salvataggio | 🟡 **la decisione è già tolta al modello** | `execute_code`/`terminal` riportano `exit_code`, e da oggi (P3) il Guardrail lo legge invece di fidarsi del modello — l'orchestratore che decide se salvare in `skills` resta P4 |
+| 11 | Guardrail | ✅ **fatto, esteso 2026-08-04 (P3)** | 35 casi di test, quarta regola su `execute_code`/`terminal` |
 
-**Conto onesto: 3 fatte, 4 già costruite da NousResearch e da accendere, 4 da
-scrivere davvero.** Non è 1 su 11, e non è nemmeno 7 su 11: le quattro gialle
-sono *motori*, e attorno a un motore acceso senza guardie ci si fa male.
+**Conto onesto, aggiornato a fine 2026-08-04: 5 fatte, 2 ancora da accendere
+(Automation Library, P4), 4 da scrivere davvero.** Sandbox lifecycle e
+Guardrail sono passati da gialli a verdi oggi — non per magia, ma perché P1
+ha scoperto che il pezzo del motore non bastava da solo e ne ha scritto uno
+vero attorno.
 
 E le tre fasi del Sinker (1 SINK, 2 COMPUTE, 3 SURFACE) restano da fare — con
 il caveat già scritto nel piano: tre chiamate al modello hanno senso **con la
@@ -215,7 +220,7 @@ GPU**, e la GPU del server adesso c'è.
 |---|---|---|---|
 | **P1** | ✅ **fatto 2026-08-04** — [momo-sandbox.md](../04_apps/momo-sandbox.md): rete Docker dedicata (172.30.0.0/24, icc=false), firewall DOCKER-USER contro la LAN, guardiano TTL (2h) per i container `sleep infinity` che `reap_orphan_containers()` non tocca mai. Provato dal vivo: 4 bersagli LAN in timeout, Internet raggiunto, nessun `docker.sock`/segreto montato, teardown reale su 1 container senza toccare gli altri 22 | si costruisce la gabbia prima di metterci dentro qualcosa. Ed è la sola parte che, se sbagliata, si paga cara. **Scoperta**: il codice dava per scontati un egress-proxy già acceso e un teardown che copre i container `running` — nessuno dei due è vero, letto in `docker.py` | ~4 h stimate, **non ancora misurate** |
 | **P2** | ✅ **fatto 2026-08-04, come strumento a parte** — [momo-sandbox.md](../04_apps/momo-sandbox.md) §9-bis/§12, [`scripts/momo/momo-esegui-codice.py`](../../scripts/momo/momo-esegui-codice.py). Trovato e aggirato un bug reale in hermes-agent (`docker_extra_args` non arriva mai al container in `code_execution_tool.py`/`file_tools.py`); il firewall copre entrambe le reti possibili. Trovato un conflitto architetturale vero (`execute_code` condivide l'ambiente col toolset `file` già in uso oggi) e cercata la risposta ufficiale: `SECURITY.md` di NousResearch consiglia "whole-process wrapping" per un gateway multi-canale come Telegram, non il solo isolamento del backend comandi — voce nuova **§7-bis**. Fino a quel lavoro, `execute_code` resta acceso solo via script dedicato, mai nella config permanente di Momo | il primo momento in cui Momo esegue qualcosa. Va guardato, non dedotto — e infatti guardandolo si sono trovati un bug vero e un limite architetturale vero | ~2 h stimate, **oltre 4h spese** fra i due difetti trovati e la ricerca della risposta ufficiale |
-| **P3** | **Estendere il Guardrail all'esito dei test**: «è passato» si confronta con il codice di uscita vero | prima che esista un `automation_commit` da salvare. Salvare uno script che il modello *crede* funzionante è come scriversi un fatto sbagliato in memoria: resta | ~3 h |
+| **P3** | ✅ **fatto 2026-08-04** — [momo-guardrail.md](../04_apps/momo-guardrail.md) R4: `tool_outcome()` legge `exit_code` (non solo `ok`/`error`, che `terminal` non ha mai), nuovo vocabolario di pretese ("è passato", "ha funzionato", "senza errori"). Trovato e chiuso un secondo buco scrivendo i test: "eseguito" serviva già a R1 per `esegui_azione_master` e faceva scattare R2 per errore su un `execute_code` riuscito. 35 casi di test (35/35), più il wiring completo del plugin, provati dal vivo su LXC 102 | prima che esista un `automation_commit` da salvare. Salvare uno script che il modello *crede* funzionante è come scriversi un fatto sbagliato in memoria: resta | ~3 h stimate, in linea |
 | **P4** | **Accendere `skills`** = la Automation Library (voci 7, 8, 10), con il salvataggio deciso dall'orchestratore | dopo P3, mai prima | ~3 h |
 | **P5** | **Il router del codice**: compito che tocca la casa → motore di casa; generico → OmniRoute. E `qwen2.5-coder:14b` sul PC | senza questo, il codice lo scrive `qwen2.5:3b` e non funziona | ~3 h |
 | **P6** | **Forgejo come uscita**: branch + PR, mai `git push` su main, mai applicazione diretta | è l'anello che tiene un umano nel mezzo | ~3 h |

@@ -1,9 +1,13 @@
 # Guardrail — la difesa anti-bugia, condivisa fra Hermes e Momo
 
-> **Stato (2026-07-31): fatto e verificato.** Un modulo di sola libreria
-> standard, importato da tutti e due gli assistenti; un plugin di hermes-agent
-> che lo aggancia ai turni di Momo; una correzione allo stesso difetto
-> nell'Hermes vivo, trovata costruendo l'uno e chiudendo anche nell'altro.
+> **Stato (2026-07-31): fatto e verificato. Esteso il 2026-08-04 (P3 di
+> [PIANO_MOMO_PROGRAMMATORE](../00_overview/PIANO_MOMO_PROGRAMMATORE.md)) con
+> una quarta regola per `execute_code`/`terminal`: «il test è passato» si
+> confronta ora col codice di uscita vero, non col parere del modello.** Un
+> modulo di sola libreria standard, importato da tutti e due gli assistenti;
+> un plugin di hermes-agent che lo aggancia ai turni di Momo; una correzione
+> allo stesso difetto nell'Hermes vivo, trovata costruendo l'uno e chiudendo
+> anche nell'altro.
 
 ---
 
@@ -32,19 +36,34 @@ divergenza sarebbe invisibile finché una delle due non lasciasse passare una
 bugia. Lo stesso principio già usato per `hermes_memory.py` (una sola memoria,
 letta da entrambi).
 
-### Le tre regole, in ordine
+### Le quattro regole, in ordine
 
 | # | Cosa guarda | Scatta quando |
 |---|---|---|
 | **R1** | il **risultato** di ogni strumento di scrittura | uno strumento è girato, **ha fallito**, e la risposta dice di aver avuto successo |
+| **R4** | il **risultato** di `execute_code`/`terminal` | lo script/comando è girato, l'**exit code è diverso da zero**, e la risposta dice che il test/il codice è passato |
 | **R2** | la risposta, senza log | nessuno strumento di scrittura è girato e la risposta afferma di aver fatto qualcosa |
 | **R3** | la richiesta | l'utente ha chiesto una scrittura e nessuno strumento è **nemmeno partito** (non R1: quello copre "partito e fallito") |
 
-R1 è il pezzo nuovo, ed è quello che ha chiuso un buco vero: prima di questa
-data, `unverified_write_claim`/`unmet_write_request` nell'Hermes vivo
-guardavano *se* un tool era stato chiamato, mai se aveva *funzionato* — uno
-strumento fallito contava come fatto, e «ho mandato la mail» restava senza
-nota anche quando `send_mail` aveva rifiutato il destinatario.
+R1 è il pezzo che ha chiuso il primo buco vero: prima del 2026-07-31,
+`unverified_write_claim`/`unmet_write_request` nell'Hermes vivo guardavano
+*se* un tool era stato chiamato, mai se aveva *funzionato* — uno strumento
+fallito contava come fatto, e «ho mandato la mail» restava senza nota anche
+quando `send_mail` aveva rifiutato il destinatario.
+
+**R4**, aggiunta il 2026-08-04 con la sandbox di `execute_code` (vedi
+[momo-sandbox.md](momo-sandbox.md)), è la stessa classe di buco spostata su
+un tool diverso: `terminal` non ha mai una chiave `ok`/`error` nel JSON che
+ritorna, **solo** `{"output": ..., "exit_code": N}`. `tool_outcome()` ora
+legge anche quella chiave — 0 è l'unico codice che conta come successo,
+qualunque altro valore (compreso `-1`, mai partito) è un fallimento, letto
+dal dato strutturato e non dedotto dal testo. Scrivendo i test di R4 è
+saltato fuori un **secondo buco**, non cercato: il verbo "eseguito" serviva
+già a R1 per `esegui_azione_master` (un vero strumento di scrittura), ma è
+anche la parola più naturale per descrivere un `execute_code` riuscito — e
+senza un controllo in più, R2 accusava «non ho salvato niente» un
+`execute_code` che aveva funzionato perfettamente. Una guardia che accusa
+un'onestà è lo stesso difetto che deve prevenire, di nuovo — vedi §6.
 
 Uno stadio facoltativo a modello (`MOMO_GUARDRAIL_LLM=1`, **spento di
 default**) confronta la risposta con i log quando le tre regole non trovano
@@ -155,7 +174,7 @@ come tutto il resto.
 HOME=/opt/momo/home HERMES_HOME=/opt/momo/home/.hermes \
   /opt/momo/venv/bin/python scripts/momo/tests/test_tool_visibility.py
 
-# le regole, isolate (23 casi, gira anche senza server)
+# le regole, isolate (35 casi, gira anche senza server)
 python3 scripts/hermes/tests/test_hermes_guardrail.py
 
 # il cablaggio nei tre hook di hermes-agent (serve Postgres raggiungibile:
