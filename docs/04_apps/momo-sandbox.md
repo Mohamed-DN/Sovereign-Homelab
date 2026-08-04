@@ -507,3 +507,75 @@ pipeline futura come Forgejo in P6, può far scrivere ed eseguire codice a
 Momo in sicurezza — ma **non** è "Momo che decide da solo, a metà di una
 chat su Telegram, di scrivere ed eseguire uno script". Quello resta dietro
 al whole-process wrapping, non dietro a una riga di config in più.
+
+## 13. Il router del codice (P5): casa contro esterno
+
+`momo-esegui-codice.py` sceglie **chi scrive** il codice, separato da
+**dove gira** (la sandbox, invariata):
+
+```bash
+momo-esegui-codice "compito"                 # casa (default): qwen2.5-coder:14b sul PC
+momo-esegui-codice --motore esterno "compito"  # OmniRoute -> un fornitore esterno
+```
+
+### `--motore casa` (default): due chiamate, non una
+
+Provato dal vivo il 2026-08-04, e **non** è andato come il piano
+immaginava al primo tentativo: passare `--provider pc -m qwen2.5-coder:14b`
+a `hermes -z` (l'idea ovvia) fallisce con un errore esplicito —
+
+```
+Model qwen2.5-coder:14b has a context window of 32,768 tokens, which is
+below the minimum 64,000 required by Hermes Agent.
+```
+
+Verificato con `curl .../api/show`: `model_info.qwen2.context_length =
+32768` è la finestra **vera** del modello (l'architettura di
+Qwen2.5-Coder-14B, non un tetto messo da Ollama) — non c'era niente da
+alzare in configurazione senza mentire al modello sulla propria capacità.
+
+Quindi il router chiama qwen2.5-coder:14b **direttamente sull'API di
+Ollama** (`/api/generate`, un completamento, non un'orchestrazione: non
+serve spazio per gli schemi degli strumenti, il prompt di sistema, il
+Guardrail) per scrivere il codice, poi passa quel codice **esatto** a un
+secondo giro di `hermes -z` — col modello di orchestrazione normale di
+Momo, che il contesto ce l'ha — con l'istruzione di eseguirlo tale e quale
+via `execute_code`.
+
+Provato con un compito verificabile in modo indipendente: "giorni
+lavorativi tra il 2026-08-01 e il 2026-08-31" → **21**, corretto (4
+settimane intere = 20, più lunedì 31 = 21). Container ripulito,
+tornato al conteggio di prima.
+
+### `--motore esterno`: si ferma alla scrittura
+
+OmniRoute (`docs/04_apps/omniroute.md`) è già installato su LXC 102, ma
+verificato dal vivo il 2026-08-04: **nessun fornitore esterno gratuito
+risponde ancora**. Un tentativo su `auto/best-coding` è tornato
+
+```
+HTTP 503 "Maximum combo retry limit reached" — 28 tentativi su un pool di 54
+```
+
+Non un timeout muto: OmniRoute prova davvero tutto il suo elenco e lo
+dice quando è vuoto. Resta la voce già scritta in `omniroute.md` §2:
+**serve dal proprietario** un account gratuito (Groq, Cerebras, NVIDIA
+NIM o Cloudflare Workers AI) incollato nella pagina di OmniRoute — non è
+qualcosa che si automatizza da qui, è una registrazione con email/verifica
+umana.
+
+Per questo `--motore esterno` **non esegue** il codice che scrive: lo
+stampa e basta, con l'istruzione per rilanciarlo via `--motore casa` dopo
+averlo letto. Stesso principio di P4 (skill in attesa di approvazione) e
+di P6 (Forgejo, mai applicazione diretta): codice che nasce fuori dal
+confine di fiducia, un umano lo legge prima che tocchi la sandbox.
+
+### Variabili d'ambiente
+
+| Variabile | Default | Effetto |
+|---|---|---|
+| `MOMO_CASA_OLLAMA_URL` | `http://192.168.1.100:11434/api/generate` | dove scrive il codice il motore di casa |
+| `MOMO_CASA_MODEL` | `qwen2.5-coder:14b` | il modello di casa. 9.0 GB, tirato il 2026-08-04 |
+| `MOMO_OMNIROUTE_URL` | `http://127.0.0.1:20128/v1/chat/completions` | l'endpoint di OmniRoute (loopback: la LXC lo raggiunge senza passare dal firewall LAN) |
+| `MOMO_OMNIROUTE_MODEL` | `auto/best-coding` | l'alias di instradamento intelligente — richiede un fornitore configurato per rispondere |
+| `MOMO_OMNIROUTE_KEY_FILE` | `/root/sovereign-secrets/hermes/key-omniroute` | la chiave API di Momo per OmniRoute, già provisionata |
