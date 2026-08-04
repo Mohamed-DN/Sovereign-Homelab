@@ -214,7 +214,7 @@ GPU**, e la GPU del server adesso c'è.
 | Onda | Cosa | Perché in quest'ordine | ⏱ |
 |---|---|---|---|
 | **P1** | ✅ **fatto 2026-08-04** — [momo-sandbox.md](../04_apps/momo-sandbox.md): rete Docker dedicata (172.30.0.0/24, icc=false), firewall DOCKER-USER contro la LAN, guardiano TTL (2h) per i container `sleep infinity` che `reap_orphan_containers()` non tocca mai. Provato dal vivo: 4 bersagli LAN in timeout, Internet raggiunto, nessun `docker.sock`/segreto montato, teardown reale su 1 container senza toccare gli altri 22 | si costruisce la gabbia prima di metterci dentro qualcosa. Ed è la sola parte che, se sbagliata, si paga cara. **Scoperta**: il codice dava per scontati un egress-proxy già acceso e un teardown che copre i container `running` — nessuno dei due è vero, letto in `docker.py` | ~4 h stimate, **non ancora misurate** |
-| **P2** | 🟡 **provato dal vivo 2026-08-04, non acceso in modo permanente** — [momo-sandbox.md](../04_apps/momo-sandbox.md) §9-bis/§12. Trovato e aggirato un bug reale in hermes-agent (`docker_extra_args` non arriva mai al container in `code_execution_tool.py`/`file_tools.py`); il firewall copre comunque entrambe le reti possibili. Trovato anche un conflitto architetturale vero: `execute_code` e il toolset `file` (già in uso da Momo oggi, 7 sessioni reali verificate) condividono lo stesso ambiente — accendere `terminal.backend: docker` in modo permanente romperebbe `read_file`/`write_file` su percorsi reali. **Decisione del proprietario richiesta prima di procedere**: tre strade in §12 | il primo momento in cui Momo esegue qualcosa. Va guardato, non dedotto — e infatti guardandolo si è trovato un bug vero | ~2 h stimate, **oltre 3h spese**, tempo extra dai due difetti trovati |
+| **P2** | ✅ **fatto 2026-08-04, come strumento a parte** — [momo-sandbox.md](../04_apps/momo-sandbox.md) §9-bis/§12, [`scripts/momo/momo-esegui-codice.py`](../../scripts/momo/momo-esegui-codice.py). Trovato e aggirato un bug reale in hermes-agent (`docker_extra_args` non arriva mai al container in `code_execution_tool.py`/`file_tools.py`); il firewall copre entrambe le reti possibili. Trovato un conflitto architetturale vero (`execute_code` condivide l'ambiente col toolset `file` già in uso oggi) e cercata la risposta ufficiale: `SECURITY.md` di NousResearch consiglia "whole-process wrapping" per un gateway multi-canale come Telegram, non il solo isolamento del backend comandi — voce nuova **§7-bis**. Fino a quel lavoro, `execute_code` resta acceso solo via script dedicato, mai nella config permanente di Momo | il primo momento in cui Momo esegue qualcosa. Va guardato, non dedotto — e infatti guardandolo si sono trovati un bug vero e un limite architetturale vero | ~2 h stimate, **oltre 4h spese** fra i due difetti trovati e la ricerca della risposta ufficiale |
 | **P3** | **Estendere il Guardrail all'esito dei test**: «è passato» si confronta con il codice di uscita vero | prima che esista un `automation_commit` da salvare. Salvare uno script che il modello *crede* funzionante è come scriversi un fatto sbagliato in memoria: resta | ~3 h |
 | **P4** | **Accendere `skills`** = la Automation Library (voci 7, 8, 10), con il salvataggio deciso dall'orchestratore | dopo P3, mai prima | ~3 h |
 | **P5** | **Il router del codice**: compito che tocca la casa → motore di casa; generico → OmniRoute. E `qwen2.5-coder:14b` sul PC | senza questo, il codice lo scrive `qwen2.5:3b` e non funziona | ~3 h |
@@ -228,6 +228,58 @@ Fuori fila, e da non dimenticare: **`homeassistant` è un toolset nativo del
 motore** e in casa c'è la VM 130. È probabilmente la cosa più utile per meno
 lavoro di tutto questo elenco — va misurata contro il nostro strumento
 attuale prima di accenderla.
+
+## 7-bis. Il whole-process wrapping, trovato cercando la risposta ufficiale
+
+Aggiunta il 2026-08-04, dopo P2: chiesto a Momo (io, l'assistente, non il
+proprietario) di cercare cosa consiglia NousResearch stessa prima di
+scegliere come accendere `execute_code` in modo permanente. La risposta,
+in `SECURITY.md` upstream, non è fra le opzioni che il piano originale
+immaginava:
+
+> *"Whole-process wrapping runs the entire agent process tree inside a
+> sandbox. [...] This is the supported posture when the agent ingests
+> content from surfaces the operator does not control — [...] multi-user
+> channels [...] — and for production or shared deployments. Operators
+> running [...] a terminal-backend sandbox and expecting it to contain
+> code paths that don't go through the shell, are operating outside the
+> supported security posture."*
+
+Momo è un gateway Telegram — esattamente il caso descritto. La sandbox di
+P1/P2 ("terminal-backend isolation": isola solo il backend dei comandi,
+lascia il resto del processo dov'è) è quello che loro stessi chiamano
+"la postura giusta quando la preoccupazione è la shell distruttiva e
+l'operatore è comunque fidato" — non quello che raccomandano per un
+gateway di produzione. La differenza pratica: con whole-process wrapping,
+**tutto** ciò che Momo fa (shell, `execute_code`, MCP, `file`, plugin,
+skill) gira dentro lo stesso confine, con dentro solo i mount decisi da
+noi (`HERMES_HOME`, il vault — non `/root/sovereign-secrets`, non il resto
+della LXC). Il conflitto trovato in P2 fra "`file` deve restare locale" e
+"`execute_code` deve stare in sandbox" (vedi [momo-sandbox.md](../04_apps/momo-sandbox.md)
+§12) **sparisce da solo** in quell'architettura: non c'è più un "locale"
+da tenere separato dalla sandbox, perché tutto è già dentro lo stesso
+confine.
+
+**Perché non è P2-bis ma una voce a parte**: containerizzare l'intero
+processo di Momo (oggi un servizio nativo `systemctl`, non un container)
+è un cambio del modo in cui il servizio gira, non una riga di config in
+più. Va fatto con Momo che continua a rispondere durante la transizione,
+provato a fondo prima di sostituire il servizio vivo, e non si inventa la
+sera stessa di un'altra scoperta. Due opzioni indicate dalla stessa fonte:
+un container Docker "leggero" con mount/rete decisi dall'operatore, oppure
+[NVIDIA OpenShell](https://github.com/NVIDIA/OpenShell) (sandbox per
+sessione, politiche di rete/filesystem/inferenza dichiarative e
+ricaricabili a caldo, credenziali mai scritte sul filesystem della
+sandbox) — da leggere prima di scegliere, stesso principio di "si legge
+il codice prima di installare" usato per Ruflo (P8).
+
+Fino a quel lavoro, resta l'assetto di P2: `execute_code` acceso solo via
+[`scripts/momo/momo-esegui-codice.py`](../../scripts/momo/momo-esegui-codice.py),
+mai nella config permanente che serve la Momo di Telegram. P3-P6 qui sotto
+vanno letti con questo in mente: costruiscono sopra "uno strumento di
+programmazione invocabile a parte", non sopra "Momo che decide da sola, a
+metà chat, di scrivere ed eseguire codice" — quello arriva dopo il
+whole-process wrapping.
 
 ## 8. Le tre cose che possono andare storte
 
