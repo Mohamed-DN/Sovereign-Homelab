@@ -2,6 +2,12 @@
 
 Forgejo is the private Git service for infrastructure code, application repositories, issues, releases, packages, and SSH keys. It becomes P1 critical as soon as it contains the only copy of a repository or the automation needed to rebuild the lab.
 
+> **Found 2026-08-04, while wiring `momo-bot` (see [momo-sandbox.md](momo-sandbox.md) §14):**
+> the password recorded in `/root/sovereign-secrets/forgejo-admin.txt` is
+> **stale** — a real login attempt against the API returned `401 password
+> is invalid`. Not investigated further (out of scope for that work); a
+> real admin action will need `forgejo admin user change-password` first.
+
 ## Purpose and Architecture
 
 ```text

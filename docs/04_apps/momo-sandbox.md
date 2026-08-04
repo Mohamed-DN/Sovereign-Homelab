@@ -579,3 +579,87 @@ confine di fiducia, un umano lo legge prima che tocchi la sandbox.
 | `MOMO_OMNIROUTE_URL` | `http://127.0.0.1:20128/v1/chat/completions` | l'endpoint di OmniRoute (loopback: la LXC lo raggiunge senza passare dal firewall LAN) |
 | `MOMO_OMNIROUTE_MODEL` | `auto/best-coding` | l'alias di instradamento intelligente — richiede un fornitore configurato per rispondere |
 | `MOMO_OMNIROUTE_KEY_FILE` | `/root/sovereign-secrets/hermes/key-omniroute` | la chiave API di Momo per OmniRoute, già provisionata |
+
+## 14. Forgejo come uscita (P6): branch + PR, mai applicazione diretta
+
+Il codice che Momo scrive (P5) non tocca mai un repository vero
+direttamente. [`scripts/momo/momo-proponi-pr.py`](../../scripts/momo/momo-proponi-pr.py)
+lo impacchetta come branch + pull request su Forgejo (`git.internal`), e
+il proprietario approva — la stessa forma di MASTER: un divieto per
+costruzione, non per buona volontà.
+
+```bash
+momo-proponi-pr.py --repo owner/nome \
+  --file percorso/nel/repo=/tmp/file_locale.txt \
+  --titolo "Titolo della PR" --messaggio "Corpo della PR"
+```
+
+### L'account e il token, creati il 2026-08-04
+
+Non esisteva nessun account automazione su Forgejo — solo l'admin umano
+(`homelab-admin`) e l'account personale di Mohamed. Creato un utente
+dedicato via CLI (`forgejo admin user create`, non l'API con la password
+admin — quella nel file `forgejo-admin.txt` si è rivelata **scaduta**,
+verificato con un tentativo di login reale: `401 password is invalid`,
+un fatto scoperto qui, non ipotizzato):
+
+```bash
+docker exec -u git forgejo forgejo admin user create \
+  --username momo-bot --email momo-bot@momo.internal \
+  --random-password --must-change-password=false --access-token
+```
+
+Il token generato insieme all'utente ha scope pieno di default (nome
+`gitea-admin`, scope vuoto = tutto): **rigenerato** con lo scope minimo e
+**revocato** l'originale:
+
+```bash
+docker exec -u git forgejo forgejo admin user generate-access-token \
+  --username momo-bot --token-name momo-automation --scopes write:repository --raw
+```
+
+Il token vive in `/root/sovereign-secrets/forgejo/momo-bot-token` (0600,
+**dentro LXC 102** — non sull'host Proxmox: un primo tentativo l'aveva
+scritto nel posto sbagliato, corretto prima di documentarlo).
+
+### Un dettaglio di permessi, per quando si aggiunge un repo vero
+
+Provato dal vivo su un repository di cui `momo-bot` era **proprietario**
+(creato per il test): lo stesso token `write:repository` è bastato anche
+per **cancellare** il repository (`DELETE`, `204`). Non è un buco nello
+scope: è la proprietà del repo che lo permette, non il token — un
+proprietario può sempre cancellare il proprio repository, a prescindere
+dallo scope del token usato per chiamare l'API.
+
+**Per questo, su un repository vero (es. Sovereign-Homelab), `momo-bot`
+va aggiunto come collaboratore con livello "Write", MAI come proprietario
+e MAI come "Admin"**: il livello "Write" in Forgejo copre push su branch
+e apertura di PR, ma non la cancellazione del repository — quella resta
+riservata a chi ha "Admin" o è proprietario. Non ancora fatto: nessun
+repo vero ha oggi `momo-bot` come collaboratore, è una scelta che spetta
+al proprietario, repo per repo.
+
+### Verifica di funzionamento
+
+Provato dal vivo il 2026-08-04 contro un repository di prova
+(`momo-bot/prova-p6-momo`, creato e distrutto per il test):
+
+```
+branch creato: momo/1785854543
+scritto sul branch: docs/PROVA_REALE.md
+pull request #2 aperta: https://git.internal/momo-bot/prova-p6-momo/pulls/2
+NON applicata su main: aspetta l'approvazione del proprietario.
+```
+
+Confermato separatamente che il file **non** esiste su `main` (richiesta
+diretta all'API, `404` atteso e ottenuto) — non dedotto dal messaggio
+dello script, controllato sul repository vero.
+
+### Troubleshooting
+
+| Problema | Causa probabile | Rimedio |
+|---|---|---|
+| `momo-proponi-pr.py` dice di non trovare il token | il file è sull'host Proxmox invece che dentro LXC 102 (il modo in cui è stato scritto la prima volta) | `pct exec 102 -- ls -la /root/sovereign-secrets/forgejo/momo-bot-token`; se manca, riscriverlo **dentro** la LXC, non sull'host |
+| Login con `forgejo-admin.txt` fallisce (`401`) | la password nel file è scaduta/stale, verificato dal vivo il 2026-08-04 | non serve per l'automazione di Momo (usa il token di `momo-bot`); per un'azione da amministratore vero, resettarla con `forgejo admin user change-password` |
+| `momo-bot` può cancellare un repository | è proprietario di quel repository, non un difetto dello scope del token | su repository veri, aggiungerlo come collaboratore "Write", mai come proprietario |
+| La PR non compare | verificare che il branch/file siano stati scritti (`branch creato`/`scritto sul branch` nell'output) prima del passo della PR; ogni passo fallisce con un messaggio chiaro, non in silenzio | rileggere l'output di `momo-proponi-pr.py`, riga per riga |
