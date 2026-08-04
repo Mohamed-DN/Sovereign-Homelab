@@ -125,7 +125,8 @@
 | 16 | **Healthcheck CouchDB rotto** | sonda senza credenziali → `401` a ogni giro: un allarme sempre acceso maschera il prossimo vero | §3 fase 9 |
 | 17 | **Account orfano Immich**, **Forgejo `ACCOUNT_LINKING=auto`** | due residui di identità, stessa classe di rischio dell'incidente Jellyfin | §4 |
 | 18 | **Ente Photos** per la sorella | l'unica risposta vera a «non voglio che l'admin veda le mie foto» | [privacy](../06_operations_security/PRIVACY_E_VISIBILITA_DATI.md) §4 |
-| 19 | **Headroom**, la compressione del contesto | non è una mancanza ma un limite: la T600 ha 4 GB e **è il contesto** a decidere quali modelli ci stanno dentro. Valutato il 2026-08-04 come il migliore di dodici tecnologie proposte, con tre riserve scritte (è lossy, è un salto in più che può cadere, i numeri vanno rimisurati qui) | [punto 18-ter](PIANO_GENERALE.md) · [valutazione](VALUTAZIONE_TECNOLOGIE_2026-08.md) |
+| 19 | **Momo non programma**, e il motore per farlo è già installato e spento | `code_execution`, `terminal`, `skills`, `delegation`, `cronjob`, `browser` e **sette ambienti sandbox** sono dentro hermes-agent e fuori dalla configurazione di Momo. Verificato il 2026-08-04. Prima serve la gabbia (sandbox senza segreti e senza LAN), poi il Guardrail esteso all'esito dei test, poi la libreria | [PIANO_MOMO_PROGRAMMATORE](PIANO_MOMO_PROGRAMMATORE.md) |
+| 20 | **Headroom**, la compressione del contesto | non è una mancanza ma un limite: la T600 ha 4 GB e **è il contesto** a decidere quali modelli ci stanno dentro. Valutato il 2026-08-04 come il migliore di dodici tecnologie proposte, con tre riserve scritte (è lossy, è un salto in più che può cadere, i numeri vanno rimisurati qui) | [punto 18-ter](PIANO_GENERALE.md) · [valutazione](VALUTAZIONE_TECNOLOGIE_2026-08.md) |
 
 **Aspettano una decisione sua, non un lavoro mio**: Ceph acceso a vuoto
 sull'host, i plugin di Time Garden che restano sul solo PC, e le voci 6, 11 e
