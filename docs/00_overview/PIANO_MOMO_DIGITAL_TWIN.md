@@ -254,6 +254,17 @@ regge davvero.
 >
 > Ogni "zero righe" qui sotto è stato verificato cercando nel codice il
 > 2026-08-01, non ricordato.
+>
+> ⚠️ **RICONTATO IL 2026-08-04 — questa tabella è superata.** Cercando dentro
+> `hermes-agent` invece che solo dentro il nostro codice è saltato fuori che
+> le voci **7, 8, 9 e 10 non sono da costruire: esistono già nel motore e sono
+> spente** (`skill_manager_tool.py` è l'Automation Library,
+> `tools/environments/docker.py` è il ciclo di vita delle sandbox, con
+> `reap_orphan_containers()` già scritto). E le voci **5 e 6 sono state fatte**
+> il 2-3 agosto (Faster-Whisper e Piper). Il conto vero è **3 fatte, 4 da
+> accendere con le guardie, 4 da scrivere**.
+> Tabella aggiornata e architettura completa:
+> **[PIANO_MOMO_PROGRAMMATORE.md](PIANO_MOMO_PROGRAMMATORE.md)**.
 
 | # | Voce del documento | Stato | Prova |
 |---|---|---|---|

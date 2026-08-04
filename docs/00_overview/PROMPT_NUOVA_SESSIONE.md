@@ -36,6 +36,14 @@ LEGGI IN QUEST'ORDINE, prima di toccare qualunque cosa:
     resta la tappa 5: fermare il servizio vecchio.
  6. docs/00_overview/ARCHITECTURE_AND_DATA_FLOWS.md  <- i flussi veri, e come
     funziona la voce (ascolto e parlato).
+ 7. docs/00_overview/PIANO_MOMO_PROGRAMMATORE.md  <- il lavoro grosso in
+    arrivo: far programmare Momo. La scoperta del 4 agosto è che il motore
+    c'è già ed è SPENTO (code_execution, terminal, skills, delegation,
+    cronjob, browser, sette ambienti sandbox), quindi non si costruisce: si
+    accende, dentro una gabbia costruita prima. Onde P1-P10.
+ 8. docs/00_overview/PIANO_MOMO_DIGITAL_TWIN.md  <- il documento del
+    proprietario (Sinker a 4 fasi, Automation Library, sandbox). Il suo
+    punteggio §4 è SUPERATO: il conto vero sta nel file 7.
 
 PER RAGGIUNGERE L'INFRASTRUTTURA (la chiave è permanente, provala per prima
 cosa e NON rifare il bootstrap con la password):
@@ -208,7 +216,8 @@ primi da prendere, e il perché:
 | 4 | **Tappa 5**: fermare `sovereign-hermes` | il nome è uscito, resta il processo. Condizione: giorni di pannello usato davvero |
 | 5 | **Perché Nextcloud cade** | il registratore è installato sulla VM 120 e aspetta il prossimo episodio. Sonda **dentro e fuori** la VM, per distinguere «Apache morto» da «pubblicazione della porta sparita» |
 | 6 | **`db_query` in sola lettura** | il proprietario è DBA e non può interrogare i propri database da Momo |
-| 19 | **Headroom** ([18-ter](PIANO_GENERALE.md)) | comprime il contesto del 60-95%: qui il contesto **è** il vincolo, perché decide quali modelli entrano in 4 GB di T600 |
+| 19 | **Momo che programma** ([piano](PIANO_MOMO_PROGRAMMATORE.md)) | il lavoro grosso. Il motore c'è già ed è spento: si accende, dentro una gabbia costruita prima |
+| 20 | **Headroom** ([18-ter](PIANO_GENERALE.md)) | comprime il contesto del 60-95%: qui il contesto **è** il vincolo, perché decide quali modelli entrano in 4 GB di T600 |
 
 **Aspettano lui, non noi**: armare MASTER da Telegram (decisione di sicurezza),
 le registrazioni della sua voce per XTTS-v2 (copione pronto in tre lingue),
@@ -226,6 +235,8 @@ Ente Photos per la sorella, Ceph acceso a vuoto sull'host.
 - [../../README.md](../../README.md) — la porta d'ingresso, con i due schemi
 
 **Momo**
+- [PIANO_MOMO_PROGRAMMATORE.md](PIANO_MOMO_PROGRAMMATORE.md) — far programmare Momo: cosa c'è già acceso e spento, la sandbox, il router del codice, Forgejo come uscita, i verdetti su Ruflo/Ponytail/RooFlow/Claude
+- [PIANO_MOMO_DIGITAL_TWIN.md](PIANO_MOMO_DIGITAL_TWIN.md) — il documento del proprietario, e le richieste T1-T12
 - [PIANO_AGENT_MOMO.md](PIANO_AGENT_MOMO.md) — le divergenze dal codice di NousResearch
 - [PIANO_TESTIMONE_HERMES_MOMO.md](PIANO_TESTIMONE_HERMES_MOMO.md) — il passaggio, tappa 5 aperta
 - [../04_apps/momo-telegram.md](../04_apps/momo-telegram.md) — canale, motori, menu, voce
