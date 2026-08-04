@@ -1,0 +1,13 @@
+[Unit]
+Description=Smonta i container della sandbox di Momo oltre il tetto di durata
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+Environment=MOMO_SANDBOX_TTL_SECONDS=7200
+ExecStart=/usr/bin/python3 /opt/sovereign-momo-sandbox/sovereign-momo-sandbox-reaper.py
+NoNewPrivileges=true
+PrivateTmp=true

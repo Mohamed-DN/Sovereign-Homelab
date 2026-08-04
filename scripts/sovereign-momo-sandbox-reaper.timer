@@ -1,0 +1,10 @@
+[Unit]
+Description=Ogni 5 minuti, controlla il tetto di durata della sandbox di Momo
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=sovereign-momo-sandbox-reaper.service
+
+[Install]
+WantedBy=timers.target
