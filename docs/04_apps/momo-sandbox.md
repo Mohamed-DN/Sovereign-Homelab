@@ -549,20 +549,27 @@ tornato al conteggio di prima.
 
 ### `--motore esterno`: si ferma alla scrittura
 
-OmniRoute (`docs/04_apps/omniroute.md`) è già installato su LXC 102, ma
-verificato dal vivo il 2026-08-04: **nessun fornitore esterno gratuito
-risponde ancora**. Un tentativo su `auto/best-coding` è tornato
+OmniRoute (`docs/04_apps/omniroute.md`) è già installato su LXC 102.
+Verificato dal vivo il 2026-08-04: **nessun fornitore esterno gratuito
+rispondeva**. Un tentativo su `auto/best-coding` era tornato
 
 ```
 HTTP 503 "Maximum combo retry limit reached" — 28 tentativi su un pool di 54
 ```
 
-Non un timeout muto: OmniRoute prova davvero tutto il suo elenco e lo
-dice quando è vuoto. Resta la voce già scritta in `omniroute.md` §2:
-**serve dal proprietario** un account gratuito (Groq, Cerebras, NVIDIA
-NIM o Cloudflare Workers AI) incollato nella pagina di OmniRoute — non è
-qualcosa che si automatizza da qui, è una registrazione con email/verifica
-umana.
+**Aggiornamento del 2026-08-08**: `auto/best-free` e `auto/best-coding`
+ora **rispondono**, instradati su un provider chiamato `oc` (modello
+`big-pickle`, costo `0.0000000000`) — verificato con richieste piccole
+(`max_tokens: 10`, due volte, `200` entrambe). Ma **non è stabile**:
+la stessa identica richiesta fatta da `momo-esegui-codice.py` (che chiede
+`max_tokens: 2000`, non 10) è tornata di nuovo al `503` di prima. Il
+sospetto, non confermato, è che `oc` sia un proxy condiviso a
+disponibilità intermittente, non un vero account registrato — utile per
+un test rapido, non per un compito reale. Resta la voce già scritta in
+`omniroute.md` §2 come la strada solida: **serve dal proprietario** un
+account gratuito **proprio** (Groq, Cerebras, NVIDIA NIM o Cloudflare
+Workers AI) incollato nella pagina di OmniRoute — non è qualcosa che si
+automatizza da qui, è una registrazione con email/verifica umana.
 
 Per questo `--motore esterno` **non esegue** il codice che scrive: lo
 stampa e basta, con l'istruzione per rilanciarlo via `--motore casa` dopo
