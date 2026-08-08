@@ -1,0 +1,7 @@
+name: sovereign-delegation
+kind: standalone
+version: 1.0.0
+description: "Delega a grafo fra i 13 ruoli nominati della casa (Direttore, Architetto, Sistemista, Sicurezza, Ricercatore, Archivista, Sviluppatore, Debugger, Revisore, Qualita', DBA, Documentalista, Generalista), con tetto di salti e rilevamento cicli."
+author: Sovereign Homelab
+pip_dependencies: []
+requires_env: []
